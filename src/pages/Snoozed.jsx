@@ -1,6 +1,6 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { MdAccessTime } from "react-icons/md";
 import EmailList from "../components/EmailList";
@@ -13,6 +13,7 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 const Snoozed = ({ searchQuery }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
   const { 
     emails, 
@@ -40,7 +41,10 @@ const Snoozed = ({ searchQuery }) => {
     });
   };
 
-
+  useEffect(() => {
+    setSelectedEmailUid(null);
+    setSelectedIds(new Set());
+  }, [location.pathname]);
 
   useEffect(() => {
     fetchEmails('snoozed');
@@ -157,7 +161,7 @@ const handleReply = (email) => {
             ) : (
               <EmailList
                 emails={visibleEmails}
-                selectedEmailId={selectedEmail?.uid}
+                selectedEmailId={selectedEmailUid}
                 onSelectEmail={handleSelectEmail}
                 onStar={(uid) => handleToggleStar(uid, "snoozed")}
                 onArchive={(uid) => handleArchive(uid, "snoozed")}

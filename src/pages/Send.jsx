@@ -1,6 +1,6 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { MdSend } from "react-icons/md";
 import EmailList from "../components/EmailList";
@@ -13,6 +13,7 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 const Send = ({ searchQuery }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, openCompose } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
@@ -29,7 +30,10 @@ const Send = ({ searchQuery }) => {
     });
   };
 
-
+  useEffect(() => {
+    setSelectedEmailUid(null);
+    setSelectedIds(new Set());
+  }, [location.pathname]);
 
   useEffect(() => {
     fetchEmails('sent');

@@ -1,6 +1,6 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { MdStar, MdStarBorder } from "react-icons/md";
 import EmailList from "../components/EmailList";
@@ -13,6 +13,7 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 const Starred = ({ searchQuery }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
@@ -29,7 +30,10 @@ const Starred = ({ searchQuery }) => {
     });
   };
 
-
+  useEffect(() => {
+    setSelectedEmailUid(null);
+    setSelectedIds(new Set());
+  }, [location.pathname]);
 
   useEffect(() => {
     fetchEmails('starred');
@@ -142,6 +146,9 @@ const handleReply = (email) => {
           selectedEmailId={selectedEmailUid}
           onSelectEmail={handleSelectEmail}
           onStar={handleUnstar}
+          onDelete={(uid) => handleMoveToTrash(uid, "starred")}
+          onArchive={(uid) => handleArchive(uid, "starred")}
+          onSnooze={handleSnooze}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
         />
