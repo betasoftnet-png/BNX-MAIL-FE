@@ -96,7 +96,7 @@ export const ThemeProvider = ({ children }) => {
   const [customFontSize, setCustomFontSize] = useState(1.0);
   
   const defaultSidebarPrefs = {
-    Inbox: true, Starred: true, Snoozed: true, Sent: true, Draft: true, Trash: true, "Bulk Mail": true, "Notification": true, "Archive": true
+    Inbox: true, Starred: true, Snoozed: true, Sent: true, Draft: true, Trash: true, "Notification": true, "Archive": true
   };
   const [sidebarPreferences, setSidebarPreferencesState] = useState(defaultSidebarPrefs);
 
@@ -121,7 +121,11 @@ export const ThemeProvider = ({ children }) => {
     const savedSidebarPrefs = localStorage.getItem("bnx_sidebar_prefs");
     if (savedSidebarPrefs) {
       try {
-        setSidebarPreferencesState(JSON.parse(savedSidebarPrefs));
+        const parsed = JSON.parse(savedSidebarPrefs);
+        delete parsed["Bulk Mail"];
+        delete parsed["bulk mail"];
+        delete parsed["bulk"];
+        setSidebarPreferencesState(parsed);
       } catch (e) {}
     }
     const savedAccent = localStorage.getItem("bnx_accent_color");
@@ -236,8 +240,12 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const setSidebarPreferences = (prefs) => {
-    setSidebarPreferencesState(prefs);
-    localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(prefs));
+    const cleaned = { ...prefs };
+    delete cleaned["Bulk Mail"];
+    delete cleaned["bulk mail"];
+    delete cleaned["bulk"];
+    setSidebarPreferencesState(cleaned);
+    localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleaned));
   };
 
   // Merge dynamic text color into the current theme

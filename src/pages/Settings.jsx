@@ -1609,7 +1609,9 @@ const Settings = () => {
             <Section title={t("settings.labels_sidebar", "Sidebar Labels")} theme={theme}>
               <p className="text-sm text-gray-500 mb-6">{t("settings.folder_label_desc", "Choose which labels are visible in the main sidebar.")}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-                {Object.keys(sidebarPreferences || {}).map((itemName) => (
+                {Object.keys(sidebarPreferences || {})
+                  .filter((itemName) => itemName !== "Bulk Mail" && itemName.toLowerCase() !== "bulk mail" && itemName.toLowerCase() !== "bulk")
+                  .map((itemName) => (
                   <div key={itemName} className="flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-transparent" style={{ borderColor: theme.border }}>
                     <span className="font-medium text-sm" style={{ color: theme.text }}>{getSidebarItemLabel(itemName)}</span>
                     <label className="relative inline-flex items-center cursor-pointer">
