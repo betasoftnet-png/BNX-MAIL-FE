@@ -50,20 +50,12 @@ api.interceptors.response.use(
         }
 
         if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-            console.warn(`[API Timeout] Request timed out: ${error.config?.url}`);
             return Promise.reject(error);
         }
 
         if (!error.response) {
-            console.warn(`[Network Error] Unable to connect to server: ${error.message || 'Network Error'} (${error.config?.url})`);
             return Promise.reject(error);
         }
-
-        console.log("=== API ERROR INTERCEPTOR ===");
-        console.log("Status:", error.response?.status);
-        console.log("Data:", error.response?.data);
-        console.log("Error string:", error.response?.data?.error);
-        console.log("=============================");
 
         const originalRequest = error.config;
 

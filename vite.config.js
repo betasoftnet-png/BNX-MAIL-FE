@@ -30,8 +30,35 @@ export default defineConfig({
     }, */
   },
   build: {
-    chunkSizeWarningLimit: 3000,
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('react-icons') || id.includes('lucide-react') || id.includes('@fortawesome')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('recharts') || id.includes('d3')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('react-quill') || id.includes('quill')) {
+              return 'vendor-quill';
+            }
+            if (id.includes('html2pdf') || id.includes('jspdf') || id.includes('html2canvas')) {
+              return 'vendor-pdf';
+            }
+            if (id.includes('framer-motion')) {
+              return 'vendor-motion';
+            }
+            if (id.includes('@stomp/stompjs') || id.includes('sockjs-client') || id.includes('axios')) {
+              return 'vendor-network';
+            }
+          }
+        },
+      },
       onwarn(warning, defaultHandler) {
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
           return;
