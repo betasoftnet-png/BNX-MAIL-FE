@@ -11,6 +11,7 @@ import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 
 const Snoozed = ({ searchQuery }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { theme, readingPaneMode } = useTheme();
   const { 
@@ -30,7 +31,6 @@ const Snoozed = ({ searchQuery }) => {
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
-  const { t } = useTranslation();
     const strUid = String(uid);
     setSelectedIds((prev) => {
       const next = new Set(prev);

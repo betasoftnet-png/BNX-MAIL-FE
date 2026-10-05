@@ -248,17 +248,20 @@ const EmailList = ({
               const isUnread = !email.isRead;
               const isSelected = selectedEmailId === email.uid || selectedEmailId === String(email.uid) || selectedEmailId === `${email.uid}__${email.folderName || ''}`;
               const isActuallyArchived = isArchiveFolder || email.folderName?.toLowerCase() === "archive";
+              const isChecked = selectedIds.has(`${email.uid}__${email.folderName || ''}`) || selectedIds.has(String(email.uid)) || selectedIds.has(Number(email.uid));
 
               return (
                 <div
                   key={email.messageId ? `msg_${email.messageId}` : `${email.uid}__${email.folderName || ''}`}
                   onClick={() => onSelectEmail(email)}
                   className={`group flex items-center gap-1.5 sm:gap-3 py-2 sm:py-2.5 px-2 sm:px-4 cursor-pointer relative transition-colors duration-150 select-none ${snoozeOpenUid === email.uid ? 'z-50' : 'z-10'}
-                    ${isSelected
-                      ? "bg-primary/5 dark:bg-primary/10 border-l-[3px] border-primary"
-                      : isUnread
-                        ? "bg-black/[0.01] dark:bg-white/[0.02] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] border-l-[3px] border-transparent"
-                        : "bg-transparent hover:bg-black/[0.02] dark:hover:bg-white/[0.02] border-l-[3px] border-transparent"
+                    ${isChecked
+                      ? "bg-blue-50/70 dark:bg-blue-950/30 border-l-[3px] border-blue-500"
+                      : isSelected
+                        ? "bg-primary/5 dark:bg-primary/10 border-l-[3px] border-primary"
+                        : isUnread
+                          ? "bg-black/[0.01] dark:bg-white/[0.02] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] border-l-[3px] border-transparent"
+                          : "bg-transparent hover:bg-black/[0.02] dark:hover:bg-white/[0.02] border-l-[3px] border-transparent"
                     }`}
                 >
                   {/* Checkbox */}
@@ -266,7 +269,7 @@ const EmailList = ({
                     <input
                       type="checkbox"
                       className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
-                      checked={selectedIds.has(`${email.uid}__${email.folderName || ''}`)}
+                      checked={isChecked}
                       onChange={(e) => {
                         e.stopPropagation();
                         onToggleSelect?.(`${email.uid}__${email.folderName || ''}`);

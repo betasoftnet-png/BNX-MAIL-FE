@@ -11,6 +11,7 @@ import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 
 const Starred = ({ searchQuery }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose } = useMail();
@@ -19,7 +20,6 @@ const Starred = ({ searchQuery }) => {
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
-  const { t } = useTranslation();
     const strUid = String(uid);
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -117,7 +117,7 @@ const handleReply = (email) => {
         style={{ color: theme.text }}
       >
         <MdStar size={20} className="text-yellow-500" />
-        Starred
+        {t("sidebar.starred", "Starred")}
         <span
           className="ml-2 text-xs font-normal"
           style={{ color: theme.subText }}
@@ -133,8 +133,8 @@ const handleReply = (email) => {
       {emails.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
           <MdStarBorder className="text-5xl mb-4 text-gray-300 dark:text-gray-600 opacity-55" />
-          <p className="text-base font-semibold" style={{ color: theme.text }}>No starred messages</p>
-          <p className="text-sm mt-1" style={{ color: theme.subText }}>Stars let you give messages a special status to make them easier to find.</p>
+          <p className="text-base font-semibold" style={{ color: theme.text }}>{t("starred.empty", "No starred messages")}</p>
+          <p className="text-sm mt-1" style={{ color: theme.subText }}>{t("starred.empty_desc", "Stars let you give messages a special status to make them easier to find.")}</p>
         </div>
       ) : (
         <EmailList

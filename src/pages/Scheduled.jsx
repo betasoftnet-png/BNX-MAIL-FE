@@ -10,6 +10,7 @@ import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 
 const Scheduled = ({ searchQuery }) => {
+  const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
 
   const [emails, setEmails] = useState([]);
@@ -19,7 +20,6 @@ const Scheduled = ({ searchQuery }) => {
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
-  const { t } = useTranslation();
     const strUid = String(uid);
     setSelectedIds((prev) => {
       const next = new Set(prev);
