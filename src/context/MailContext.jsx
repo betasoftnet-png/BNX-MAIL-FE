@@ -15,6 +15,7 @@ export const MailProvider = ({ children }) => {
     const [currentFolder, setCurrentFolder] = useState('inbox');
     const currentFolderRef = useRef('inbox');
     const pagesCache = useRef({});
+    const silentFetchInFlight = useRef(new Set());
     const invalidateCache = useCallback((folder) => {
         if (!folder) return;
         const folderKey = folder.toLowerCase();
@@ -97,6 +98,14 @@ export const MailProvider = ({ children }) => {
         if (!user) return;
         const folderKey = folder.toLowerCase();
         const targetPage = (page !== null && page !== undefined) ? page : (currentFolderRef.current.toLowerCase() === folderKey ? currentPageRef.current : 1);
+        const reqKey = `${folderKey}_${targetPage}`;
+
+        // Avoid duplicate concurrent silent refreshes for same folder & page
+        if (silentFetchInFlight.current.has(reqKey)) {
+            return;
+        }
+        silentFetchInFlight.current.add(reqKey);
+
         try {
             let res;
             switch (folderKey) {
@@ -175,7 +184,13 @@ export const MailProvider = ({ children }) => {
                 }
             }
         } catch (e) {
-            console.error(`Silent refresh failed for ${folder}:`, e);
+            if (e?.code === 'ECONNABORTED' || e?.message?.includes('timeout')) {
+                console.warn(`[Silent Refresh] Timed out while refreshing ${folder}. Will retry on next cycle.`);
+            } else if (e?.name !== 'CanceledError' && e?.code !== 'ERR_CANCELED') {
+                console.warn(`[Silent Refresh] Background sync skipped for ${folder}:`, e?.message || e);
+            }
+        } finally {
+            silentFetchInFlight.current.delete(reqKey);
         }
     }, [user, limit]);
 
