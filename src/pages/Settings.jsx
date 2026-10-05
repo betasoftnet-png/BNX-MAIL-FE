@@ -136,9 +136,9 @@ const Settings = () => {
       setLanguage(currentLanguage);
     }
   }, [currentLanguage]);
-  const [spellingCheck, setSpellingCheck] = useState(() => localStorage.getItem("bnx_setting_spellingCheck") !== "false");
-  const [grammarCheck, setGrammarCheck] = useState(() => localStorage.getItem("bnx_setting_grammarCheck") !== "false");
-  const [autoCorrect, setAutoCorrect] = useState(() => localStorage.getItem("bnx_setting_autoCorrect") !== "false");
+  const [spellingCheck, setSpellingCheck] = useState(true);
+  const [grammarCheck, setGrammarCheck] = useState(true);
+  const [autoCorrect, setAutoCorrect] = useState(true);
   const [writingSuggestions, setWritingSuggestions] = useState(() => localStorage.getItem("bnx_setting_writingSuggestions") !== "false");
   const [desktopNotifications, setDesktopNotifications] = useState(() => localStorage.getItem("bnx_setting_desktopNotifications") !== "false");
   const [conversationView, setConversationView] = useState(() => localStorage.getItem("bnx_setting_conversationView") !== "false");
@@ -337,20 +337,37 @@ const Settings = () => {
     try {
       setLoading(true);
       const res = await userAPI.getSettings();
+      const settingsData = res.data?.data || res.data || {};
+
+      if (settingsData.spellingCheckEnabled !== undefined) {
+        setSpellingCheck(Boolean(settingsData.spellingCheckEnabled));
+      } else if (settingsData.spellingCheck !== undefined) {
+        setSpellingCheck(Boolean(settingsData.spellingCheck));
+      }
+
+      if (settingsData.grammarCheckEnabled !== undefined) {
+        setGrammarCheck(Boolean(settingsData.grammarCheckEnabled));
+      } else if (settingsData.grammarCheck !== undefined) {
+        setGrammarCheck(Boolean(settingsData.grammarCheck));
+      }
+
+      if (settingsData.autoCorrectEnabled !== undefined) {
+        setAutoCorrect(Boolean(settingsData.autoCorrectEnabled));
+      } else if (settingsData.autoCorrect !== undefined) {
+        setAutoCorrect(Boolean(settingsData.autoCorrect));
+      }
+
       try {
         const compRes = await settingsAPI.getComposing();
         if (compRes.data) {
           const cd = compRes.data;
-          if (cd.spellingCheckEnabled !== undefined) setSpellingCheck(cd.spellingCheckEnabled);
-          if (cd.grammarCheckEnabled !== undefined) setGrammarCheck(cd.grammarCheckEnabled);
-          if (cd.autoCorrectEnabled !== undefined) setAutoCorrect(cd.autoCorrectEnabled);
           if (cd.smartComposeEnabled !== undefined) setWritingSuggestions(cd.smartComposeEnabled);
         }
       } catch (err) {
         console.warn("Error fetching composing preferences:", err);
       }
-      if (res.data?.success) {
-        const d = res.data.data;
+      if (res.data?.success || res.status === 200) {
+        const d = res.data?.data || res.data || {};
         setPhoneNumber(d.phoneNumber || "");
         setLocation(d.location || "");
         setJobTitle(d.jobTitle || "");
@@ -372,15 +389,6 @@ const Settings = () => {
         setBiometricsEnabled(d.biometricsEnabled ?? true);
         const lang = normalizeLang(d.language || localStorage.getItem("bnx_setting_language") || "en");
         setLanguage(lang);
-        if (d.spellingCheck !== undefined || localStorage.getItem("bnx_setting_spellingCheck") !== null) {
-          setSpellingCheck(d.spellingCheck ?? (localStorage.getItem("bnx_setting_spellingCheck") !== "false"));
-        }
-        if (d.grammarCheck !== undefined || localStorage.getItem("bnx_setting_grammarCheck") !== null) {
-          setGrammarCheck(d.grammarCheck ?? (localStorage.getItem("bnx_setting_grammarCheck") !== "false"));
-        }
-        if (d.autoCorrect !== undefined || localStorage.getItem("bnx_setting_autoCorrect") !== null) {
-          setAutoCorrect(d.autoCorrect ?? (localStorage.getItem("bnx_setting_autoCorrect") !== "false"));
-        }
         if (d.writingSuggestions !== undefined || localStorage.getItem("bnx_setting_writingSuggestions") !== null) {
           setWritingSuggestions(d.writingSuggestions ?? (localStorage.getItem("bnx_setting_writingSuggestions") !== "false"));
         }
@@ -759,6 +767,51 @@ const Settings = () => {
     }
   };
 
+  const handleToggleSpellingCheck = async (newValue) => {
+    const prev = spellingCheck;
+    setSpellingCheck(newValue);
+    try {
+      const res = await userAPI.updateSettings({ spellingCheckEnabled: newValue });
+      if (res.status === 200 || res.status === 204 || res.data?.success || res.data?.status === 'success') {
+        // Updated successfully
+      }
+    } catch (err) {
+      console.error("Failed to update spelling check setting:", err);
+      setSpellingCheck(prev);
+      toast.error(t("settings.update_spelling_failed", "Failed to update spelling check setting"), { id: "settings-save-toast" });
+    }
+  };
+
+  const handleToggleGrammarCheck = async (newValue) => {
+    const prev = grammarCheck;
+    setGrammarCheck(newValue);
+    try {
+      const res = await userAPI.updateSettings({ grammarCheckEnabled: newValue });
+      if (res.status === 200 || res.status === 204 || res.data?.success || res.data?.status === 'success') {
+        // Updated successfully
+      }
+    } catch (err) {
+      console.error("Failed to update grammar check setting:", err);
+      setGrammarCheck(prev);
+      toast.error(t("settings.update_grammar_failed", "Failed to update grammar check setting"), { id: "settings-save-toast" });
+    }
+  };
+
+  const handleToggleAutoCorrect = async (newValue) => {
+    const prev = autoCorrect;
+    setAutoCorrect(newValue);
+    try {
+      const res = await userAPI.updateSettings({ autoCorrectEnabled: newValue });
+      if (res.status === 200 || res.status === 204 || res.data?.success || res.data?.status === 'success') {
+        // Updated successfully
+      }
+    } catch (err) {
+      console.error("Failed to update auto-correct setting:", err);
+      setAutoCorrect(prev);
+      toast.error(t("settings.update_autocorrect_failed", "Failed to update auto-correct setting"), { id: "settings-save-toast" });
+    }
+  };
+
   const handleSaveComposingSettings = async (e) => {
     e.preventDefault();
     if (savingRef.current) return;
@@ -786,6 +839,9 @@ const Settings = () => {
           bulkMailEnabled, 
           notificationEnabled,
           language: targetLang,
+          spellingCheckEnabled: spellingCheck,
+          grammarCheckEnabled: grammarCheck,
+          autoCorrectEnabled: autoCorrect,
           spellingCheck,
           grammarCheck,
           autoCorrect,
@@ -798,9 +854,6 @@ const Settings = () => {
         });
 
         localStorage.setItem("bnx_setting_language", targetLang);
-        localStorage.setItem("bnx_setting_spellingCheck", spellingCheck ? "true" : "false");
-        localStorage.setItem("bnx_setting_grammarCheck", grammarCheck ? "true" : "false");
-        localStorage.setItem("bnx_setting_autoCorrect", autoCorrect ? "true" : "false");
         localStorage.setItem("bnx_setting_writingSuggestions", writingSuggestions ? "true" : "false");
         localStorage.setItem("bnx_setting_desktopNotifications", desktopNotifications ? "true" : "false");
         localStorage.setItem("bnx_setting_conversationView", conversationView ? "true" : "false");
@@ -1421,9 +1474,9 @@ const Settings = () => {
 
                 {/* Input Toggles */}
                 <div className="flex flex-col space-y-1 border-t pt-5" style={{ borderColor: theme.border }}>
-                  <ToggleRow label={t("settings.spelling_check", "Enable Spelling Check")} checked={spellingCheck} onChange={setSpellingCheck} theme={theme} />
-                  <ToggleRow label={t("settings.grammar_check", "Enable Grammar Check")} checked={grammarCheck} onChange={setGrammarCheck} theme={theme} />
-                  <ToggleRow label={t("settings.auto_correct", "Enable Auto-correct")} checked={autoCorrect} onChange={setAutoCorrect} theme={theme} />
+                  <ToggleRow label={t("settings.spelling_check", "Enable Spelling Check")} checked={spellingCheck} onChange={handleToggleSpellingCheck} theme={theme} />
+                  <ToggleRow label={t("settings.grammar_check", "Enable Grammar Check")} checked={grammarCheck} onChange={handleToggleGrammarCheck} theme={theme} />
+                  <ToggleRow label={t("settings.auto_correct", "Enable Auto-correct")} checked={autoCorrect} onChange={handleToggleAutoCorrect} theme={theme} />
                   <ToggleRow label={t("settings.writing_suggestions", "Enable Writing Suggestions (Smart Compose)")} checked={writingSuggestions} onChange={setWritingSuggestions} theme={theme} />
                 </div>
 
