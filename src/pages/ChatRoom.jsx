@@ -469,6 +469,24 @@ const formatMessageTime = (timestamp) => {
   return `${month} ${day}, ${hours12}:${minutes} ${period}`;
 };
 
+export const formatBroadcastTimestamp = (timestamp, userTimeZone) => {
+  const date = parseMessageDate(timestamp);
+  if (!date || isNaN(date.getTime())) return '';
+
+  const timeZone = userTimeZone || 'Asia/Kolkata';
+
+  return date.toLocaleString('en-US', {
+    timeZone,
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  }).replace(/[\u202f\u00a0]/g, ' ');
+};
+
 const isMessageFromMe = (msg, currentUser) => {
   if (!msg || !currentUser) return false;
   const userEmail = (currentUser.email || "").toLowerCase().trim();
@@ -1919,7 +1937,7 @@ const ChatRoom = () => {
                         </div>
 
                         <span className="text-[10px] opacity-60 shrink-0 font-medium ml-2 print:text-xs print:opacity-100 print:text-gray-500">
-                          {b.sentDate ? new Date(b.sentDate).toLocaleString() : ""}
+                          {formatBroadcastTimestamp(b.sentDate || b.date || b.createdAt || b.timestamp, user?.timeZone || user?.timezone)}
                         </span>
                       </div>
                       <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 leading-tight print:text-black print:text-sm">
