@@ -530,6 +530,7 @@ const Casbox = () => {
   }, [acceptedContacts]);
 
   const acceptedSetRef = React.useRef(new Set());
+  const markedSeenIdsRef = React.useRef(new Set());
 
   // Existing Cashbox API call started immediately as the very first effect on mount
   const fetchMessages = useCallback(async (background = false) => {
@@ -539,6 +540,14 @@ const Casbox = () => {
       const msgs = res.data || [];
       // Set messages immediately to trigger rendering without intermediate blocking
       setMessages(msgs);
+
+      // Seed already seen message IDs to prevent redundant status updates
+      for (let i = 0; i < msgs.length; i++) {
+        const m = msgs[i];
+        if (m.id && String(m.status || '').toUpperCase() === 'SEEN') {
+          markedSeenIdsRef.current.add(m.id);
+        }
+      }
 
       // Collect any aliases returned in the messages DTOs in the background
       const dtoAliases = {};
@@ -1102,9 +1111,52 @@ const Casbox = () => {
     fetchSettings();
   }, []);
 
+  const markMessagesAsSeen = useCallback((ids) => {
+    if (!ids || ids.length === 0) return;
+
+    // Filter to only messages that:
+    // 1. Have not already been marked as SEEN in our tracking Set
+    // 2. Are incoming/received messages (receiver is current user)
+    // 3. Are not already SEEN
+    const candidateIds = ids.filter(id => {
+      if (!id || markedSeenIdsRef.current.has(id)) return false;
+      const msg = messagesRef.current.find(m => m.id === id);
+      if (msg) {
+        const isIncoming = isCurrentUser(msg.receiverEmail || msg.receiver);
+        if (!isIncoming) return false;
+        if (String(msg.status || '').toUpperCase() === 'SEEN') {
+          markedSeenIdsRef.current.add(id);
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (candidateIds.length === 0) return;
+
+    // Track IDs immediately to avoid duplicate concurrent calls
+    candidateIds.forEach(id => markedSeenIdsRef.current.add(id));
+
+    // Optimistically update message status in local state
+    setMessages(prev => prev.map(m => candidateIds.includes(m.id) ? { ...m, status: 'SEEN' } : m));
+    setThreadMessages(prev => prev.map(m => candidateIds.includes(m.id) ? { ...m, status: 'SEEN' } : m));
+
+    // Call existing message status API
+    casboxAPI.updateStatus({ messageIds: candidateIds, status: 'SEEN' }).catch(err => {
+      console.error("Failed to update message status to SEEN:", err);
+      // Remove from set if call failed so it can be retried on next user view
+      candidateIds.forEach(id => markedSeenIdsRef.current.delete(id));
+    });
+  }, [isCurrentUser]);
+
   const handleSelectMessage = (msg) => {
     setOpenMenuId(null);
     setSelectedMessage(msg || null);
+    if (msg && !isCurrentUser(msg.senderEmail || msg.sender)) {
+      if (msg.id && msg.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
+        markMessagesAsSeen([msg.id]);
+      }
+    }
   };
 
   useEffect(() => {
@@ -1180,7 +1232,19 @@ const Casbox = () => {
     try {
       setLoadingThread(true);
       const res = await casboxAPI.getThread(contactEmail);
-      setThreadMessages(res.data || []);
+      const data = res.data || [];
+      setThreadMessages(data);
+
+      // Only mark received messages as SEEN when user is actively viewing this contact's conversation
+      if (selectedContactRef.current && normalizeEmail(selectedContactRef.current) === normalizeEmail(contactEmail)) {
+        const unreadIncomingIds = data
+          .filter(m => isCurrentUser(m.receiverEmail || m.receiver) && String(m.status || '').toUpperCase() !== 'SEEN')
+          .map(m => m.id)
+          .filter(Boolean);
+        if (unreadIncomingIds.length > 0) {
+          markMessagesAsSeen(unreadIncomingIds);
+        }
+      }
     } catch (e) {
       console.error("Failed to fetch thread", e);
     } finally {
@@ -1413,23 +1477,14 @@ const Casbox = () => {
     }
   }, [threadMessages]);
 
-  useEffect(() => {
-    const activeContact = selectedContactRef.current;
-    if (!activeContact || !user?.email || threadMessages.length === 0) return;
-
-    const unreadMsgs = threadMessages.filter(m => 
-      isCurrentUser(m.receiverEmail || m.receiver) && 
-      m.status?.toUpperCase() !== 'SEEN'
-    );
-
-    if (unreadMsgs.length > 0) {
-      const ids = unreadMsgs.map(m => m.id);
-      setMessages(prev => prev.map(m => ids.includes(m.id) ? { ...m, status: 'SEEN' } : m));
-      setThreadMessages(prev => prev.map(m => ids.includes(m.id) ? { ...m, status: 'SEEN' } : m));
-      casboxAPI.updateStatus({ messageIds: ids, status: 'SEEN' })
-        .catch(console.error);
+  const handleCombineRowClick = (item) => {
+    if (!item?.msg) return;
+    const { msg, isSent } = item;
+    if (!isSent && msg?.id && msg?.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
+      markMessagesAsSeen([msg.id]);
     }
-  }, [threadMessages, user?.email]);
+    handleSelectMessage(msg);
+  };
 
 
   const closePreview = () => {
@@ -2140,7 +2195,8 @@ const Casbox = () => {
             return (
               <div
                 key={id}
-                className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors bg-white dark:bg-[#121212]"
+                onClick={() => handleCombineRowClick(item)}
+                className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors bg-white dark:bg-[#121212] cursor-pointer"
               >
                 {/* Left side: Avatar, Name, Badge, Divider, Text */}
                 <div className="flex items-center min-w-0 flex-1 mr-4">
@@ -2174,17 +2230,51 @@ const Casbox = () => {
                   </span>
                 </div>
 
-                {/* Right side: Timestamp, Sent Checkmark, Three dots */}
+                {/* Right side: Timestamp, Status Checkmark, Three dots */}
                 <div className="flex items-center gap-2 shrink-0 ml-2">
                   <span className="text-xs text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">
                     {formatCashboxTime(msg.timestamp)}
                   </span>
 
-                  {isSent && (
-                    <span className="text-blue-500 shrink-0 flex items-center">
-                      <MdDoneAll size={16} />
-                    </span>
-                  )}
+                  {/* Status Indicator */}
+                  {(() => {
+                    const status = typeof msg?.status === 'string' ? msg.status.toUpperCase() : '';
+                    if (isSent) {
+                      if (status === 'SEEN') {
+                        return (
+                          <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
+                            <MdDoneAll size={16} />
+                          </span>
+                        );
+                      }
+                      if (status === 'DELIVERED') {
+                        return (
+                          <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Delivered">
+                            <MdDoneAll size={16} />
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
+                          <MdCheck size={16} />
+                        </span>
+                      );
+                    }
+
+                    // Received message: single check when unread, double blue check when seen
+                    if (status === 'SEEN') {
+                      return (
+                        <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
+                          <MdDoneAll size={16} />
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Unread">
+                        <MdCheck size={16} />
+                      </span>
+                    );
+                  })()}
 
                   <div className="relative shrink-0" ref={openCombineMenuId === id ? combineMenuRef : null}>
                     <button
@@ -2816,7 +2906,7 @@ const Casbox = () => {
       <div className="flex flex-col h-full w-full bg-white dark:bg-[#121212] relative overflow-hidden">
         <ReadingPaneLayout
           mode={readingPaneMode || 'no_split'}
-          hasSelection={!isCombineTab && !!selectedMessage}
+          hasSelection={!!selectedMessage}
           headerComponent={headerComponent}
           listComponent={listComponent}
           detailsComponent={detailsComponent}
