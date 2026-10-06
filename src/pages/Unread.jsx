@@ -1,6 +1,6 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { MdMailOutline } from "react-icons/md";
 import EmailList from "../components/EmailList";
@@ -13,11 +13,13 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 const Unread = ({ searchQuery }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
 
-  const unreadEmails = emails.filter((e) => !e.isRead);
+  const unreadEmails = emails.filter((e) => !e.isRead || String(e.uid) === String(selectedEmailUid));
+  const unreadCount = emails.filter((e) => !e.isRead).length;
   const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
 
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -30,6 +32,11 @@ const Unread = ({ searchQuery }) => {
       return next;
     });
   };
+
+  useEffect(() => {
+    setSelectedEmailUid(null);
+    setSelectedIds(new Set());
+  }, [location.pathname]);
 
   useEffect(() => {
     fetchEmails('unread');
@@ -121,7 +128,7 @@ const Unread = ({ searchQuery }) => {
           className="ml-2 text-xs font-normal"
           style={{ color: theme.subText }}
         >
-          ({unreadEmails.length})
+          ({unreadCount})
         </span>
       </h2>
     </div>
@@ -133,7 +140,7 @@ const Unread = ({ searchQuery }) => {
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
           <p className="text-sm font-medium animate-pulse" style={{ color: theme.subText }}>Loading unread emails...</p>
         </div>
-      ) : unreadEmails.length === 0 ? (
+      ) : visibleEmails.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
           <MdMailOutline className="text-5xl mb-4 text-gray-300 dark:text-gray-600 opacity-55" />
           <p className="text-base font-semibold" style={{ color: theme.text }}>No unread messages</p>

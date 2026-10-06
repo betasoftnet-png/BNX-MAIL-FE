@@ -28,11 +28,26 @@ export const SocketProvider = ({ children }) => {
     isAuthenticatedRef.current = isAuthenticated;
 
     const handlePersonalNotification = (data) => {
-        const { fetchEmails, fetchEmailsSilently } = mailRef.current || {};
+        const { fetchEmails, fetchEmailsSilently, invalidateCache, currentFolder } = mailRef.current || {};
         switch (data?.type) {
             case 'new_email':
                 toast('New email received!', { icon: '📧' });
-                if (fetchEmails) fetchEmails(undefined, true);
+                if (invalidateCache) {
+                    invalidateCache('inbox');
+                    invalidateCache('unread');
+                    invalidateCache('all-inbox');
+                    invalidateCache('allinbox');
+                    invalidateCache('allmail');
+                    invalidateCache('all-mail');
+                }
+                const activeFolder = (currentFolder || 'inbox').toLowerCase();
+                if (fetchEmails) {
+                    fetchEmails(activeFolder, true);
+                }
+                if (fetchEmailsSilently) {
+                    if (activeFolder !== 'inbox') fetchEmailsSilently('inbox');
+                    if (activeFolder !== 'unread') fetchEmailsSilently('unread');
+                }
                 break;
             case 'send_progress':
                 if (data.status === 'completed') {

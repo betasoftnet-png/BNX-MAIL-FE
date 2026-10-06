@@ -118,13 +118,61 @@ export const MailProvider = ({ children }) => {
                 case 'spam': res = await mailAPI.getSpam(targetPage, limit); break;
                 case 'snoozed': res = await mailAPI.getSnoozed(targetPage, limit); break;
                 case 'archive': res = await mailAPI.getArchive(targetPage, limit); break;
-                case 'unread': res = await mailAPI.getUnread(targetPage, limit); break;
+                case 'unread': {
+                    try {
+                        res = await mailAPI.getUnread(targetPage, limit);
+                    } catch (err) {
+                        res = await mailAPI.getInbox(targetPage, limit);
+                        if (res?.data?.success) {
+                            const dataObj = res.data.data;
+                            const list = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
+                            const unreadItems = list.filter(m => !m.isRead && !m.read);
+                            res = {
+                                data: {
+                                    success: true,
+                                    data: {
+                                        emails: unreadItems,
+                                        totalCount: unreadItems.length,
+                                        unreadCount: unreadItems.length
+                                    }
+                                }
+                            };
+                        }
+                    }
+                    if (res?.data?.success && res.data.data) {
+                        if (Array.isArray(res.data.data)) {
+                            const unreadItems = res.data.data.filter(m => !m.isRead && !m.read);
+                            res.data.data = {
+                                emails: unreadItems,
+                                totalCount: unreadItems.length,
+                                unreadCount: unreadItems.length
+                            };
+                        } else if (!res.data.data.emails && Array.isArray(res.data.data.unreadEmails)) {
+                            res.data.data.emails = res.data.data.unreadEmails;
+                        } else if (Array.isArray(res.data.data.emails) && res.data.data.emails.length === 0) {
+                            try {
+                                const inboxCheck = await mailAPI.getInbox(1, limit);
+                                if (inboxCheck?.data?.success) {
+                                    const iList = inboxCheck.data.data?.emails || (Array.isArray(inboxCheck.data.data) ? inboxCheck.data.data : []);
+                                    const iUnread = iList.filter(m => !m.isRead && !m.read);
+                                    if (iUnread.length > 0) {
+                                        res.data.data.emails = iUnread;
+                                        res.data.data.totalCount = iUnread.length;
+                                        res.data.data.unreadCount = iUnread.length;
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                    break;
+                }
                 default: res = await mailAPI.getInbox(targetPage, limit);
             }
 
             if (res && res.data?.success) {
-                const data = res.data.data;
-                let normalizedEmails = (data.emails || []).map(m => ({
+                const data = res.data.data || {};
+                const rawEmails = data.emails || (Array.isArray(data) ? data : (data.unreadEmails || []));
+                let normalizedEmails = rawEmails.map(m => ({
                     ...m,
                     isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
                     starred: m.starred ?? m.isStarred ?? false
@@ -172,15 +220,26 @@ export const MailProvider = ({ children }) => {
                 if (!pagesCache.current[folderKey]) pagesCache.current[folderKey] = {};
                 pagesCache.current[folderKey][targetPage] = normalizedEmails;
 
+                // Sync unread counts in real-time across all tabs and folders
+                const countKey = folderKey.replace('-', '').replace(' ', '');
+                const unread = folderKey === 'spam'
+                    ? normalizedEmails.filter(e => !e.isRead).length
+                    : (data.unreadCount !== undefined ? data.unreadCount : normalizedEmails.filter(e => !e.isRead).length);
+
+                setUnreadCounts(prev => {
+                    const next = { ...prev, [countKey]: unread };
+                    if (countKey === 'inbox') {
+                        next.unread = unread;
+                    } else if (countKey === 'unread') {
+                        next.inbox = unread;
+                    }
+                    return next;
+                });
+
                 // Only update active screen if it matches the current folder
                 if (currentFolderRef.current.toLowerCase() === folderKey) {
-                    setTotalEmails(folderKey === 'spam' ? normalizedEmails.length : (data.totalCount || 0));
+                    setTotalEmails(folderKey === 'spam' ? normalizedEmails.length : (data.totalCount || normalizedEmails.length));
                     setEmails(normalizedEmails);
-                    const countKey = folderKey.replace('-', '').replace(' ', '');
-                    const unread = folderKey === 'spam'
-                        ? normalizedEmails.filter(e => !e.isRead).length
-                        : (data.unreadCount || 0);
-                    setUnreadCounts(prev => ({ ...prev, [countKey]: unread }));
                 }
             }
         } catch (e) {
@@ -235,7 +294,54 @@ export const MailProvider = ({ children }) => {
                 case 'spam': res = await mailAPI.getSpam(targetPage, limit); break;
                 case 'snoozed': res = await mailAPI.getSnoozed(targetPage, limit); break;
                 case 'archive': res = await mailAPI.getArchive(targetPage, limit); break;
-                case 'unread': res = await mailAPI.getUnread(targetPage, limit); break;
+                case 'unread': {
+                    try {
+                        res = await mailAPI.getUnread(targetPage, limit);
+                    } catch (err) {
+                        res = await mailAPI.getInbox(targetPage, limit);
+                        if (res?.data?.success) {
+                            const dataObj = res.data.data;
+                            const list = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
+                            const unreadItems = list.filter(m => !m.isRead && !m.read);
+                            res = {
+                                data: {
+                                    success: true,
+                                    data: {
+                                        emails: unreadItems,
+                                        totalCount: unreadItems.length,
+                                        unreadCount: unreadItems.length
+                                    }
+                                }
+                            };
+                        }
+                    }
+                    if (res?.data?.success && res.data.data) {
+                        if (Array.isArray(res.data.data)) {
+                            const unreadItems = res.data.data.filter(m => !m.isRead && !m.read);
+                            res.data.data = {
+                                emails: unreadItems,
+                                totalCount: unreadItems.length,
+                                unreadCount: unreadItems.length
+                            };
+                        } else if (!res.data.data.emails && Array.isArray(res.data.data.unreadEmails)) {
+                            res.data.data.emails = res.data.data.unreadEmails;
+                        } else if (Array.isArray(res.data.data.emails) && res.data.data.emails.length === 0) {
+                            try {
+                                const inboxCheck = await mailAPI.getInbox(1, limit);
+                                if (inboxCheck?.data?.success) {
+                                    const iList = inboxCheck.data.data?.emails || (Array.isArray(inboxCheck.data.data) ? inboxCheck.data.data : []);
+                                    const iUnread = iList.filter(m => !m.isRead && !m.read);
+                                    if (iUnread.length > 0) {
+                                        res.data.data.emails = iUnread;
+                                        res.data.data.totalCount = iUnread.length;
+                                        res.data.data.unreadCount = iUnread.length;
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                    break;
+                }
                 case 'all-inbox':
                 case 'allinbox': {
                     const sessionsStr = localStorage.getItem('bnx_sessions');
@@ -356,8 +462,9 @@ export const MailProvider = ({ children }) => {
             }
 
             if (res.data?.success) {
-                const data = res.data.data;
-                let normalizedEmails = (data.emails || []).map(m => ({
+                const data = res.data.data || {};
+                const rawEmails = data.emails || (Array.isArray(data) ? data : (data.unreadEmails || []));
+                let normalizedEmails = rawEmails.map(m => ({
                     ...m,
                     isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
                     starred: m.starred ?? m.isStarred ?? false
@@ -409,9 +516,25 @@ export const MailProvider = ({ children }) => {
                 if (!pagesCache.current[folderKey]) pagesCache.current[folderKey] = {};
                 pagesCache.current[folderKey][targetPage] = normalizedEmails;
                 
+                // Sync unread counts in real-time across all tabs and folders
+                const countKey = folderKey.replace('-', '').replace(' ', '');
+                const unread = folderKey === 'spam'
+                    ? normalizedEmails.filter(e => !e.isRead).length
+                    : (data.unreadCount !== undefined ? data.unreadCount : normalizedEmails.filter(e => !e.isRead).length);
+
+                setUnreadCounts(prev => {
+                    const next = { ...prev, [countKey]: unread };
+                    if (countKey === 'inbox') {
+                        next.unread = unread;
+                    } else if (countKey === 'unread') {
+                        next.inbox = unread;
+                    }
+                    return next;
+                });
+
                 // Only update active screen if it matches the current folder
                 if (currentFolderRef.current.toLowerCase() === folderKey) {
-                    const totalCount = folderKey === 'spam' ? normalizedEmails.length : (data.totalCount || 0);
+                    const totalCount = folderKey === 'spam' ? normalizedEmails.length : (data.totalCount || normalizedEmails.length);
                     setTotalEmails(totalCount);
 
                     const totalPages = Math.max(1, Math.ceil(totalCount / limit));
@@ -425,11 +548,6 @@ export const MailProvider = ({ children }) => {
                     }
 
                     setEmails(normalizedEmails);
-                    const countKey = folderKey.replace('-', '').replace(' ', '');
-                    const unread = folderKey === 'spam'
-                        ? normalizedEmails.filter(e => !e.isRead).length
-                        : (data.unreadCount || 0);
-                    setUnreadCounts(prev => ({ ...prev, [countKey]: unread }));
                 }
             }
         } catch (error) {
@@ -467,29 +585,39 @@ export const MailProvider = ({ children }) => {
         }
     }, [fetchLabelEmails, fetchEmails]);
 
-    // Background auto-polling for new emails every 30 seconds
+    // Background auto-polling for new emails and unread counts every 15 seconds
     useEffect(() => {
         if (!user) return;
 
-        const interval = setInterval(() => {
-            if (!document.hidden) {
-                const isChatMode = typeof window !== 'undefined' && 
-                    (window.location.pathname.startsWith('/colab') || 
-                     window.location.pathname.startsWith('/chat') || 
-                     window.location.pathname.startsWith('/casbox'));
-                if (isChatMode) return;
+        const syncAllMailStatus = () => {
+            if (document.hidden) return;
+            const isChatMode = typeof window !== 'undefined' && 
+                (window.location.pathname.startsWith('/colab') || 
+                 window.location.pathname.startsWith('/chat') || 
+                 window.location.pathname.startsWith('/casbox'));
+            if (isChatMode) return;
 
-                if (currentFolderRef.current.startsWith('label-')) {
-                    const labelId = currentFolderRef.current.replace('label-', '');
-                    fetchLabelEmails(labelId, true, currentPageRef.current);
-                } else {
-                    fetchEmails(currentFolderRef.current, true, currentPageRef.current);
-                }
+            const cur = currentFolderRef.current.toLowerCase();
+            if (cur.startsWith('label-')) {
+                const labelId = cur.replace('label-', '');
+                fetchLabelEmails(labelId, true, currentPageRef.current);
+            } else {
+                fetchEmails(cur, true, currentPageRef.current);
             }
-        }, 30000);
+
+            // Always keep unread and inbox counts synced in the background
+            if (cur !== 'inbox') {
+                fetchEmailsSilently('inbox');
+            }
+            if (cur !== 'unread') {
+                fetchEmailsSilently('unread');
+            }
+        };
+
+        const interval = setInterval(syncAllMailStatus, 15000);
 
         return () => clearInterval(interval);
-    }, [user, fetchEmails, fetchLabelEmails]);
+    }, [user, fetchEmails, fetchEmailsSilently, fetchLabelEmails]);
 
     const handleToggleStar = async (uid, folder) => {
         // Optimistic update
