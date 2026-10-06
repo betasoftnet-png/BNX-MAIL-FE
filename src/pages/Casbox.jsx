@@ -1861,10 +1861,10 @@ const Casbox = () => {
     if (combineSearch.trim()) {
       const query = combineSearch.toLowerCase().trim();
       result = result.filter(item => {
-        const contactName = getDisplayName(item.contact, item.msg).toLowerCase();
-        const body = (item.msg.body || item.msg.content || '').toLowerCase();
-        const contact = item.contact.toLowerCase();
-        return contactName.includes(query) || body.includes(query) || contact.includes(query);
+        const contactName = (getDisplayName(item.contact, item.msg) || '').toLowerCase();
+        const originalName = (getOriginalName(item.contact, item.msg) || '').toLowerCase();
+        const username = (item.msg?.contactUsername || (item.contact ? item.contact.split('@')[0] : '')).toLowerCase();
+        return contactName.includes(query) || originalName.includes(query) || username.includes(query);
       });
     }
 
