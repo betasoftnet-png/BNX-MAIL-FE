@@ -1466,9 +1466,11 @@ const Casbox = () => {
   const { 
     conversationList, 
     messagesConversations, 
+    combinedConversations,
     requestsConversations, 
     archivedConversations, 
     unreadMessagesCount, 
+    unreadCombinedCount,
     unreadArchivedCount, 
     unreadRequestsCount,
     requestMessages 
@@ -1477,9 +1479,11 @@ const Casbox = () => {
       return { 
         conversationList: [], 
         messagesConversations: [], 
+        combinedConversations: [],
         requestsConversations: [], 
         archivedConversations: [], 
         unreadMessagesCount: 0, 
+        unreadCombinedCount: 0,
         unreadArchivedCount: 0, 
         unreadRequestsCount: 0,
         requestMessages: [] 
@@ -1613,8 +1617,13 @@ const Casbox = () => {
     requestsList.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
     archivedList.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
 
+    const combinedList = [...messagesList, ...requestsList].sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+    const combinedUnread = mainUnread + reqUnread;
+
     let activeList = messagesList;
-    if (activeTab === 'requests') {
+    if (activeTab === 'combined') {
+      activeList = combinedList;
+    } else if (activeTab === 'requests') {
       activeList = requestsList;
     } else if (activeTab === 'archive') {
       activeList = archivedList;
@@ -1623,9 +1632,11 @@ const Casbox = () => {
     return {
       conversationList: activeList,
       messagesConversations: messagesList,
+      combinedConversations: combinedList,
       requestsConversations: requestsList,
       archivedConversations: archivedList,
       unreadMessagesCount: mainUnread,
+      unreadCombinedCount: combinedUnread,
       unreadArchivedCount: archUnread,
       unreadRequestsCount: reqUnread,
       requestMessages: requestMessagesArr
@@ -1738,6 +1749,17 @@ const Casbox = () => {
             {unreadMessagesCount > 0 && (
               <span className={`font-normal hidden sm:inline ${activeTab === 'messages' ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadMessagesCount})
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => { setActiveTab('combined'); setSelectedMessage(null); }}
+            className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'combined' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            {t('casbox.combined', 'Combined')}
+            {unreadCombinedCount > 0 && (
+              <span className={`font-normal hidden sm:inline ${activeTab === 'combined' ? 'opacity-80' : 'opacity-60'}`}>
+                ({unreadCombinedCount})
               </span>
             )}
           </button>
@@ -2046,7 +2068,9 @@ const Casbox = () => {
       } catch (e) {}
       await userAPI.updateSettings({ casboxAccepted: newAccepted });
       toast.success("Request accepted");
-      setActiveTab("messages");
+      if (activeTab !== 'combined') {
+        setActiveTab("messages");
+      }
     } catch (e) {
       toast.error("Failed to accept request");
       setAcceptedContacts(acceptedContacts);
