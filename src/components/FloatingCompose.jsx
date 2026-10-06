@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import ImageResize from 'quill-image-resize-module-react';
+import { attachQuillAutoCorrect, handleStandardInputAutoCorrect } from "../utils/autoCorrect";
 
 // For quill-image-resize-module-react
 window.Quill = Quill;
@@ -422,12 +423,14 @@ const FloatingCompose = () => {
   /* ---------------- APPLY WRITING SETTINGS TO QUILL EDITOR ---------------- */
   useEffect(() => {
     if (!isComposeOpen) return;
+    let cleanupAutoCorrect = null;
     const applyEditorAttributes = () => {
       try {
         let editorRoot = null;
+        let editorInstance = null;
         if (quillRef.current) {
-          const editor = typeof quillRef.current.getEditor === "function" ? quillRef.current.getEditor() : null;
-          editorRoot = editor?.root;
+          editorInstance = typeof quillRef.current.getEditor === "function" ? quillRef.current.getEditor() : null;
+          editorRoot = editorInstance?.root;
         }
         if (!editorRoot) {
           editorRoot = document.querySelector(".compose-quill .ql-editor");
@@ -439,6 +442,9 @@ const FloatingCompose = () => {
           editorRoot.setAttribute("data-gramm", grammarCheck ? "true" : "false");
           editorRoot.setAttribute("data-enable-grammarly", grammarCheck ? "true" : "false");
         }
+        if (editorInstance) {
+          cleanupAutoCorrect = attachQuillAutoCorrect(editorInstance, () => autoCorrect);
+        }
       } catch (err) {
         console.warn("Could not set quill editor attributes:", err);
       }
@@ -446,7 +452,10 @@ const FloatingCompose = () => {
 
     applyEditorAttributes();
     const timer = setTimeout(applyEditorAttributes, 200);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (typeof cleanupAutoCorrect === "function") cleanupAutoCorrect();
+    };
   }, [spellingCheck, autoCorrect, grammarCheck, isComposeOpen, isReply]);
 
   /* ---------------- PREFILL ON COMPOSE DATA CHANGE ---------------- */
@@ -1179,6 +1188,7 @@ const FloatingCompose = () => {
                   name="cc"
                   value={formData.cc}
                   onChange={handleChange}
+                  onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
                   className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
                   placeholder="carboncopy@example.com"
                   spellCheck={spellingCheck ? "true" : "false"}
@@ -1196,6 +1206,7 @@ const FloatingCompose = () => {
                   name="bcc"
                   value={formData.bcc}
                   onChange={handleChange}
+                  onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
                   className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
                   placeholder="blindcopy@example.com"
                   spellCheck={spellingCheck ? "true" : "false"}
@@ -1212,6 +1223,7 @@ const FloatingCompose = () => {
                     name="subject"
                     value={formData.subject}
                     onChange={handleChange}
+                    onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
                     className="flex-1 bg-transparent text-sm outline-none border-none"
                     style={{ color: theme.text }}
                     placeholder={t('compose.subject_placeholder', 'Enter subject...')}

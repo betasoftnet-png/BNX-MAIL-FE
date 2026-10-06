@@ -5,6 +5,7 @@ import { mailAPI, userAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { DEFAULT_TEMPLATES } from "./Templates";
+import { handleStandardInputAutoCorrect } from "../utils/autoCorrect";
 
 
 const getFontFamilyCss = (font) => {
@@ -454,6 +455,7 @@ const ComposePage = () => {
                 name="body"
                 value={formData.body}
                 onChange={handleChange}
+                onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
                 placeholder="Type your message…"
                 spellCheck={spellingCheck ? "true" : "false"}
                 autoCorrect={autoCorrect ? "on" : "off"}
@@ -678,6 +680,7 @@ const Field = ({ label, name, value, onChange, extra, theme, spellCheck = false,
         name={name}
         value={value}
         onChange={onChange}
+        onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect === "on" || autoCorrect === true)}
         className="flex-1 outline-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 group"
         placeholder={`Enter ${label.toLowerCase()}...`}
         spellCheck={spellCheck ? "true" : "false"}
