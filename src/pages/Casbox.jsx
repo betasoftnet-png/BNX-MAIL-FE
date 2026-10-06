@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useMail } from "../context/MailContext";
 import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI } from "../services/api";
-import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd } from "react-icons/md";
+import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy } from "react-icons/md";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import logo from "../assets/bnx-remove.png";
@@ -205,6 +205,21 @@ const resolveAvatarUrl = (url, identifier) => {
   // If clean is just a filename like "user_1_123.jpg"
   const userKey = identifier || clean;
   return cleanBase ? `${cleanBase}/api/users/profile-picture/${encodeURIComponent(userKey)}` : `/api/users/profile-picture/${encodeURIComponent(userKey)}`;
+};
+
+const getAvatarColorClass = (str) => {
+  const colors = [
+    'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+    'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+    'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400',
+    'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
+    'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+    'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+  ];
+  if (!str) return colors[0];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
 };
 
 const ConnectionAvatar = React.memo(({ profilePicture, profilePictureUrl, displayName, username, email, className = "w-9 h-9" }) => {
@@ -464,6 +479,27 @@ const Casbox = () => {
   const [selectedMessage, setSelectedMessage] = useState(null);
 
   const [activeTab, setActiveTab] = useState('messages');
+  const isCombineTab = activeTab === 'combine' || activeTab === 'combined';
+  const [combineSearch, setCombineSearch] = useState("");
+  const [combineFilter, setCombineFilter] = useState("all");
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [openCombineMenuId, setOpenCombineMenuId] = useState(null);
+  const filterMenuRef = React.useRef(null);
+  const combineMenuRef = React.useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target)) {
+        setShowFilterMenu(false);
+      }
+      if (combineMenuRef.current && !combineMenuRef.current.contains(e.target)) {
+        setOpenCombineMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
   const [showArchive, setShowArchive] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
 
@@ -1621,7 +1657,7 @@ const Casbox = () => {
     const combinedUnread = mainUnread + reqUnread;
 
     let activeList = messagesList;
-    if (activeTab === 'combined') {
+    if (activeTab === 'combine' || activeTab === 'combined') {
       activeList = combinedList;
     } else if (activeTab === 'requests') {
       activeList = requestsList;
@@ -1737,6 +1773,100 @@ const Casbox = () => {
     });
   }, [showConnectionsModal, connections, conversationList, blockedContacts, user?.email, contactAliases]);
 
+  // Unified all-messages list for Combine tab
+  const unifiedCombineMessages = useMemo(() => {
+    if (!messages || messages.length === 0) return [];
+
+    const blockedSet = new Set();
+    if (blockedContacts && Array.isArray(blockedContacts)) {
+      blockedContacts.forEach(e => {
+        const norm = normalizeEmail(e);
+        if (norm) {
+          blockedSet.add(norm);
+          if (norm.includes('@')) blockedSet.add(norm.split('@')[0]);
+        }
+      });
+    }
+
+    const disconnectedSet = new Set();
+    if (connections && Array.isArray(connections)) {
+      for (let i = 0; i < connections.length; i++) {
+        const c = connections[i];
+        if (String(c.status || '').trim().toUpperCase() === 'DISCONNECTED') {
+          const email = normalizeEmail(c.contactEmail || c.email);
+          if (email) {
+            disconnectedSet.add(email);
+            if (email.includes('@')) disconnectedSet.add(email.split('@')[0]);
+          }
+          const uname = normalizeEmail(c.contactUsername || c.username);
+          if (uname) disconnectedSet.add(uname);
+          if (c.contactUserId) disconnectedSet.add(String(c.contactUserId));
+        }
+      }
+    }
+
+    const seenIds = new Set();
+    const list = [];
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+
+      const sender = normalizeEmail(msg.senderEmail || msg.sender);
+      const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
+      if (!sender || !receiver) continue;
+
+      if (blockedSet.has(sender) || (sender.includes('@') && blockedSet.has(sender.split('@')[0]))) continue;
+
+      const isMe = isCurrentUser(sender);
+      const rawContact = isMe ? (msg.receiverEmail || msg.receiver) : (msg.senderEmail || msg.sender);
+      if (!rawContact) continue;
+
+      const contactNorm = normalizeEmail(rawContact);
+      const contactLocal = contactNorm.includes('@') ? contactNorm.split('@')[0] : contactNorm;
+      if (disconnectedSet.has(contactNorm) || disconnectedSet.has(contactLocal)) continue;
+
+      const ts = getTimestampMs(msg.timestamp);
+
+      list.push({
+        msg,
+        id,
+        isSent: isMe,
+        contact: rawContact,
+        contactNorm,
+        timestampMs: ts,
+      });
+    }
+
+    // Sort ALL messages globally using the existing message timestamp - newest at top
+    list.sort((a, b) => b.timestampMs - a.timestampMs);
+    return list;
+  }, [messages, blockedContacts, connections, isCurrentUser]);
+
+  const filteredCombineMessages = useMemo(() => {
+    let result = unifiedCombineMessages;
+
+    if (combineFilter === 'sent') {
+      result = result.filter(item => item.isSent);
+    } else if (combineFilter === 'received') {
+      result = result.filter(item => !item.isSent);
+    }
+
+    if (combineSearch.trim()) {
+      const query = combineSearch.toLowerCase().trim();
+      result = result.filter(item => {
+        const contactName = getDisplayName(item.contact, item.msg).toLowerCase();
+        const body = (item.msg.body || item.msg.content || '').toLowerCase();
+        const contact = item.contact.toLowerCase();
+        return contactName.includes(query) || body.includes(query) || contact.includes(query);
+      });
+    }
+
+    return result;
+  }, [unifiedCombineMessages, combineFilter, combineSearch, contactAliases]);
+
   const headerComponent = (
     <div className="flex flex-col shrink-0">
       <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2 shrink-0 bg-transparent">
@@ -1753,12 +1883,12 @@ const Casbox = () => {
             )}
           </button>
           <button
-            onClick={() => { setActiveTab('combined'); setSelectedMessage(null); }}
-            className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'combined' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            onClick={() => { setActiveTab('combine'); setSelectedMessage(null); }}
+            className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
-            {t('casbox.combined', 'Combined')}
+            {t('casbox.combine', 'Combine')}
             {unreadCombinedCount > 0 && (
-              <span className={`font-normal hidden sm:inline ${activeTab === 'combined' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`font-normal hidden sm:inline ${isCombineTab ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadCombinedCount})
               </span>
             )}
@@ -1905,7 +2035,206 @@ const Casbox = () => {
     </div>
   );
 
-  const listComponent = (
+  const listComponent = isCombineTab ? (
+    <div className="flex-1 flex flex-col overflow-hidden bg-transparent relative">
+      {/* Search Bar & Filter */}
+      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center gap-3 bg-transparent shrink-0">
+        <div className="flex-1 flex items-center gap-2.5 bg-gray-100/70 dark:bg-gray-800/60 px-4 py-2.5 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
+          <MdSearch size={20} className="text-gray-400 shrink-0" />
+          <input
+            type="text"
+            value={combineSearch}
+            onChange={(e) => setCombineSearch(e.target.value)}
+            placeholder="Search all messages..."
+            className="bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full"
+          />
+          {combineSearch && (
+            <button
+              type="button"
+              onClick={() => setCombineSearch("")}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs p-0.5"
+            >
+              <MdClose size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Filter Button */}
+        <div className="relative" ref={filterMenuRef}>
+          <button
+            type="button"
+            onClick={() => setShowFilterMenu(prev => !prev)}
+            className={`p-2.5 rounded-xl transition-colors shrink-0 flex items-center justify-center cursor-pointer ${
+              combineFilter !== 'all' || showFilterMenu
+                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                : 'bg-gray-100/70 dark:bg-gray-800/60 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+            title="Filter messages"
+            aria-label="Filter messages"
+          >
+            <MdFilterList size={20} />
+          </button>
+
+          {showFilterMenu && (
+            <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+              <button
+                type="button"
+                onClick={() => { setCombineFilter('all'); setShowFilterMenu(false); }}
+                className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                  combineFilter === 'all' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                }`}
+              >
+                All Messages
+                {combineFilter === 'all' && <MdCheck size={16} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCombineFilter('received'); setShowFilterMenu(false); }}
+                className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                  combineFilter === 'received' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                }`}
+              >
+                Received Only
+                {combineFilter === 'received' && <MdCheck size={16} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCombineFilter('sent'); setShowFilterMenu(false); }}
+                className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                  combineFilter === 'sent' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                }`}
+              >
+                Sent Only
+                {combineFilter === 'sent' && <MdCheck size={16} />}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Messages List */}
+      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent">
+        {loading && filteredCombineMessages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
+            <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500">Loading messages...</p>
+          </div>
+        ) : filteredCombineMessages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
+            <MdSend className="text-4xl mb-3 opacity-30" />
+            <p className="text-sm font-medium">
+              {combineSearch ? 'No matching messages found' : 'No messages found'}
+            </p>
+          </div>
+        ) : (
+          filteredCombineMessages.map((item) => {
+            const { msg, id, isSent, contact } = item;
+            const contactName = getDisplayName(contact, msg);
+            const initial = getContactInitial(contact, msg);
+            const avatarColorClass = getAvatarColorClass(contactName || contact);
+
+            return (
+              <div
+                key={id}
+                className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors bg-white dark:bg-[#121212]"
+              >
+                {/* Left side: Avatar, Name, Badge, Divider, Text */}
+                <div className="flex items-center min-w-0 flex-1 mr-4">
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 select-none ${avatarColorClass}`}>
+                    {initial}
+                  </div>
+
+                  {/* Contact Name */}
+                  <span className="w-28 sm:w-44 font-semibold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 ml-3">
+                    {contactName}
+                  </span>
+
+                  {/* Badge */}
+                  {isSent ? (
+                    <span className="ml-2 sm:ml-4 shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
+                      Sent
+                    </span>
+                  ) : (
+                    <span className="ml-2 sm:ml-4 shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                      Received
+                    </span>
+                  )}
+
+                  {/* Vertical Divider */}
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-3 sm:mx-4 shrink-0" />
+
+                  {/* Message Body */}
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate font-normal flex-1 min-w-0">
+                    {msg.body || msg.content || (msg.attachments?.length ? 'Attachment' : '')}
+                  </span>
+                </div>
+
+                {/* Right side: Timestamp, Sent Checkmark, Three dots */}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">
+                    {formatCashboxTime(msg.timestamp)}
+                  </span>
+
+                  {isSent && (
+                    <span className="text-blue-500 shrink-0 flex items-center">
+                      <MdDoneAll size={16} />
+                    </span>
+                  )}
+
+                  <div className="relative shrink-0" ref={openCombineMenuId === id ? combineMenuRef : null}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenCombineMenuId(prev => prev === id ? null : id);
+                      }}
+                      className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ml-1 cursor-pointer"
+                      title="More options"
+                    >
+                      <MdMoreVert size={18} />
+                    </button>
+
+                    {openCombineMenuId === id && (
+                      <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (msg.body) {
+                              navigator.clipboard.writeText(msg.body);
+                              toast.success("Copied to clipboard");
+                            }
+                            setOpenCombineMenuId(null);
+                          }}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdContentCopy size={15} />
+                          Copy Text
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenCombineMenuId(null);
+                            setConversationToDelete({ contact });
+                          }}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdDeleteOutline size={15} />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  ) : (
     <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent">
       {loading && conversationList.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
@@ -2068,7 +2397,7 @@ const Casbox = () => {
       } catch (e) {}
       await userAPI.updateSettings({ casboxAccepted: newAccepted });
       toast.success("Request accepted");
-      if (activeTab !== 'combined') {
+      if (!isCombineTab) {
         setActiveTab("messages");
       }
     } catch (e) {
@@ -2483,7 +2812,7 @@ const Casbox = () => {
       <div className="flex flex-col h-full w-full bg-white dark:bg-[#121212] relative overflow-hidden">
         <ReadingPaneLayout
           mode={readingPaneMode || 'no_split'}
-          hasSelection={!!selectedMessage}
+          hasSelection={!isCombineTab && !!selectedMessage}
           headerComponent={headerComponent}
           listComponent={listComponent}
           detailsComponent={detailsComponent}
