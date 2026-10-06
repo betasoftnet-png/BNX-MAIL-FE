@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MdSend, MdAttachFile, MdDeleteOutline, MdClose, MdAssignment } from "react-icons/md";
-import { mailAPI } from "../services/api";
+import { mailAPI, userAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { DEFAULT_TEMPLATES } from "./Templates";
@@ -45,9 +45,49 @@ const ComposePage = () => {
     return () => window.removeEventListener('bnx_text_style_changed', handleTextStyleChanged);
   }, []);
 
-  const [defaultFontFamily] = useState(() => localStorage.getItem("bnx_setting_fontFamily") || "Arial");
-  const [defaultFontSize] = useState(() => localStorage.getItem("bnx_setting_fontSizeText") || "Normal");
-  const [defaultTextColor] = useState(() => localStorage.getItem("bnx_setting_textColor") || "#000000");
+  const [spellingCheck, setSpellingCheck] = useState(() => {
+    const saved = localStorage.getItem("bnx_setting_spellingCheck");
+    return saved !== null ? saved === "true" : true;
+  });
+  const [grammarCheck, setGrammarCheck] = useState(() => {
+    const saved = localStorage.getItem("bnx_setting_grammarCheck");
+    return saved !== null ? saved === "true" : true;
+  });
+  const [autoCorrect, setAutoCorrect] = useState(() => {
+    const saved = localStorage.getItem("bnx_setting_autoCorrect");
+    return saved !== null ? saved === "true" : true;
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await userAPI.getSettings();
+        if (res.data?.success) {
+          const s = res.data.data;
+          if (s.spellingCheckEnabled !== undefined) setSpellingCheck(Boolean(s.spellingCheckEnabled));
+          if (s.grammarCheckEnabled !== undefined) setGrammarCheck(Boolean(s.grammarCheckEnabled));
+          if (s.autoCorrectEnabled !== undefined) setAutoCorrect(Boolean(s.autoCorrectEnabled));
+        }
+      } catch (err) {
+        console.error("Failed to fetch settings in ComposePage:", err);
+      }
+    };
+    fetchSettings();
+
+    const handleWritingSettingsChanged = (e) => {
+      if (e.detail) {
+        if (e.detail.spellingCheck !== undefined) setSpellingCheck(Boolean(e.detail.spellingCheck));
+        if (e.detail.grammarCheck !== undefined) setGrammarCheck(Boolean(e.detail.grammarCheck));
+        if (e.detail.autoCorrect !== undefined) setAutoCorrect(Boolean(e.detail.autoCorrect));
+      }
+    };
+    window.addEventListener("bnx_writing_settings_changed", handleWritingSettingsChanged);
+    return () => window.removeEventListener("bnx_writing_settings_changed", handleWritingSettingsChanged);
+  }, []);
+
+  const [defaultFontFamily, setDefaultFontFamily] = useState(() => localStorage.getItem("bnx_setting_fontFamily") || "Arial");
+  const [defaultFontSize, setDefaultFontSize] = useState(() => localStorage.getItem("bnx_setting_fontSizeText") || "Normal");
+  const [defaultTextColor, setDefaultTextColor] = useState(() => localStorage.getItem("bnx_setting_textColor") || "#000000");
   const navigate = useNavigate();
   const location = useLocation();
   const { theme } = useTheme();
@@ -405,6 +445,8 @@ const ComposePage = () => {
                 value={formData.subject}
                 onChange={handleChange}
                 theme={theme}
+                spellCheck={spellingCheck}
+                autoCorrect={autoCorrect ? "on" : "off"}
               />
 
               {/* BODY */}
@@ -413,6 +455,11 @@ const ComposePage = () => {
                 value={formData.body}
                 onChange={handleChange}
                 placeholder="Type your message…"
+                spellCheck={spellingCheck ? "true" : "false"}
+                autoCorrect={autoCorrect ? "on" : "off"}
+                autoCapitalize={autoCorrect ? "sentences" : "off"}
+                data-gramm={grammarCheck ? "true" : "false"}
+                data-enable-grammarly={grammarCheck ? "true" : "false"}
                 style={{
                   fontFamily: getFontFamilyCss(defaultFontFamily),
                   fontSize: getFontSizeCss(defaultFontSize),
@@ -620,7 +667,7 @@ const ComposePage = () => {
 };
 
 /* ---------------- FIELD COMPONENT ---------------- */
-const Field = ({ label, name, value, onChange, extra, theme }) => {
+const Field = ({ label, name, value, onChange, extra, theme, spellCheck = false, autoCorrect = "off" }) => {
   return (
     <div
       className="flex items-center gap-3 border-b py-2 sm:py-3 transition-colors focus-within:border-primary/50"
@@ -633,7 +680,8 @@ const Field = ({ label, name, value, onChange, extra, theme }) => {
         onChange={onChange}
         className="flex-1 outline-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 group"
         placeholder={`Enter ${label.toLowerCase()}...`}
-        spellCheck="false"
+        spellCheck={spellCheck ? "true" : "false"}
+        autoCorrect={autoCorrect}
       />
       {extra && <div className="flex gap-2 shrink-0">{extra}</div>}
     </div>

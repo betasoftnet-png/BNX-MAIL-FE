@@ -341,20 +341,26 @@ const Settings = () => {
 
       if (settingsData.spellingCheckEnabled !== undefined) {
         setSpellingCheck(Boolean(settingsData.spellingCheckEnabled));
+        localStorage.setItem("bnx_setting_spellingCheck", String(Boolean(settingsData.spellingCheckEnabled)));
       } else if (settingsData.spellingCheck !== undefined) {
         setSpellingCheck(Boolean(settingsData.spellingCheck));
+        localStorage.setItem("bnx_setting_spellingCheck", String(Boolean(settingsData.spellingCheck)));
       }
 
       if (settingsData.grammarCheckEnabled !== undefined) {
         setGrammarCheck(Boolean(settingsData.grammarCheckEnabled));
+        localStorage.setItem("bnx_setting_grammarCheck", String(Boolean(settingsData.grammarCheckEnabled)));
       } else if (settingsData.grammarCheck !== undefined) {
         setGrammarCheck(Boolean(settingsData.grammarCheck));
+        localStorage.setItem("bnx_setting_grammarCheck", String(Boolean(settingsData.grammarCheck)));
       }
 
       if (settingsData.autoCorrectEnabled !== undefined) {
         setAutoCorrect(Boolean(settingsData.autoCorrectEnabled));
+        localStorage.setItem("bnx_setting_autoCorrect", String(Boolean(settingsData.autoCorrectEnabled)));
       } else if (settingsData.autoCorrect !== undefined) {
         setAutoCorrect(Boolean(settingsData.autoCorrect));
+        localStorage.setItem("bnx_setting_autoCorrect", String(Boolean(settingsData.autoCorrect)));
       }
 
       try {
@@ -770,6 +776,8 @@ const Settings = () => {
   const handleToggleSpellingCheck = async (newValue) => {
     const prev = spellingCheck;
     setSpellingCheck(newValue);
+    localStorage.setItem("bnx_setting_spellingCheck", String(newValue));
+    window.dispatchEvent(new CustomEvent("bnx_writing_settings_changed", { detail: { spellingCheck: newValue } }));
     try {
       const res = await userAPI.updateSettings({ spellingCheckEnabled: newValue });
       if (res.status === 200 || res.status === 204 || res.data?.success || res.data?.status === 'success') {
@@ -778,6 +786,8 @@ const Settings = () => {
     } catch (err) {
       console.error("Failed to update spelling check setting:", err);
       setSpellingCheck(prev);
+      localStorage.setItem("bnx_setting_spellingCheck", String(prev));
+      window.dispatchEvent(new CustomEvent("bnx_writing_settings_changed", { detail: { spellingCheck: prev } }));
       toast.error(t("settings.update_spelling_failed", "Failed to update spelling check setting"), { id: "settings-save-toast" });
     }
   };
@@ -785,6 +795,8 @@ const Settings = () => {
   const handleToggleGrammarCheck = async (newValue) => {
     const prev = grammarCheck;
     setGrammarCheck(newValue);
+    localStorage.setItem("bnx_setting_grammarCheck", String(newValue));
+    window.dispatchEvent(new CustomEvent("bnx_writing_settings_changed", { detail: { grammarCheck: newValue } }));
     try {
       const res = await userAPI.updateSettings({ grammarCheckEnabled: newValue });
       if (res.status === 200 || res.status === 204 || res.data?.success || res.data?.status === 'success') {
@@ -793,6 +805,8 @@ const Settings = () => {
     } catch (err) {
       console.error("Failed to update grammar check setting:", err);
       setGrammarCheck(prev);
+      localStorage.setItem("bnx_setting_grammarCheck", String(prev));
+      window.dispatchEvent(new CustomEvent("bnx_writing_settings_changed", { detail: { grammarCheck: prev } }));
       toast.error(t("settings.update_grammar_failed", "Failed to update grammar check setting"), { id: "settings-save-toast" });
     }
   };
@@ -800,6 +814,8 @@ const Settings = () => {
   const handleToggleAutoCorrect = async (newValue) => {
     const prev = autoCorrect;
     setAutoCorrect(newValue);
+    localStorage.setItem("bnx_setting_autoCorrect", String(newValue));
+    window.dispatchEvent(new CustomEvent("bnx_writing_settings_changed", { detail: { autoCorrect: newValue } }));
     try {
       const res = await userAPI.updateSettings({ autoCorrectEnabled: newValue });
       if (res.status === 200 || res.status === 204 || res.data?.success || res.data?.status === 'success') {
@@ -808,6 +824,8 @@ const Settings = () => {
     } catch (err) {
       console.error("Failed to update auto-correct setting:", err);
       setAutoCorrect(prev);
+      localStorage.setItem("bnx_setting_autoCorrect", String(prev));
+      window.dispatchEvent(new CustomEvent("bnx_writing_settings_changed", { detail: { autoCorrect: prev } }));
       toast.error(t("settings.update_autocorrect_failed", "Failed to update auto-correct setting"), { id: "settings-save-toast" });
     }
   };

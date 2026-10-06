@@ -208,7 +208,21 @@ const FloatingCompose = () => {
   const [defaultFontSize, setDefaultFontSize] = useState(() => localStorage.getItem("bnx_setting_fontSizeText") || "Normal");
   const [defaultTextColor, setDefaultTextColor] = useState(() => localStorage.getItem("bnx_setting_textColor") || "#000000");
 
+  const [spellingCheck, setSpellingCheck] = useState(() => {
+    const saved = localStorage.getItem("bnx_setting_spellingCheck");
+    return saved !== null ? saved === "true" : true;
+  });
+  const [grammarCheck, setGrammarCheck] = useState(() => {
+    const saved = localStorage.getItem("bnx_setting_grammarCheck");
+    return saved !== null ? saved === "true" : true;
+  });
+  const [autoCorrect, setAutoCorrect] = useState(() => {
+    const saved = localStorage.getItem("bnx_setting_autoCorrect");
+    return saved !== null ? saved === "true" : true;
+  });
+
   const signatureInjectedRef = useRef(false);
+  const quillRef = useRef(null);
 
   const [draftId, setDraftId] = useState(null);
   const imapDraftUidRef = useRef(null);
@@ -352,6 +366,18 @@ const FloatingCompose = () => {
 
   /* ---------------- FETCH SETTINGS FROM BACKEND ---------------- */
   useEffect(() => {
+    const handleWritingSettingsChanged = (e) => {
+      if (e.detail) {
+        if (e.detail.spellingCheck !== undefined) setSpellingCheck(Boolean(e.detail.spellingCheck));
+        if (e.detail.grammarCheck !== undefined) setGrammarCheck(Boolean(e.detail.grammarCheck));
+        if (e.detail.autoCorrect !== undefined) setAutoCorrect(Boolean(e.detail.autoCorrect));
+      }
+    };
+    window.addEventListener("bnx_writing_settings_changed", handleWritingSettingsChanged);
+    return () => window.removeEventListener("bnx_writing_settings_changed", handleWritingSettingsChanged);
+  }, []);
+
+  useEffect(() => {
     if (!isComposeOpen) {
       signatureInjectedRef.current = false;
       return;
@@ -364,7 +390,20 @@ const FloatingCompose = () => {
         ]);
 
         if (settingsRes.data?.success) {
-          setUndoSendDelay(settingsRes.data.data.undoSendDelay || 0);
+          const s = settingsRes.data.data;
+          setUndoSendDelay(s.undoSendDelay || 0);
+          if (s.spellingCheckEnabled !== undefined) {
+            setSpellingCheck(Boolean(s.spellingCheckEnabled));
+            localStorage.setItem("bnx_setting_spellingCheck", String(Boolean(s.spellingCheckEnabled)));
+          }
+          if (s.grammarCheckEnabled !== undefined) {
+            setGrammarCheck(Boolean(s.grammarCheckEnabled));
+            localStorage.setItem("bnx_setting_grammarCheck", String(Boolean(s.grammarCheckEnabled)));
+          }
+          if (s.autoCorrectEnabled !== undefined) {
+            setAutoCorrect(Boolean(s.autoCorrectEnabled));
+            localStorage.setItem("bnx_setting_autoCorrect", String(Boolean(s.autoCorrectEnabled)));
+          }
         }
 
         if (sigsRes?.data?.success) {
@@ -379,6 +418,36 @@ const FloatingCompose = () => {
     };
     fetchSettings();
   }, [isComposeOpen]);
+
+  /* ---------------- APPLY WRITING SETTINGS TO QUILL EDITOR ---------------- */
+  useEffect(() => {
+    if (!isComposeOpen) return;
+    const applyEditorAttributes = () => {
+      try {
+        let editorRoot = null;
+        if (quillRef.current) {
+          const editor = typeof quillRef.current.getEditor === "function" ? quillRef.current.getEditor() : null;
+          editorRoot = editor?.root;
+        }
+        if (!editorRoot) {
+          editorRoot = document.querySelector(".compose-quill .ql-editor");
+        }
+        if (editorRoot) {
+          editorRoot.setAttribute("spellcheck", spellingCheck ? "true" : "false");
+          editorRoot.setAttribute("autocorrect", autoCorrect ? "on" : "off");
+          editorRoot.setAttribute("autocapitalize", autoCorrect ? "sentences" : "off");
+          editorRoot.setAttribute("data-gramm", grammarCheck ? "true" : "false");
+          editorRoot.setAttribute("data-enable-grammarly", grammarCheck ? "true" : "false");
+        }
+      } catch (err) {
+        console.warn("Could not set quill editor attributes:", err);
+      }
+    };
+
+    applyEditorAttributes();
+    const timer = setTimeout(applyEditorAttributes, 200);
+    return () => clearTimeout(timer);
+  }, [spellingCheck, autoCorrect, grammarCheck, isComposeOpen, isReply]);
 
   /* ---------------- PREFILL ON COMPOSE DATA CHANGE ---------------- */
   useEffect(() => {
@@ -1112,7 +1181,8 @@ const FloatingCompose = () => {
                   onChange={handleChange}
                   className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
                   placeholder="carboncopy@example.com"
-                  spellCheck="false"
+                  spellCheck={spellingCheck ? "true" : "false"}
+                  autoCorrect={autoCorrect ? "on" : "off"}
                 />
               </div>
             )}
@@ -1128,7 +1198,8 @@ const FloatingCompose = () => {
                   onChange={handleChange}
                   className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
                   placeholder="blindcopy@example.com"
-                  spellCheck="false"
+                  spellCheck={spellingCheck ? "true" : "false"}
+                  autoCorrect={autoCorrect ? "on" : "off"}
                 />
               </div>
             )}
@@ -1144,7 +1215,8 @@ const FloatingCompose = () => {
                     className="flex-1 bg-transparent text-sm outline-none border-none"
                     style={{ color: theme.text }}
                     placeholder={t('compose.subject_placeholder', 'Enter subject...')}
-                    spellCheck="false"
+                    spellCheck={spellingCheck ? "true" : "false"}
+                    autoCorrect={autoCorrect ? "on" : "off"}
                   />
                 </div>
               )}
@@ -1152,6 +1224,7 @@ const FloatingCompose = () => {
               {/* BODY */}
               <div className={`flex-1 mt-2 overflow-y-auto w-full compose-quill rounded-md ${isReply ? 'reply-composer-style' : ''}`} style={{ minHeight: "150px" }}>
                 <ReactQuill
+                  ref={quillRef}
                   theme="snow"
                   modules={dynamicQuillModules}
                   bounds="self"

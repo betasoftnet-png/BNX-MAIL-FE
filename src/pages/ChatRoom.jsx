@@ -2197,7 +2197,7 @@ const ChatRoom = () => {
                   disabled={isSendingComment}
                   className="w-full pl-4 pr-12 py-3 rounded-2xl border border-gray-200/50 dark:border-gray-800/50 bg-white/80 dark:bg-gray-800/80 outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-inner text-sm disabled:opacity-60"
                   style={{ color: theme.text }}
-                  spellCheck="false"
+                  spellCheck={localStorage.getItem("bnx_setting_spellingCheck") !== "false"}
                 />
                 <button 
                   type="submit"
