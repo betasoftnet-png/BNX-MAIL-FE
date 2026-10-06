@@ -593,7 +593,8 @@ const Casbox = () => {
 
   // Subscribe to real-time Casbox WebSocket messages
   useEffect(() => {
-    if (!stompClient || !isConnected || !stompClient.connected) return;
+    const ws = stompClient?.webSocket;
+    if (!stompClient || !isConnected || !stompClient.connected || !ws || ws.readyState !== WebSocket.OPEN) return;
 
     let subMessages = null;
     let subStatus = null;
@@ -643,8 +644,11 @@ const Casbox = () => {
 
     return () => {
       try {
-        if (subMessages) subMessages.unsubscribe();
-        if (subStatus) subStatus.unsubscribe();
+        const currentWs = stompClient?.webSocket;
+        if (stompClient && stompClient.connected && currentWs && currentWs.readyState === WebSocket.OPEN) {
+          if (subMessages && typeof subMessages.unsubscribe === 'function') subMessages.unsubscribe();
+          if (subStatus && typeof subStatus.unsubscribe === 'function') subStatus.unsubscribe();
+        }
       } catch (e) {}
     };
   }, [stompClient, isConnected, user?.email]);

@@ -19,10 +19,17 @@ export const SocketProvider = ({ children }) => {
     const [stompClient, setStompClient] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
 
+    // Lifecycle, single-timer, and generation tracking refs
+    const clientRef = useRef(null);
+    const generationRef = useRef(0);
+    const reconnectTimerRef = useRef(null);
+    const messageQueueRef = useRef([]);
+    const isAuthenticatedRef = useRef(isAuthenticated);
+    isAuthenticatedRef.current = isAuthenticated;
+
     const handlePersonalNotification = (data) => {
-        // console.log('📩 Personal Notification:', data);
         const { fetchEmails, fetchEmailsSilently } = mailRef.current || {};
-        switch (data.type) {
+        switch (data?.type) {
             case 'new_email':
                 toast('New email received!', { icon: '📧' });
                 if (fetchEmails) fetchEmails(undefined, true);
@@ -40,88 +47,212 @@ export const SocketProvider = ({ children }) => {
                 }
                 break;
             default:
-                toast(data.message || 'Notification received');
+                if (data?.message) {
+                    toast(data.message);
+                }
         }
     };
 
-    useEffect(() => {
-        if (!isAuthenticated) {
-            if (stompClient) {
-                stompClient.deactivate();
-                setStompClient(null);
-            }
-            setIsConnected(false);
-            return;
+    const clearReconnectTimer = useCallback(() => {
+        if (reconnectTimerRef.current) {
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
         }
+    }, []);
+
+    const scheduleReconnect = useCallback(() => {
+        if (!isAuthenticatedRef.current) return;
+        if (reconnectTimerRef.current) return; // Only ONE reconnect timer at a time!
+
+        reconnectTimerRef.current = setTimeout(() => {
+            reconnectTimerRef.current = null;
+            if (isAuthenticatedRef.current) {
+                connectSocket();
+            }
+        }, 5000);
+    }, []);
+
+    const connectSocket = useCallback(() => {
+        if (!isAuthenticatedRef.current) return;
 
         const token = localStorage.getItem('accessToken');
         if (!token) return;
 
-        // console.log('🔄 Attempting standard WebSocket connection to:', WS_URL);
+        // Prevent duplicate connections: check if existing socket is already OPEN or CONNECTING
+        const existingClient = clientRef.current;
+        const existingWs = existingClient?.webSocket;
+        if (existingClient && (existingClient.connected || existingClient.active)) {
+            if (existingWs && (existingWs.readyState === WebSocket.OPEN || existingWs.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+        }
+
+        // Clean up previous client before creating a new one
+        if (existingClient) {
+            try {
+                existingClient.deactivate();
+            } catch (e) {}
+            clientRef.current = null;
+        }
+
+        const currentGen = ++generationRef.current;
 
         const client = new Client({
             brokerURL: WS_URL,
             connectHeaders: {
                 Authorization: `Bearer ${token}`
             },
-            debug: function (str) {
-                // console.log('STOMP:', str);
-            },
-            reconnectDelay: 5000,
+            reconnectDelay: 0, // Disabled built-in loop; controlled by single reconnect timer
             heartbeatIncoming: 10000,
             heartbeatOutgoing: 10000,
-            // Disable SockJS for now to see the raw WebSocket error
-            // webSocketFactory: () => new SockJS(WS_URL.replace('wss://', 'https://')),
+            webSocketFactory: () => {
+                const socket = new WebSocket(WS_URL);
+                const originalSend = socket.send.bind(socket);
+
+                // Safe wrapper: NEVER call socket.send when CONNECTING, CLOSING, or CLOSED
+                socket.send = function (data) {
+                    if (this.readyState === WebSocket.OPEN) {
+                        return originalSend(data);
+                    }
+                };
+
+                return socket;
+            }
         });
 
         client.onConnect = (frame) => {
-            // console.log('🔌 Connected to BNX STOMP Broker');
+            if (currentGen !== generationRef.current) return;
+            clearReconnectTimer();
             setIsConnected(true);
 
             // Subscribe to personal notifications
-            client.subscribe('/user/topic/notifications', (message) => {
-                const data = JSON.parse(message.body);
-                handlePersonalNotification(data);
-            });
+            try {
+                client.subscribe('/user/topic/notifications', (message) => {
+                    try {
+                        const data = JSON.parse(message.body);
+                        handlePersonalNotification(data);
+                    } catch (e) {}
+                });
+            } catch (err) {}
+
+            // Flush message queue once open
+            while (messageQueueRef.current.length > 0) {
+                const queued = messageQueueRef.current.shift();
+                try {
+                    const ws = client.webSocket;
+                    if (client.connected && ws && ws.readyState === WebSocket.OPEN) {
+                        client.publish(queued);
+                    } else {
+                        messageQueueRef.current.unshift(queued);
+                        break;
+                    }
+                } catch (e) {}
+            }
         };
 
         client.onStompError = (frame) => {
-            console.error('Broker reported error: ' + frame.headers['message']);
-            console.error('Additional details: ' + frame.body);
+            if (currentGen !== generationRef.current) return;
+            console.error('STOMP broker reported error:', frame?.headers?.message);
         };
 
         client.onWebSocketError = (event) => {
-            console.warn('WebSocket connection not available:', event?.message || 'Offline');
+            if (currentGen !== generationRef.current) return;
             setIsConnected(false);
+            scheduleReconnect();
         };
 
         client.onWebSocketClose = () => {
+            if (currentGen !== generationRef.current) return;
             setIsConnected(false);
+            scheduleReconnect();
         };
 
         client.onDisconnect = () => {
-            // console.log('🔌 Disconnected from STOMP');
+            if (currentGen !== generationRef.current) return;
             setIsConnected(false);
         };
 
-        client.activate();
+        // Wrap publish method to enforce readyState === WebSocket.OPEN
+        const originalPublish = client.publish.bind(client);
+        client.publish = function (params) {
+            const ws = client.webSocket;
+            if (client.connected && ws && ws.readyState === WebSocket.OPEN) {
+                return originalPublish(params);
+            }
+            if (params) {
+                messageQueueRef.current.push(params);
+            }
+        };
+
+        // Wrap subscribe method so unsubscribe is always safe
+        const originalSubscribe = client.subscribe.bind(client);
+        client.subscribe = function (destination, callback, headers) {
+            const ws = client.webSocket;
+            if (!client.connected || !ws || ws.readyState !== WebSocket.OPEN) {
+                return {
+                    id: null,
+                    unsubscribe: () => {}
+                };
+            }
+            const sub = originalSubscribe(destination, callback, headers);
+            const originalUnsub = sub.unsubscribe.bind(sub);
+            sub.unsubscribe = function (unsubHeaders) {
+                const currentWs = client.webSocket;
+                if (client.connected && currentWs && currentWs.readyState === WebSocket.OPEN) {
+                    try {
+                        return originalUnsub(unsubHeaders);
+                    } catch (err) {}
+                }
+            };
+            return sub;
+        };
+
+        clientRef.current = client;
         setStompClient(client);
 
-        return () => {
-            if (client) client.deactivate();
-        };
-    }, [isAuthenticated]);
+        try {
+            client.activate();
+        } catch (e) {
+            scheduleReconnect();
+        }
+    }, [clearReconnectTimer, scheduleReconnect]);
 
-    const subscribeToChat = React.useCallback((chatId, callback) => {
-        if (!stompClient || !isConnected || !stompClient.connected) return null;
-        if (stompClient.webSocket && stompClient.webSocket.readyState !== WebSocket.OPEN) {
-            if (stompClient.webSocket.readyState === WebSocket.CLOSED || stompClient.webSocket.readyState === WebSocket.CLOSING) {
-                setIsConnected(false);
+    useEffect(() => {
+        if (!isAuthenticated) {
+            clearReconnectTimer();
+            if (clientRef.current) {
+                try {
+                    clientRef.current.deactivate();
+                } catch (e) {}
+                clientRef.current = null;
             }
+            setStompClient(null);
+            setIsConnected(false);
+            messageQueueRef.current = [];
+            return;
+        }
+
+        connectSocket();
+
+        return () => {
+            clearReconnectTimer();
+            if (clientRef.current) {
+                try {
+                    clientRef.current.deactivate();
+                } catch (e) {}
+                clientRef.current = null;
+            }
+        };
+    }, [isAuthenticated, connectSocket, clearReconnectTimer]);
+
+    const subscribeToChat = useCallback((chatId, callback) => {
+        const client = clientRef.current;
+        const ws = client?.webSocket;
+        if (!client || !isConnected || !client.connected || !ws || ws.readyState !== WebSocket.OPEN) {
             return null;
         }
         try {
-            const rawSub = stompClient.subscribe(`/topic/chat/${chatId}`, (message) => {
+            const rawSub = client.subscribe(`/topic/chat/${chatId}`, (message) => {
                 try {
                     const data = JSON.parse(message.body);
                     callback(data);
@@ -134,59 +265,64 @@ export const SocketProvider = ({ children }) => {
                 id: rawSub?.id,
                 unsubscribe: () => {
                     try {
+                        const currentWs = clientRef.current?.webSocket;
                         if (
-                            stompClient && 
-                            stompClient.connected && 
-                            stompClient.webSocket && 
-                            stompClient.webSocket.readyState === WebSocket.OPEN
+                            clientRef.current && 
+                            clientRef.current.connected && 
+                            currentWs && 
+                            currentWs.readyState === WebSocket.OPEN
                         ) {
                             rawSub.unsubscribe();
                         }
-                    } catch (e) {
-                        // Gracefully swallow unsubscribe error on closed/closing socket
-                    }
+                    } catch (e) {}
                 }
             };
         } catch (e) {
             console.error("Failed to subscribe to chat:", e);
             return null;
         }
-    }, [stompClient, isConnected]);
+    }, [isConnected]);
 
     const userEmailOrUsername = user?.email || user?.username;
-    const sendMessage = React.useCallback((chatId, messageContent, attachmentsJson = null) => {
-        if (!stompClient || !isConnected || !userEmailOrUsername || !stompClient.connected) return false;
-        if (stompClient.webSocket && stompClient.webSocket.readyState !== WebSocket.OPEN) {
+    const sendMessage = useCallback((chatId, messageContent, attachmentsJson = null) => {
+        if (!userEmailOrUsername) return false;
+
+        const payload = {
+            chatId: parseInt(chatId),
+            sender: userEmailOrUsername,
+            message: messageContent,
+            attachmentsJson: attachmentsJson
+        };
+
+        const payloadStr = JSON.stringify(payload);
+        if (payloadStr.length > 64 * 1024) {
             return false;
         }
-        
+
+        const client = clientRef.current;
+        const ws = client?.webSocket;
+        const isSocketOpen = client && client.connected && ws && ws.readyState === WebSocket.OPEN;
+
+        const messageData = {
+            destination: '/app/chat.send',
+            body: payloadStr
+        };
+
+        if (!isSocketOpen) {
+            messageQueueRef.current.push(messageData);
+            return true;
+        }
+
         try {
-            const payload = {
-                chatId: parseInt(chatId),
-                sender: userEmailOrUsername,
-                message: messageContent,
-                attachmentsJson: attachmentsJson
-            };
-
-            const payloadStr = JSON.stringify(payload);
-            // STOMP WebSocket text frames have buffer limits (e.g. 64KB).
-            // Prevent oversized frames from crashing the WebSocket connection.
-            if (payloadStr.length > 64 * 1024) {
-                return false;
-            }
-
-            stompClient.publish({
-                destination: '/app/chat.send',
-                body: payloadStr
-            });
+            client.publish(messageData);
             return true;
         } catch (e) {
-            console.error("Failed to send message via STOMP:", e);
+            messageQueueRef.current.push(messageData);
             return false;
         }
-    }, [stompClient, isConnected, userEmailOrUsername]);
+    }, [userEmailOrUsername]);
 
-    const value = React.useMemo(() => ({
+    const value = useMemo(() => ({
         stompClient,
         isConnected,
         subscribeToChat,

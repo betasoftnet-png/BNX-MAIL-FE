@@ -1522,7 +1522,11 @@ const ChatRoom = () => {
     }
 
     return () => {
-      if (subscription) subscription.unsubscribe();
+      try {
+        if (subscription && typeof subscription.unsubscribe === 'function') {
+          subscription.unsubscribe();
+        }
+      } catch (e) {}
     };
   }, [chatId, isConnected, handleIncomingMessage]);
 
