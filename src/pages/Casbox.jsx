@@ -3075,12 +3075,15 @@ const Casbox = () => {
 
     return (
       <div className="flex flex-col h-full bg-[#f8f9fa] dark:bg-[#121212] overflow-hidden">
-        {/* Top Toolbar: Minimal Back (left) and Delete (right) */}
-        <div className="flex items-center justify-between px-6 sm:px-10 py-3.5 border-b border-gray-200/80 dark:border-gray-800 bg-[#f8f9fa] dark:bg-[#121212] shrink-0">
+        {/* Top Toolbar: Minimal Back (left) and Delete (right) - Seamless without bottom border */}
+        <div className="flex items-center justify-between px-6 sm:px-10 py-5 bg-transparent shrink-0">
           <button
             type="button"
-            onClick={() => setSelectedSentDetail(null)}
-            className="flex items-center gap-2 text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer group"
+            onClick={() => {
+              setSelectedSentDetail(null);
+              setSelectedMessage(null);
+            }}
+            className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer group"
             title="Back"
           >
             <MdArrowBack size={20} className="transition-transform group-hover:-translate-x-0.5" />
@@ -3098,56 +3101,56 @@ const Casbox = () => {
             className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
             title="Delete"
           >
-            <MdDeleteOutline size={22} />
+            <MdDeleteOutline size={24} />
           </button>
         </div>
 
         {/* Content Area - Full-screen off-white mail reading layout */}
-        <div className="flex-1 overflow-y-auto px-6 sm:px-10 py-6 pb-12 bg-[#f8f9fa] dark:bg-[#121212]">
+        <div className="flex-1 overflow-y-auto px-6 sm:px-10 py-2 pb-14 bg-[#f8f9fa] dark:bg-[#121212]">
           {/* Message Subject */}
           <div className="max-w-5xl mx-auto w-full mb-6 text-left">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 dark:text-white tracking-tight">
+            <h1 className="text-3xl font-extrabold text-[#0f172a] dark:text-white tracking-tight">
               {subject}
             </h1>
           </div>
 
-          {/* Large Rounded Message Card */}
+          {/* Large Rounded White Message Card */}
           <div className="max-w-5xl mx-auto w-full text-left">
-            <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-2xs p-6 sm:p-8">
+            <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl sm:rounded-3xl border border-gray-100 dark:border-gray-800 shadow-2xs p-6 sm:p-9">
               {/* Header: Avatar, Person Name <email>, From / To, Date + Time */}
-              <div className="flex items-start justify-between gap-4 pb-4">
+              <div className="flex items-start justify-between gap-4 pb-2">
                 {/* Left: Avatar + Names */}
-                <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                  <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-base shrink-0 select-none bg-[#dbeafe] text-[#2563eb] dark:bg-blue-950/60 dark:text-blue-300">
+                <div className="flex items-start gap-4 min-w-0 flex-1">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-base shrink-0 select-none bg-[#e0e7ff] text-[#2563eb] dark:bg-blue-950/60 dark:text-blue-300">
                     {initial}
                   </div>
                   <div className="min-w-0 flex-1">
                     {/* Name <email> */}
-                    <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                    <div className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-1.5 flex-wrap leading-tight">
                       <span>{personDisplayName}</span>
                       {personEmailAddress && (
-                        <span className="text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
+                        <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
                           &lt;{personEmailAddress}&gt;
                         </span>
                       )}
                     </div>
 
                     {/* From: sender */}
-                    <div className="text-xs sm:text-[13px] text-gray-500 dark:text-gray-400 mt-1.5 flex items-baseline gap-1 truncate">
+                    <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-1.5 flex items-baseline gap-1 truncate">
                       <span className="text-gray-400 dark:text-gray-500 font-normal">From:</span>
-                      <span className="text-gray-700 dark:text-gray-300 font-medium truncate">{fromEmail}</span>
+                      <span className="text-gray-600 dark:text-gray-300 font-medium truncate">{fromEmail}</span>
                     </div>
 
                     {/* To: recipient */}
-                    <div className="text-xs sm:text-[13px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-baseline gap-1 truncate">
+                    <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-baseline gap-1 truncate">
                       <span className="text-gray-400 dark:text-gray-500 font-normal">To:</span>
-                      <span className="text-gray-700 dark:text-gray-300 font-medium truncate">{toEmail}</span>
+                      <span className="text-gray-600 dark:text-gray-300 font-medium truncate">{toEmail}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Right: Date + Time + tick status if Sent */}
-                <div className="flex items-center gap-1.5 shrink-0 text-xs sm:text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap pt-0.5">
+                <div className="flex items-center gap-1.5 shrink-0 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap pt-0.5">
                   <span>{timeStr}</span>
                   {isSent && (
                     isSeen ? (
@@ -3164,10 +3167,10 @@ const Casbox = () => {
               </div>
 
               {/* Divider */}
-              <div className="border-t border-gray-100 dark:border-gray-800 my-4" />
+              <div className="border-t border-gray-100 dark:border-gray-800 my-6" />
 
               {/* Message Body Content */}
-              <div className="text-[14px] sm:text-[15px] leading-relaxed text-gray-900 dark:text-gray-100 min-h-[60px] py-1">
+              <div className="text-[15px] sm:text-base leading-relaxed text-gray-900 dark:text-gray-100 min-h-[60px] py-1">
                 {bodyContent.trim().startsWith('<') && bodyContent.includes('</') ? (
                   <div
                     className="prose dark:prose-invert max-w-none break-words"
@@ -3182,63 +3185,66 @@ const Casbox = () => {
 
               {/* Attachments if any */}
               {attachmentFiles && attachmentFiles.length > 0 && (
-                <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-800 dark:text-gray-200 mb-4">
-                    <MdAttachFile size={18} className="text-gray-500 -rotate-45" />
-                    <span>Attachments ({attachmentFiles.length})</span>
-                  </div>
-                  <div className="space-y-3">
-                    {attachmentFiles.map((fileObj, i) => {
-                      const fileName = fileObj.fileName || fileObj.name || (typeof fileObj === 'string' ? fileObj.split('/').pop() : "Attachment");
-                      const ext = fileName?.split('.').pop()?.toLowerCase();
-                      const isPdf = ext === 'pdf';
-                      const fileInfo = getFileIcon(fileName);
-                      const fileSize = fileObj.fileSize || fileObj.size ? formatFileSize(fileObj.fileSize || fileObj.size) : null;
-                      return (
-                        <div
-                          key={fileObj.id || fileObj.fileName || i}
-                          className="flex items-center justify-between gap-4"
-                        >
-                          {/* Attachment Card */}
+                <>
+                  <div className="border-t border-gray-100 dark:border-gray-800 my-6" />
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-100 mb-4">
+                      <MdAttachFile size={18} className="text-gray-700 dark:text-gray-300 -rotate-45" />
+                      <span>Attachments ({attachmentFiles.length})</span>
+                    </div>
+                    <div className="space-y-3">
+                      {attachmentFiles.map((fileObj, i) => {
+                        const fileName = fileObj.fileName || fileObj.name || (typeof fileObj === 'string' ? fileObj.split('/').pop() : "Attachment");
+                        const ext = fileName?.split('.').pop()?.toLowerCase();
+                        const isPdf = ext === 'pdf';
+                        const fileInfo = getFileIcon(fileName);
+                        const fileSize = fileObj.fileSize || fileObj.size ? formatFileSize(fileObj.fileSize || fileObj.size) : null;
+                        return (
                           <div
-                            onClick={() => handlePreviewAttachment(fileObj)}
-                            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-gray-50/90 dark:bg-white/5 border border-gray-200/60 dark:border-gray-800 max-w-xs sm:max-w-sm w-full cursor-pointer hover:bg-gray-100/80 dark:hover:bg-white/10 transition-colors"
+                            key={fileObj.id || fileObj.fileName || i}
+                            className="flex items-center justify-between gap-4"
                           >
-                            {isPdf ? (
-                              <div className="w-9 h-9 rounded-lg bg-[#ef4444] text-white flex items-center justify-center shrink-0 shadow-2xs">
-                                <SiAdobeacrobatreader size={20} />
-                              </div>
-                            ) : (
-                              <div className="w-9 h-9 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center shrink-0 text-lg">
-                                {fileInfo.icon}
-                              </div>
-                            )}
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white truncate">
-                                {fileName}
-                              </span>
-                              {fileSize && (
-                                <span className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-                                  {fileSize}
-                                </span>
+                            {/* Attachment Card */}
+                            <div
+                              onClick={() => handlePreviewAttachment(fileObj)}
+                              className="flex items-center gap-3.5 px-4 py-3 rounded-xl bg-[#f4f5f7] dark:bg-white/5 border border-gray-100/80 dark:border-gray-800 max-w-sm w-full cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                            >
+                              {isPdf ? (
+                                <div className="w-10 h-10 rounded-lg bg-[#ea3829] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                                  <SiAdobeacrobatreader size={22} />
+                                </div>
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center shrink-0 text-lg">
+                                  {fileInfo.icon}
+                                </div>
                               )}
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-semibold text-sm text-gray-900 dark:text-white truncate">
+                                  {fileName}
+                                </span>
+                                {fileSize && (
+                                  <span className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                    {fileSize}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Far-right Download Icon */}
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleDownloadAttachment(fileObj); }}
-                            className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer shrink-0"
-                            title={`Download ${fileName}`}
-                          >
-                            <MdFileDownload size={22} />
-                          </button>
-                        </div>
-                      );
-                    })}
+                            {/* Far-right Download Icon */}
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleDownloadAttachment(fileObj); }}
+                              className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer shrink-0"
+                              title={`Download ${fileName}`}
+                            >
+                              <MdFileDownload size={26} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
 
@@ -3254,7 +3260,7 @@ const Casbox = () => {
                     mode: 'casbox'
                   });
                 }}
-                className="px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm transition-all duration-150 flex items-center gap-2 bg-white dark:bg-[#1e1e1e] border border-gray-200/90 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs text-gray-900 dark:text-gray-100 cursor-pointer"
+                className="px-7 py-2.5 rounded-full font-bold text-sm transition-all duration-150 flex items-center gap-2 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs text-gray-900 dark:text-gray-100 cursor-pointer"
               >
                 <MdReply size={18} />
                 <span>Reply</span>
@@ -3269,7 +3275,7 @@ const Casbox = () => {
                     mode: 'casbox'
                   });
                 }}
-                className="px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm transition-all duration-150 flex items-center gap-2 bg-white dark:bg-[#1e1e1e] border border-gray-200/90 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs text-gray-900 dark:text-gray-100 cursor-pointer"
+                className="px-7 py-2.5 rounded-full font-bold text-sm transition-all duration-150 flex items-center gap-2 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs text-gray-900 dark:text-gray-100 cursor-pointer"
               >
                 <MdForward size={18} />
                 <span>Forward</span>
