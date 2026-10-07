@@ -1877,7 +1877,7 @@ const ChatRoom = () => {
       </div>
 
       {/* Main Split Container */}
-      <div className={`flex-1 flex flex-col md:flex-row overflow-hidden relative p-4 transition-all duration-300 colab-print-container printable-conversation ${isChatPaneOpen ? 'gap-4' : 'gap-0'}`}>
+      <div className={`flex-1 min-h-0 flex flex-col md:flex-row items-stretch overflow-hidden relative p-4 transition-all duration-300 colab-print-container printable-conversation ${isChatPaneOpen ? 'gap-4' : 'gap-0'}`}>
         
         {/* Print-Only Top Header */}
         <div className="hidden print:block w-full border-b border-gray-300 pb-3 mb-6 text-center shrink-0">
@@ -1888,10 +1888,10 @@ const ChatRoom = () => {
 
         {/* Left Side: Professional Broadcast list (60% width) */}
         {chat?.type === 'GROUP' && (
-          <div className={`flex flex-col h-full rounded-2xl border border-gray-200/50 dark:border-gray-800/50 bg-white/60 dark:bg-gray-900/60 shadow-sm overflow-hidden shrink-0 transition-all duration-300 ease-in-out printable-section ${isChatPaneOpen ? 'w-full h-1/2 md:h-full md:w-[60%]' : 'w-full h-full'}`}>
+          <div className={`flex flex-col h-full min-h-0 rounded-2xl border border-gray-200/50 dark:border-gray-800/50 bg-white/60 dark:bg-gray-900/60 shadow-sm overflow-hidden transition-all duration-300 ease-in-out printable-section ${isChatPaneOpen ? 'w-full h-1/2 md:h-full flex-1 md:flex-[3] md:w-0 min-w-0' : 'w-full h-full flex-1 min-w-0'}`}>
             
             {/* Header: Professional Broadcast Title */}
-            <div className="p-4 border-b border-gray-200/50 dark:border-gray-800/50 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02] shrink-0 print:border-none print:bg-transparent print:p-0 print:mb-3">
+            <div className="h-14 min-h-[56px] px-4 border-b border-gray-200/50 dark:border-gray-800/50 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02] shrink-0 print:border-none print:bg-transparent print:p-0 print:mb-3">
               <h3 className="text-sm font-bold flex items-center gap-1.5 print:text-sm print:font-bold print:uppercase print:tracking-wider print:text-black" style={{ color: theme.text }}>
                 <MdEmail size={18} className="text-primary print:hidden" style={{ color: theme.accent }} /> 
                 <span className="print:hidden">Professional Broadcasts ({broadcasts.length})</span>
@@ -1994,10 +1994,10 @@ const ChatRoom = () => {
 
         {/* Right Side: Chat Room / Comments (40% width for GROUP, full width for DIRECT) */}
         <div 
-          className={`flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out bg-white/60 dark:bg-gray-900/60 rounded-2xl shadow-sm border border-gray-200/50 dark:border-gray-800/50 printable-section shrink-0 ${
+          className={`flex flex-col h-full min-h-0 overflow-hidden transition-all duration-300 ease-in-out bg-white/60 dark:bg-gray-900/60 rounded-2xl shadow-sm border border-gray-200/50 dark:border-gray-800/50 printable-section ${
             chat?.type === 'GROUP' 
-              ? (isChatPaneOpen ? 'w-full h-1/2 md:h-full md:w-[40%]' : 'w-0 h-0 md:w-0 md:h-full overflow-hidden') 
-              : 'w-full h-full'
+              ? (isChatPaneOpen ? 'w-full h-1/2 md:h-full flex-1 md:flex-[2] md:w-0 min-w-0' : 'w-0 h-0 md:w-0 md:h-full overflow-hidden border-0 p-0 pointer-events-none opacity-0') 
+              : 'w-full h-full flex-1 min-w-0'
           }`}
           style={{ 
             opacity: chat?.type === 'GROUP' ? (isChatPaneOpen ? 1 : 0) : 1,
@@ -2007,7 +2007,7 @@ const ChatRoom = () => {
         >
           {/* Header: Instant Chat Messages Title (Only when split) */}
           {chat?.type === 'GROUP' && (
-            <div className="p-4 border-b border-gray-200/50 dark:border-gray-800/50 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02] shrink-0 print:border-none print:bg-transparent print:p-0 print:mb-3">
+            <div className="h-14 min-h-[56px] px-4 border-b border-gray-200/50 dark:border-gray-800/50 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02] shrink-0 print:border-none print:bg-transparent print:p-0 print:mb-3">
               <h3 className="text-sm font-bold flex items-center gap-1.5 print:text-sm print:font-bold print:uppercase print:tracking-wider print:text-black" style={{ color: theme.text }}>
                 <MdChat size={18} className="text-primary print:hidden" style={{ color: theme.accent }} /> 
                 <span className="print:hidden">Comments</span>
