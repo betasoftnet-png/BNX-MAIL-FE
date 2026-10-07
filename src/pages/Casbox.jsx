@@ -2446,11 +2446,6 @@ const Casbox = () => {
         ) : activeTab === 'messages' ? (
           filteredIndividualMessages.map((item) => {
             const { msg, id, isSent, contact, chat } = item;
-            const isSelected = selectedMessage && (
-              (selectedMessage.id && msg.id && selectedMessage.id === msg.id) ||
-              (selectedMessage.uid && msg.uid && selectedMessage.uid === msg.uid) ||
-              selectedMessage === msg
-            );
 
             const isUnread = !isSent && isMessageUnread(msg);
 
@@ -2478,19 +2473,8 @@ const Casbox = () => {
             return (
               <div
                 key={id}
-                onClick={() => {
-                  if (!isSent && msg?.id && msg?.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
-                    markMessagesAsSeen([msg.id]);
-                  }
-                  handleSelectMessage(msg);
-                }}
-                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors cursor-pointer relative bg-white dark:bg-[#121212] ${
-                  isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
-                }`}
+                className="group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212]"
               >
-                {isSelected && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
-                )}
 
                 {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] — [Message Preview] */}
                 <div className="flex items-center min-w-0 flex-1 mr-4">
