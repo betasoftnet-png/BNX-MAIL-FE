@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useMail } from "../context/MailContext";
 import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI } from "../services/api";
-import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy } from "react-icons/md";
+import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy } from "react-icons/md";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import logo from "../assets/bnx-remove.png";
@@ -439,13 +439,21 @@ const formatSentDetailDateTime = (timestamp) => {
   if (!date || isNaN(date.getTime()) || date.getTime() === 0) return '';
   return date.toLocaleString('en-US', {
     timeZone: 'Asia/Kolkata',
-    month: '2-digit',
-    day: '2-digit',
+    month: 'short',
+    day: 'numeric',
     year: 'numeric',
-    hour: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
     hour12: true
   }).replace(/[\u202f\u00a0]/g, ' ');
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes || isNaN(bytes)) return '';
+  const num = Number(bytes);
+  if (num < 1024) return `${num} B`;
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(0)} KB`;
+  return `${(num / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 const parseMessageAttachments = (attachmentsJson) => {
@@ -3046,33 +3054,11 @@ const Casbox = () => {
       : (user?.email || msg?.receiverEmail || msg?.receiver || '');
 
     const contactEmail = isSent ? toEmail : fromEmail;
-    const relevantPersonDisplay = getDisplayName(contactEmail, msg) || contactEmail;
+    const personDisplayName = getDisplayName(contactEmail, msg) || (contactEmail.includes('@') ? contactEmail.split('@')[0] : contactEmail);
+    const personEmailAddress = contactEmail;
 
     const initial = getContactInitial(contactEmail, msg);
-    const avatarColorClass = getAvatarColorClass(relevantPersonDisplay || contactEmail);
-
-    const isMsgSystem = typeof fromEmail === 'string' && (
-      fromEmail.toLowerCase().includes("mailer-daemon") || 
-      fromEmail.toLowerCase().includes("postmaster") || 
-      fromEmail.toLowerCase().includes("noreply") ||
-      fromEmail.toLowerCase().includes("no-reply")
-    );
-    const canUnsubscribe = !isSent && fromEmail && !isMsgSystem && (typeof handleUnsubscribe === 'function' || mailAPI?.unsubscribe);
-
-    const handleUnsubscribeContact = async (emailToUnsub) => {
-      if (!emailToUnsub) return;
-      try {
-        if (handleUnsubscribe) {
-          await handleUnsubscribe(emailToUnsub);
-        } else if (mailAPI?.unsubscribe) {
-          await mailAPI.unsubscribe(emailToUnsub);
-          toast.success(`Unsubscribed from ${emailToUnsub}`);
-        }
-      } catch (e) {
-        console.error("Failed to unsubscribe", e);
-        toast.error("Failed to unsubscribe");
-      }
-    };
+    const avatarColorClass = getAvatarColorClass(personDisplayName || contactEmail);
 
     const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
     const subject = (rawSubject && rawSubject.toLowerCase() !== 'null') ? rawSubject : '(No subject)';
@@ -3087,157 +3073,218 @@ const Casbox = () => {
       : (Array.isArray(msg?.attachments) ? msg.attachments : []);
 
     return (
-      <div className="flex flex-col h-full bg-white dark:bg-[#121212] border-l border-gray-100 dark:border-gray-800 overflow-hidden">
-        {/* Header: Back */}
+      <div className="flex flex-col h-full bg-white dark:bg-[#121212] overflow-hidden">
+        {/* Header: Back & Actions */}
         <div
-          className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b shrink-0 bg-white dark:bg-[#121212]"
-          style={{ borderColor: theme?.border || '#e2e8f0' }}
+          className="flex items-center justify-between px-4 sm:px-8 py-3 shrink-0 bg-transparent"
         >
-          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedSentDetail(null)}
+            className="flex items-center gap-2 text-sm sm:text-base font-bold text-gray-800 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer group"
+            title="Back to Messages"
+          >
+            <MdArrowBack size={20} className="transition-transform group-hover:-translate-x-0.5" />
+            <span>Back</span>
+          </button>
+
+          <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
             <button
               type="button"
-              onClick={() => setSelectedSentDetail(null)}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer shrink-0"
-              title="Back"
+              onClick={() => {
+                if (selectedSentDetail?.id) {
+                  setSelectedRowIds(new Set([selectedSentDetail.id]));
+                  setShowDeleteConfirmModal(true);
+                }
+              }}
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
+              title="Delete message"
             >
-              <MdArrowBack size={20} />
+              <MdDeleteOutline size={20} />
             </button>
-            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-              Back
-            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (bodyContent) {
+                  navigator.clipboard.writeText(bodyContent);
+                  toast.success("Copied to clipboard");
+                }
+              }}
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors cursor-pointer"
+              title="More options"
+            >
+              <MdMoreVert size={20} />
+            </button>
           </div>
         </div>
 
-        {/* Content Area - Spacious email reading layout */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-white dark:bg-[#121212]">
-          {/* Large rounded message card */}
-          <div className="max-w-4xl mx-auto bg-white dark:bg-[#1e1e1e] rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-xs sm:shadow-sm p-5 sm:p-7 lg:p-8 text-left">
-            {/* Header: Avatar, Person Email / Name, From / To, Date + Time */}
-            <div className="flex items-start justify-between gap-4 pb-5 border-b border-gray-100 dark:border-gray-800">
-              {/* Left side: [Avatar] Person Email / Name + From / To */}
-              <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center font-bold text-sm sm:text-base shrink-0 select-none ${avatarColorClass}`}>
-                  {initial}
-                </div>
-                <div className="min-w-0 flex-1">
-                  {/* Person Email / Name + optional Unsubscribe */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
-                      {relevantPersonDisplay}
-                    </span>
-                    {canUnsubscribe && (
-                      <button
-                        type="button"
-                        onClick={() => handleUnsubscribeContact(fromEmail)}
-                        className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none"
-                        title="Unsubscribe from this sender"
-                      >
-                        Unsubscribe
-                      </button>
-                    )}
-                  </div>
+        {/* Content Area - Spacious Mail reading layout */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-2 pb-10 bg-white dark:bg-[#121212]">
+          {/* Page Title / Subject */}
+          <div className="max-w-5xl mx-auto w-full pt-1 pb-5">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 dark:text-white tracking-tight">
+              {subject}
+            </h1>
+          </div>
 
-                  {/* From / To information */}
-                  <div className="mt-1 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-baseline gap-1.5 truncate">
-                      <span className="font-medium text-gray-400 dark:text-gray-500 shrink-0">From:</span>
-                      <span className="font-medium text-gray-700 dark:text-gray-300 truncate">{fromEmail}</span>
+          {/* Large Rounded Message Card */}
+          <div className="max-w-5xl mx-auto w-full">
+            <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-2xs p-6 sm:p-7 text-left">
+              {/* Header: Avatar, Person Name <email>, From / To, Date + Time */}
+              <div className="flex items-start justify-between gap-4 pb-4">
+                {/* Left: Avatar + Names */}
+                <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                  <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center font-bold text-sm sm:text-base shrink-0 select-none ${avatarColorClass}`}>
+                    {initial}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    {/* Name <email> */}
+                    <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                      <span>{personDisplayName}</span>
+                      {personEmailAddress && (
+                        <span className="text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
+                          &lt;{personEmailAddress}&gt;
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-baseline gap-1.5 truncate">
-                      <span className="font-medium text-gray-400 dark:text-gray-500 shrink-0">To:</span>
-                      <span className="font-medium text-gray-700 dark:text-gray-300 truncate">{toEmail}</span>
+
+                    {/* From: sender */}
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-baseline gap-1 truncate">
+                      <span className="text-gray-400 dark:text-gray-500 font-normal">From:</span>
+                      <span className="text-gray-700 dark:text-gray-300 font-medium truncate">{fromEmail}</span>
+                    </div>
+
+                    {/* To: recipient */}
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-baseline gap-1 truncate">
+                      <span className="text-gray-400 dark:text-gray-500 font-normal">To:</span>
+                      <span className="text-gray-700 dark:text-gray-300 font-medium truncate">{toEmail}</span>
                     </div>
                   </div>
+                </div>
+
+                {/* Right: Date + Time + tick status if Sent */}
+                <div className="flex items-center gap-1.5 shrink-0 text-xs sm:text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap pt-0.5">
+                  <span>{timeStr}</span>
+                  {isSent && (
+                    isSeen ? (
+                      <span className="text-blue-500 shrink-0 flex items-center ml-1" title="Seen">
+                        <MdDoneAll size={16} />
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center ml-1" title="Sent">
+                        <MdCheck size={16} />
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
 
-              {/* Right side: Date + Time + Status tick if Sent */}
-              <div className="flex items-center gap-2 shrink-0 text-xs sm:text-sm text-gray-400 dark:text-gray-500 pt-0.5 whitespace-nowrap">
-                <span>{timeStr}</span>
-                {isSent && (
-                  isSeen ? (
-                    <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
-                      <MdDoneAll size={16} />
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
-                      <MdCheck size={16} />
-                    </span>
-                  )
+              {/* Divider */}
+              <div className="border-t border-gray-100 dark:border-gray-800 my-4" />
+
+              {/* Message Body Content */}
+              <div className="text-[14px] sm:text-[15px] leading-relaxed text-gray-800 dark:text-gray-200 min-h-[100px] pt-1">
+                {bodyContent.trim().startsWith('<') && bodyContent.includes('</') ? (
+                  <div
+                    className="prose dark:prose-invert max-w-none break-words"
+                    dangerouslySetInnerHTML={{ __html: bodyContent }}
+                  />
+                ) : (
+                  <div className="whitespace-pre-wrap break-words leading-relaxed font-normal">
+                    {bodyContent || <span className="italic text-gray-400">No message content</span>}
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* Subject */}
-            <div className="pt-5 pb-1">
-              <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-                Subject
-              </div>
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-snug">
-                {subject}
-              </h2>
-            </div>
-
-            {/* Horizontal divider */}
-            <div className="border-t border-gray-100 dark:border-gray-800 my-4" />
-
-            {/* Message Body Content */}
-            <div className="text-[14px] sm:text-[15px] leading-relaxed text-gray-800 dark:text-gray-200 min-h-[120px] pt-1">
-              {bodyContent.trim().startsWith('<') && bodyContent.includes('</') ? (
-                <div
-                  className="prose dark:prose-invert max-w-none break-words"
-                  dangerouslySetInnerHTML={{ __html: bodyContent }}
-                />
-              ) : (
-                <div className="whitespace-pre-wrap break-words leading-relaxed">
-                  {bodyContent || <span className="italic text-gray-400">No message content</span>}
+              {/* Attachments if any */}
+              {attachmentFiles && attachmentFiles.length > 0 && (
+                <div className="mt-8 pt-5 border-t border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-800 dark:text-gray-200 mb-3.5">
+                    <MdAttachFile size={18} className="text-gray-500 rotate-45" />
+                    <span>Attachments ({attachmentFiles.length})</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {attachmentFiles.map((fileObj, i) => {
+                      const fileName = fileObj.fileName || fileObj.name || (typeof fileObj === 'string' ? fileObj.split('/').pop() : "Attachment");
+                      const fileInfo = getFileIcon(fileName);
+                      const fileSize = fileObj.fileSize || fileObj.size ? formatFileSize(fileObj.fileSize || fileObj.size) : null;
+                      return (
+                        <div
+                          key={fileObj.id || fileObj.fileName || i}
+                          className="flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-xl bg-gray-50/80 dark:bg-white/5 border border-gray-100 dark:border-gray-800 text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-2xl shrink-0">{fileInfo.icon}</span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-semibold text-gray-900 dark:text-white truncate max-w-[180px] sm:max-w-[220px]">
+                                {fileName}
+                              </span>
+                              {fileSize && (
+                                <span className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+                                  {fileSize}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handlePreviewAttachment(fileObj); }}
+                              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
+                              title="Preview file"
+                            >
+                              <MdRemoveRedEye size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleDownloadAttachment(fileObj); }}
+                              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
+                              title="Download file"
+                            >
+                              <MdFileDownload size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Attachments if any */}
-            {attachmentFiles && attachmentFiles.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800">
-                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                  Attachments ({attachmentFiles.length})
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {attachmentFiles.map((fileObj, i) => {
-                    const fileName = fileObj.fileName || fileObj.name || (typeof fileObj === 'string' ? fileObj.split('/').pop() : "Attachment");
-                    const fileInfo = getFileIcon(fileName);
-                    return (
-                      <div
-                        key={fileObj.id || fileObj.fileName || i}
-                        className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800 text-xs"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-xl shrink-0">{fileInfo.icon}</span>
-                          <span className="font-medium truncate max-w-[160px]">{fileName}</span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handlePreviewAttachment(fileObj); }}
-                            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
-                            title="Preview file"
-                          >
-                            <MdRemoveRedEye size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleDownloadAttachment(fileObj); }}
-                            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
-                            title="Download file"
-                          >
-                            <MdFileDownload size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Bottom Actions: Reply / Forward */}
+            <div className="mt-5 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const replyTo = isSent ? toEmail : fromEmail;
+                  openCompose?.({
+                    to: replyTo,
+                    subject: subject?.startsWith('Re:') ? subject : `Re: ${subject}`,
+                    mode: 'casbox'
+                  });
+                }}
+                className="px-5 py-2 rounded-full font-semibold text-xs sm:text-sm transition-all duration-150 flex items-center gap-2 bg-white dark:bg-[#1e1e1e] border border-gray-200/90 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs text-gray-800 dark:text-gray-200 cursor-pointer"
+              >
+                <MdReply size={16} />
+                <span>Reply</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  openCompose?.({
+                    to: '',
+                    subject: subject?.startsWith('Fwd:') ? subject : `Fwd: ${subject}`,
+                    body: bodyContent,
+                    mode: 'casbox'
+                  });
+                }}
+                className="px-5 py-2 rounded-full font-semibold text-xs sm:text-sm transition-all duration-150 flex items-center gap-2 bg-white dark:bg-[#1e1e1e] border border-gray-200/90 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs text-gray-800 dark:text-gray-200 cursor-pointer"
+              >
+                <MdForward size={16} />
+                <span>Forward</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
