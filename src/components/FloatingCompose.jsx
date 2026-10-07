@@ -1088,7 +1088,7 @@ const FloatingCompose = () => {
               }
             }}
           >
-            {/* Mode Switch: [ Mail ] [ Chat ] */}
+            {/* Mode Switch: [ Mail ] [ Casbox ] */}
             <div 
               className="inline-flex items-center bg-gray-200/90 dark:bg-neutral-700/80 p-0.5 rounded-lg border border-gray-300/40 dark:border-neutral-600/40"
               onClick={(e) => e.stopPropagation()}
@@ -1113,7 +1113,7 @@ const FloatingCompose = () => {
                     : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                 }`}
               >
-                Chat
+                Casbox
               </button>
             </div>
             <div className="flex items-center gap-1">
