@@ -1210,6 +1210,22 @@ const Casbox = () => {
     }
   };
 
+  const handleOpenMessageDetail = useCallback((item) => {
+    if (!item?.msg) return;
+    const { msg, isSent, contact } = item;
+    setOpenMenuId(null);
+    setSelectedMessage(null);
+    if (!isSent && msg?.id && msg?.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
+      markMessagesAsSeen([msg.id]);
+    }
+    setSelectedSentDetail({
+      ...msg,
+      isSent,
+      contactRecipient: contact,
+      direction: isSent ? 'SENT' : 'RECEIVED'
+    });
+  }, [markMessagesAsSeen]);
+
   useEffect(() => {
     if (location.state?.preselectContact && messages.length > 0) {
       const contactEmail = location.state.preselectContact;
@@ -2577,10 +2593,8 @@ const Casbox = () => {
             return (
               <div
                 key={id}
-                onClick={isSent ? () => setSelectedSentDetail({ ...msg, contactRecipient: contact }) : undefined}
-                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] ${
-                  isSent ? 'cursor-pointer' : ''
-                } ${
+                onClick={() => handleOpenMessageDetail(item)}
+                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${
                   selectedSentDetail && (selectedSentDetail.id === msg.id || selectedSentDetail === msg) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                 }`}
               >
@@ -3017,8 +3031,24 @@ const Casbox = () => {
 
   const sentDetailComponent = selectedSentDetail ? (() => {
     const msg = selectedSentDetail;
-    const recipientEmail = msg.receiverEmail || msg.receiver || msg.recipient || msg.contactRecipient || msg.contact || '';
-    const recipientDisplayName = getDisplayName(recipientEmail, msg);
+    const isSent = Boolean(
+      msg?.direction === 'SENT' ||
+      msg?.isSent === true ||
+      isCurrentUser(msg?.senderEmail || msg?.sender)
+    );
+
+    const fromEmail = isSent
+      ? (user?.email || msg?.senderEmail || msg?.sender || '')
+      : (msg?.senderEmail || msg?.sender || msg?.contactRecipient || msg?.contact || '');
+
+    const toEmail = isSent
+      ? (msg?.receiverEmail || msg?.receiver || msg?.recipient || msg?.contactRecipient || msg?.contact || '')
+      : (user?.email || msg?.receiverEmail || msg?.receiver || '');
+
+    const senderPerson = isSent ? (fromEmail || user?.email) : (fromEmail || msg?.contactRecipient || msg?.contact);
+    const initial = getContactInitial(senderPerson, msg);
+    const avatarColorClass = getAvatarColorClass(senderPerson);
+
     const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
     const subject = (rawSubject && rawSubject.toLowerCase() !== 'null') ? rawSubject : '(No subject)';
     const bodyContent = msg?.body || msg?.content || '';
@@ -3056,39 +3086,59 @@ const Casbox = () => {
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white dark:bg-[#121212]">
           {/* Metadata */}
-          <div className="border-b border-gray-100 dark:border-gray-800 pb-5 mb-6 space-y-3">
-            {/* To: */}
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 block mb-1">
-                To:
-              </span>
-              <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
-                {recipientEmail || recipientDisplayName || 'Unknown recipient'}
+          <div className="border-b border-gray-100 dark:border-gray-800 pb-5 mb-6">
+            {/* Avatar / Sender info + From, To, Date/Time */}
+            <div className="flex items-start gap-3.5 mb-4">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 select-none ${avatarColorClass}`}>
+                {initial}
+              </div>
+              <div className="flex-1 min-w-0 space-y-2">
+                {/* From: */}
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 block mb-0.5">
+                    From:
+                  </span>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                    {fromEmail || 'Unknown sender'}
+                  </div>
+                </div>
+
+                {/* To: */}
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 block mb-0.5">
+                    To:
+                  </span>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                    {toEmail || 'Unknown recipient'}
+                  </div>
+                </div>
+
+                {/* Date / Time + Status */}
+                <div className="flex items-center gap-2 pt-0.5 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                  <span>{timeStr}</span>
+                  {isSent && (
+                    isSeen ? (
+                      <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
+                        <MdDoneAll size={16} />
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
+                        <MdCheck size={16} />
+                      </span>
+                    )
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Subject: */}
-            <div>
+            {/* Subject */}
+            <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 block mb-1">
                 Subject:
               </span>
               <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                 {subject}
               </div>
-            </div>
-
-            {/* Date / Time + Status */}
-            <div className="flex items-center gap-2 pt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-              <span>{timeStr}</span>
-              {isSeen ? (
-                <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
-                  <MdDoneAll size={16} />
-                </span>
-              ) : (
-                <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
-                  <MdCheck size={16} />
-                </span>
-              )}
             </div>
           </div>
 
