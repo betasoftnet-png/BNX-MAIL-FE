@@ -482,6 +482,20 @@ const Casbox = () => {
   const isCombineTab = activeTab === 'combine' || activeTab === 'combined';
   const [messagesSearch, setMessagesSearch] = useState("");
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const [deletedMessageIds, setDeletedMessageIds] = useState(() => {
+    try {
+      const s = sessionStorage.getItem('bnx_casbox_deleted_msg_ids');
+      return s ? new Set(JSON.parse(s)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+  const deletedMessageIdsRef = React.useRef(deletedMessageIds);
+  useEffect(() => {
+    deletedMessageIdsRef.current = deletedMessageIds;
+  }, [deletedMessageIds]);
   const [combineSearch, setCombineSearch] = useState("");
   const [combineFilter, setCombineFilter] = useState("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -554,7 +568,11 @@ const Casbox = () => {
     try {
       if (!background && messagesRef.current.length === 0) setLoading(true);
       const res = await casboxAPI.getAllMessages();
-      const msgs = res.data || [];
+      const rawMsgs = res.data || [];
+      const msgs = rawMsgs.filter(m => {
+        const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return !deletedMessageIdsRef.current.has(id) && !deletedMessageIdsRef.current.has(String(id));
+      });
       // Set messages immediately to trigger rendering without intermediate blocking
       setMessages(msgs);
 
@@ -1465,6 +1483,52 @@ const Casbox = () => {
     }
   };
 
+  const handleDeleteSelectedMessages = () => {
+    if (selectedRowIds.size === 0) {
+      setShowDeleteConfirmModal(false);
+      return;
+    }
+
+    try {
+      setIsDeletingSelected(true);
+      const toDeleteSet = new Set(selectedRowIds);
+
+      // Persist deleted message IDs
+      setDeletedMessageIds(prev => {
+        const updated = new Set(prev);
+        toDeleteSet.forEach(id => {
+          updated.add(id);
+          updated.add(String(id));
+        });
+        try {
+          sessionStorage.setItem('bnx_casbox_deleted_msg_ids', JSON.stringify(Array.from(updated)));
+        } catch (e) {}
+        return updated;
+      });
+
+      // Filter out deleted messages from local state immediately
+      setMessages(prev => prev.filter(m => {
+        const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return !toDeleteSet.has(id) && !toDeleteSet.has(String(id));
+      }));
+
+      // Also filter threadMessages if active
+      setThreadMessages(prev => prev.filter(m => {
+        const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return !toDeleteSet.has(id) && !toDeleteSet.has(String(id));
+      }));
+
+      setSelectedRowIds(new Set());
+      setShowDeleteConfirmModal(false);
+      toast.success(toDeleteSet.size === 1 ? "Message deleted" : `${toDeleteSet.size} messages deleted`);
+    } catch (err) {
+      console.error("Failed to delete selected messages", err);
+      toast.error("Failed to delete selected messages");
+    } finally {
+      setIsDeletingSelected(false);
+    }
+  };
+
   const handleToggleStarChat = async () => {
     if (!selectedMessage) return;
     const targetId = selectedMessage.uid || selectedMessage.id;
@@ -1765,6 +1829,7 @@ const Casbox = () => {
       (grp.messages || []).forEach((msg) => {
         const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
         if (seenIds.has(id)) return;
+        if (deletedMessageIds.has(id) || deletedMessageIds.has(String(id))) return;
         seenIds.add(id);
 
         const sender = normalizeEmail(msg.senderEmail || msg.sender);
@@ -1786,7 +1851,7 @@ const Casbox = () => {
 
     list.sort((a, b) => b.timestampMs - a.timestampMs);
     return list;
-  }, [messagesConversations, isCurrentUser]);
+  }, [messagesConversations, isCurrentUser, deletedMessageIds]);
 
   const filteredIndividualMessages = useMemo(() => {
     if (!individualMessagesList || individualMessagesList.length === 0) return [];
@@ -2035,7 +2100,7 @@ const Casbox = () => {
             )}
           </button>
           <button
-            onClick={() => { setActiveTab('combine'); setSelectedMessage(null); }}
+            onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedRowIds(new Set()); }}
             className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.combine', 'Combine')}
@@ -2046,7 +2111,7 @@ const Casbox = () => {
             )}
           </button>
           <button
-            onClick={() => { setActiveTab('requests'); setSelectedMessage(null); }}
+            onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedRowIds(new Set()); }}
             className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.requests', 'Requests')}
@@ -2066,6 +2131,7 @@ const Casbox = () => {
               if (showArchive && activeTab === 'archive') {
                 setActiveTab('messages');
                 setSelectedMessage(null);
+                setSelectedRowIds(new Set());
               }
               setShowArchive(prev => !prev);
             }}
@@ -2077,7 +2143,7 @@ const Casbox = () => {
           </button>
           {showArchive && (
             <button
-              onClick={() => { setActiveTab('archive'); setSelectedMessage(null); }}
+              onClick={() => { setActiveTab('archive'); setSelectedMessage(null); setSelectedRowIds(new Set()); }}
               className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 animate-in fade-in duration-150 ${activeTab === 'archive' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
               title={t('sidebar.archive', 'Archive')}
             >
@@ -2092,6 +2158,20 @@ const Casbox = () => {
         </div>
 
         <div className="flex-1"></div>
+
+        {/* Selected Messages Delete Action */}
+        {activeTab === 'messages' && selectedRowIds.size > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirmModal(true)}
+            className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 transition-all flex items-center gap-1.5 mr-2 cursor-pointer shadow-xs animate-in fade-in duration-150"
+            title={`Delete ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
+            aria-label="Delete selected messages"
+          >
+            <MdDeleteOutline size={18} />
+            <span className="hidden sm:inline">Delete</span>
+          </button>
+        )}
 
         {/* Connections Button */}
         <div className="relative mr-1.5" ref={connectionsRef}>
@@ -3556,6 +3636,52 @@ const Casbox = () => {
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   )}
                   Disconnect
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showDeleteConfirmModal && (
+          <div
+            className="fixed inset-0 bg-black/60 z-[2000] flex items-center justify-center animate-fade-in p-4 backdrop-blur-sm"
+            onClick={() => {
+              if (!isDeletingSelected) setShowDeleteConfirmModal(false);
+            }}
+          >
+            <div
+              className="bg-white dark:bg-[#1e1e1e] rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden p-6 border border-gray-100 dark:border-gray-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4 mx-auto">
+                <MdDeleteOutline size={26} />
+              </div>
+
+              <h3 className="font-bold text-lg text-center text-gray-900 dark:text-white mb-2">
+                Delete selected message{selectedRowIds.size > 1 ? 's' : ''}?
+              </h3>
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400 mb-6">
+                Are you sure you want to delete {selectedRowIds.size === 1 ? 'this message' : `these ${selectedRowIds.size} messages`}? This action cannot be undone.
+              </p>
+
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  disabled={isDeletingSelected}
+                  onClick={() => setShowDeleteConfirmModal(false)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingSelected}
+                  onClick={handleDeleteSelectedMessages}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeletingSelected && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
+                  Delete
                 </button>
               </div>
             </div>
