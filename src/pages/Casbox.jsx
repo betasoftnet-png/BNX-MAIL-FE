@@ -2228,39 +2228,21 @@ const Casbox = () => {
 
                   {/* Status Indicator */}
                   {(() => {
-                    const status = typeof msg?.status === 'string' ? msg.status.toUpperCase() : '';
-                    if (isSent) {
-                      if (status === 'SEEN') {
-                        return (
-                          <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
-                            <MdDoneAll size={16} />
-                          </span>
-                        );
-                      }
-                      if (status === 'DELIVERED') {
-                        return (
-                          <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Delivered">
-                            <MdDoneAll size={16} />
-                          </span>
-                        );
-                      }
-                      return (
-                        <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
-                          <MdCheck size={16} />
-                        </span>
-                      );
-                    }
+                    const isSentMsg = Boolean(isSent || isCurrentUser(msg?.senderEmail || msg?.sender));
+                    if (!isSentMsg) return null;
 
-                    // Received message: single check when unread, double blue check when seen
-                    if (status === 'SEEN') {
+                    const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
+                    const isRead = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+
+                    if (isRead) {
                       return (
-                        <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
+                        <span className="text-blue-500 shrink-0 flex items-center" title="Read">
                           <MdDoneAll size={16} />
                         </span>
                       );
                     }
                     return (
-                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Unread">
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
                         <MdCheck size={16} />
                       </span>
                     );
