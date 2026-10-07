@@ -3108,16 +3108,16 @@ const Casbox = () => {
         {/* Content Area - Full-screen off-white mail reading layout */}
         <div className="flex-1 overflow-y-auto px-6 sm:px-10 py-2 pb-14 bg-[#f8f9fa] dark:bg-[#121212]">
           {/* Message Subject */}
-          <div className="max-w-5xl mx-auto w-full mb-6 text-left">
+          <div className="w-full mb-6 text-left">
             <h1 className="text-3xl font-extrabold text-[#0f172a] dark:text-white tracking-tight">
               {subject}
             </h1>
           </div>
 
           {/* Large Rounded White Message Card */}
-          <div className="max-w-5xl mx-auto w-full text-left">
-            <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl sm:rounded-3xl border border-gray-100 dark:border-gray-800 shadow-2xs p-6 sm:p-9">
-              {/* Header: Avatar, Person Name <email>, From / To, Date + Time */}
+          <div className="w-full text-left">
+            <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl sm:rounded-3xl border border-gray-100 dark:border-gray-800 shadow-2xs p-6 sm:p-9 w-full">
+              {/* Header: Avatar, Person Name <email>, To: receiver, Date + Time */}
               <div className="flex items-start justify-between gap-4 pb-2">
                 {/* Left: Avatar + Names */}
                 <div className="flex items-start gap-4 min-w-0 flex-1">
@@ -3135,14 +3135,8 @@ const Casbox = () => {
                       )}
                     </div>
 
-                    {/* From: sender */}
+                    {/* To: recipient (From removed as specified) */}
                     <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-1.5 flex items-baseline gap-1 truncate">
-                      <span className="text-gray-400 dark:text-gray-500 font-normal">From:</span>
-                      <span className="text-gray-600 dark:text-gray-300 font-medium truncate">{fromEmail}</span>
-                    </div>
-
-                    {/* To: recipient */}
-                    <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-baseline gap-1 truncate">
                       <span className="text-gray-400 dark:text-gray-500 font-normal">To:</span>
                       <span className="text-gray-600 dark:text-gray-300 font-medium truncate">{toEmail}</span>
                     </div>
