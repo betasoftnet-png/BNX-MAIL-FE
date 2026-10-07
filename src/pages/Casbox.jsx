@@ -2008,7 +2008,8 @@ const Casbox = () => {
               setShowConnectionsModal(prev => !prev);
               if (!showConnectionsModal) fetchConnections();
             }}
-            className="px-4 py-1.5 rounded-full text-sm font-bold text-white transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:shadow active:scale-95 bg-[#0b3b95] hover:bg-[#082e75] dark:bg-[#1048b0] dark:hover:bg-[#0d3ea8]"
+            className="px-4 py-1.5 rounded-full text-sm font-bold text-white transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:opacity-90 active:scale-95 bg-[#195bac]"
+            style={{ backgroundColor: "#195bac" }}
             title="Connections"
             aria-label="Connections"
           >
