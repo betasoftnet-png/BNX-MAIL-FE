@@ -434,6 +434,20 @@ const formatCashboxTime = (timestamp) => {
   }).replace(/[\u202f\u00a0]/g, ' ');
 };
 
+const formatSentDetailDateTime = (timestamp) => {
+  const date = parseTimestamp(timestamp);
+  if (!date || isNaN(date.getTime()) || date.getTime() === 0) return '';
+  return date.toLocaleString('en-US', {
+    timeZone: 'Asia/Kolkata',
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).replace(/[\u202f\u00a0]/g, ' ');
+};
+
 const parseMessageAttachments = (attachmentsJson) => {
   if (!attachmentsJson) return [];
   if (Array.isArray(attachmentsJson)) return attachmentsJson;
@@ -477,6 +491,7 @@ const Casbox = () => {
   const [loading, setLoading] = useState(true);
 
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [selectedSentDetail, setSelectedSentDetail] = useState(null);
 
   const [activeTab, setActiveTab] = useState('messages');
   const isCombineTab = activeTab === 'combine' || activeTab === 'combined';
@@ -1186,6 +1201,7 @@ const Casbox = () => {
 
   const handleSelectMessage = (msg) => {
     setOpenMenuId(null);
+    setSelectedSentDetail(null);
     setSelectedMessage(msg || null);
     if (msg && !isCurrentUser(msg.senderEmail || msg.sender)) {
       if (msg.id && msg.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
@@ -1517,6 +1533,13 @@ const Casbox = () => {
         const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
         return !toDeleteSet.has(id) && !toDeleteSet.has(String(id));
       }));
+
+      if (selectedSentDetail) {
+        const detailId = selectedSentDetail.id || selectedSentDetail.uid || `${selectedSentDetail.timestamp}-${selectedSentDetail.senderEmail || selectedSentDetail.sender}-${selectedSentDetail.receiverEmail || selectedSentDetail.receiver}-${selectedSentDetail.body}`;
+        if (toDeleteSet.has(detailId) || toDeleteSet.has(String(detailId))) {
+          setSelectedSentDetail(null);
+        }
+      }
 
       setSelectedRowIds(new Set());
       setShowDeleteConfirmModal(false);
@@ -2089,7 +2112,7 @@ const Casbox = () => {
       <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2 shrink-0 bg-transparent">
         <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg shrink-0">
           <button
-            onClick={() => { setActiveTab('messages'); setSelectedMessage(null); }}
+            onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); }}
             className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'messages' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.messages', 'Messages')}
@@ -2100,7 +2123,7 @@ const Casbox = () => {
             )}
           </button>
           <button
-            onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedRowIds(new Set()); }}
+            onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); }}
             className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.combine', 'Combine')}
@@ -2111,7 +2134,7 @@ const Casbox = () => {
             )}
           </button>
           <button
-            onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedRowIds(new Set()); }}
+            onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); }}
             className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.requests', 'Requests')}
@@ -2131,6 +2154,7 @@ const Casbox = () => {
               if (showArchive && activeTab === 'archive') {
                 setActiveTab('messages');
                 setSelectedMessage(null);
+                setSelectedSentDetail(null);
                 setSelectedRowIds(new Set());
               }
               setShowArchive(prev => !prev);
@@ -2143,7 +2167,7 @@ const Casbox = () => {
           </button>
           {showArchive && (
             <button
-              onClick={() => { setActiveTab('archive'); setSelectedMessage(null); setSelectedRowIds(new Set()); }}
+              onClick={() => { setActiveTab('archive'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); }}
               className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 animate-in fade-in duration-150 ${activeTab === 'archive' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
               title={t('sidebar.archive', 'Archive')}
             >
@@ -2553,7 +2577,12 @@ const Casbox = () => {
             return (
               <div
                 key={id}
-                className="group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212]"
+                onClick={isSent ? () => setSelectedSentDetail({ ...msg, contactRecipient: contact }) : undefined}
+                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] ${
+                  isSent ? 'cursor-pointer' : ''
+                } ${
+                  selectedSentDetail && (selectedSentDetail.id === msg.id || selectedSentDetail === msg) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                }`}
               >
 
                 {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] — [Message Preview] */}
@@ -2986,6 +3015,145 @@ const Casbox = () => {
     );
   };
 
+  const sentDetailComponent = selectedSentDetail ? (() => {
+    const msg = selectedSentDetail;
+    const recipientEmail = msg.receiverEmail || msg.receiver || msg.recipient || msg.contactRecipient || msg.contact || '';
+    const recipientDisplayName = getDisplayName(recipientEmail, msg);
+    const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
+    const subject = (rawSubject && rawSubject.toLowerCase() !== 'null') ? rawSubject : '(No subject)';
+    const bodyContent = msg?.body || msg?.content || '';
+    const timeStr = formatSentDetailDateTime(msg?.timestamp) || formatCashboxTime(msg?.timestamp);
+
+    const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
+    const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+
+    const attachmentFiles = msg?.attachmentsJson
+      ? parseMessageAttachments(msg.attachmentsJson)
+      : (Array.isArray(msg?.attachments) ? msg.attachments : []);
+
+    return (
+      <div className="flex flex-col h-full bg-white dark:bg-[#121212] border-l border-gray-100 dark:border-gray-800 overflow-hidden">
+        {/* Header: Back */}
+        <div
+          className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b shrink-0 bg-white dark:bg-[#121212]"
+          style={{ borderColor: theme?.border || '#e2e8f0' }}
+        >
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedSentDetail(null)}
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer shrink-0"
+              title="Back"
+            >
+              <MdArrowBack size={20} />
+            </button>
+            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+              Back
+            </span>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white dark:bg-[#121212]">
+          {/* Metadata */}
+          <div className="border-b border-gray-100 dark:border-gray-800 pb-5 mb-6 space-y-3">
+            {/* To: */}
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 block mb-1">
+                To:
+              </span>
+              <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
+                {recipientEmail || recipientDisplayName || 'Unknown recipient'}
+              </div>
+            </div>
+
+            {/* Subject: */}
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 block mb-1">
+                Subject:
+              </span>
+              <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                {subject}
+              </div>
+            </div>
+
+            {/* Date / Time + Status */}
+            <div className="flex items-center gap-2 pt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+              <span>{timeStr}</span>
+              {isSeen ? (
+                <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
+                  <MdDoneAll size={16} />
+                </span>
+              ) : (
+                <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
+                  <MdCheck size={16} />
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Message Body Content */}
+          <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-normal min-h-[140px]">
+            {bodyContent.trim().startsWith('<') && bodyContent.includes('</') ? (
+              <div
+                className="prose dark:prose-invert max-w-none break-words"
+                dangerouslySetInnerHTML={{ __html: bodyContent }}
+              />
+            ) : (
+              <div className="whitespace-pre-wrap break-words leading-relaxed">
+                {bodyContent || <span className="italic text-gray-400">No message content</span>}
+              </div>
+            )}
+          </div>
+
+          {/* Attachments if any */}
+          {attachmentFiles && attachmentFiles.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800">
+              <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                Attachments ({attachmentFiles.length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {attachmentFiles.map((fileObj, i) => {
+                  const fileName = fileObj.fileName || fileObj.name || (typeof fileObj === 'string' ? fileObj.split('/').pop() : "Attachment");
+                  const fileInfo = getFileIcon(fileName);
+                  return (
+                    <div
+                      key={fileObj.id || fileObj.fileName || i}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-xl shrink-0">{fileInfo.icon}</span>
+                        <span className="font-medium truncate max-w-[160px]">{fileName}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handlePreviewAttachment(fileObj); }}
+                          className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
+                          title="Preview file"
+                        >
+                          <MdRemoveRedEye size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDownloadAttachment(fileObj); }}
+                          className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
+                          title="Download file"
+                        >
+                          <MdFileDownload size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  })() : null;
+
   const detailsComponent = selectedMessage ? (() => {
     const otherUserEmail = getOtherUserEmail(selectedMessage);
     const otherNorm = normalizeEmail(otherUserEmail);
@@ -3328,10 +3496,10 @@ const Casbox = () => {
       <div className="flex flex-col h-full w-full bg-white dark:bg-[#121212] relative overflow-hidden">
         <ReadingPaneLayout
           mode={readingPaneMode || 'no_split'}
-          hasSelection={!!selectedMessage}
+          hasSelection={Boolean(selectedSentDetail || selectedMessage)}
           headerComponent={headerComponent}
           listComponent={listComponent}
-          detailsComponent={detailsComponent}
+          detailsComponent={selectedSentDetail ? sentDetailComponent : detailsComponent}
         />
 
         {previewFile && (
