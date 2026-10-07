@@ -481,12 +481,25 @@ const Casbox = () => {
   const [activeTab, setActiveTab] = useState('messages');
   const isCombineTab = activeTab === 'combine' || activeTab === 'combined';
   const [messagesSearch, setMessagesSearch] = useState("");
+  const [selectedRowIds, setSelectedRowIds] = useState(new Set());
   const [combineSearch, setCombineSearch] = useState("");
   const [combineFilter, setCombineFilter] = useState("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [openCombineMenuId, setOpenCombineMenuId] = useState(null);
   const filterMenuRef = React.useRef(null);
   const combineMenuRef = React.useRef(null);
+
+  const toggleSelectRow = useCallback((rowId) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) {
+        next.delete(rowId);
+      } else {
+        next.add(rowId);
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -2390,6 +2403,11 @@ const Casbox = () => {
               ? (msg?.receiverEmail || msg?.receiver || otherEmail)
               : (msg?.senderEmail || msg?.sender || otherEmail);
             const personName = getDisplayName(personEmail, msg) || personEmail;
+            const initial = getContactInitial(personEmail, msg);
+            const avatarColorClass = getAvatarColorClass(personName || personEmail);
+
+            const rowId = chat.contact || otherEmail;
+            const isChecked = selectedRowIds.has(rowId);
 
             // Subject: Show if present and not empty
             const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
@@ -2415,17 +2433,36 @@ const Casbox = () => {
                   <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
                 )}
 
-                {/* Left side: [Sender] [Subject] [Message Content Preview] */}
+                {/* Left side: [Checkbox] [Avatar] [Name] [Message Preview] */}
                 <div className="flex items-center min-w-0 flex-1 mr-4">
-                  {/* Sender */}
-                  <span className={`w-32 sm:w-44 lg:w-52 text-xs sm:text-sm truncate shrink-0 select-none ${
+                  {/* Checkbox */}
+                  <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleSelectRow(rowId);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-3 sm:mr-3.5 ${avatarColorClass}`}>
+                    {initial}
+                  </div>
+
+                  {/* Name */}
+                  <span className={`w-32 sm:w-44 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-3 sm:mr-4 ${
                     unreadCount > 0 ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
                   }`}>
                     {personName}
                   </span>
 
-                  {/* Subject and Content Preview */}
-                  <div className="flex items-center min-w-0 flex-1 ml-2 sm:ml-4">
+                  {/* Message Content Preview (Subject + Body) */}
+                  <div className="flex items-center min-w-0 flex-1">
                     {subject && (
                       <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[130px] sm:max-w-[200px] mr-2 ${
                         unreadCount > 0 ? 'font-bold' : 'font-semibold'
