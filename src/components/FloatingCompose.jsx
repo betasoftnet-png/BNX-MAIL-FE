@@ -170,16 +170,16 @@ const FloatingCompose = () => {
   const isReply = !!(composeData?.replyTo || composeData?.forward);
   const fileInputRef = useRef(null);
 
-  const [composeMode, setComposeMode] = useState("email"); // "email" or "casbox"
+  const [composeMode, setComposeMode] = useState("mail"); // "chat" or "mail"
 
   // Sync mode if opened with data or if currently on chat page
   useEffect(() => {
       if (composeData?.mode) {
-          setComposeMode(composeData.mode);
+          setComposeMode(composeData.mode === "casbox" || composeData.mode === "chat" ? "chat" : "mail");
       } else if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/colab') || window.location.pathname.startsWith('/chat') || window.location.pathname.startsWith('/casbox'))) {
-          setComposeMode("casbox");
+          setComposeMode("chat");
       } else {
-          setComposeMode("email");
+          setComposeMode("mail");
       }
   }, [composeData, isComposeOpen]);
 
@@ -479,7 +479,7 @@ const FloatingCompose = () => {
               subject: composeData.subject || "",
               body: composeData.forward
                 ? getOriginalEmailContentHTML(composeData.originalEmail)
-                : (composeData.originalBody && composeData.mode !== 'casbox'
+                : (composeData.originalBody && composeData.mode !== 'casbox' && composeData.mode !== 'chat'
                     ? `<br/><br/><div>--- Original Message ---<br/>${composeData.originalBody.replace(/\n/g, '<br/>')}</div>`
                     : ""),
             });
@@ -641,7 +641,7 @@ const FloatingCompose = () => {
       return;
     }
 
-    if (composeMode === "casbox") {
+    if (composeMode === "chat" || composeMode === "casbox") {
         if (!formData.body && attachments.length === 0) {
            setError("Message text or attachment is required");
            sendingRef.current = false;
@@ -649,7 +649,7 @@ const FloatingCompose = () => {
            return;
         }
         try {
-            // Strip HTML but preserve newlines for casbox
+            // Strip HTML but preserve newlines for casbox/chat
             let rawHtml = formData.body || "";
             // Replace common block elements and breaks with newlines
             rawHtml = rawHtml.replace(/<br\s*[\/]?>/gi, '\n')
@@ -668,13 +668,13 @@ const FloatingCompose = () => {
                 body: bodyToSend,
                 attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : null
             });
-            toast.success("Casbox Message sent.");
+            toast.success("Chat message sent.");
             closeCompose();
             window.dispatchEvent(new CustomEvent('casbox_message_sent', { 
                 detail: { receiverEmail: formData.to.trim(), message: res.data } 
             }));
         } catch(err) {
-            setError(err.response?.data?.message || "Failed to send casbox message");
+            setError(err.response?.data?.message || "Failed to send chat message");
             toast.error("Failed to send message");
         } finally {
             sendingRef.current = false;
@@ -903,7 +903,7 @@ const FloatingCompose = () => {
 
   const handleClose = () => {
     const hasContent = formData.to.trim() || formData.subject.trim() || formData.body.trim() || formData.cc.trim() || formData.bcc.trim();
-    if (hasContent && composeMode === "email") {
+    if (hasContent && (composeMode === "mail" || composeMode === "email")) {
       const payload = {
         to: formData.to,
         subject: formData.subject || "(No Subject)",
@@ -1088,9 +1088,34 @@ const FloatingCompose = () => {
               }
             }}
           >
-            <span className="font-semibold text-sm text-gray-800 dark:text-gray-100">
-              {composeMode === "casbox" ? t('casbox.new_broadcast', "New Casbox Broadcast") : (composeData?.draft ? t('compose.edit_draft', "Edit Draft") : t('compose.new_message', "New Message"))}
-            </span>
+            {/* Mode Switch: [ Chat ] [ Mail ] */}
+            <div 
+              className="inline-flex items-center bg-gray-200/90 dark:bg-neutral-700/80 p-0.5 rounded-lg border border-gray-300/40 dark:border-neutral-600/40"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setComposeMode("chat")}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                  composeMode === "chat" || composeMode === "casbox"
+                    ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setComposeMode("mail")}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                  composeMode === "mail" || composeMode === "email"
+                    ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                Mail
+              </button>
+            </div>
             <div className="flex items-center gap-1">
               {!isMobile && (
                 <button
@@ -1142,7 +1167,7 @@ const FloatingCompose = () => {
           {/* FIELDS */}
           <div className="flex-1 flex flex-col gap-0.5 overflow-y-auto hidden-scrollbar min-h-0 pr-1">
             {/* Cc & Bcc toggles */}
-            {!isReply && composeMode === "email" && (
+            {!isReply && (composeMode === "mail" || composeMode === "email") && (
               <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
                 <div className="text-gray-400 dark:text-gray-500 w-10">{t('compose.to', 'To')}</div>
                 <input
@@ -1164,7 +1189,7 @@ const FloatingCompose = () => {
                 </div>
               </div>
             )}
-            {!isReply && composeMode === "casbox" && (
+            {!isReply && (composeMode === "chat" || composeMode === "casbox") && (
               <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
                 <div className="text-gray-400 dark:text-gray-500 w-10">To</div>
                 <input
@@ -1172,7 +1197,7 @@ const FloatingCompose = () => {
                   name="to"
                   autoFocus
                   className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                  placeholder="Casbox Contact Email"
+                  placeholder="Chat / Casbox Recipient (Email or Username)"
                   value={formData.to}
                   onChange={handleChange}
                 />
@@ -1180,7 +1205,7 @@ const FloatingCompose = () => {
             )}
 
             {/* CC */}
-            {!isReply && showCc && composeMode === "email" && (
+            {!isReply && showCc && (composeMode === "mail" || composeMode === "email") && (
               <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
                 <div className="text-gray-400 dark:text-gray-500 w-10">Cc:</div>
                 <input
@@ -1198,7 +1223,7 @@ const FloatingCompose = () => {
             )}
 
             {/* BCC */}
-            {!isReply && showBcc && composeMode === "email" && (
+            {!isReply && showBcc && (composeMode === "mail" || composeMode === "email") && (
               <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
                 <div className="text-gray-400 dark:text-gray-500 w-10">Bcc:</div>
                 <input
@@ -1293,7 +1318,7 @@ const FloatingCompose = () => {
                     >
                       {sending ? t('compose.sending', 'Sending...') : t('compose.send_email', 'Send')}
                     </button>
-                    {composeMode === "email" && (
+                    {(composeMode === "mail" || composeMode === "email") && (
                       <button
                         type="button"
                         disabled={sending || uploading}
@@ -1505,7 +1530,7 @@ const FloatingCompose = () => {
                       {sending ? t('compose.sending', 'Sending...') : t('compose.send_email', 'Send')}
                       {!sending && <MdSend size={14} />}
                     </button>
-                    {composeMode === "email" && (
+                    {(composeMode === "mail" || composeMode === "email") && (
                       <button
                         type="button"
                         disabled={sending || uploading}
@@ -1621,7 +1646,7 @@ const FloatingCompose = () => {
                   </button>
 
                   {/* Signatures quick selector */}
-                  {composeMode === "email" && (
+                  {(composeMode === "mail" || composeMode === "email") && (
                     <div className="relative">
                       <button
                         type="button"
@@ -1678,7 +1703,7 @@ const FloatingCompose = () => {
                   )}
 
                   {/* Inline Templates quick selector */}
-                  {composeMode === "email" && (
+                  {(composeMode === "mail" || composeMode === "email") && (
                     <div className="relative">
                       <button
                         type="button"

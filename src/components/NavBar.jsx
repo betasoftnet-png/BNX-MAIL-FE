@@ -210,7 +210,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
           {/* COMPOSE (Hidden on mobile/tablet, shown as floating button instead) */}
           <button
-            onClick={() => openCompose(currentTab === 'chat' ? { mode: 'casbox' } : null)}
+            onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
             className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 md:px-4 py-1.5 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 ml-1.5 sm:ml-3 md:ml-6 lg:ml-10 xl:ml-16 shrink-0 cursor-pointer"
           >
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent || "#135bec" }}>
