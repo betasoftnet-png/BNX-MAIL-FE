@@ -509,6 +509,9 @@ const Casbox = () => {
       if (combineMenuRef.current && !combineMenuRef.current.contains(e.target)) {
         setOpenCombineMenuId(null);
       }
+      if (listMenuRef.current && !listMenuRef.current.contains(e.target)) {
+        setOpenMenuId(null);
+      }
     };
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
@@ -1752,6 +1755,59 @@ const Casbox = () => {
     };
   }, [messages, blockedContacts, acceptedContacts, connections, acceptedSet, activeTab, user, isMessageUnread, isCurrentUser]);
 
+  // Individual messages list for the Messages tab (every message = one row, not grouped by person)
+  const individualMessagesList = useMemo(() => {
+    if (!messagesConversations || messagesConversations.length === 0) return [];
+    const list = [];
+    const seenIds = new Set();
+
+    messagesConversations.forEach((grp) => {
+      (grp.messages || []).forEach((msg) => {
+        const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
+        if (seenIds.has(id)) return;
+        seenIds.add(id);
+
+        const sender = normalizeEmail(msg.senderEmail || msg.sender);
+        const isMe = isCurrentUser(sender);
+        const otherEmail = isMe 
+          ? (msg.receiverEmail || msg.receiver || grp.contact) 
+          : (msg.senderEmail || msg.sender || grp.contact);
+
+        list.push({
+          msg,
+          id,
+          isSent: isMe,
+          contact: otherEmail,
+          timestampMs: getTimestampMs(msg.timestamp),
+          chat: grp,
+        });
+      });
+    });
+
+    list.sort((a, b) => b.timestampMs - a.timestampMs);
+    return list;
+  }, [messagesConversations, isCurrentUser]);
+
+  const filteredIndividualMessages = useMemo(() => {
+    if (!individualMessagesList || individualMessagesList.length === 0) return [];
+    if (!messagesSearch.trim()) return individualMessagesList;
+    const q = messagesSearch.toLowerCase().trim();
+    return individualMessagesList.filter((item) => {
+      const msg = item.msg;
+      const personEmail = item.contact;
+      const personName = getDisplayName(personEmail, msg) || personEmail;
+      const subject = typeof msg?.subject === 'string' ? msg.subject : '';
+      const body = typeof msg?.body === 'string' ? msg.body : (typeof msg?.content === 'string' ? msg.content : '');
+
+      return (
+        personName.toLowerCase().includes(q) ||
+        personEmail.toLowerCase().includes(q) ||
+        subject.toLowerCase().includes(q) ||
+        body.toLowerCase().includes(q)
+      );
+    });
+  }, [individualMessagesList, messagesSearch, isCurrentUser, getDisplayName]);
+
   const filteredConversationList = useMemo(() => {
     if (!conversationList || conversationList.length === 0) return [];
     if (!messagesSearch.trim()) return conversationList;
@@ -2364,12 +2420,12 @@ const Casbox = () => {
 
       {/* Messages List Area */}
       <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent">
-        {loading && filteredConversationList.length === 0 ? (
+        {loading && (activeTab === 'messages' ? filteredIndividualMessages.length === 0 : filteredConversationList.length === 0) ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
             <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
             <p className="text-xs font-medium text-gray-400 dark:text-gray-500">Loading messages...</p>
           </div>
-        ) : filteredConversationList.length === 0 ? (
+        ) : (activeTab === 'messages' ? filteredIndividualMessages.length === 0 : filteredConversationList.length === 0) ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
             {activeTab === 'archive' ? (
               <>
@@ -2387,6 +2443,212 @@ const Casbox = () => {
               </>
             )}
           </div>
+        ) : activeTab === 'messages' ? (
+          filteredIndividualMessages.map((item) => {
+            const { msg, id, isSent, contact, chat } = item;
+            const isSelected = selectedMessage && (
+              (selectedMessage.id && msg.id && selectedMessage.id === msg.id) ||
+              (selectedMessage.uid && msg.uid && selectedMessage.uid === msg.uid) ||
+              selectedMessage === msg
+            );
+
+            const isUnread = !isSent && isMessageUnread(msg);
+
+            // Sender / Receiver Name
+            const personEmail = contact;
+            const personName = getDisplayName(personEmail, msg) || personEmail;
+            const initial = getContactInitial(personEmail, msg);
+            const avatarColorClass = getAvatarColorClass(personName || personEmail);
+
+            const rowId = id;
+            const isChecked = selectedRowIds.has(rowId);
+
+            // Subject: Show if present and not empty
+            const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
+            const subject = (rawSubject && rawSubject.toLowerCase() !== 'null') ? rawSubject : '';
+
+            // Body preview
+            let bodyPreview = "";
+            if (msg?.body || msg?.content) {
+              bodyPreview = String(msg.body || msg.content).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            } else if (msg?.attachmentsJson || (msg?.attachments && msg.attachments.length)) {
+              bodyPreview = "Attachment";
+            }
+
+            return (
+              <div
+                key={id}
+                onClick={() => {
+                  if (!isSent && msg?.id && msg?.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
+                    markMessagesAsSeen([msg.id]);
+                  }
+                  handleSelectMessage(msg);
+                }}
+                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors cursor-pointer relative bg-white dark:bg-[#121212] ${
+                  isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                }`}
+              >
+                {isSelected && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
+                )}
+
+                {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] — [Message Preview] */}
+                <div className="flex items-center min-w-0 flex-1 mr-4">
+                  {/* Checkbox */}
+                  <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleSelectRow(rowId);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-3 sm:mr-3.5 ${avatarColorClass}`}>
+                    {initial}
+                  </div>
+
+                  {/* Person Name */}
+                  <span className={`w-32 sm:w-44 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-3 sm:mr-4 ${
+                    isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
+                  }`}>
+                    {personName}
+                  </span>
+
+                  {/* Sent / Received Badge */}
+                  <div className="shrink-0 mr-3 sm:mr-4">
+                    {isSent ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
+                        Sent
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                        Received
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Message Content Preview (Subject + Body) */}
+                  <div className="flex items-center min-w-0 flex-1">
+                    {subject && (
+                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[130px] sm:max-w-[200px] mr-2 ${
+                        isUnread ? 'font-bold' : 'font-semibold'
+                      }`}>
+                        {subject}
+                      </span>
+                    )}
+                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
+                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
+                      {bodyPreview}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right side: [Time] [Status] [3-dot] */}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className={`text-xs font-medium whitespace-nowrap ${
+                    isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                  }`}>
+                    {formatCashboxTime(msg?.timestamp)}
+                  </span>
+
+                  {/* Sent Message Status Ticks (Sent = ticks; Received = NO tick) */}
+                  {(() => {
+                    if (!isSent) return null;
+                    const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
+                    const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+
+                    if (isSeen) {
+                      return (
+                        <span className="text-blue-500 shrink-0 flex items-center ml-2" title="Seen">
+                          <MdDoneAll size={16} />
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center ml-2" title="Sent">
+                        <MdCheck size={16} />
+                      </span>
+                    );
+                  })()}
+
+                  {/* 3-dot options menu */}
+                  <div className="relative shrink-0 ml-1" ref={openMenuId === id ? listMenuRef : null}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuId(prev => prev === id ? null : id);
+                      }}
+                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                      title="More options"
+                    >
+                      <MdMoreVert size={18} />
+                    </button>
+
+                    {openMenuId === id && (
+                      <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                        {bodyPreview && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(msg.body || msg.content || '');
+                              toast.success("Copied to clipboard");
+                              setOpenMenuId(null);
+                            }}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
+                            Copy Text
+                          </button>
+                        )}
+                        {chat && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenEditNameModal(chat, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
+                            {t('casbox.edit_name', 'Edit Name')}
+                          </button>
+                        )}
+                        {chat && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleArchiveMessage(chat, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
+                            Archive
+                          </button>
+                        )}
+                        {chat && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                              setConversationToDelete(chat);
+                            }}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdDeleteOutline size={16} className="text-red-500 dark:text-red-400" />
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
         ) : (
           filteredConversationList.map((chat) => {
             const msg = chat.latestMessage;
