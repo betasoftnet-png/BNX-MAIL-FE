@@ -2000,7 +2000,7 @@ const Casbox = () => {
 
         <div className="flex-1"></div>
 
-        {/* Connection Icon BEFORE Compose */}
+        {/* Connections Button */}
         <div className="relative mr-1.5" ref={connectionsRef}>
           <button
             type="button"
@@ -2008,15 +2008,12 @@ const Casbox = () => {
               setShowConnectionsModal(prev => !prev);
               if (!showConnectionsModal) fetchConnections();
             }}
-            className={`p-2 rounded-full transition-all flex items-center justify-center cursor-pointer ${
-              showConnectionsModal
-                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
-                : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
-            }`}
+            className="px-4 py-1.5 rounded-full text-sm font-bold text-white transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:shadow active:scale-95 bg-[#0b3b95] hover:bg-[#082e75] dark:bg-[#1048b0] dark:hover:bg-[#0d3ea8]"
             title="Connections"
             aria-label="Connections"
           >
-            <MdPersonAdd size={20} />
+            <MdPersonAdd size={18} className="text-white shrink-0" />
+            <span>Connections</span>
           </button>
 
           {/* Connections Popover */}
@@ -2068,14 +2065,6 @@ const Casbox = () => {
             </div>
           )}
         </div>
-
-        <button
-          onClick={() => openCompose({ mode: 'casbox' })}
-          className="px-4 py-1.5 rounded-full text-sm font-bold text-white transition-transform hover:shadow-md active:scale-95"
-          style={{ backgroundColor: theme.accent || "#135bec" }}
-        >
-          {t('navbar.compose', 'Compose')}
-        </button>
         <button
           onClick={() => setShowBlockedModal(true)}
           className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 ml-1"
