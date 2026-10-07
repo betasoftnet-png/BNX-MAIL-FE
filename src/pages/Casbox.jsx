@@ -480,6 +480,7 @@ const Casbox = () => {
 
   const [activeTab, setActiveTab] = useState('messages');
   const isCombineTab = activeTab === 'combine' || activeTab === 'combined';
+  const [messagesSearch, setMessagesSearch] = useState("");
   const [combineSearch, setCombineSearch] = useState("");
   const [combineFilter, setCombineFilter] = useState("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -1738,6 +1739,29 @@ const Casbox = () => {
     };
   }, [messages, blockedContacts, acceptedContacts, connections, acceptedSet, activeTab, user, isMessageUnread, isCurrentUser]);
 
+  const filteredConversationList = useMemo(() => {
+    if (!conversationList || conversationList.length === 0) return [];
+    if (!messagesSearch.trim()) return conversationList;
+    const q = messagesSearch.toLowerCase().trim();
+    return conversationList.filter((chat) => {
+      const msg = chat.latestMessage;
+      const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
+      const personEmail = isMe 
+        ? (msg?.receiverEmail || msg?.receiver || chat.contact)
+        : (msg?.senderEmail || msg?.sender || chat.contact);
+      const personName = getDisplayName(personEmail, msg) || personEmail;
+      const subject = typeof msg?.subject === 'string' ? msg.subject : '';
+      const body = typeof msg?.body === 'string' ? msg.body : (typeof msg?.content === 'string' ? msg.content : '');
+
+      return (
+        personName.toLowerCase().includes(q) ||
+        personEmail.toLowerCase().includes(q) ||
+        subject.toLowerCase().includes(q) ||
+        body.toLowerCase().includes(q)
+      );
+    });
+  }, [conversationList, messagesSearch, isCurrentUser, getDisplayName]);
+
   const handleSendChatMessage = async (e) => {
     if (e) e.preventDefault();
     if (!newChatText.trim()) return;
@@ -2301,150 +2325,213 @@ const Casbox = () => {
       </div>
     </div>
   ) : (
-    <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent">
-      {loading && conversationList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
-          <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-xs font-medium text-gray-400 dark:text-gray-500">Loading messages...</p>
-        </div>
-      ) : conversationList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
-          {activeTab === 'archive' ? (
-            <>
-              <MdArchive className="text-4xl mb-3 opacity-30" />
-              <p className="text-sm font-medium">No archived messages</p>
-            </>
-          ) : (
-            <>
-              <MdSend className="text-4xl mb-3 opacity-30" />
-              <p className="text-sm font-medium">
-                {activeTab === 'requests' ? 'No message requests' : t('casbox.no_chats', 'No chats yet')}
-              </p>
-            </>
+    <div className="flex-1 flex flex-col overflow-hidden bg-transparent relative">
+      {/* Search Bar for Messages */}
+      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center gap-3 bg-transparent shrink-0">
+        <div className="flex-1 flex items-center gap-2.5 bg-gray-100/70 dark:bg-gray-800/60 px-4 py-2.5 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
+          <MdSearch size={20} className="text-gray-400 shrink-0" />
+          <input
+            type="text"
+            value={messagesSearch}
+            onChange={(e) => setMessagesSearch(e.target.value)}
+            placeholder="Search messages..."
+            className="bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full"
+          />
+          {messagesSearch && (
+            <button
+              type="button"
+              onClick={() => setMessagesSearch("")}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs p-0.5"
+            >
+              <MdClose size={16} />
+            </button>
           )}
         </div>
-      ) : (
-        conversationList.map((chat) => {
-          const msg = chat.latestMessage;
-          const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
-          const otherEmail = chat.contact;
-          const isSelected = selectedMessage && (
-            normalizeEmail(getOtherUserEmail(selectedMessage)) === normalizeEmail(otherEmail)
-          );
+      </div>
 
-          const unreadCount = chat.unreadCount !== undefined ? chat.unreadCount : chat.messages.filter(isMessageUnread).length;
+      {/* Messages List Area */}
+      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent">
+        {loading && filteredConversationList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
+            <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500">Loading messages...</p>
+          </div>
+        ) : filteredConversationList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
+            {activeTab === 'archive' ? (
+              <>
+                <MdArchive className="text-4xl mb-3 opacity-30" />
+                <p className="text-sm font-medium">No archived messages</p>
+              </>
+            ) : (
+              <>
+                <MdSend className="text-4xl mb-3 opacity-30" />
+                <p className="text-sm font-medium">
+                  {messagesSearch
+                    ? 'No matching messages found'
+                    : (activeTab === 'requests' ? 'No message requests' : t('casbox.no_chats', 'No chats yet'))}
+                </p>
+              </>
+            )}
+          </div>
+        ) : (
+          filteredConversationList.map((chat) => {
+            const msg = chat.latestMessage;
+            const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
+            const otherEmail = chat.contact;
+            const isSelected = selectedMessage && (
+              normalizeEmail(getOtherUserEmail(selectedMessage)) === normalizeEmail(otherEmail)
+            );
 
-          return (
-            <div
-              key={otherEmail}
-              onClick={() => handleSelectMessage(msg)}
-              className={`group flex items-center px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/50 hover:shadow-sm transition-all cursor-pointer relative bg-white dark:bg-[#121212] ${isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : 'hover:bg-gray-50/50 dark:hover:bg-gray-800/30'} ${unreadCount > 0 ? 'font-bold' : ''}`}
-            >
-              {isSelected && (
-                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
-              )}
+            const unreadCount = chat.unreadCount !== undefined ? chat.unreadCount : chat.messages.filter(isMessageUnread).length;
 
-              <div className="shrink-0 mr-3.5">
-                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm">
-                  {getContactInitial(otherEmail, msg)}
-                </div>
-              </div>
+            // Sender / Receiver Name
+            const personEmail = isMe 
+              ? (msg?.receiverEmail || msg?.receiver || otherEmail)
+              : (msg?.senderEmail || msg?.sender || otherEmail);
+            const personName = getDisplayName(personEmail, msg) || personEmail;
 
-              <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`text-sm truncate ${unreadCount > 0 ? 'font-extrabold text-gray-900 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'}`}>
-                    {getDisplayName(otherEmail, msg)}
+            // Subject: Show if present and not empty
+            const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
+            const subject = (rawSubject && rawSubject.toLowerCase() !== 'null') ? rawSubject : '';
+
+            // Body preview
+            let bodyPreview = "";
+            if (msg?.body || msg?.content) {
+              bodyPreview = String(msg.body || msg.content).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            } else if (msg?.attachmentsJson || (msg?.attachments && msg.attachments.length)) {
+              bodyPreview = "Attachment";
+            }
+
+            return (
+              <div
+                key={otherEmail}
+                onClick={() => handleSelectMessage(msg)}
+                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors cursor-pointer relative bg-white dark:bg-[#121212] ${
+                  isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                }`}
+              >
+                {isSelected && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
+                )}
+
+                {/* Left side: [Sender] [Subject] [Message Content Preview] */}
+                <div className="flex items-center min-w-0 flex-1 mr-4">
+                  {/* Sender */}
+                  <span className={`w-32 sm:w-44 lg:w-52 text-xs sm:text-sm truncate shrink-0 select-none ${
+                    unreadCount > 0 ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
+                  }`}>
+                    {personName}
                   </span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className={`text-xs ${unreadCount > 0 ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-400 dark:text-gray-500'}`}>
-                      {formatCashboxTime(msg?.timestamp)}
-                    </span>
-                    <div className="relative shrink-0" ref={openMenuId === chat.contact ? listMenuRef : null}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(prev => prev === chat.contact ? null : chat.contact);
-                        }}
-                        className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                        title="More options"
-                      >
-                        <MdMoreVert size={18} />
-                      </button>
 
-                      {openMenuId === chat.contact && (
-                        <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
-                          <button
-                            onClick={(e) => handleOpenEditNameModal(chat, e)}
-                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors"
-                          >
-                            <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
-                            {t('casbox.edit_name', 'Edit Name')}
-                          </button>
-                          {activeTab === 'archive' ? (
-                            <button
-                              onClick={(e) => handleUnarchiveMessage(chat, e)}
-                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-2 transition-colors"
-                            >
-                              <MdUnarchive size={16} className="text-blue-600 dark:text-blue-400" />
-                              Unarchive
-                            </button>
-                          ) : (
-                            <button
-                              onClick={(e) => handleArchiveMessage(chat, e)}
-                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors"
-                            >
-                              <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
-                              Archive
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuId(null);
-                              setConversationToDelete(chat);
-                            }}
-                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
-                          >
-                            <MdDeleteOutline size={16} className="text-red-500 dark:text-red-400" />
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 truncate max-w-[200px]">
-                    {activeTab === 'archive' && (
-                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 shrink-0">
-                        {chat.messages.length} {chat.messages.length === 1 ? 'message' : 'messages'} &bull;
+                  {/* Subject and Content Preview */}
+                  <div className="flex items-center min-w-0 flex-1 ml-2 sm:ml-4">
+                    {subject && (
+                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[130px] sm:max-w-[200px] mr-2 ${
+                        unreadCount > 0 ? 'font-bold' : 'font-semibold'
+                      }`}>
+                        {subject}
                       </span>
                     )}
-                    <span className="text-xs text-gray-500 dark:text-gray-400 truncate font-normal">
-                      {isMe ? "You: " : ""}{msg?.body || ""}
+                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
+                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
+                      {bodyPreview}
                     </span>
                   </div>
+                </div>
 
-                  {(unreadCount > 0 || (isMe && getStatusIcon(msg?.status))) && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {unreadCount > 0 ? (
-                        <span className="bg-blue-500 text-white font-bold text-[10px] px-1.5 py-0.5 rounded-full shrink-0">
-                          {unreadCount}
+                {/* Right side: [Time] [Status] [More options] */}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className={`text-xs font-medium whitespace-nowrap ${
+                    unreadCount > 0 ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                  }`}>
+                    {formatCashboxTime(msg?.timestamp)}
+                  </span>
+
+                  {/* Sent Message Status Ticks (Sent = ticks; Received = no ticks) */}
+                  {(() => {
+                    if (!isMe) return null;
+                    const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
+                    const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+
+                    if (isSeen) {
+                      return (
+                        <span className="text-blue-500 shrink-0 flex items-center ml-2" title="Seen">
+                          <MdDoneAll size={16} />
                         </span>
-                      ) : isMe ? (
-                        <span className="shrink-0">
-                          {getStatusIcon(msg?.status)}
-                        </span>
-                      ) : null}
-                    </div>
-                  )}
+                      );
+                    }
+                    return (
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center ml-2" title="Sent">
+                        <MdCheck size={16} />
+                      </span>
+                    );
+                  })()}
+
+                  {/* More options menu */}
+                  <div className="relative shrink-0 ml-1" ref={openMenuId === chat.contact ? listMenuRef : null}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuId(prev => prev === chat.contact ? null : chat.contact);
+                      }}
+                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                      title="More options"
+                    >
+                      <MdMoreVert size={18} />
+                    </button>
+
+                    {openMenuId === chat.contact && (
+                      <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEditNameModal(chat, e)}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
+                          {t('casbox.edit_name', 'Edit Name')}
+                        </button>
+                        {activeTab === 'archive' ? (
+                          <button
+                            type="button"
+                            onClick={(e) => handleUnarchiveMessage(chat, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdUnarchive size={16} className="text-blue-600 dark:text-blue-400" />
+                            Unarchive
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => handleArchiveMessage(chat, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
+                            Archive
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(null);
+                            setConversationToDelete(chat);
+                          }}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdDeleteOutline size={16} className="text-red-500 dark:text-red-400" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })
-      )}
+            );
+          })
+        )}
+      </div>
     </div>
   );
 
