@@ -1088,22 +1088,11 @@ const FloatingCompose = () => {
               }
             }}
           >
-            {/* Mode Switch: [ Chat ] [ Mail ] */}
+            {/* Mode Switch: [ Mail ] [ Chat ] */}
             <div 
               className="inline-flex items-center bg-gray-200/90 dark:bg-neutral-700/80 p-0.5 rounded-lg border border-gray-300/40 dark:border-neutral-600/40"
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                onClick={() => setComposeMode("chat")}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                  composeMode === "chat" || composeMode === "casbox"
-                    ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-                }`}
-              >
-                Chat
-              </button>
               <button
                 type="button"
                 onClick={() => setComposeMode("mail")}
@@ -1114,6 +1103,17 @@ const FloatingCompose = () => {
                 }`}
               >
                 Mail
+              </button>
+              <button
+                type="button"
+                onClick={() => setComposeMode("chat")}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                  composeMode === "chat" || composeMode === "casbox"
+                    ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                Chat
               </button>
             </div>
             <div className="flex items-center gap-1">
