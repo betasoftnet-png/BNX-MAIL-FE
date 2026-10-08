@@ -67,7 +67,7 @@ export const classifyCashboxConversation = (item, currentUser, casboxAcceptedLis
     item?.archived || 
     item?.latestMessage?.isArchived || 
     item?.latestMessage?.archived || 
-    (Array.isArray(item?.messages) && item.messages.some(m => m?.isArchived || m?.archived))
+    (Array.isArray(item?.messages) && item.messages.length > 0 && item.messages.every(m => m?.isArchived || m?.archived))
   );
   if (isArchived) return 'ARCHIVE';
 
@@ -1374,34 +1374,92 @@ const Casbox = () => {
     }
   };
 
-  const handleArchiveMessage = async (chatOrMsg, e) => {
-    if (e) e.stopPropagation();
+  const handleArchiveMessage = async (messageOrId, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     setOpenMenuId(null);
 
-    const otherEmail = chatOrMsg.contact || (chatOrMsg.senderEmail === user?.email ? chatOrMsg.receiverEmail : chatOrMsg.senderEmail);
+    const messageId = (messageOrId && typeof messageOrId === 'object')
+      ? (messageOrId.id !== undefined ? messageOrId.id : messageOrId.uid)
+      : messageOrId;
+    if (messageId === undefined || messageId === null) return;
 
-    const matchingMsgIds = otherEmail 
-      ? messages.filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && !Boolean(m.isArchived || m.archived)).map(m => m.id)
-      : [];
-
-    const targetIds = matchingMsgIds.length > 0 
-      ? matchingMsgIds 
-      : (chatOrMsg.messages ? chatOrMsg.messages.map(m => m.id) : [chatOrMsg.id || chatOrMsg.latestMessage?.id].filter(Boolean));
-
-    if (targetIds.length === 0) return;
+    const strId = String(messageId);
+    const numericId = Number(messageId);
+    const apiTargetIds = !isNaN(numericId) ? [numericId] : [messageId];
 
     try {
-      setMessages(prev => prev.map(m => targetIds.includes(m.id) ? { ...m, isArchived: true, archived: true } : m));
-      
-      if (selectedMessage && (targetIds.includes(selectedMessage.id) || (otherEmail && getOtherUserEmail(selectedMessage) === otherEmail))) {
-        setSelectedMessage(null);
+      setMessages(prev => prev.map(m => {
+        const mId = m.id !== undefined ? m.id : m.uid;
+        return (mId === messageId || String(mId) === strId)
+          ? { ...m, isArchived: true, archived: true }
+          : m;
+      }));
+
+      if (selectedSentDetail) {
+        const sId = selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid;
+        if (sId === messageId || String(sId) === strId) {
+          setSelectedSentDetail(null);
+        }
+      }
+      if (selectedMessage) {
+        const sId = selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid;
+        if (sId === messageId || String(sId) === strId) {
+          setSelectedMessage(null);
+        }
       }
 
-      await casboxAPI.updateArchiveStatus(targetIds, true);
-      toast.success("Conversation archived");
+      setSelectedRowIds(prev => {
+        if (!prev.has(messageId) && !prev.has(strId)) return prev;
+        const next = new Set(prev);
+        next.delete(messageId);
+        next.delete(strId);
+        return next;
+      });
+
+      await casboxAPI.updateArchiveStatus(apiTargetIds, true);
+      toast.success("Message archived");
     } catch (err) {
       console.error("Failed to archive message", err);
       toast.error("Failed to archive message");
+      fetchMessages(true);
+    }
+  };
+
+  const handleArchiveSelectedMessages = async () => {
+    if (selectedRowIds.size === 0) return;
+    const targetIds = Array.from(selectedRowIds);
+    const targetSet = new Set(targetIds.map(String));
+
+    const apiTargetIds = targetIds.map(id => {
+      const num = Number(id);
+      return !isNaN(num) ? num : id;
+    });
+
+    try {
+      setMessages(prev => prev.map(m => {
+        const mId = String(m.id !== undefined ? m.id : m.uid);
+        return targetSet.has(mId) ? { ...m, isArchived: true, archived: true } : m;
+      }));
+
+      if (selectedSentDetail) {
+        const detailId = String(selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid);
+        if (targetSet.has(detailId)) {
+          setSelectedSentDetail(null);
+        }
+      }
+      if (selectedMessage) {
+        const msgId = String(selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid);
+        if (targetSet.has(msgId)) {
+          setSelectedMessage(null);
+        }
+      }
+
+      setSelectedRowIds(new Set());
+      await casboxAPI.updateArchiveStatus(apiTargetIds, true);
+      toast.success(`${targetIds.length > 1 ? `${targetIds.length} messages` : 'Message'} archived`);
+    } catch (err) {
+      console.error("Failed to archive selected messages", err);
+      toast.error("Failed to archive messages");
       fetchMessages(true);
     }
   };
@@ -1816,24 +1874,44 @@ const Casbox = () => {
     conversationGroups.forEach((grp) => {
       // Sort messages within conversation descending
       grp.messages.sort((a, b) => getTimestampMs(b.timestamp) - getTimestampMs(a.timestamp));
-      grp.latestMessage = grp.messages[0];
-      grp.latestTimestamp = getTimestampMs(grp.latestMessage.timestamp);
 
-      const unreadCount = grp.messages.filter(isMessageUnread).length;
-      grp.unreadCount = unreadCount;
+      const activeMsgs = grp.messages.filter(m => !Boolean(m.isArchived || m.archived));
+      const archivedMsgs = grp.messages.filter(m => Boolean(m.isArchived || m.archived));
 
-      const classification = classifyCashboxConversation(grp, user, acceptedSet);
+      if (archivedMsgs.length > 0) {
+        const archGrp = {
+          ...grp,
+          messages: archivedMsgs,
+          latestMessage: archivedMsgs[0],
+          latestTimestamp: getTimestampMs(archivedMsgs[0].timestamp),
+          unreadCount: archivedMsgs.filter(isMessageUnread).length,
+          isArchived: true,
+          archived: true,
+        };
+        archivedList.push(archGrp);
+        if (archGrp.unreadCount > 0) archUnread += archGrp.unreadCount;
+      }
 
-      if (classification === 'ARCHIVE') {
-        archivedList.push(grp);
-        if (unreadCount > 0) archUnread += unreadCount;
-      } else if (classification === 'REQUESTS') {
-        requestsList.push(grp);
-        grp.messages.forEach(m => requestMessagesArr.push(m));
-        if (unreadCount > 0) reqUnread += unreadCount;
-      } else {
-        messagesList.push(grp);
-        if (unreadCount > 0) mainUnread += unreadCount;
+      if (activeMsgs.length > 0) {
+        const activeGrp = {
+          ...grp,
+          messages: activeMsgs,
+          latestMessage: activeMsgs[0],
+          latestTimestamp: getTimestampMs(activeMsgs[0].timestamp),
+          unreadCount: activeMsgs.filter(isMessageUnread).length,
+          isArchived: false,
+          archived: false,
+        };
+        const classification = classifyCashboxConversation(activeGrp, user, acceptedSet);
+
+        if (classification === 'REQUESTS') {
+          requestsList.push(activeGrp);
+          activeGrp.messages.forEach(m => requestMessagesArr.push(m));
+          if (activeGrp.unreadCount > 0) reqUnread += activeGrp.unreadCount;
+        } else {
+          messagesList.push(activeGrp);
+          if (activeGrp.unreadCount > 0) mainUnread += activeGrp.unreadCount;
+        }
       }
     });
 
@@ -1875,6 +1953,7 @@ const Casbox = () => {
 
     messagesConversations.forEach((grp) => {
       (grp.messages || []).forEach((msg) => {
+        if (Boolean(msg.isArchived || msg.archived)) return;
         const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
         if (seenIds.has(id)) return;
         if (deletedMessageIds.has(id) || deletedMessageIds.has(String(id))) return;
@@ -2208,18 +2287,30 @@ const Casbox = () => {
 
         <div className="flex-1"></div>
 
-        {/* Selected Messages Delete Action */}
+        {/* Selected Messages Actions */}
         {activeTab === 'messages' && selectedRowIds.size > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowDeleteConfirmModal(true)}
-            className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 transition-all flex items-center gap-1.5 mr-2 cursor-pointer shadow-xs animate-in fade-in duration-150"
-            title={`Delete ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
-            aria-label="Delete selected messages"
-          >
-            <MdDeleteOutline size={18} />
-            <span className="hidden sm:inline">Delete</span>
-          </button>
+          <div className="flex items-center gap-1.5 mr-2">
+            <button
+              type="button"
+              onClick={handleArchiveSelectedMessages}
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+              title={`Archive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
+              aria-label="Archive selected messages"
+            >
+              <MdArchive size={18} className="text-gray-600 dark:text-gray-300" />
+              <span className="hidden sm:inline">Archive</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirmModal(true)}
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+              title={`Delete ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
+              aria-label="Delete selected messages"
+            >
+              <MdDeleteOutline size={18} />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          </div>
         )}
 
         {/* Connections Button */}
@@ -2734,16 +2825,14 @@ const Casbox = () => {
                             {t('casbox.edit_name', 'Edit Name')}
                           </button>
                         )}
-                        {chat && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleArchiveMessage(chat, e)}
-                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
-                          >
-                            <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
-                            Archive
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleArchiveMessage(msg, e)}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
+                          Archive
+                        </button>
                         {chat && (
                           <button
                             type="button"
