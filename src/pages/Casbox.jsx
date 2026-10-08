@@ -1235,6 +1235,33 @@ const Casbox = () => {
     });
   }, [markMessagesAsSeen]);
 
+  const handleArchivedMessageClick = useCallback((msg, chat) => {
+    if (!msg) return;
+    setOpenMenuId(null);
+    setSelectedMessage(null); // Ensure no full chat or conversation thread is loaded
+
+    const isSent = Boolean(
+      msg.direction === 'SENT' ||
+      msg.isSent === true ||
+      isCurrentUser(msg.senderEmail || msg.sender)
+    );
+
+    const contact = isSent
+      ? (msg.receiverEmail || msg.receiver || chat?.contact || '')
+      : (msg.senderEmail || msg.sender || chat?.contact || '');
+
+    if (!isSent && msg.id && msg.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
+      markMessagesAsSeen([msg.id]);
+    }
+
+    setSelectedSentDetail({
+      ...msg,
+      isSent,
+      contactRecipient: contact,
+      direction: isSent ? 'SENT' : 'RECEIVED'
+    });
+  }, [isCurrentUser, markMessagesAsSeen]);
+
   useEffect(() => {
     if (location.state?.preselectContact && messages.length > 0) {
       const contactEmail = location.state.preselectContact;
@@ -1484,6 +1511,9 @@ const Casbox = () => {
       setMessages(prev => prev.map(m => targetIds.includes(m.id) ? { ...m, isArchived: false, archived: false } : m));
       if (selectedMessage && (targetIds.includes(selectedMessage.id) || (otherEmail && getOtherUserEmail(selectedMessage) === otherEmail))) {
         setSelectedMessage(null);
+      }
+      if (selectedSentDetail && (targetIds.includes(selectedSentDetail.id) || (otherEmail && selectedSentDetail.contactRecipient === otherEmail))) {
+        setSelectedSentDetail(null);
       }
 
       await casboxAPI.updateArchiveStatus(targetIds, false);
@@ -2859,9 +2889,15 @@ const Casbox = () => {
             const msg = chat.latestMessage;
             const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
             const otherEmail = chat.contact;
-            const isSelected = selectedMessage && (
-              normalizeEmail(getOtherUserEmail(selectedMessage)) === normalizeEmail(otherEmail)
-            );
+            const isSelected = activeTab === 'archive'
+              ? Boolean(selectedSentDetail && (
+                  (selectedSentDetail.id && msg?.id && (selectedSentDetail.id === msg.id || String(selectedSentDetail.id) === String(msg.id))) ||
+                  (selectedSentDetail.uid && msg?.uid && selectedSentDetail.uid === msg.uid) ||
+                  selectedSentDetail === msg
+                ))
+              : Boolean(selectedMessage && (
+                  normalizeEmail(getOtherUserEmail(selectedMessage)) === normalizeEmail(otherEmail)
+                ));
 
             const unreadCount = chat.unreadCount !== undefined ? chat.unreadCount : chat.messages.filter(isMessageUnread).length;
 
@@ -2891,7 +2927,13 @@ const Casbox = () => {
             return (
               <div
                 key={otherEmail}
-                onClick={() => handleSelectMessage(msg)}
+                onClick={() => {
+                  if (activeTab === 'archive') {
+                    handleArchivedMessageClick(msg, chat);
+                  } else {
+                    handleSelectMessage(msg);
+                  }
+                }}
                 className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors cursor-pointer relative bg-white dark:bg-[#121212] ${
                   isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                 }`}
