@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Mail, CheckCircle2, Shield, Loader2 } from 'lucide-react';
+import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { motion, AnimatePresence } from 'framer-motion';
 // import logo from '../assets/bnx.jpeg';
 
@@ -27,6 +28,7 @@ const Login = () => {
         email: '',
         password: ''
     });
+    const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
@@ -243,16 +245,27 @@ const Login = () => {
                                 <label htmlFor="password" className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">
                                     Password
                                 </label>
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    required
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
-                                    placeholder="••••••••"
-                                />
+                                <div className="relative flex items-center">
+                                    <input
+                                        id="password"
+                                        name="password"
+                                        type={showPassword ? "text" : "password"}
+                                        required
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-3 pr-11 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
+                                        placeholder="••••••••"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer rounded-lg focus:outline-none"
+                                        title={showPassword ? "Hide password" : "Show password"}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showPassword ? <MdVisibilityOff size={20} /> : <MdVisibility size={20} />}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
