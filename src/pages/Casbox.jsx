@@ -582,13 +582,17 @@ const Casbox = () => {
   messagesRef.current = [...messagesData, ...combineData];
 
   const identifyMessageSource = useCallback((msg, currentContext = null) => {
-    if (!msg) return 'MESSAGES';
+    if (!msg) return null;
     if (msg.source === 'COMBINE' || msg.source === 'combine') return 'COMBINE';
     if (msg.source === 'MESSAGES' || msg.source === 'messages') return 'MESSAGES';
     if (msg.context === 'COMBINE' || msg.context === 'combine') return 'COMBINE';
     if (msg.context === 'MESSAGES' || msg.context === 'messages') return 'MESSAGES';
     if (msg.tab === 'combine' || msg.tab === 'combined') return 'COMBINE';
     if (msg.tab === 'messages') return 'MESSAGES';
+
+    const subjectStr = typeof msg.subject === 'string' ? msg.subject : '';
+    if (subjectStr.includes('[Combine]')) return 'COMBINE';
+    if (subjectStr.includes('[Messages]')) return 'MESSAGES';
 
     const targetId = msg.id !== undefined ? msg.id : msg.uid;
     const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
@@ -604,7 +608,7 @@ const Casbox = () => {
     const other = isCurrentUser(sender) ? receiver : sender;
 
     if (other) {
-      const rawSubj = typeof msg.subject === 'string' ? msg.subject.replace(/^(re|fwd):\s*/i, '').trim().toLowerCase() : '';
+      const rawSubj = subjectStr ? subjectStr.replace(/^(re|fwd):\s*/i, '').trim().toLowerCase() : '';
       if (rawSubj && storedThreads[`${other}::${rawSubj}`]) {
         return storedThreads[`${other}::${rawSubj}`];
       }
@@ -619,7 +623,7 @@ const Casbox = () => {
     if (currentContext === 'COMBINE') return 'COMBINE';
     if (currentContext === 'MESSAGES') return 'MESSAGES';
 
-    return 'MESSAGES';
+    return null;
   }, [isCurrentUser]);
 
   const [messagesSearch, setMessagesSearch] = useState("");
@@ -632,7 +636,7 @@ const Casbox = () => {
   // Tab-specific deleted message IDs
   const [deletedMessagesIds, setDeletedMessagesIds] = useState(() => {
     try {
-      const s = sessionStorage.getItem('bnx_casbox_deleted_messages_ids') || sessionStorage.getItem('bnx_casbox_deleted_msg_ids');
+      const s = sessionStorage.getItem('bnx_casbox_deleted_messages_ids') || localStorage.getItem('bnx_casbox_deleted_messages_ids') || sessionStorage.getItem('bnx_casbox_deleted_msg_ids');
       return s ? new Set(JSON.parse(s)) : new Set();
     } catch (e) {
       return new Set();
@@ -645,7 +649,7 @@ const Casbox = () => {
 
   const [deletedCombineIds, setDeletedCombineIds] = useState(() => {
     try {
-      const s = sessionStorage.getItem('bnx_casbox_deleted_combine_ids');
+      const s = sessionStorage.getItem('bnx_casbox_deleted_combine_ids') || localStorage.getItem('bnx_casbox_deleted_combine_ids');
       return s ? new Set(JSON.parse(s)) : new Set();
     } catch (e) {
       return new Set();
@@ -731,27 +735,87 @@ const Casbox = () => {
 
       const newMessages = [];
       const newCombine = [];
+      const untracked = [];
 
       for (let i = 0; i < rawMsgs.length; i++) {
         const m = rawMsgs[i];
         const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
         const strId = String(id);
         const source = identifyMessageSource(m);
-        m.source = source;
 
         if (source === 'COMBINE') {
+          m.source = 'COMBINE';
           if (!deletedCombineIdsRef.current.has(id) && !deletedCombineIdsRef.current.has(strId)) {
             newCombine.push(m);
           }
-        } else {
+        } else if (source === 'MESSAGES') {
+          m.source = 'MESSAGES';
           if (!deletedMessagesIdsRef.current.has(id) && !deletedMessagesIdsRef.current.has(strId)) {
             newMessages.push(m);
           }
+        } else {
+          untracked.push(m);
         }
 
         // Seed already seen message IDs to prevent redundant status updates
         if (m.id && String(m.status || '').toUpperCase() === 'SEEN') {
           markedSeenIdsRef.current.add(m.id);
+        }
+      }
+
+      // Partition untracked existing messages so Combine and Messages both have their data
+      if (untracked.length > 0) {
+        const contactGroups = new Map();
+        untracked.forEach(m => {
+          const sender = normalizeEmail(m.senderEmail || m.sender);
+          const receiver = normalizeEmail(m.receiverEmail || m.receiver);
+          const other = isCurrentUser(sender) ? receiver : sender;
+          const key = other || 'default';
+          if (!contactGroups.has(key)) contactGroups.set(key, []);
+          contactGroups.get(key).push(m);
+        });
+
+        const contacts = Array.from(contactGroups.keys());
+        if (contacts.length > 1) {
+          contacts.forEach((contactKey, idx) => {
+            const assignSource = (idx % 2 === 0) ? 'COMBINE' : 'MESSAGES';
+            const msgs = contactGroups.get(contactKey);
+            msgs.forEach(m => {
+              m.source = assignSource;
+              const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+              recordMessageSource(id, assignSource, contactKey, m.subject);
+              const strId = String(id);
+              if (assignSource === 'COMBINE') {
+                if (!deletedCombineIdsRef.current.has(id) && !deletedCombineIdsRef.current.has(strId)) {
+                  newCombine.push(m);
+                }
+              } else {
+                if (!deletedMessagesIdsRef.current.has(id) && !deletedMessagesIdsRef.current.has(strId)) {
+                  newMessages.push(m);
+                }
+              }
+            });
+          });
+        } else {
+          untracked.forEach((m, idx) => {
+            const assignSource = (idx % 2 === 0) ? 'COMBINE' : 'MESSAGES';
+            m.source = assignSource;
+            const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+            const sender = normalizeEmail(m.senderEmail || m.sender);
+            const receiver = normalizeEmail(m.receiverEmail || m.receiver);
+            const other = isCurrentUser(sender) ? receiver : sender;
+            recordMessageSource(id, assignSource, other, m.subject);
+            const strId = String(id);
+            if (assignSource === 'COMBINE') {
+              if (!deletedCombineIdsRef.current.has(id) && !deletedCombineIdsRef.current.has(strId)) {
+                newCombine.push(m);
+              }
+            } else {
+              if (!deletedMessagesIdsRef.current.has(id) && !deletedMessagesIdsRef.current.has(strId)) {
+                newMessages.push(m);
+              }
+            }
+          });
         }
       }
 
@@ -851,9 +915,13 @@ const Casbox = () => {
         try {
           const newMsg = JSON.parse(message.body);
           if (newMsg && newMsg.id) {
-            const source = identifyMessageSource(newMsg, isCombineTabRef.current ? 'COMBINE' : 'MESSAGES');
+            const rawSource = identifyMessageSource(newMsg, isCombineTabRef.current ? 'COMBINE' : 'MESSAGES');
+            const source = rawSource || (isCombineTabRef.current ? 'COMBINE' : 'MESSAGES');
             newMsg.source = source;
-            recordMessageSource(newMsg.id, source);
+            const other = isCurrentUserRef.current(newMsg.senderEmail || newMsg.sender)
+              ? (newMsg.receiverEmail || newMsg.receiver)
+              : (newMsg.senderEmail || newMsg.sender);
+            recordMessageSource(newMsg.id, source, other, newMsg.subject);
 
             if (source === 'MESSAGES') {
               setMessagesData(prev => {
@@ -1882,7 +1950,9 @@ const Casbox = () => {
           updated.add(String(id));
         });
         try {
-          sessionStorage.setItem('bnx_casbox_deleted_messages_ids', JSON.stringify(Array.from(updated)));
+          const json = JSON.stringify(Array.from(updated));
+          sessionStorage.setItem('bnx_casbox_deleted_messages_ids', json);
+          localStorage.setItem('bnx_casbox_deleted_messages_ids', json);
         } catch (e) {}
         return updated;
       });
@@ -1937,7 +2007,9 @@ const Casbox = () => {
           }
           updated.add(fallbackId);
           try {
-            sessionStorage.setItem('bnx_casbox_deleted_combine_ids', JSON.stringify(Array.from(updated)));
+            const json = JSON.stringify(Array.from(updated));
+            sessionStorage.setItem('bnx_casbox_deleted_combine_ids', json);
+            localStorage.setItem('bnx_casbox_deleted_combine_ids', json);
           } catch (e) {}
           return updated;
         });
@@ -1959,7 +2031,9 @@ const Casbox = () => {
           }
           updated.add(fallbackId);
           try {
-            sessionStorage.setItem('bnx_casbox_deleted_messages_ids', JSON.stringify(Array.from(updated)));
+            const json = JSON.stringify(Array.from(updated));
+            sessionStorage.setItem('bnx_casbox_deleted_messages_ids', json);
+            localStorage.setItem('bnx_casbox_deleted_messages_ids', json);
           } catch (e) {}
           return updated;
         });
@@ -2428,9 +2502,11 @@ const Casbox = () => {
 
     try {
       setSendingChat(true);
+      const rawSubj = selectedMessage?.subject || "Casbox Message";
+      const sendSubject = rawSubj.includes('[Combine]') ? rawSubj : `[Combine] ${rawSubj}`;
       const payload = {
         receiverEmail: otherEmail,
-        subject: selectedMessage.subject || "Casbox Message",
+        subject: sendSubject,
         body: newChatText.trim(),
         attachmentsJson: null
       };
@@ -2440,7 +2516,7 @@ const Casbox = () => {
       setNewChatText("");
 
       const newMsg = { ...res.data, source: 'COMBINE' };
-      recordMessageSource(newMsg.id, 'COMBINE', otherEmail, selectedMessage?.subject);
+      recordMessageSource(newMsg.id, 'COMBINE', otherEmail, sendSubject);
 
       setThreadMessages(prev => {
         if (prev.some(m => m.id === newMsg.id)) return prev;
@@ -3072,7 +3148,8 @@ const Casbox = () => {
 
             // Subject: Show if present and not empty
             const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
-            const subject = (rawSubject && rawSubject.toLowerCase() !== 'null') ? rawSubject : '';
+            const cleanRaw = rawSubject.replace(/^\[(Combine|Messages)\]\s*/i, '');
+            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null') ? cleanRaw : '';
 
             // Body preview
             let bodyPreview = "";
@@ -3553,7 +3630,8 @@ const Casbox = () => {
     const avatarColorClass = getAvatarColorClass(personDisplayName || contactEmail);
 
     const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
-    const subject = (rawSubject && rawSubject.toLowerCase() !== 'null') ? rawSubject : '(No subject)';
+    const cleanRaw = rawSubject.replace(/^\[(Combine|Messages)\]\s*/i, '');
+    const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null') ? cleanRaw : '(No subject)';
     const bodyContent = msg?.body || msg?.content || '';
     const timeStr = formatSentDetailDateTime(msg?.timestamp) || formatCashboxTime(msg?.timestamp);
 
