@@ -6,14 +6,44 @@ import { useMail } from "../context/MailContext";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../context/LanguageContext";
 import StorageWidget from './StorageWidget';
-import { MdLabel, MdAdd, MdClose, MdCheck, MdDelete, MdExpandMore, MdExpandLess, MdHelpOutline, MdContactSupport, MdSettings, MdMoreVert, MdEdit, MdGroup, MdChat, MdCloudUpload, MdOutlineNoteAlt } from "react-icons/md";
+import { 
+  Mail, 
+  Star, 
+  Clock, 
+  Send, 
+  FileText, 
+  Trash2, 
+  ChevronDown, 
+  ChevronUp, 
+  Plus, 
+  Settings, 
+  HelpCircle,
+  Layers,
+  Calendar,
+  AlertOctagon,
+  Inbox as LucideInbox,
+  Archive,
+  BarChart2,
+  Bookmark,
+  Database
+} from "lucide-react";
+import { 
+  MdLabel, 
+  MdClose, 
+  MdDelete, 
+  MdMoreVert, 
+  MdEdit, 
+  MdGroup, 
+  MdChat, 
+  MdCloudUpload 
+} from "react-icons/md";
 
 const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, backgroundImage, sidebarPreferences } = useTheme();
-  const { unreadCounts, labels, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, openCompose } = useMail();
+  const { unreadCounts, labels, handleCreateLabel, handleUpdateLabel, handleDeleteLabel } = useMail();
   const { user, getSessions } = useAuth();
 
   const handleNavigation = (path) => {
@@ -23,7 +53,6 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
   const isChatMode = location.pathname.startsWith("/colab") || location.pathname.startsWith("/chat") || location.pathname.startsWith("/casbox");
   const isVaultMode = location.pathname.startsWith("/vault");
-
 
   const [isCreating, setIsCreating] = useState(false);
   const [onLabelCreatedCb, setOnLabelCreatedCb] = useState(null);
@@ -64,6 +93,51 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
       case 'Settings': return t('sidebar.settings', 'Settings');
       case 'Support & Help': return t('sidebar.support', 'Support & Help');
       default: return name;
+    }
+  };
+
+  const getNavIcon = (name, isActive) => {
+    const iconClass = `shrink-0 transition-colors ${
+      isActive ? "text-[#1a56db] dark:text-blue-400" : "text-[#2d3f59] dark:text-slate-300"
+    }`;
+    const strokeWidth = isActive ? 2.2 : 1.8;
+
+    switch (name) {
+      case 'Inbox':
+        return <Mail size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Starred':
+        return <Star size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Snoozed':
+        return <Clock size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Sent':
+        return <Send size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Draft':
+      case 'Drafts':
+        return <FileText size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Trash':
+        return <Trash2 size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'All Inbox':
+        return <Layers size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Scheduled':
+        return <Calendar size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Spam':
+        return <AlertOctagon size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'All Mail':
+        return <LucideInbox size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Archive':
+        return <Archive size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Unread':
+        return <Mail size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Templates':
+        return <FileText size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Analytics':
+        return <BarChart2 size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Subscriptions':
+        return <Bookmark size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Mail Backup':
+        return <Database size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      default:
+        return <Mail size={19} strokeWidth={strokeWidth} className={iconClass} />;
     }
   };
 
@@ -117,294 +191,354 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
     }
   };
 
+  const mainNavItems = ["Inbox", "Starred", "Snoozed", "Sent", "Draft", "Trash"];
+
+  const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Analytics", "Subscriptions", "Mail Backup"]
+    .filter(name => name !== "All Inbox" || (getSessions && getSessions().length > 1));
+
   return (
     <>
       <aside
         className={`
-        h-full overflow-y-auto flex flex-col transition-all duration-300 shrink-0 border-r-0 hidden-scrollbar
-        flex relative translate-x-0 sidebar-wrapper
-        ${!isDesktopOpen ? "sidebar-collapsed" : "md:w-56"}
-        ${isMobileOpen ? "sidebar-mobile-open" : ""}
-      `}
-        style={{ backgroundColor: isMobileOpen ? undefined : (backgroundImage ? "transparent" : theme.bg) }}
+          h-full overflow-y-auto flex flex-col transition-all duration-300 shrink-0 border-r-0 hidden-scrollbar
+          flex relative translate-x-0 sidebar-wrapper
+          ${!isDesktopOpen ? "sidebar-collapsed" : "md:w-56"}
+          ${isMobileOpen ? "sidebar-mobile-open" : ""}
+        `}
+        style={{ backgroundColor: isMobileOpen ? undefined : (backgroundImage ? "transparent" : (theme.sidebarBg || theme.bg || "#f0f5fc")) }}
       >
 
         {/* NAVIGATION */}
-        <nav className="flex-1 flex flex-col pr-0 pt-6 pb-2 space-y-0 overflow-y-auto hidden-scrollbar">
-          {/* TOP ITEMS */}
+        <nav className="flex-1 flex flex-col pr-0 pt-4 pb-2 space-y-1 overflow-y-auto hidden-scrollbar">
+          {/* VAULT MODE */}
           {isVaultMode ? (
             <div className="flex flex-col px-2 mt-2">
-               <button
-                  onClick={() => handleNavigation('/vault')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group cursor-pointer btn-collapse bg-primary/10 dark:bg-primary/20`}
-                  style={{ color: theme.accent || "#135bec" }}
-               >
-                 <MdCloudUpload size={18} className="shrink-0" />
-                 <span className="text-sm font-medium hide-on-collapse">{t('sidebar.my_vault', 'My Vault')}</span>
-               </button>
+              <button
+                onClick={() => handleNavigation('/vault')}
+                className="w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold relative"
+              >
+                <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
+                <div className="w-5 flex items-center justify-center shrink-0">
+                  <MdCloudUpload size={19} className="text-[#1a56db] dark:text-blue-400 shrink-0" />
+                </div>
+                <span className="ml-3.5 text-sm font-semibold hide-on-collapse">{t('sidebar.my_vault', 'My Vault')}</span>
+              </button>
             </div>
           ) : !isChatMode ? (
-            ["Inbox", "Starred", "Snoozed", "Sent", "Draft", "Trash"]
-              .map(name => SIDEBAR_ITEMS.find(item => item.name === name))
-              .filter(Boolean)
-              .filter(item => sidebarPreferences?.[item.name] !== false)
-              .map((item) => {
-                const isActive = location.pathname === item.path || (location.pathname === "/" && item.path === "/inbox");
-                const unreadKey = item.name.toLowerCase().replace(' ', '').replace('-', '');
-                const count = unreadCounts[unreadKey] || 0;
-
-                return (
-                  <button
-                    key={getItemLabel(item.name)}
-                    onClick={() => handleNavigation(item.path)}
-                    className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between pl-4 pr-3 py-1 rounded-full transition-all duration-200 group cursor-pointer btn-collapse shrink-0
-                      ${isActive
-                        ? "bg-primary/10 dark:bg-primary/20"
-                        : "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
-                      }
-                    `}
-                    style={{
-                      color: isActive ? (theme.accent || "#135bec") : theme.sidebarText,
-                      fontWeight: isActive ? 400 : 300,
-                    }}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className={`text-[18px] shrink-0 transition-transform duration-200 ${isActive ? "scale-105" : "group-hover:scale-105"}`}>
-                        {item.icon}
-                      </span>
-                      <span className="text-sm tracking-wide truncate whitespace-nowrap hide-on-collapse">{getItemLabel(item.name)}</span>
-                    </div>
-
-                    {count > 0 && (
-                      <span
-                        className="text-xs font-bold px-2 py-0.5 rounded-full shadow-sm hide-on-collapse"
-                        style={{ backgroundColor: theme.accent || "#135bec", color: "#fff" }}
-                      >
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })
-          ) : (
-            <div className="flex flex-col px-2 mt-2">
-
-              {/* Casbox */}
-              <div className="mb-2">
-                 <button
-                    onClick={() => handleNavigation('/casbox')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group cursor-pointer btn-collapse
-                      ${location.pathname.startsWith('/casbox') ? "bg-primary/10 dark:bg-primary/20" : "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"}
-                    `}
-                    style={{ color: location.pathname.startsWith('/casbox') ? (theme.accent || "#135bec") : theme.sidebarText }}
-                 >
-                   <MdChat size={18} className="shrink-0" />
-                   <span className="text-sm font-medium hide-on-collapse text-left flex-1">{t('sidebar.casbox', 'Casbox')}</span>
-                 </button>
-              </div>
-
-              {/* Colab */}
-              <div className="mb-6">
-                 <button
-                    onClick={() => handleNavigation('/colab')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group cursor-pointer btn-collapse
-                      ${location.pathname.startsWith('/colab') || location.pathname.startsWith('/chat') ? "bg-primary/10 dark:bg-primary/20" : "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"}
-                    `}
-                    style={{ color: location.pathname.startsWith('/colab') || location.pathname.startsWith('/chat') ? (theme.accent || "#135bec") : theme.sidebarText }}
-                 >
-                   <MdGroup size={18} className="shrink-0" />
-                   <span className="text-sm font-medium hide-on-collapse text-left flex-1">{t('sidebar.colab', 'Colab')}</span>
-                 </button>
-              </div>
-
-            </div>
-          )}
-
-          {!isChatMode && !isVaultMode && ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Chat", "Templates", "Analytics", "Subscriptions", "Mail Backup"]
-            .filter(name => name !== "All Inbox" || (getSessions && getSessions().length > 1))
-            .map(name => SIDEBAR_ITEMS.find(item => item.name === name))
-            .filter(Boolean)
-            .filter(item => sidebarPreferences?.[item.name] !== false)
-            .length > 0 && (
-            <div className="pt-1">
-              <button
-                onClick={() => setIsMoreOpen(!isMoreOpen)}
-                className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between pl-4 pr-3 py-1 rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all cursor-pointer group btn-collapse shrink-0"
-                style={{ color: theme.sidebarText, fontWeight: 500 }}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-[18px] transition-transform duration-200 group-hover:scale-105">
-                    {isMoreOpen ? <MdExpandLess /> : <MdExpandMore />}
-                  </span>
-                  <span className="text-sm tracking-wide hide-on-collapse">{isMoreOpen ? t('sidebar.less', 'Less') : t('sidebar.more', 'More')}</span>
-                </div>
-              </button>
-
-              {isMoreOpen && (
-                <div className="mt-1 space-y-0 animate-fade-in origin-top">
-                  {["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Analytics", "Subscriptions", "Mail Backup"]
-                    .filter(name => name !== "All Inbox" || (getSessions && getSessions().length > 1))
-                    .map(name => SIDEBAR_ITEMS.find(item => item.name === name))
-                    .filter(Boolean)
-                    .filter(item => sidebarPreferences?.[item.name] !== false)
-                    .map((item) => {
-                      const isActive = location.pathname === item.path;
-                      const unreadKey = item.name === "NotifyHub" ? "notification" : item.name.toLowerCase().replace(' ', '').replace('-', '');
-                      const count = unreadCounts[unreadKey] || 0;
-
-                      return (
-                        <button
-                          key={getItemLabel(item.name)}
-                          onClick={() => handleNavigation(item.path)}
-                          className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between pl-4 pr-3 py-1 rounded-full transition-all duration-200 group cursor-pointer btn-collapse
-                    ${isActive
-                              ? "bg-primary/10 dark:bg-primary/20"
-                              : "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
-                            }
-                  `}
-                          style={{
-                            color: isActive ? (theme.accent || "#135bec") : theme.sidebarText,
-                            fontWeight: isActive ? 400 : 300,
-                          }}
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <span className={`text-[18px] shrink-0 transition-transform duration-200 ${isActive ? "scale-105" : "group-hover:scale-105"}`}>
-                              {item.icon}
-                            </span>
-                            <span className="text-sm tracking-wide truncate whitespace-nowrap hide-on-collapse">{getItemLabel(item.name)}</span>
-                          </div>
-
-                          {count > 0 && (
-                            <span
-                              className="text-xs font-bold px-2 py-0.5 rounded-full shadow-sm hide-on-collapse"
-                              style={{ backgroundColor: theme.accent || "#135bec", color: "#fff" }}
-                            >
-                              {count}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                </div>
-              )}
-            </div>
-          )}
-
-
-
-          {/* CUSTOM LABELS */}
-          {!isChatMode && !isVaultMode && (
+            /* MAIN NAV: Inbox, Starred, Snoozed, Sent, Draft, Trash */
             <>
-              <div className="pt-3 pb-2">
-                <hr className="border-gray-200 dark:border-gray-700/50 mx-4" />
-              </div>
-          <div className="mt-1">
-            <div className="pl-4 pr-3 flex items-center justify-between mb-1 hide-on-collapse">
-              <h3 className="text-xs font-bold uppercase tracking-widest opacity-50" style={{ color: theme.sidebarText }}>
-                {t('sidebar.labels', 'Labels')}
-              </h3>
-              <button
-                onClick={() => setIsCreating(true)}
-                className="p-1 rounded-md hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
-                style={{ color: theme.accent }}
-              >
-                <MdAdd size={18} />
-              </button>
-            </div>
+              {mainNavItems
+                .map(name => SIDEBAR_ITEMS.find(item => item.name === name))
+                .filter(Boolean)
+                .filter(item => sidebarPreferences?.[item.name] !== false)
+                .map((item) => {
+                  const isActive = location.pathname === item.path || (location.pathname === "/" && item.path === "/inbox");
+                  const unreadKey = item.name.toLowerCase().replace(' ', '').replace('-', '');
+                  const count = unreadCounts[unreadKey] || 0;
 
-
-
-            {(() => {
-              const renderLabelTree = (parentId, depth = 0) => {
-                const children = labels.filter(l => l.parentId === parentId || (!l.parentId && parentId === null));
-                return children.map(label => (
-                  <div key={label.id} className="group">
-                    <div
-                      onClick={() => handleNavigation(`/label/${label.id}`)}
-                      className="w-[calc(100%-16px)] mx-2 flex items-center justify-between pr-3 py-1 rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all cursor-pointer btn-collapse"
-                      style={{ color: theme.sidebarText, paddingLeft: `${16 + (depth * 16)}px` }}
+                  return (
+                    <button
+                      key={item.name}
+                      onClick={() => handleNavigation(item.path)}
+                      className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all duration-150 group cursor-pointer btn-collapse relative shrink-0 ${
+                        isActive
+                          ? "bg-[#dce9fd] dark:bg-blue-900/30"
+                          : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04]"
+                      }`}
                     >
-                      <div className="flex items-center flex-1 min-w-0">
-                        <MdLabel style={{ color: label.colorHex }} size={18} className="shrink-0" />
-                        <span className="text-sm truncate hide-on-collapse pl-1.5">{label.name}</span>
-                      </div>
-                      <div className="relative flex items-center h-full hide-on-collapse">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveLabelMenu(activeLabelMenu === label.id ? null : label.id);
-                          }}
-                          className={`p-1 rounded transition-opacity hover:bg-black/10 dark:hover:bg-white/10 shrink-0 ${activeLabelMenu === label.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-                          style={{ color: theme.sidebarText }}
-                        >
-                          <MdMoreVert size={16} />
-                        </button>
+                      {/* Active indicator bar on far-left edge */}
+                      {isActive && (
+                        <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
+                      )}
 
-                        {activeLabelMenu === label.id && (
-                            <div
-                              ref={activeLabelMenu === label.id ? labelMenuRef : null}
-                              className="absolute right-0 top-full mt-1 w-32 py-1 rounded-xl shadow-lg border z-50 text-xs overflow-hidden"
-                              style={{ backgroundColor: theme.cardBg, borderColor: theme.border, color: theme.text }}
-                            >
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveLabelMenu(null);
-                                  setEditingLabel({ id: label.id, name: label.name, color: label.colorHex || "#135bec", parentId: label.parentId || "" });
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left"
-                              >
-                                <MdEdit size={14} /> {t('common.edit', 'Edit')}
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveLabelMenu(null);
-                                  if (window.confirm(t('sidebar.delete_label_confirm', 'Are you sure you want to delete this label? Sub-labels will also be deleted.'))) {
-                                    handleDeleteLabel(label.id);
-                                  }
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left text-red-500"
-                              >
-                                <MdDelete size={14} /> {t('common.delete', 'Delete')}
-                              </button>
-                            </div>
+                      <div className="flex items-center min-w-0 flex-1">
+                        {/* Icon aligned strictly in column */}
+                        <div className="w-5 flex items-center justify-center shrink-0">
+                          {getNavIcon(item.name, isActive)}
+                        </div>
+                        {/* Label */}
+                        <span
+                          className={`ml-3.5 text-[14px] truncate whitespace-nowrap hide-on-collapse ${
+                            isActive
+                              ? "text-[#1a56db] dark:text-blue-400 font-semibold"
+                              : "text-[#2d3f59] dark:text-slate-200 font-medium"
+                          }`}
+                        >
+                          {getItemLabel(item.name)}
+                        </span>
+                      </div>
+
+                      {/* Unread badge on the right */}
+                      {count > 0 && (
+                        <span
+                          className={`text-xs px-2.5 py-0.5 rounded-full hide-on-collapse font-sans shrink-0 ${
+                            isActive
+                              ? "bg-[#cfe2fe] dark:bg-blue-900/50 text-[#1a56db] dark:text-blue-300 font-bold"
+                              : "bg-blue-100/80 dark:bg-gray-700 text-[#1a56db] dark:text-blue-300 font-semibold"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+
+              {/* MORE DROPDOWN ITEM */}
+              {moreNavItems.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setIsMoreOpen(!isMoreOpen)}
+                    className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2.5 rounded-2xl hover:bg-blue-50/70 dark:hover:bg-white/[0.04] transition-all cursor-pointer group btn-collapse shrink-0"
+                  >
+                    <div className="flex items-center min-w-0 flex-1">
+                      <div className="w-5 flex items-center justify-center shrink-0">
+                        {isMoreOpen ? (
+                          <ChevronUp size={19} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
+                        ) : (
+                          <ChevronDown size={19} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
                         )}
                       </div>
+                      <span className="ml-3.5 text-[14px] font-medium text-[#2d3f59] dark:text-slate-200 hide-on-collapse">
+                        {isMoreOpen ? t('sidebar.less', 'Less') : t('sidebar.more', 'More')}
+                      </span>
                     </div>
-                    {renderLabelTree(label.id, depth + 1)}
-                  </div>
-                ));
-              };
-              return renderLabelTree(null);
-            })()}
-          </div>
+                  </button>
 
-            {/* HELP & SUPPORT (Removed HR above it) */}
+                  {/* Expanded items */}
+                  {isMoreOpen && (
+                    <div className="mt-0.5 space-y-0.5 animate-fade-in origin-top">
+                      {moreNavItems
+                        .map(name => SIDEBAR_ITEMS.find(item => item.name === name))
+                        .filter(Boolean)
+                        .filter(item => sidebarPreferences?.[item.name] !== false)
+                        .map((item) => {
+                          const isActive = location.pathname === item.path;
+                          const unreadKey = item.name === "NotifyHub" ? "notification" : item.name.toLowerCase().replace(' ', '').replace('-', '');
+                          const count = unreadCounts[unreadKey] || 0;
+
+                          return (
+                            <button
+                              key={item.name}
+                              onClick={() => handleNavigation(item.path)}
+                              className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2 rounded-xl transition-all duration-150 group cursor-pointer btn-collapse relative shrink-0 ${
+                                isActive
+                                  ? "bg-[#dce9fd] dark:bg-blue-900/30"
+                                  : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04]"
+                              }`}
+                            >
+                              {isActive && (
+                                <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
+                              )}
+                              <div className="flex items-center min-w-0 flex-1">
+                                <div className="w-5 flex items-center justify-center shrink-0">
+                                  {getNavIcon(item.name, isActive)}
+                                </div>
+                                <span
+                                  className={`ml-3.5 text-[14px] truncate whitespace-nowrap hide-on-collapse ${
+                                    isActive
+                                      ? "text-[#1a56db] dark:text-blue-400 font-semibold"
+                                      : "text-[#2d3f59] dark:text-slate-200 font-medium"
+                                  }`}
+                                >
+                                  {getItemLabel(item.name)}
+                                </span>
+                              </div>
+
+                              {count > 0 && (
+                                <span
+                                  className={`text-xs px-2.5 py-0.5 rounded-full hide-on-collapse font-sans shrink-0 ${
+                                    isActive
+                                      ? "bg-[#cfe2fe] dark:bg-blue-900/50 text-[#1a56db] dark:text-blue-300 font-bold"
+                                      : "bg-blue-100/80 dark:bg-gray-700 text-[#1a56db] dark:text-blue-300 font-semibold"
+                                  }`}
+                                >
+                                  {count}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
+          ) : (
+            /* CHAT MODE: Casbox & Colab */
+            <div className="flex flex-col px-2 mt-1 space-y-1">
+              <button
+                onClick={() => handleNavigation('/casbox')}
+                className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
+                  location.pathname.startsWith('/casbox')
+                    ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
+                    : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium"
+                }`}
+              >
+                {location.pathname.startsWith('/casbox') && (
+                  <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
+                )}
+                <div className="w-5 flex items-center justify-center shrink-0">
+                  <MdChat size={19} className="shrink-0" />
+                </div>
+                <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">{t('sidebar.casbox', 'Casbox')}</span>
+              </button>
+
+              <button
+                onClick={() => handleNavigation('/colab')}
+                className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
+                  location.pathname.startsWith('/colab') || location.pathname.startsWith('/chat')
+                    ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
+                    : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium"
+                }`}
+              >
+                {(location.pathname.startsWith('/colab') || location.pathname.startsWith('/chat')) && (
+                  <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
+                )}
+                <div className="w-5 flex items-center justify-center shrink-0">
+                  <MdGroup size={19} className="shrink-0" />
+                </div>
+                <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">{t('sidebar.colab', 'Colab')}</span>
+              </button>
+            </div>
           )}
-          <div className="pt-2">
-          </div>
+
+          {/* LABELS SECTION */}
+          {!isChatMode && !isVaultMode && (
+            <div className="pt-2">
+              {/* Subtle divider */}
+              <div className="my-2.5 px-3">
+                <div className="h-px bg-blue-100/70 dark:bg-gray-800" />
+              </div>
+
+              {/* Labels header */}
+              <div className="px-4 flex items-center justify-between mb-1.5 hide-on-collapse">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b9cb5] dark:text-gray-400">
+                  {t('sidebar.labels', 'LABELS')}
+                </span>
+                <button
+                  onClick={() => setIsCreating(true)}
+                  className="p-1 rounded-md text-[#2d3f59] dark:text-gray-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                  title={t('sidebar.new_label', 'New Label')}
+                >
+                  <Plus size={16} strokeWidth={2.2} />
+                </button>
+              </div>
+
+              {/* Labels list */}
+              {(() => {
+                const renderLabelTree = (parentId, depth = 0) => {
+                  const children = labels.filter(l => l.parentId === parentId || (!l.parentId && parentId === null));
+                  return children.map(label => {
+                    const isLabelActive = location.pathname === `/label/${label.id}`;
+
+                    return (
+                      <div key={label.id} className="group">
+                        <div
+                          onClick={() => handleNavigation(`/label/${label.id}`)}
+                          className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2 rounded-xl transition-all duration-150 cursor-pointer btn-collapse ${
+                            isLabelActive
+                              ? "bg-[#dce9fd] dark:bg-blue-900/30"
+                              : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04]"
+                          }`}
+                          style={{ paddingLeft: `${14 + (depth * 14)}px` }}
+                        >
+                          <div className="flex items-center min-w-0 flex-1">
+                            {/* Simple colored tag icon aligned strictly in column */}
+                            <div className="w-5 flex items-center justify-center shrink-0">
+                              <MdLabel style={{ color: label.colorHex || "#135bec" }} size={17} className="shrink-0" />
+                            </div>
+                            <span
+                              className={`ml-3.5 text-[14px] truncate hide-on-collapse ${
+                                isLabelActive
+                                  ? "text-[#1a56db] dark:text-blue-400 font-semibold"
+                                  : "text-[#2d3f59] dark:text-gray-200 font-medium"
+                              }`}
+                            >
+                              {label.name}
+                            </span>
+                          </div>
+
+                          {/* 3-dot menu */}
+                          <div className="relative flex items-center h-full hide-on-collapse ml-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveLabelMenu(activeLabelMenu === label.id ? null : label.id);
+                              }}
+                              className={`p-1 rounded-md transition-opacity hover:bg-black/10 dark:hover:bg-white/10 shrink-0 text-[#2d3f59] dark:text-gray-300 ${
+                                activeLabelMenu === label.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                              }`}
+                            >
+                              <MdMoreVert size={16} />
+                            </button>
+
+                            {activeLabelMenu === label.id && (
+                              <div
+                                ref={activeLabelMenu === label.id ? labelMenuRef : null}
+                                className="absolute right-0 top-full mt-1 w-32 py-1 rounded-xl shadow-lg border z-50 text-xs overflow-hidden bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                              >
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveLabelMenu(null);
+                                    setEditingLabel({ id: label.id, name: label.name, color: label.colorHex || "#135bec", parentId: label.parentId || "" });
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left text-gray-700 dark:text-gray-200"
+                                >
+                                  <MdEdit size={14} /> {t('common.edit', 'Edit')}
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveLabelMenu(null);
+                                    if (window.confirm(t('sidebar.delete_label_confirm', 'Are you sure you want to delete this label? Sub-labels will also be deleted.'))) {
+                                      handleDeleteLabel(label.id);
+                                    }
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left text-red-500"
+                                >
+                                  <MdDelete size={14} /> {t('common.delete', 'Delete')}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {renderLabelTree(label.id, depth + 1)}
+                      </div>
+                    );
+                  });
+                };
+                return renderLabelTree(null);
+              })()}
+            </div>
+          )}
         </nav>
 
-        <div className="space-y-0 mb-6 shrink-0 pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
+        {/* BOTTOM SECTION: STORAGE + SETTINGS + SUPPORT */}
+        <div className="space-y-1 mb-4 shrink-0 pt-2 border-t border-blue-100/70 dark:border-gray-800">
           <StorageWidget isDesktopOpen={isDesktopOpen} />
+
+          {/* Settings */}
           <button
             onClick={() => handleNavigation("/settings")}
-            className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center gap-3 pl-4 pr-3 py-1 rounded-full transition-all duration-200 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] cursor-pointer text-sm tracking-wide btn-collapse"
-            style={{ color: theme.sidebarText, fontWeight: 500 }}
+            className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] cursor-pointer text-[#2d3f59] dark:text-slate-200 text-sm font-medium tracking-wide btn-collapse"
           >
-            <span className="text-[18px]"><MdSettings size={22} /></span>
-            <span className="hide-on-collapse">{t('sidebar.settings', 'Settings')}</span>
+            <div className="w-5 flex items-center justify-center shrink-0">
+              <Settings size={19} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
+            </div>
+            <span className="ml-3.5 hide-on-collapse">{t('sidebar.settings', 'Settings')}</span>
           </button>
 
+          {/* Support & Help */}
           <button
             onClick={() => handleNavigation("/support")}
-            className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center gap-3 pl-4 pr-3 py-1 rounded-full transition-all duration-200 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] cursor-pointer text-sm tracking-wide btn-collapse"
-            style={{ color: theme.sidebarText, fontWeight: 500 }}
+            className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] cursor-pointer text-[#2d3f59] dark:text-slate-200 text-sm font-medium tracking-wide btn-collapse"
           >
-            <span className="text-[18px]"><MdHelpOutline size={22} /></span>
-            <span className="hide-on-collapse">{t('sidebar.support', 'Support & Help')}</span>
+            <div className="w-5 flex items-center justify-center shrink-0">
+              <HelpCircle size={19} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
+            </div>
+            <span className="ml-3.5 hide-on-collapse">{t('sidebar.support', 'Support & Help')}</span>
           </button>
         </div>
       </aside>
