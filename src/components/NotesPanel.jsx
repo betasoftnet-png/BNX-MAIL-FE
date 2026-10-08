@@ -292,7 +292,7 @@ function NotesPanelInner() {
       {isAdding && (
         <div className="absolute inset-0 z-20 flex flex-col justify-end overflow-hidden pointer-events-none rounded-xl">
           <div 
-            className="absolute inset-0 bg-black/30 dark:bg-black/50 pointer-events-auto transition-opacity"
+            className="absolute inset-0 bg-transparent pointer-events-auto transition-opacity"
             onClick={closeModal}
           />
           
