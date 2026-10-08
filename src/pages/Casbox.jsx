@@ -482,6 +482,55 @@ const getStatusIcon = (status) => {
   return <MdCheck size={14} className="text-gray-400 dark:text-gray-500 inline-block" title="Sent" />;
 };
 
+const SOURCE_STORAGE_KEY = 'bnx_casbox_message_sources';
+const THREAD_STORAGE_KEY = 'bnx_casbox_thread_sources';
+
+const getStoredSources = () => {
+  try {
+    const s = sessionStorage.getItem(SOURCE_STORAGE_KEY) || localStorage.getItem(SOURCE_STORAGE_KEY);
+    return s ? JSON.parse(s) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+const getStoredThreads = () => {
+  try {
+    const s = sessionStorage.getItem(THREAD_STORAGE_KEY) || localStorage.getItem(THREAD_STORAGE_KEY);
+    return s ? JSON.parse(s) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+const recordMessageSource = (id, source, contactEmail = null, subject = null) => {
+  try {
+    const currentSources = getStoredSources();
+    if (id !== undefined && id !== null) {
+      currentSources[String(id)] = source;
+    }
+    const jsonSources = JSON.stringify(currentSources);
+    sessionStorage.setItem(SOURCE_STORAGE_KEY, jsonSources);
+    localStorage.setItem(SOURCE_STORAGE_KEY, jsonSources);
+
+    if (contactEmail) {
+      const currentThreads = getStoredThreads();
+      const norm = normalizeEmail(contactEmail);
+      if (norm) {
+        currentThreads[norm] = source;
+        if (norm.includes('@')) currentThreads[norm.split('@')[0]] = source;
+      }
+      if (subject) {
+        const normSubj = String(subject).replace(/^(re|fwd):\s*/i, '').trim().toLowerCase();
+        if (normSubj) currentThreads[`${norm}::${normSubj}`] = source;
+      }
+      const jsonThreads = JSON.stringify(currentThreads);
+      sessionStorage.setItem(THREAD_STORAGE_KEY, jsonThreads);
+      localStorage.setItem(THREAD_STORAGE_KEY, jsonThreads);
+    }
+  } catch (e) {}
+};
+
 const Casbox = () => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
@@ -496,32 +545,119 @@ const Casbox = () => {
     isCurrentUserRef.current = isCurrentUser;
   }, [isCurrentUser]);
 
-  const [messages, setMessages] = useState([]);
+  // Separate message collections for Messages and Combine
+  const [messagesData, setMessagesData] = useState([]);
+  const [combineData, setCombineData] = useState([]);
+
+  const messagesDataRef = React.useRef(messagesData);
+  useEffect(() => {
+    messagesDataRef.current = messagesData;
+  }, [messagesData]);
+
+  const combineDataRef = React.useRef(combineData);
+  useEffect(() => {
+    combineDataRef.current = combineData;
+  }, [combineData]);
+
   const [loading, setLoading] = useState(true);
 
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [selectedSentDetail, setSelectedSentDetail] = useState(null);
 
   const [activeTab, setActiveTab] = useState('messages');
+  const activeTabRef = React.useRef(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
   const isCombineTab = activeTab === 'combine' || activeTab === 'combined';
+  const isCombineTabRef = React.useRef(isCombineTab);
+  useEffect(() => {
+    isCombineTabRef.current = isCombineTab;
+  }, [isCombineTab]);
+
+  // Contextual messages array
+  const messages = isCombineTab ? combineData : messagesData;
+  const messagesRef = React.useRef(messages);
+  messagesRef.current = [...messagesData, ...combineData];
+
+  const identifyMessageSource = useCallback((msg, currentContext = null) => {
+    if (!msg) return 'MESSAGES';
+    if (msg.source === 'COMBINE' || msg.source === 'combine') return 'COMBINE';
+    if (msg.source === 'MESSAGES' || msg.source === 'messages') return 'MESSAGES';
+    if (msg.context === 'COMBINE' || msg.context === 'combine') return 'COMBINE';
+    if (msg.context === 'MESSAGES' || msg.context === 'messages') return 'MESSAGES';
+    if (msg.tab === 'combine' || msg.tab === 'combined') return 'COMBINE';
+    if (msg.tab === 'messages') return 'MESSAGES';
+
+    const targetId = msg.id !== undefined ? msg.id : msg.uid;
+    const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
+    const fallbackKey = `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
+
+    const storedSources = getStoredSources();
+    if (strId && storedSources[strId]) return storedSources[strId];
+    if (storedSources[fallbackKey]) return storedSources[fallbackKey];
+
+    const storedThreads = getStoredThreads();
+    const sender = normalizeEmail(msg.senderEmail || msg.sender);
+    const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
+    const other = isCurrentUser(sender) ? receiver : sender;
+
+    if (other) {
+      const rawSubj = typeof msg.subject === 'string' ? msg.subject.replace(/^(re|fwd):\s*/i, '').trim().toLowerCase() : '';
+      if (rawSubj && storedThreads[`${other}::${rawSubj}`]) {
+        return storedThreads[`${other}::${rawSubj}`];
+      }
+      if (storedThreads[other]) {
+        return storedThreads[other];
+      }
+      if (other.includes('@') && storedThreads[other.split('@')[0]]) {
+        return storedThreads[other.split('@')[0]];
+      }
+    }
+
+    if (currentContext === 'COMBINE') return 'COMBINE';
+    if (currentContext === 'MESSAGES') return 'MESSAGES';
+
+    return 'MESSAGES';
+  }, [isCurrentUser]);
+
   const [messagesSearch, setMessagesSearch] = useState("");
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [isDeletingMessage, setIsDeletingMessage] = useState(false);
-  const [deletedMessageIds, setDeletedMessageIds] = useState(() => {
+
+  // Tab-specific deleted message IDs
+  const [deletedMessagesIds, setDeletedMessagesIds] = useState(() => {
     try {
-      const s = sessionStorage.getItem('bnx_casbox_deleted_msg_ids');
+      const s = sessionStorage.getItem('bnx_casbox_deleted_messages_ids') || sessionStorage.getItem('bnx_casbox_deleted_msg_ids');
       return s ? new Set(JSON.parse(s)) : new Set();
     } catch (e) {
       return new Set();
     }
   });
-  const deletedMessageIdsRef = React.useRef(deletedMessageIds);
+  const deletedMessagesIdsRef = React.useRef(deletedMessagesIds);
   useEffect(() => {
-    deletedMessageIdsRef.current = deletedMessageIds;
-  }, [deletedMessageIds]);
+    deletedMessagesIdsRef.current = deletedMessagesIds;
+  }, [deletedMessagesIds]);
+
+  const [deletedCombineIds, setDeletedCombineIds] = useState(() => {
+    try {
+      const s = sessionStorage.getItem('bnx_casbox_deleted_combine_ids');
+      return s ? new Set(JSON.parse(s)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+  const deletedCombineIdsRef = React.useRef(deletedCombineIds);
+  useEffect(() => {
+    deletedCombineIdsRef.current = deletedCombineIds;
+  }, [deletedCombineIds]);
+
+  const deletedMessageIds = isCombineTab ? deletedCombineIds : deletedMessagesIds;
+  const setDeletedMessageIds = isCombineTab ? setDeletedCombineIds : setDeletedMessagesIds;
   const [combineSearch, setCombineSearch] = useState("");
   const [combineFilter, setCombineFilter] = useState("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -578,9 +714,6 @@ const Casbox = () => {
   });
   const [showBlockedModal, setShowBlockedModal] = useState(false);
 
-  const messagesRef = React.useRef(messages);
-  messagesRef.current = messages;
-
   const acceptedContactsRef = React.useRef(acceptedContacts);
   useEffect(() => {
     acceptedContactsRef.current = acceptedContacts;
@@ -592,28 +725,43 @@ const Casbox = () => {
   // Existing Cashbox API call started immediately as the very first effect on mount
   const fetchMessages = useCallback(async (background = false) => {
     try {
-      if (!background && messagesRef.current.length === 0) setLoading(true);
+      if (!background && messagesDataRef.current.length === 0 && combineDataRef.current.length === 0) setLoading(true);
       const res = await casboxAPI.getAllMessages();
       const rawMsgs = res.data || [];
-      const msgs = rawMsgs.filter(m => {
-        const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-        return !deletedMessageIdsRef.current.has(id) && !deletedMessageIdsRef.current.has(String(id));
-      });
-      // Set messages immediately to trigger rendering without intermediate blocking
-      setMessages(msgs);
 
-      // Seed already seen message IDs to prevent redundant status updates
-      for (let i = 0; i < msgs.length; i++) {
-        const m = msgs[i];
+      const newMessages = [];
+      const newCombine = [];
+
+      for (let i = 0; i < rawMsgs.length; i++) {
+        const m = rawMsgs[i];
+        const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        const strId = String(id);
+        const source = identifyMessageSource(m);
+        m.source = source;
+
+        if (source === 'COMBINE') {
+          if (!deletedCombineIdsRef.current.has(id) && !deletedCombineIdsRef.current.has(strId)) {
+            newCombine.push(m);
+          }
+        } else {
+          if (!deletedMessagesIdsRef.current.has(id) && !deletedMessagesIdsRef.current.has(strId)) {
+            newMessages.push(m);
+          }
+        }
+
+        // Seed already seen message IDs to prevent redundant status updates
         if (m.id && String(m.status || '').toUpperCase() === 'SEEN') {
           markedSeenIdsRef.current.add(m.id);
         }
       }
 
+      setMessagesData(newMessages);
+      setCombineData(newCombine);
+
       // Collect any aliases returned in the messages DTOs in the background
       const dtoAliases = {};
-      for (let i = 0; i < msgs.length; i++) {
-        const m = msgs[i];
+      for (let i = 0; i < rawMsgs.length; i++) {
+        const m = rawMsgs[i];
         if (m.customName && m.customName.trim()) {
           const val = m.customName.trim();
           if (m.contactUserId) dtoAliases[String(m.contactUserId)] = val;
@@ -631,14 +779,30 @@ const Casbox = () => {
 
       if (selectedContactRef.current) {
         const contactEmail = selectedContactRef.current;
-        casboxAPI.getThread(contactEmail).then(r => setThreadMessages(r.data || [])).catch(console.error);
+        casboxAPI.getThread(contactEmail).then(r => {
+          const threadRaw = r.data || [];
+          const filtered = isCombineTabRef.current
+            ? threadRaw.filter(m => {
+                const id = m.id || m.uid;
+                const strId = String(id);
+                if (deletedCombineIdsRef.current.has(id) || deletedCombineIdsRef.current.has(strId)) return false;
+                return identifyMessageSource(m) === 'COMBINE';
+              })
+            : threadRaw.filter(m => {
+                const id = m.id || m.uid;
+                const strId = String(id);
+                if (deletedMessagesIdsRef.current.has(id) || deletedMessagesIdsRef.current.has(strId)) return false;
+                return identifyMessageSource(m) === 'MESSAGES';
+              });
+          setThreadMessages(filtered);
+        }).catch(console.error);
       }
     } catch (err) {
       if (!background) toast.error("Failed to fetch messages");
     } finally {
       if (!background) setLoading(false);
     }
-  }, [user?.email]);
+  }, [user?.email, identifyMessageSource]);
 
   useEffect(() => {
     fetchMessages();
@@ -650,7 +814,20 @@ const Casbox = () => {
       }
     }, 10000);
 
-    const handleCasboxMessageSent = () => {
+    const handleCasboxMessageSent = (e) => {
+      const newMsg = e?.detail?.message;
+      const receiverEmail = e?.detail?.receiverEmail;
+      const explicitSource = e?.detail?.source;
+      if (newMsg) {
+        const source = explicitSource || (isCombineTabRef.current ? 'COMBINE' : 'MESSAGES');
+        newMsg.source = source;
+        recordMessageSource(newMsg.id, source, receiverEmail, newMsg.subject);
+        if (source === 'MESSAGES') {
+          setMessagesData(prev => [newMsg, ...prev.filter(m => m.id !== newMsg.id)]);
+        } else {
+          setCombineData(prev => [newMsg, ...prev.filter(m => m.id !== newMsg.id)]);
+        }
+      }
       fetchMessages(true);
     };
     window.addEventListener('casbox_message_sent', handleCasboxMessageSent);
@@ -674,22 +851,35 @@ const Casbox = () => {
         try {
           const newMsg = JSON.parse(message.body);
           if (newMsg && newMsg.id) {
-            setMessages(prev => {
-              if (prev.some(m => m.id === newMsg.id)) return prev;
-              return [newMsg, ...prev];
-            });
+            const source = identifyMessageSource(newMsg, isCombineTabRef.current ? 'COMBINE' : 'MESSAGES');
+            newMsg.source = source;
+            recordMessageSource(newMsg.id, source);
 
-            const sender = normalizeEmail(newMsg.senderEmail || newMsg.sender);
-            const otherEmail = normalizeEmail(
-              isCurrentUserRef.current(sender)
-                ? (newMsg.receiverEmail || newMsg.receiver)
-                : (newMsg.senderEmail || newMsg.sender)
-            );
-            if (selectedContactRef.current && normalizeEmail(selectedContactRef.current) === otherEmail) {
-              setThreadMessages(prev => {
+            if (source === 'MESSAGES') {
+              setMessagesData(prev => {
                 if (prev.some(m => m.id === newMsg.id)) return prev;
-                return [...prev, newMsg];
+                return [newMsg, ...prev];
               });
+              // Do NOT update combineData
+            } else {
+              setCombineData(prev => {
+                if (prev.some(m => m.id === newMsg.id)) return prev;
+                return [newMsg, ...prev];
+              });
+              // Do NOT update messagesData
+
+              const sender = normalizeEmail(newMsg.senderEmail || newMsg.sender);
+              const otherEmail = normalizeEmail(
+                isCurrentUserRef.current(sender)
+                  ? (newMsg.receiverEmail || newMsg.receiver)
+                  : (newMsg.senderEmail || newMsg.sender)
+              );
+              if (selectedContactRef.current && normalizeEmail(selectedContactRef.current) === otherEmail) {
+                setThreadMessages(prev => {
+                  if (prev.some(m => m.id === newMsg.id)) return prev;
+                  return [...prev, newMsg];
+                });
+              }
             }
           }
         } catch (e) {
@@ -701,7 +891,8 @@ const Casbox = () => {
         try {
           const statusDto = JSON.parse(message.body);
           if (statusDto && statusDto.id) {
-            setMessages(prev => prev.map(m => m.id === statusDto.id ? { ...m, status: statusDto.status } : m));
+            setMessagesData(prev => prev.map(m => m.id === statusDto.id ? { ...m, status: statusDto.status } : m));
+            setCombineData(prev => prev.map(m => m.id === statusDto.id ? { ...m, status: statusDto.status } : m));
             setThreadMessages(prev => prev.map(m => m.id === statusDto.id ? { ...m, status: statusDto.status } : m));
           }
         } catch (e) {
@@ -721,7 +912,7 @@ const Casbox = () => {
         }
       } catch (e) {}
     };
-  }, [stompClient, isConnected, user?.email]);
+  }, [stompClient, isConnected, user?.email, identifyMessageSource]);
 
 
   const [threadMessages, setThreadMessages] = useState([]);
@@ -1043,7 +1234,18 @@ const Casbox = () => {
         });
 
         // Update messages in state
-        setMessages(prev => prev.map(m => {
+        setMessagesData(prev => prev.map(m => {
+          const other = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
+          if (other && other.toLowerCase() === contactTarget.toLowerCase()) {
+            return {
+              ...m,
+              customName: null,
+              contactDisplayName: m.contactUsername || contactTarget.split('@')[0]
+            };
+          }
+          return m;
+        }));
+        setCombineData(prev => prev.map(m => {
           const other = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
           if (other && other.toLowerCase() === contactTarget.toLowerCase()) {
             return {
@@ -1083,7 +1285,18 @@ const Casbox = () => {
         }));
 
         // Update messages in state
-        setMessages(prev => prev.map(m => {
+        setMessagesData(prev => prev.map(m => {
+          const other = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
+          if (other && other.toLowerCase() === contactTarget.toLowerCase()) {
+            return {
+              ...m,
+              customName: savedName,
+              contactDisplayName: savedName
+            };
+          }
+          return m;
+        }));
+        setCombineData(prev => prev.map(m => {
           const other = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
           if (other && other.toLowerCase() === contactTarget.toLowerCase()) {
             return {
@@ -1199,7 +1412,8 @@ const Casbox = () => {
     candidateIds.forEach(id => markedSeenIdsRef.current.add(id));
 
     // Optimistically update message status in local state
-    setMessages(prev => prev.map(m => candidateIds.includes(m.id) ? { ...m, status: 'SEEN' } : m));
+    setMessagesData(prev => prev.map(m => candidateIds.includes(m.id) ? { ...m, status: 'SEEN' } : m));
+    setCombineData(prev => prev.map(m => candidateIds.includes(m.id) ? { ...m, status: 'SEEN' } : m));
     setThreadMessages(prev => prev.map(m => candidateIds.includes(m.id) ? { ...m, status: 'SEEN' } : m));
 
     // Call existing message status API
@@ -1265,9 +1479,10 @@ const Casbox = () => {
   }, [isCurrentUser, markMessagesAsSeen]);
 
   useEffect(() => {
-    if (location.state?.preselectContact && messages.length > 0) {
+    if (location.state?.preselectContact && (messagesData.length > 0 || combineData.length > 0)) {
       const contactEmail = location.state.preselectContact;
-      const matchingMsg = messages.find(m => m.senderEmail === contactEmail || m.receiverEmail === contactEmail);
+      const allMsgs = [...messagesData, ...combineData];
+      const matchingMsg = allMsgs.find(m => m.senderEmail === contactEmail || m.receiverEmail === contactEmail);
       if (matchingMsg) {
         handleSelectMessage(matchingMsg);
       } else {
@@ -1283,7 +1498,7 @@ const Casbox = () => {
       // Clear location state after processing
       window.history.replaceState({}, document.title);
     }
-  }, [location.state, messages, user?.email]);
+  }, [location.state, messagesData, combineData, user?.email]);
 
   // Synchronous derivation of accepted contacts from settings and connections
   const acceptedSet = useMemo(() => {
@@ -1338,7 +1553,18 @@ const Casbox = () => {
       setLoadingThread(true);
       const res = await casboxAPI.getThread(contactEmail);
       const data = res.data || [];
-      setThreadMessages(data);
+      const activeDeletedSet = (activeTab === 'combine' || isCombineTab) ? deletedCombineIdsRef.current : deletedMessagesIdsRef.current;
+      const filtered = data.filter(m => {
+        const id = m.id !== undefined ? m.id : m.uid;
+        const strId = id !== undefined && id !== null ? String(id) : null;
+        const fallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return !(
+          activeDeletedSet.has(id) ||
+          (strId && activeDeletedSet.has(strId)) ||
+          activeDeletedSet.has(fallbackId)
+        );
+      });
+      setThreadMessages(filtered);
 
       // Only mark received messages as SEEN when user is actively viewing this contact's conversation
       if (selectedContactRef.current && normalizeEmail(selectedContactRef.current) === normalizeEmail(contactEmail)) {
@@ -1379,7 +1605,8 @@ const Casbox = () => {
       ? selectedMessage.receiverEmail
       : selectedMessage.senderEmail;
 
-    const matchingMsgIds = messages
+    const sourceCollection = isCombineTab ? combineData : messagesData;
+    const matchingMsgIds = sourceCollection
       .filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && (isCurrentlyArchived ? Boolean(m.isArchived || m.archived) : !Boolean(m.isArchived || m.archived)))
       .map(m => m.id);
 
@@ -1387,7 +1614,11 @@ const Casbox = () => {
     const newArchived = !isCurrentlyArchived;
 
     try {
-      setMessages(prev => prev.map(m => targetIds.includes(m.id) ? { ...m, isArchived: newArchived, archived: newArchived } : m));
+      if (isCombineTab) {
+        setCombineData(prev => prev.map(m => targetIds.includes(m.id) ? { ...m, isArchived: newArchived, archived: newArchived } : m));
+      } else {
+        setMessagesData(prev => prev.map(m => targetIds.includes(m.id) ? { ...m, isArchived: newArchived, archived: newArchived } : m));
+      }
       setSelectedMessage(null);
       await casboxAPI.updateArchiveStatus(targetIds, newArchived);
       if (newArchived) {
@@ -1417,12 +1648,21 @@ const Casbox = () => {
     const apiTargetIds = !isNaN(numericId) ? [numericId] : [messageId];
 
     try {
-      setMessages(prev => prev.map(m => {
-        const mId = m.id !== undefined ? m.id : m.uid;
-        return (mId === messageId || String(mId) === strId)
-          ? { ...m, isArchived: true, archived: true }
-          : m;
-      }));
+      if (isCombineTab) {
+        setCombineData(prev => prev.map(m => {
+          const mId = m.id !== undefined ? m.id : m.uid;
+          return (mId === messageId || String(mId) === strId)
+            ? { ...m, isArchived: true, archived: true }
+            : m;
+        }));
+      } else {
+        setMessagesData(prev => prev.map(m => {
+          const mId = m.id !== undefined ? m.id : m.uid;
+          return (mId === messageId || String(mId) === strId)
+            ? { ...m, isArchived: true, archived: true }
+            : m;
+        }));
+      }
 
       if (selectedSentDetail) {
         const sId = selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid;
@@ -1465,7 +1705,7 @@ const Casbox = () => {
     });
 
     try {
-      setMessages(prev => prev.map(m => {
+      setMessagesData(prev => prev.map(m => {
         const mId = String(m.id !== undefined ? m.id : m.uid);
         return targetSet.has(mId) ? { ...m, isArchived: true, archived: true } : m;
       }));
@@ -1500,7 +1740,7 @@ const Casbox = () => {
     const otherEmail = chatOrMsg.contact || (chatOrMsg.senderEmail === user?.email ? chatOrMsg.receiverEmail : chatOrMsg.senderEmail);
 
     const matchingMsgIds = otherEmail 
-      ? messages.filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && Boolean(m.isArchived || m.archived)).map(m => m.id)
+      ? messagesData.filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && Boolean(m.isArchived || m.archived)).map(m => m.id)
       : [];
 
     const targetIds = matchingMsgIds.length > 0 
@@ -1510,7 +1750,7 @@ const Casbox = () => {
     if (targetIds.length === 0) return;
 
     try {
-      setMessages(prev => prev.map(m => targetIds.includes(m.id) ? { ...m, isArchived: false, archived: false } : m));
+      setMessagesData(prev => prev.map(m => targetIds.includes(m.id) ? { ...m, isArchived: false, archived: false } : m));
       if (selectedMessage && (targetIds.includes(selectedMessage.id) || (otherEmail && getOtherUserEmail(selectedMessage) === otherEmail))) {
         setSelectedMessage(null);
       }
@@ -1539,7 +1779,12 @@ const Casbox = () => {
       // Only remove the conversation from UI after backend confirms successful deletion
       const targetNorm = normalizeEmail(targetContact);
       const targetLocal = targetNorm.includes('@') ? targetNorm.split('@')[0] : targetNorm;
-      setMessages(prev => prev.filter(m => {
+      setMessagesData(prev => prev.filter(m => {
+        const otherNorm = normalizeEmail(getOtherUserEmail(m));
+        const otherLocal = otherNorm.includes('@') ? otherNorm.split('@')[0] : otherNorm;
+        return otherNorm !== targetNorm && otherLocal !== targetLocal;
+      }));
+      setCombineData(prev => prev.filter(m => {
         const otherNorm = normalizeEmail(getOtherUserEmail(m));
         const otherLocal = otherNorm.includes('@') ? otherNorm.split('@')[0] : otherNorm;
         return otherNorm !== targetNorm && otherLocal !== targetLocal;
@@ -1555,11 +1800,11 @@ const Casbox = () => {
       }
 
       setOpenMenuId(null);
+      setOpenCombineMenuId(null);
       setConversationToDelete(null);
       toast.success("Conversation deleted");
     } catch (err) {
       console.error("Failed to delete conversation", err);
-      // Keep conversation in UI list and show error message
       toast.error("Unable to delete conversation. Please try again.");
     } finally {
       setIsDeletingConversation(false);
@@ -1582,7 +1827,8 @@ const Casbox = () => {
         await handleSnooze(targetId, wakeUpAt, 'casbox', true);
       }
       toast.success("Chat snoozed");
-      setMessages(prev => prev.filter(m => (m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail) !== otherEmail));
+      setMessagesData(prev => prev.filter(m => (m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail) !== otherEmail));
+      setCombineData(prev => prev.filter(m => (m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail) !== otherEmail));
       setSelectedMessage(null);
       fetchMessages(true);
     } catch (err) {
@@ -1605,7 +1851,11 @@ const Casbox = () => {
         await handleMoveToTrash(targetId, 'casbox', true);
       }
       toast.success("Chat deleted");
-      setMessages(prev => prev.filter(m => (m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail) !== otherEmail));
+      if (isCombineTab) {
+        setCombineData(prev => prev.filter(m => (m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail) !== otherEmail));
+      } else {
+        setMessagesData(prev => prev.filter(m => (m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail) !== otherEmail));
+      }
       setSelectedMessage(null);
       fetchMessages(true);
     } catch (err) {
@@ -1624,21 +1874,21 @@ const Casbox = () => {
       setIsDeletingSelected(true);
       const toDeleteSet = new Set(selectedRowIds);
 
-      // Persist deleted message IDs
-      setDeletedMessageIds(prev => {
+      // Persist deleted message IDs in Messages tab collection
+      setDeletedMessagesIds(prev => {
         const updated = new Set(prev);
         toDeleteSet.forEach(id => {
           updated.add(id);
           updated.add(String(id));
         });
         try {
-          sessionStorage.setItem('bnx_casbox_deleted_msg_ids', JSON.stringify(Array.from(updated)));
+          sessionStorage.setItem('bnx_casbox_deleted_messages_ids', JSON.stringify(Array.from(updated)));
         } catch (e) {}
         return updated;
       });
 
-      // Filter out deleted messages from local state immediately
-      setMessages(prev => prev.filter(m => {
+      // Filter out deleted messages ONLY from messagesData state
+      setMessagesData(prev => prev.filter(m => {
         const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
         return !toDeleteSet.has(id) && !toDeleteSet.has(String(id));
       }));
@@ -1675,30 +1925,53 @@ const Casbox = () => {
       const targetId = messageToDelete.id !== undefined ? messageToDelete.id : messageToDelete.uid;
       const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
       const fallbackId = `${messageToDelete.timestamp}-${messageToDelete.senderEmail || messageToDelete.sender}-${messageToDelete.receiverEmail || messageToDelete.receiver}-${messageToDelete.body}`;
+      const targetTab = messageToDelete.tabSource || (isCombineTab ? 'COMBINE' : 'MESSAGES');
 
-      // Persist deleted message ID in state & sessionStorage so it never reappears on refetch
-      setDeletedMessageIds(prev => {
-        const updated = new Set(prev);
-        if (targetId !== undefined && targetId !== null) {
-          updated.add(targetId);
-          updated.add(strId);
-        }
-        updated.add(fallbackId);
-        try {
-          sessionStorage.setItem('bnx_casbox_deleted_msg_ids', JSON.stringify(Array.from(updated)));
-        } catch (e) {}
-        return updated;
-      });
+      if (targetTab === 'COMBINE') {
+        // Persist in deletedCombineIds
+        setDeletedCombineIds(prev => {
+          const updated = new Set(prev);
+          if (targetId !== undefined && targetId !== null) {
+            updated.add(targetId);
+            updated.add(strId);
+          }
+          updated.add(fallbackId);
+          try {
+            sessionStorage.setItem('bnx_casbox_deleted_combine_ids', JSON.stringify(Array.from(updated)));
+          } catch (e) {}
+          return updated;
+        });
 
-      // Remove only this message from messages state
-      setMessages(prev => prev.filter(m => {
-        const mId = m.id !== undefined ? m.id : m.uid;
-        if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) {
-          return false;
-        }
-        const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-        return mFallback !== fallbackId;
-      }));
+        // Remove ONLY from combineData
+        setCombineData(prev => prev.filter(m => {
+          const mId = m.id !== undefined ? m.id : m.uid;
+          if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return false;
+          const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+          return mFallback !== fallbackId;
+        }));
+      } else {
+        // Persist in deletedMessagesIds
+        setDeletedMessagesIds(prev => {
+          const updated = new Set(prev);
+          if (targetId !== undefined && targetId !== null) {
+            updated.add(targetId);
+            updated.add(strId);
+          }
+          updated.add(fallbackId);
+          try {
+            sessionStorage.setItem('bnx_casbox_deleted_messages_ids', JSON.stringify(Array.from(updated)));
+          } catch (e) {}
+          return updated;
+        });
+
+        // Remove ONLY from messagesData
+        setMessagesData(prev => prev.filter(m => {
+          const mId = m.id !== undefined ? m.id : m.uid;
+          if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return false;
+          const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+          return mFallback !== fallbackId;
+        }));
+      }
 
       // Also filter from threadMessages if active
       setThreadMessages(prev => prev.filter(m => {
@@ -1741,6 +2014,7 @@ const Casbox = () => {
 
       setMessageToDelete(null);
       setOpenMenuId(null);
+      setOpenCombineMenuId(null);
       toast.success("Message deleted");
     } catch (err) {
       console.error("Failed to delete message", err);
@@ -1763,7 +2037,8 @@ const Casbox = () => {
       }
       setIsChatStarred(newStarred);
       setSelectedMessage(prev => prev ? { ...prev, starred: newStarred, isStarred: newStarred } : null);
-      setMessages(prev => prev.map(m => (m.id === targetId || m.uid === targetId) ? { ...m, starred: newStarred, isStarred: newStarred } : m));
+      setMessagesData(prev => prev.map(m => (m.id === targetId || m.uid === targetId) ? { ...m, starred: newStarred, isStarred: newStarred } : m));
+      setCombineData(prev => prev.map(m => (m.id === targetId || m.uid === targetId) ? { ...m, starred: newStarred, isStarred: newStarred } : m));
     } catch (err) {
       console.error("Failed to toggle star chat", err);
       toast.error("Failed to update star");
@@ -1863,26 +2138,22 @@ const Casbox = () => {
   const { 
     conversationList, 
     messagesConversations, 
-    combinedConversations,
     requestsConversations, 
     archivedConversations, 
     unreadMessagesCount, 
-    unreadCombinedCount,
     unreadArchivedCount, 
-    unreadRequestsCount,
+    unreadRequestsCount, 
     requestMessages 
   } = useMemo(() => {
-    if (!messages || messages.length === 0) {
+    if (!messagesData || messagesData.length === 0) {
       return { 
         conversationList: [], 
         messagesConversations: [], 
-        combinedConversations: [],
         requestsConversations: [], 
         archivedConversations: [], 
         unreadMessagesCount: 0, 
-        unreadCombinedCount: 0,
         unreadArchivedCount: 0, 
-        unreadRequestsCount: 0,
+        unreadRequestsCount: 0, 
         requestMessages: [] 
       };
     }
@@ -1919,8 +2190,8 @@ const Casbox = () => {
     // Step 1: Group all messages by contact
     const conversationGroups = new Map();
 
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
+    for (let i = 0; i < messagesData.length; i++) {
+      const msg = messagesData[i];
       const sender = normalizeEmail(msg.senderEmail || msg.sender);
       const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
 
@@ -2034,13 +2305,8 @@ const Casbox = () => {
     requestsList.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
     archivedList.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
 
-    const combinedList = [...messagesList, ...requestsList].sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-    const combinedUnread = mainUnread + reqUnread;
-
     let activeList = messagesList;
-    if (activeTab === 'combine' || activeTab === 'combined') {
-      activeList = combinedList;
-    } else if (activeTab === 'requests') {
+    if (activeTab === 'requests') {
       activeList = requestsList;
     } else if (activeTab === 'archive') {
       activeList = archivedList;
@@ -2049,16 +2315,25 @@ const Casbox = () => {
     return {
       conversationList: activeList,
       messagesConversations: messagesList,
-      combinedConversations: combinedList,
       requestsConversations: requestsList,
       archivedConversations: archivedList,
       unreadMessagesCount: mainUnread,
-      unreadCombinedCount: combinedUnread,
       unreadArchivedCount: archUnread,
       unreadRequestsCount: reqUnread,
       requestMessages: requestMessagesArr
     };
-  }, [messages, blockedContacts, acceptedContacts, connections, acceptedSet, activeTab, user, isMessageUnread, isCurrentUser]);
+  }, [messagesData, blockedContacts, acceptedContacts, connections, acceptedSet, activeTab, user, isMessageUnread, isCurrentUser]);
+
+  // Combine tab unread count computed exclusively from combineData
+  const unreadCombinedCount = useMemo(() => {
+    if (!combineData || combineData.length === 0) return 0;
+    return combineData.filter(m => {
+      if (isCurrentUser(m.senderEmail || m.sender)) return false;
+      const status = typeof m.status === 'string' ? m.status.trim().toUpperCase() : '';
+      const isRead = status === 'SEEN' || status === 'READ' || m.isRead === true || m.read === true;
+      return !isRead;
+    }).length;
+  }, [combineData, isCurrentUser]);
 
   // Individual messages list for the Messages tab (every message = one row, not grouped by person)
   const individualMessagesList = useMemo(() => {
@@ -2164,13 +2439,15 @@ const Casbox = () => {
 
       setNewChatText("");
 
-      const newMsg = res.data;
+      const newMsg = { ...res.data, source: 'COMBINE' };
+      recordMessageSource(newMsg.id, 'COMBINE', otherEmail, selectedMessage?.subject);
+
       setThreadMessages(prev => {
         if (prev.some(m => m.id === newMsg.id)) return prev;
         return [...prev, newMsg];
       });
 
-      setMessages(prev => {
+      setCombineData(prev => {
         if (prev.some(m => m.id === newMsg.id)) return prev;
         return [newMsg, ...prev];
       });
@@ -2234,7 +2511,7 @@ const Casbox = () => {
 
   // Unified all-messages list for Combine tab
   const unifiedCombineMessages = useMemo(() => {
-    if (!messages || messages.length === 0) return [];
+    if (!combineData || combineData.length === 0) return [];
 
     const blockedSet = new Set();
     if (blockedContacts && Array.isArray(blockedContacts)) {
@@ -2267,8 +2544,8 @@ const Casbox = () => {
     const seenIds = new Set();
     const list = [];
 
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
+    for (let i = 0; i < combineData.length; i++) {
+      const msg = combineData[i];
       const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
       if (seenIds.has(id)) continue;
       seenIds.add(id);
@@ -2302,7 +2579,7 @@ const Casbox = () => {
     // Sort ALL messages globally using the existing message timestamp - newest at top
     list.sort((a, b) => b.timestampMs - a.timestampMs);
     return list;
-  }, [messages, blockedContacts, connections, isCurrentUser]);
+  }, [combineData, blockedContacts, connections, isCurrentUser]);
 
   const filteredCombineMessages = useMemo(() => {
     let result = unifiedCombineMessages;
@@ -2711,7 +2988,7 @@ const Casbox = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenCombineMenuId(null);
-                            setConversationToDelete({ contact });
+                            setMessageToDelete({ ...msg, tabSource: 'COMBINE' });
                           }}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -2953,7 +3230,7 @@ const Casbox = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(null);
-                            setMessageToDelete(msg || item);
+                            setMessageToDelete({ ...(msg || item), tabSource: 'MESSAGES' });
                           }}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                         >
