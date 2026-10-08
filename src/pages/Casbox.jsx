@@ -508,6 +508,8 @@ const Casbox = () => {
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
   const [deletedMessageIds, setDeletedMessageIds] = useState(() => {
     try {
       const s = sessionStorage.getItem('bnx_casbox_deleted_msg_ids');
@@ -1662,6 +1664,89 @@ const Casbox = () => {
       toast.error("Failed to delete selected messages");
     } finally {
       setIsDeletingSelected(false);
+    }
+  };
+
+  const handleConfirmDeleteMessage = () => {
+    if (!messageToDelete) return;
+
+    try {
+      setIsDeletingMessage(true);
+      const targetId = messageToDelete.id !== undefined ? messageToDelete.id : messageToDelete.uid;
+      const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
+      const fallbackId = `${messageToDelete.timestamp}-${messageToDelete.senderEmail || messageToDelete.sender}-${messageToDelete.receiverEmail || messageToDelete.receiver}-${messageToDelete.body}`;
+
+      // Persist deleted message ID in state & sessionStorage so it never reappears on refetch
+      setDeletedMessageIds(prev => {
+        const updated = new Set(prev);
+        if (targetId !== undefined && targetId !== null) {
+          updated.add(targetId);
+          updated.add(strId);
+        }
+        updated.add(fallbackId);
+        try {
+          sessionStorage.setItem('bnx_casbox_deleted_msg_ids', JSON.stringify(Array.from(updated)));
+        } catch (e) {}
+        return updated;
+      });
+
+      // Remove only this message from messages state
+      setMessages(prev => prev.filter(m => {
+        const mId = m.id !== undefined ? m.id : m.uid;
+        if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) {
+          return false;
+        }
+        const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return mFallback !== fallbackId;
+      }));
+
+      // Also filter from threadMessages if active
+      setThreadMessages(prev => prev.filter(m => {
+        const mId = m.id !== undefined ? m.id : m.uid;
+        if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) {
+          return false;
+        }
+        const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return mFallback !== fallbackId;
+      }));
+
+      // If this message was open in selectedSentDetail, clear it
+      if (selectedSentDetail) {
+        const sId = selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid;
+        const sFallback = `${selectedSentDetail.timestamp}-${selectedSentDetail.senderEmail || selectedSentDetail.sender}-${selectedSentDetail.receiverEmail || selectedSentDetail.receiver}-${selectedSentDetail.body}`;
+        if ((targetId !== undefined && targetId !== null && (sId === targetId || String(sId) === strId)) || sFallback === fallbackId) {
+          setSelectedSentDetail(null);
+        }
+      }
+
+      // If this message was open in selectedMessage, clear it
+      if (selectedMessage) {
+        const sId = selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid;
+        const sFallback = `${selectedMessage.timestamp}-${selectedMessage.senderEmail || selectedMessage.sender}-${selectedMessage.receiverEmail || selectedMessage.receiver}-${selectedMessage.body}`;
+        if ((targetId !== undefined && targetId !== null && (sId === targetId || String(sId) === strId)) || sFallback === fallbackId) {
+          setSelectedMessage(null);
+        }
+      }
+
+      // Remove from selectedRowIds if checked
+      setSelectedRowIds(prev => {
+        if (targetId !== undefined && targetId !== null && (prev.has(targetId) || prev.has(strId))) {
+          const next = new Set(prev);
+          next.delete(targetId);
+          next.delete(strId);
+          return next;
+        }
+        return prev;
+      });
+
+      setMessageToDelete(null);
+      setOpenMenuId(null);
+      toast.success("Message deleted");
+    } catch (err) {
+      console.error("Failed to delete message", err);
+      toast.error("Failed to delete message");
+    } finally {
+      setIsDeletingMessage(false);
     }
   };
 
@@ -2863,20 +2948,18 @@ const Casbox = () => {
                           <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
                           Archive
                         </button>
-                        {chat && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuId(null);
-                              setConversationToDelete(chat);
-                            }}
-                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
-                          >
-                            <MdDeleteOutline size={16} className="text-red-500 dark:text-red-400" />
-                            Delete
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(null);
+                            setMessageToDelete(msg || item);
+                          }}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdDeleteOutline size={16} className="text-red-500 dark:text-red-400" />
+                          Delete
+                        </button>
                       </div>
                     )}
                   </div>
@@ -3224,9 +3307,8 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => {
-              if (selectedSentDetail?.id) {
-                setSelectedRowIds(new Set([selectedSentDetail.id]));
-                setShowDeleteConfirmModal(true);
+              if (selectedSentDetail) {
+                setMessageToDelete(selectedSentDetail);
               }
             }}
             className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
@@ -4083,7 +4165,7 @@ const Casbox = () => {
               </div>
 
               <h3 className="font-bold text-lg text-center text-gray-900 dark:text-white mb-2">
-                Delete selected message{selectedRowIds.size > 1 ? 's' : ''}?
+                {selectedRowIds.size > 1 ? `Delete ${selectedRowIds.size} selected messages?` : 'Delete this message?'}
               </h3>
               <p className="text-xs text-center text-gray-500 dark:text-gray-400 mb-6">
                 Are you sure you want to delete {selectedRowIds.size === 1 ? 'this message' : `these ${selectedRowIds.size} messages`}? This action cannot be undone.
@@ -4105,6 +4187,53 @@ const Casbox = () => {
                   className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {isDeletingSelected && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {messageToDelete && (
+          <div
+            className="fixed inset-0 bg-black/60 z-[2000] flex items-center justify-center animate-fade-in p-4 backdrop-blur-sm"
+            onClick={() => {
+              if (!isDeletingMessage) setMessageToDelete(null);
+            }}
+          >
+            <div
+              className="bg-white dark:bg-[#1e1e1e] rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden p-6 border border-gray-100 dark:border-gray-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4 mx-auto">
+                <MdDeleteOutline size={26} />
+              </div>
+
+              <h3 className="font-bold text-lg text-center text-gray-900 dark:text-white mb-2">
+                Delete this message?
+              </h3>
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400 mb-6">
+                Are you sure you want to delete this message? This action cannot be undone.
+              </p>
+
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  disabled={isDeletingMessage}
+                  onClick={() => setMessageToDelete(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingMessage}
+                  onClick={handleConfirmDeleteMessage}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeletingMessage && (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   )}
                   Delete
