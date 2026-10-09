@@ -1316,7 +1316,7 @@ const FloatingCompose = () => {
                       disabled={sending || uploading}
                       className="px-5 py-2 text-white text-xs font-bold disabled:opacity-60 cursor-pointer border-r border-white/20"
                     >
-                      {sending ? t('compose.sending', 'Sending...') : t('compose.send_email', 'Send')}
+                      {sending ? t('compose.sending', 'Sending...') : t('compose.send_email', 'Send Email')}
                     </button>
                     {(composeMode === "mail" || composeMode === "email") && (
                       <button
@@ -1524,10 +1524,14 @@ const FloatingCompose = () => {
                     <button
                       type="submit"
                       disabled={sending || uploading}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-l-full text-white text-xs font-semibold disabled:opacity-60 cursor-pointer border-r border-white/20"
+                      className={`flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold disabled:opacity-60 cursor-pointer ${(composeMode === "mail" || composeMode === "email") ? "rounded-l-full border-r border-white/20" : "rounded-full"}`}
                       style={{ background: `linear-gradient(135deg, ${theme.accent || '#135bec'} 0%, #3b82f6 100%)` }}
                     >
-                      {sending ? t('compose.sending', 'Sending...') : t('compose.send_email', 'Send')}
+                      {sending
+                        ? t('compose.sending', 'Sending...')
+                        : (composeMode === "chat" || composeMode === "casbox")
+                          ? t('compose.send', t('common.send', 'Send'))
+                          : t('compose.send_email', 'Send Email')}
                       {!sending && <MdSend size={14} />}
                     </button>
                     {(composeMode === "mail" || composeMode === "email") && (
