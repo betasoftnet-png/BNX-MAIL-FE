@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useMail } from "../context/MailContext";
 import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI } from "../services/api";
-import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy } from "react-icons/md";
+import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward } from "react-icons/md";
 import { SiAdobeacrobatreader } from "react-icons/si";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
@@ -482,6 +482,39 @@ const getStatusIcon = (status) => {
   return <MdCheck size={14} className="text-gray-400 dark:text-gray-500 inline-block" title="Sent" />;
 };
 
+const CalendarNumberIcon = ({ number, size = 16, className = "" }) => (
+  <div className={`relative inline-flex items-center justify-center shrink-0 ${className}`} style={{ width: size, height: size }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+    <span className="absolute bottom-[2px] font-bold text-[8px] leading-none select-none pointer-events-none">
+      {number}
+    </span>
+  </div>
+);
+
+const CASBOX_MESSAGE_FILTERS = [
+  { id: 'all', label: 'All Messages', icon: MdMail },
+  { id: 'received', label: 'Received Only', icon: MdArrowDownward },
+  { id: 'sent', label: 'Sent Only', icon: MdArrowUpward },
+  { id: 'divider-1', isDivider: true },
+  { id: '1day', label: 'Last 1 Day', number: '1' },
+  { id: '1week', label: 'Last 1 Week', number: '7' },
+  { id: '1month', label: 'Last 1 Month', number: '31' },
+];
+
 const Casbox = () => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
@@ -516,6 +549,9 @@ const Casbox = () => {
   const isCombineTab = activeTab === 'combine' || activeTab === 'combined';
 
   const [messagesSearch, setMessagesSearch] = useState("");
+  const [messagesFilter, setMessagesFilter] = useState("all");
+  const [showMessagesFilterMenu, setShowMessagesFilterMenu] = useState(false);
+  const messagesFilterMenuRef = React.useRef(null);
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
@@ -558,6 +594,9 @@ const Casbox = () => {
     const handleOutsideClick = (e) => {
       if (filterMenuRef.current && !filterMenuRef.current.contains(e.target)) {
         setShowFilterMenu(false);
+      }
+      if (messagesFilterMenuRef.current && !messagesFilterMenuRef.current.contains(e.target)) {
+        setShowMessagesFilterMenu(false);
       }
       if (combineMenuRef.current && !combineMenuRef.current.contains(e.target)) {
         setOpenCombineMenuId(null);
@@ -2135,9 +2174,33 @@ const Casbox = () => {
 
   const filteredIndividualMessages = useMemo(() => {
     if (!individualMessagesList || individualMessagesList.length === 0) return [];
-    if (!messagesSearch.trim()) return individualMessagesList;
+    
+    let list = individualMessagesList;
+
+    // Apply messagesFilter
+    if (messagesFilter && messagesFilter !== 'all') {
+      const now = Date.now();
+      const oneDayAgo = now - 24 * 60 * 60 * 1000;
+      const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+      const oneMonthAgo = (() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 1);
+        return d.getTime();
+      })();
+
+      list = list.filter((item) => {
+        if (messagesFilter === 'received') return !item.isSent;
+        if (messagesFilter === 'sent') return item.isSent;
+        if (messagesFilter === '1day') return item.timestampMs >= oneDayAgo;
+        if (messagesFilter === '1week') return item.timestampMs >= oneWeekAgo;
+        if (messagesFilter === '1month') return item.timestampMs >= oneMonthAgo;
+        return true;
+      });
+    }
+
+    if (!messagesSearch.trim()) return list;
     const q = messagesSearch.toLowerCase().trim();
-    return individualMessagesList.filter((item) => {
+    return list.filter((item) => {
       const msg = item.msg;
       const personEmail = item.contact;
       const personName = getDisplayName(personEmail, msg) || personEmail;
@@ -2151,13 +2214,40 @@ const Casbox = () => {
         body.toLowerCase().includes(q)
       );
     });
-  }, [individualMessagesList, messagesSearch, isCurrentUser, getDisplayName]);
+  }, [individualMessagesList, messagesFilter, messagesSearch, isCurrentUser, getDisplayName]);
 
   const filteredConversationList = useMemo(() => {
     if (!conversationList || conversationList.length === 0) return [];
-    if (!messagesSearch.trim()) return conversationList;
+
+    let list = conversationList;
+
+    if (messagesFilter && messagesFilter !== 'all') {
+      const now = Date.now();
+      const oneDayAgo = now - 24 * 60 * 60 * 1000;
+      const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+      const oneMonthAgo = (() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 1);
+        return d.getTime();
+      })();
+
+      list = list.filter((chat) => {
+        const msg = chat.latestMessage;
+        const isSent = isCurrentUser(msg?.senderEmail || msg?.sender);
+        const timeMs = getTimestampMs(msg?.timestamp);
+
+        if (messagesFilter === 'received') return !isSent;
+        if (messagesFilter === 'sent') return isSent;
+        if (messagesFilter === '1day') return timeMs >= oneDayAgo;
+        if (messagesFilter === '1week') return timeMs >= oneWeekAgo;
+        if (messagesFilter === '1month') return timeMs >= oneMonthAgo;
+        return true;
+      });
+    }
+
+    if (!messagesSearch.trim()) return list;
     const q = messagesSearch.toLowerCase().trim();
-    return conversationList.filter((chat) => {
+    return list.filter((chat) => {
       const msg = chat.latestMessage;
       const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
       const personEmail = isMe 
@@ -2174,7 +2264,7 @@ const Casbox = () => {
         body.toLowerCase().includes(q)
       );
     });
-  }, [conversationList, messagesSearch, isCurrentUser, getDisplayName]);
+  }, [conversationList, messagesFilter, messagesSearch, isCurrentUser, getDisplayName]);
 
   const handleSendChatMessage = async (e) => {
     if (e) e.preventDefault();
@@ -2770,7 +2860,7 @@ const Casbox = () => {
     </div>
   ) : (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent relative">
-      {/* Search Bar for Messages */}
+      {/* Search Bar & Filter for Messages */}
       <div className="px-4 sm:px-6 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center gap-3 bg-transparent shrink-0">
         <div className="flex-1 flex items-center gap-2.5 bg-gray-100/70 dark:bg-gray-800/60 px-4 py-2.5 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
           <MdSearch size={20} className="text-gray-400 shrink-0" />
@@ -2789,6 +2879,65 @@ const Casbox = () => {
             >
               <MdClose size={16} />
             </button>
+          )}
+        </div>
+
+        {/* Filter Button & Dropdown */}
+        <div className="relative" ref={messagesFilterMenuRef}>
+          <button
+            type="button"
+            onClick={() => setShowMessagesFilterMenu((prev) => !prev)}
+            className="p-2.5 rounded-xl transition-colors shrink-0 flex items-center justify-center cursor-pointer bg-blue-100/80 hover:bg-blue-100 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400"
+            title="Filter messages"
+            aria-label="Filter messages"
+          >
+            <MdFilterAlt size={20} />
+          </button>
+
+          {showMessagesFilterMenu && (
+            <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl z-30 py-2 animate-in fade-in duration-150">
+              {CASBOX_MESSAGE_FILTERS.map((opt) => {
+                if (opt.isDivider) {
+                  return <div key={opt.id} className="border-t border-gray-100 dark:border-gray-700/60 my-1.5" />;
+                }
+
+                const isSelected = messagesFilter === opt.id;
+                const IconComponent = opt.icon;
+
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setMessagesFilter(opt.id);
+                      setShowMessagesFilterMenu(false);
+                    }}
+                    className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm flex items-center gap-3 transition-colors cursor-pointer ${
+                      isSelected
+                        ? "bg-blue-50/70 dark:bg-blue-900/25 text-blue-600 dark:text-blue-400 font-semibold"
+                        : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 font-medium"
+                    }`}
+                  >
+                    {IconComponent ? (
+                      <IconComponent
+                        size={17}
+                        className={isSelected ? "text-blue-600 dark:text-blue-400 shrink-0" : "text-gray-700 dark:text-gray-300 shrink-0"}
+                      />
+                    ) : opt.number ? (
+                      <CalendarNumberIcon
+                        number={opt.number}
+                        size={17}
+                        className={isSelected ? "text-blue-600 dark:text-blue-400 shrink-0" : "text-gray-700 dark:text-gray-300 shrink-0"}
+                      />
+                    ) : null}
+                    <span className="flex-1 truncate">{opt.label}</span>
+                    {isSelected && (
+                      <MdCheck size={18} className="text-blue-600 dark:text-blue-400 shrink-0 ml-auto" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -2811,7 +2960,7 @@ const Casbox = () => {
               <>
                 <MdSend className="text-4xl mb-3 opacity-30" />
                 <p className="text-sm font-medium">
-                  {messagesSearch
+                  {messagesSearch || messagesFilter !== 'all'
                     ? 'No matching messages found'
                     : (activeTab === 'requests' ? 'No message requests' : t('casbox.no_chats', 'No chats yet'))}
                 </p>
