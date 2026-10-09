@@ -121,6 +121,8 @@ const EmailDetails = ({
   onApplyLabel,
   onClose,
   isArchiveFolder = false,
+  isTrash = false,
+  onRestore,
   emailList = [],
   onNavigate,
 }) => {
@@ -1038,59 +1040,95 @@ const EmailDetails = ({
           <button
             onClick={() => handleClose()}
             className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer"
-            title="Close"
+            title="Back"
           >
-            {(readingPaneMode !== 'no_split' && !isFullscreen) || isFullscreen ? (
+            {((readingPaneMode !== 'no_split' && !isFullscreen) || isFullscreen) && !isTrash ? (
               <MdClose size={20} className="hidden md:block" />
             ) : null}
-            <svg className={`w-5 h-5 ${((readingPaneMode !== 'no_split' && !isFullscreen) || isFullscreen) ? 'md:hidden' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 ${(((readingPaneMode !== 'no_split' && !isFullscreen) || isFullscreen) && !isTrash) ? 'md:hidden' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
 
-          {readingPaneMode !== 'no_split' && (
-            <button
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              className="hidden md:flex p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer"
-              title={isFullscreen ? "Exit Fullscreen" : "Expand to Fullscreen"}
-            >
-              {isFullscreen ? <MdCloseFullscreen size={18} /> : <MdOpenInFull size={18} />}
-            </button>
+          {isTrash ? (
+            <>
+              <button
+                onClick={() => onRestore ? onRestore(email.uid) : null}
+                className="px-4 py-1.5 text-xs font-semibold rounded-full bg-green-600 text-white hover:bg-green-700 transition-all cursor-pointer shadow-sm hover:shadow"
+              >
+                Restore
+              </button>
+              <button
+                onClick={() => {
+                  onDelete?.(email.uid);
+                  handleClose();
+                }}
+                className="px-4 py-1.5 text-xs font-semibold rounded-full bg-red-600 text-white hover:bg-red-700 transition-all cursor-pointer shadow-sm hover:shadow"
+              >
+                Delete Permanently
+              </button>
+            </>
+          ) : (
+            <>
+              {readingPaneMode !== 'no_split' && (
+                <button
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  className="hidden md:flex p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer"
+                  title={isFullscreen ? "Exit Fullscreen" : "Expand to Fullscreen"}
+                >
+                  {isFullscreen ? <MdCloseFullscreen size={18} /> : <MdOpenInFull size={18} />}
+                </button>
+              )}
+              
+              <div className="h-5 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
+
+              <button
+                onClick={() => {
+                  if (isActuallyArchived) {
+                    if (onUnarchive) onUnarchive(email.uid);
+                    else onArchive?.(email.uid);
+                  } else {
+                    onArchive?.(email.uid);
+                  }
+                }}
+                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
+                title={isActuallyArchived ? "Unarchive" : "Archive"}
+              >
+                {isActuallyArchived ? <MdUnarchive size={20} /> : <MdArchive size={20} />}
+              </button>
+
+              <button
+                onClick={() => {
+                  onDelete?.(email.uid);
+                  handleClose();
+                }}
+                className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-gray-500 dark:text-gray-400 hover:text-red-500 cursor-pointer"
+                title={t("common.delete", "Delete")}
+              >
+                <MdDelete size={20} />
+              </button>
+            </>
           )}
-          
-          <div className="h-5 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
-
-          <button
-            onClick={() => {
-              if (isActuallyArchived) {
-                if (onUnarchive) onUnarchive(email.uid);
-                else onArchive?.(email.uid);
-              } else {
-                onArchive?.(email.uid);
-              }
-            }}
-            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
-            title={isActuallyArchived ? "Unarchive" : "Archive"}
-          >
-            {isActuallyArchived ? <MdUnarchive size={20} /> : <MdArchive size={20} />}
-          </button>
-
-
-
-
-          <button
-            onClick={() => {
-              onDelete?.(email.uid);
-              handleClose();
-            }}
-            className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-gray-500 dark:text-gray-400 hover:text-red-500 cursor-pointer"
-            title={t("common.delete", "Delete")}
-          >
-            <MdDelete size={20} />
-          </button>
         </div>
 
         <div className="flex items-center gap-2">
+          {isTrash && (
+            <button
+              onClick={() => {
+                if (isActuallyArchived) {
+                  if (onUnarchive) onUnarchive(email.uid);
+                  else onArchive?.(email.uid);
+                } else {
+                  onArchive?.(email.uid);
+                }
+              }}
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
+              title={isActuallyArchived ? "Unarchive" : "Archive"}
+            >
+              {isActuallyArchived ? <MdUnarchive size={20} /> : <MdArchive size={20} />}
+            </button>
+          )}
+
           <button
             onClick={handlePrint}
             className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
@@ -1100,7 +1138,7 @@ const EmailDetails = ({
           </button>
 
           <button
-            onClick={() => onStar?.(email.uid)}
+            onClick={() => onStar ? onStar(email.uid) : handleToggleStar?.(email.uid, "trash")}
             className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer group"
             title={email.starred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
           >
