@@ -475,16 +475,17 @@ export const formatBroadcastTimestamp = (timestamp, userTimeZone) => {
 
   const timeZone = userTimeZone || 'Asia/Kolkata';
 
-  return date.toLocaleString('en-US', {
+  return date.toLocaleString('en-GB', {
     timeZone,
-    month: 'numeric',
-    day: 'numeric',
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    hour: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
     hour12: true
-  }).replace(/[\u202f\u00a0]/g, ' ');
+  })
+    .replace(/[\u202f\u00a0]/g, ' ')
+    .replace(/\b(am|pm)\b/i, (m) => m.toUpperCase());
 };
 
 const isMessageFromMe = (msg, currentUser) => {
