@@ -543,6 +543,7 @@ const EmailDetails = ({
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
   };
 
@@ -732,20 +733,73 @@ const EmailDetails = ({
     doc.write(`<base href="${window.location.origin}/" />`);
     doc.write(`
       <style>
-        body { font-family: sans-serif; padding: 20px; color: #000; background: #fff; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 15px; margin-bottom: 20px; }
-        .logo-container { display: flex; align-items: center; gap: 8px; font-size: 24px; font-weight: bold; color: #135bec; }
+        @page {
+          margin: 0;
+          size: auto;
+        }
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          padding: 24px 32px;
+          margin: 0;
+          color: #000;
+          background: #fff;
+        }
+        .top-meta-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 11px;
+          color: #777;
+          margin-bottom: 16px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid #ccc;
+          padding-bottom: 15px;
+          margin-bottom: 20px;
+        }
+        .logo-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 24px;
+          font-weight: bold;
+          color: #135bec;
+        }
         .logo-container img { height: 32px; }
         .logo-text-dark { color: #333; }
         .user-email { font-size: 14px; color: #555; font-weight: 500; }
-        h2 { margin-bottom: 5px; font-size: 22px; }
+        h2 { margin-bottom: 5px; font-size: 22px; color: #111827; }
         .meta { color: #555; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; font-size: 14px; line-height: 1.5; }
         .plaintext { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.5; }
       </style>
     `);
     doc.write('</head><body>');
+
+    const printTopTime = new Date().toLocaleString("en-US", {
+      month: "numeric",
+      day: "numeric",
+      year: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
     
     doc.write(`
+      <div class="top-meta-bar">
+        <span>${printTopTime}</span>
+        <span>Print Email</span>
+      </div>
       <div class="header">
         <div class="logo-container">
           <img src="${logo}" alt="BNX Mail Logo" />
