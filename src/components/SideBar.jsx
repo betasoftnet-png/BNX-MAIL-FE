@@ -209,7 +209,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
       >
 
         {/* NAVIGATION */}
-        <nav className="flex-1 flex flex-col pr-0 pt-4 pb-2 space-y-1 overflow-y-auto hidden-scrollbar">
+        <nav className="flex-1 flex flex-col pr-0 pt-4 pb-2 space-y-0.5 overflow-y-auto hidden-scrollbar">
           {/* VAULT MODE */}
           {isVaultMode ? (
             <div className="flex flex-col px-2 mt-2">
@@ -240,7 +240,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                     <button
                       key={item.name}
                       onClick={() => handleNavigation(item.path)}
-                      className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all duration-150 group cursor-pointer btn-collapse relative shrink-0 ${
+                      className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2 rounded-2xl transition-all duration-150 group cursor-pointer btn-collapse relative shrink-0 ${
                         isActive
                           ? "bg-[#dce9fd] dark:bg-blue-900/30"
                           : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04]"
@@ -289,7 +289,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                 <div>
                   <button
                     onClick={() => setIsMoreOpen(!isMoreOpen)}
-                    className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2.5 rounded-2xl hover:bg-blue-50/70 dark:hover:bg-white/[0.04] transition-all cursor-pointer group btn-collapse shrink-0"
+                    className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2 rounded-2xl hover:bg-blue-50/70 dark:hover:bg-white/[0.04] transition-all cursor-pointer group btn-collapse shrink-0"
                   >
                     <div className="flex items-center min-w-0 flex-1">
                       <div className="w-5 flex items-center justify-center shrink-0">
