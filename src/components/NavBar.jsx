@@ -232,7 +232,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             onClick={() => navigate('/casbox')}
             className={`px-3 sm:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
           >
-            {t('navbar.chat', 'Chat')}
+            {t('navbar.casbox', 'Casbox')}
           </button>
         </div>
 
