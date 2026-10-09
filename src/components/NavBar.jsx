@@ -251,10 +251,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   setShowSearchResults(true);
                 }}
                 placeholder={t('navbar.search_placeholder', 'Search mail...')}
-                className="w-full px-2 py-1 pl-6 sm:pl-7.5 rounded-full text-xs placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white focus:text-gray-900 text-white focus:shadow-sm border border-transparent outline-none transition-all duration-200 truncate placeholder:truncate"
+                className="w-full px-2 py-1 pl-6 sm:pl-7.5 rounded-full text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white/20 active:bg-white/20 focus-visible:bg-white/20 text-white focus:text-white focus:shadow-sm border border-transparent focus:border-white/30 outline-none transition-all duration-200 truncate placeholder:truncate"
               />
               <svg
-                className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 transition-colors text-white/60 group-focus-within:text-gray-500 pointer-events-none"
+                className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 transition-colors text-white/60 group-focus-within:text-white/90 pointer-events-none"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
