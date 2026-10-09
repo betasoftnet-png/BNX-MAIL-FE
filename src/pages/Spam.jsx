@@ -17,7 +17,7 @@ const Spam = ({ searchQuery }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, openCompose } = useMail();
+  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, handleMarkRead, openCompose } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
 
@@ -27,6 +27,13 @@ const Spam = ({ searchQuery }) => {
     () => uniqueEmails.find((e) => String(e.uid) === String(selectedEmailUid)),
     [uniqueEmails, selectedEmailUid]
   );
+
+  // Mark only the opened spam email as Read immediately when viewed
+  useEffect(() => {
+    if (selectedEmail && !selectedEmail.isRead && handleMarkRead) {
+      handleMarkRead(selectedEmail.uid);
+    }
+  }, [selectedEmail?.uid, selectedEmail?.isRead, handleMarkRead]);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -101,6 +108,9 @@ const Spam = ({ searchQuery }) => {
 
   const handleSelectEmail = (email) => {
     setSelectedEmailUid(email.uid);
+    if (!email.isRead && handleMarkRead) {
+      handleMarkRead(email.uid);
+    }
   };
 
 
@@ -125,7 +135,12 @@ const Spam = ({ searchQuery }) => {
   const detailsComponent = selectedEmail ? (
     <EmailDetails
       emailList={visibleEmails}
-      onNavigate={(email) => setSelectedEmailUid(email.uid)}
+      onNavigate={(email) => {
+        setSelectedEmailUid(email.uid);
+        if (!email.isRead && handleMarkRead) {
+          handleMarkRead(email.uid);
+        }
+      }}
       email={selectedEmail}
       onBack={() => setSelectedEmailUid(null)}
       onDelete={(uid) => {

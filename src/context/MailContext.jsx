@@ -655,7 +655,7 @@ export const MailProvider = ({ children }) => {
         try {
             await mailAPI.markRead(uid);
             setEmails(prev => prev.map(m => {
-                if (String(m.uid) === String(uid) && !m.isRead) {
+                if ((String(m.uid) === String(uid) || String(m.id) === String(uid)) && !m.isRead) {
                     // Update unread counts locally
                     setUnreadCounts(counts => ({
                         ...counts,
@@ -666,6 +666,23 @@ export const MailProvider = ({ children }) => {
                 }
                 return m;
             }));
+            invalidateCache('unread');
+            if (currentFolderRef.current) {
+                invalidateCache(currentFolderRef.current);
+            }
+            if (pagesCache.current) {
+                Object.keys(pagesCache.current).forEach(f => {
+                    if (pagesCache.current[f]) {
+                        Object.keys(pagesCache.current[f]).forEach(p => {
+                            if (Array.isArray(pagesCache.current[f][p])) {
+                                pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
+                                    (String(m.uid) === String(uid) || String(m.id) === String(uid)) ? { ...m, isRead: true } : m
+                                );
+                            }
+                        });
+                    }
+                });
+            }
         } catch (error) {
             console.error('Mark read failed:', error);
         }
