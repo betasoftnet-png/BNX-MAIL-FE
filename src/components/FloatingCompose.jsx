@@ -235,15 +235,12 @@ const FloatingCompose = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
-    const parsed = new Date(dateString);
-    if (isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleString("en-US", {
+    return new Date(dateString).toLocaleString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      hour12: true,
     });
   };
 
