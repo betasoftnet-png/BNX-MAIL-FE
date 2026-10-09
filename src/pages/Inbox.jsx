@@ -130,13 +130,8 @@ const Inbox = ({ searchQuery }) => {
   };
 
   const getUnreadCount = (tabId) => {
+    if (tabId === 'ALL') return 0; // Unread count badge is shown only beside Inbox in the left sidebar
     if (!availableTabs.find(t => t.id === tabId)?.category) return 0; // Don't show unread for folders here
-    if (tabId === 'ALL') {
-      return emails.filter(e => {
-        const emailCat = getTabCategory(e);
-        return !e.isRead && (emailCat === 'ALL' || !activeTabs.includes(emailCat));
-      }).length;
-    }
     return emails.filter(e => getTabCategory(e) === tabId && !e.isRead).length;
   };
 
@@ -160,7 +155,7 @@ const Inbox = ({ searchQuery }) => {
   const renderTab = (tab) => {
     if (!tab) return null;
     const Icon = tab.icon;
-    const unread = getUnreadCount(tab.id);
+    const unread = tab.id === 'ALL' ? 0 : getUnreadCount(tab.id);
     const isActive = activeTab === tab.id;
     return (
       <button
@@ -171,7 +166,7 @@ const Inbox = ({ searchQuery }) => {
       >
         <Icon size={18} />
         {tab.label}
-        {unread > 0 && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-bold shadow-sm" style={{ backgroundColor: tab.color }}>{unread}</span>}
+        {tab.id !== 'ALL' && unread > 0 && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-bold shadow-sm" style={{ backgroundColor: tab.color }}>{unread}</span>}
       </button>
     );
   };
