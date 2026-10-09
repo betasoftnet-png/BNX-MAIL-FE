@@ -6,6 +6,36 @@ import { useTheme } from './ThemeContext';
 import { filterDuplicateSpamEmails } from '../utils/spamFilter';
 import toast from 'react-hot-toast';
 
+const getPersistedReadUids = (userEmail) => {
+    try {
+        const key = userEmail ? `bnx_read_emails_${userEmail.toLowerCase().trim()}` : 'bnx_read_emails';
+        const raw = localStorage.getItem(key);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch (e) {
+        return new Set();
+    }
+};
+
+const addPersistedReadUid = (userEmail, uid) => {
+    try {
+        if (!uid) return;
+        const key = userEmail ? `bnx_read_emails_${userEmail.toLowerCase().trim()}` : 'bnx_read_emails';
+        const current = getPersistedReadUids(userEmail);
+        current.add(String(uid));
+        localStorage.setItem(key, JSON.stringify(Array.from(current)));
+    } catch (e) {}
+};
+
+const removePersistedReadUid = (userEmail, uid) => {
+    try {
+        if (!uid) return;
+        const key = userEmail ? `bnx_read_emails_${userEmail.toLowerCase().trim()}` : 'bnx_read_emails';
+        const current = getPersistedReadUids(userEmail);
+        current.delete(String(uid));
+        localStorage.setItem(key, JSON.stringify(Array.from(current)));
+    } catch (e) {}
+};
+
 const MailContext = createContext();
 
 export const MailProvider = ({ children }) => {
@@ -172,11 +202,15 @@ export const MailProvider = ({ children }) => {
             if (res && res.data?.success) {
                 const data = res.data.data || {};
                 const rawEmails = data.emails || (Array.isArray(data) ? data : (data.unreadEmails || []));
-                let normalizedEmails = rawEmails.map(m => ({
-                    ...m,
-                    isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
-                    starred: m.starred ?? m.isStarred ?? false
-                }));
+                const persistedReadSet = getPersistedReadUids(user?.email);
+                let normalizedEmails = rawEmails.map(m => {
+                    const isReadPersisted = persistedReadSet.has(String(m.uid)) || (m.id && persistedReadSet.has(String(m.id)));
+                    return {
+                        ...m,
+                        isRead: isReadPersisted ? true : (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)),
+                        starred: m.starred ?? m.isStarred ?? false
+                    };
+                });
                 if (folderKey !== 'trash') {
                     normalizedEmails = normalizedEmails.filter(m => {
                         const isTrash = m.folderName?.toLowerCase() === 'trash' || m.folderName?.toLowerCase() === 'deleted' || m.isTrash === true || m.isDeleted === true || m.deleted === true;
@@ -464,11 +498,15 @@ export const MailProvider = ({ children }) => {
             if (res.data?.success) {
                 const data = res.data.data || {};
                 const rawEmails = data.emails || (Array.isArray(data) ? data : (data.unreadEmails || []));
-                let normalizedEmails = rawEmails.map(m => ({
-                    ...m,
-                    isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
-                    starred: m.starred ?? m.isStarred ?? false
-                }));
+                const persistedReadSet = getPersistedReadUids(user?.email);
+                let normalizedEmails = rawEmails.map(m => {
+                    const isReadPersisted = persistedReadSet.has(String(m.uid)) || (m.id && persistedReadSet.has(String(m.id)));
+                    return {
+                        ...m,
+                        isRead: isReadPersisted ? true : (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)),
+                        starred: m.starred ?? m.isStarred ?? false
+                    };
+                });
                 if (folderKey !== 'trash') {
                     normalizedEmails = normalizedEmails.filter(m => {
                         const isTrash = m.folderName?.toLowerCase() === 'trash' || m.folderName?.toLowerCase() === 'deleted' || m.isTrash === true || m.isDeleted === true || m.deleted === true;
@@ -653,7 +691,9 @@ export const MailProvider = ({ children }) => {
 
     const handleMarkRead = async (uid, silent = false) => {
         try {
-            await mailAPI.markRead(uid);
+            // Persist read status locally so it stays read across reloads/re-fetches
+            addPersistedReadUid(user?.email, uid);
+
             setEmails(prev => prev.map(m => {
                 if ((String(m.uid) === String(uid) || String(m.id) === String(uid)) && !m.isRead) {
                     // Update unread counts locally
@@ -683,6 +723,13 @@ export const MailProvider = ({ children }) => {
                     }
                 });
             }
+
+            // Attempt existing API markRead; catch gracefully so backend IMAP folder constraints don't break frontend state
+            try {
+                await mailAPI.markRead(uid);
+            } catch (apiErr) {
+                console.warn('Backend markRead API call failed or unsupported for this folder:', apiErr);
+            }
         } catch (error) {
             console.error('Mark read failed:', error);
         }
@@ -690,8 +737,9 @@ export const MailProvider = ({ children }) => {
 
     const handleMarkUnread = async (uid, silent = false) => {
         try {
-            await mailAPI.markUnread(uid);
-            setEmails(prev => prev.map(m => String(m.uid) === String(uid) ? { ...m, isRead: false } : m));
+            removePersistedReadUid(user?.email, uid);
+
+            setEmails(prev => prev.map(m => (String(m.uid) === String(uid) || String(m.id) === String(uid)) ? { ...m, isRead: false } : m));
             setUnreadCounts(counts => ({
                 ...counts,
                 inbox: currentFolderRef.current?.toLowerCase() === 'inbox' ? (counts.inbox || 0) + 1 : counts.inbox,
@@ -701,8 +749,27 @@ export const MailProvider = ({ children }) => {
             if (currentFolderRef.current) {
                 invalidateCache(currentFolderRef.current);
             }
+            if (pagesCache.current) {
+                Object.keys(pagesCache.current).forEach(f => {
+                    if (pagesCache.current[f]) {
+                        Object.keys(pagesCache.current[f]).forEach(p => {
+                            if (Array.isArray(pagesCache.current[f][p])) {
+                                pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
+                                    (String(m.uid) === String(uid) || String(m.id) === String(uid)) ? { ...m, isRead: false } : m
+                                );
+                            }
+                        });
+                    }
+                });
+            }
             if (currentFolderRef.current?.toLowerCase() === 'unread') {
                 fetchEmails('unread', true, currentPageRef.current);
+            }
+
+            try {
+                await mailAPI.markUnread(uid);
+            } catch (apiErr) {
+                console.warn('Backend markUnread API call failed or unsupported for this folder:', apiErr);
             }
         } catch (error) {
             console.error('Mark unread failed:', error);
