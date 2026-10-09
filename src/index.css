@@ -381,7 +381,7 @@ aside.sidebar-collapsed hr {
    ========================================================================== */
 @media print {
   @page {
-    margin: 12mm 15mm;
+    margin: 0;
     size: auto;
   }
 
@@ -450,7 +450,7 @@ aside.sidebar-collapsed hr {
     overflow: visible !important;
     background: white !important;
     color: #111827 !important;
-    padding: 0 !important;
+    padding: 10mm 15mm !important;
     margin: 0 !important;
     border: none !important;
     box-shadow: none !important;

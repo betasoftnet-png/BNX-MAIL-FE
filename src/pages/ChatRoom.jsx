@@ -475,7 +475,7 @@ export const formatBroadcastTimestamp = (timestamp, userTimeZone) => {
 
   const timeZone = userTimeZone || 'Asia/Kolkata';
 
-  return date.toLocaleString('en-GB', {
+  let formatted = date.toLocaleString('en-GB', {
     timeZone,
     day: '2-digit',
     month: '2-digit',
@@ -486,6 +486,11 @@ export const formatBroadcastTimestamp = (timestamp, userTimeZone) => {
   })
     .replace(/[\u202f\u00a0]/g, ' ')
     .replace(/\b(am|pm)\b/i, (m) => m.toUpperCase());
+
+  // Guarantee 2-digit hour with leading zero if single digit (e.g., ", 2:55 PM" -> ", 02:55 PM")
+  formatted = formatted.replace(/(,\s*)(\d):(\d{2}\s+[AP]M)/, '$10$2:$3');
+
+  return formatted;
 };
 
 const isMessageFromMe = (msg, currentUser) => {
@@ -867,6 +872,13 @@ const ChatRoom = () => {
   const [editingName, setEditingName] = useState("");
   const [selectedAttachments, setSelectedAttachments] = useState([]);
   const fileInputRef = useRef(null);
+  const [printTimestamp, setPrintTimestamp] = useState(() => new Date());
+
+  useEffect(() => {
+    const handleBeforePrint = () => setPrintTimestamp(new Date());
+    window.addEventListener('beforeprint', handleBeforePrint);
+    return () => window.removeEventListener('beforeprint', handleBeforePrint);
+  }, []);
 
   // Group Members State
   const [membersList, setMembersList] = useState(() => {
@@ -1784,7 +1796,10 @@ const ChatRoom = () => {
 
         <div className="flex items-center gap-1 sm:gap-2">
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              setPrintTimestamp(new Date());
+              window.print();
+            }}
             className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
             title="Print"
           >
@@ -1881,10 +1896,16 @@ const ChatRoom = () => {
       <div className={`flex-1 min-h-0 flex flex-col md:flex-row items-stretch overflow-hidden relative p-4 transition-all duration-300 colab-print-container printable-conversation ${isChatPaneOpen ? 'gap-4' : 'gap-0'}`}>
         
         {/* Print-Only Top Header */}
-        <div className="hidden print:block w-full border-b border-gray-300 pb-3 mb-6 text-center shrink-0">
-          <h1 className="text-2xl font-bold tracking-wider text-black">BNXmail</h1>
-          {chatName && <p className="text-xs font-semibold text-gray-600 uppercase tracking-widest mt-1">{chatName}</p>}
-          {chatPartner && chat?.type === 'DIRECT' && <p className="text-xs text-gray-500 mt-0.5">{chatPartner}</p>}
+        <div className="hidden print:block w-full mb-6 shrink-0 print-top-header">
+          <div className="flex justify-between items-center text-xs text-gray-700 pb-2 mb-4 border-b border-gray-300">
+            <span className="font-medium text-gray-800">{formatBroadcastTimestamp(printTimestamp, user?.timeZone || user?.timezone)}</span>
+            <span className="font-bold text-gray-900 tracking-wide">BNXmail</span>
+          </div>
+          <div className="text-center pb-3 border-b border-gray-300">
+            <h1 className="text-2xl font-bold tracking-wider text-black">BNXmail</h1>
+            {chatName && <p className="text-xs font-semibold text-gray-600 uppercase tracking-widest mt-1">{chatName}</p>}
+            {chatPartner && chat?.type === 'DIRECT' && <p className="text-xs text-gray-500 mt-0.5">{chatPartner}</p>}
+          </div>
         </div>
 
         {/* Left Side: Professional Broadcast list (60% width) */}
