@@ -533,12 +533,33 @@ const EmailDetails = ({
     }
   }, [email]);
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const parsed = new Date(dateString);
+    if (isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   const getOriginalEmailContentHTML = (emailObj) => {
     if (!emailObj) return "<div class=\"original-unavailable\">Original message unavailable</div>";
 
     const fromVal = emailObj.from || "";
     const toVal = emailObj.to || "";
-    const dateVal = emailObj.sentDate ? formatDate(emailObj.sentDate) : (emailObj.receivedDate ? formatDate(emailObj.receivedDate) : (emailObj.date ? formatDate(emailObj.date) : ""));
+    const dateVal = emailObj.sentDate
+      ? formatDate(emailObj.sentDate)
+      : emailObj.receivedDate
+      ? formatDate(emailObj.receivedDate)
+      : emailObj.date
+      ? formatDate(emailObj.date)
+      : emailObj.createdAt
+      ? formatDate(emailObj.createdAt)
+      : "";
     const subjectVal = emailObj.subject || "";
 
     let bodyContent = "";
@@ -736,7 +757,8 @@ const EmailDetails = ({
 
     doc.write(`<h2>${email.subject || "(No Subject)"}</h2>`);
     const escapedFrom = email.from ? email.from.replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
-    doc.write(`<div class="meta"><strong>From:</strong> ${escapedFrom}<br/><strong>Date:</strong> ${formatDate(email.date)}</div>`);
+    const emailDate = email.sentDate || email.receivedDate || email.date || email.createdAt || email.timestamp || "";
+    doc.write(`<div class="meta"><strong>From:</strong> ${escapedFrom}<br/><strong>Date:</strong> ${formatDate(emailDate)}</div>`);
     
     if (email.htmlBody) {
       doc.write(`<div>${email.htmlBody}</div>`);
@@ -784,7 +806,7 @@ const EmailDetails = ({
         <h2 style="margin-bottom:5px;font-size:22px;">${email.subject || "(No Subject)"}</h2>
         <div style="color:#555;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #eee;font-size:14px;line-height:1.5;">
           <strong>From:</strong> ${escapedFrom}<br/>
-          <strong>Date:</strong> ${formatDate(email.date)}
+          <strong>Date:</strong> ${formatDate(email.sentDate || email.receivedDate || email.date || email.createdAt || email.timestamp || "")}
         </div>
         ${bodyHtml}
       </div>
@@ -1013,14 +1035,7 @@ const EmailDetails = ({
     return null;
   }
 
-  const formatDate = (dateString) =>
-    new Date(dateString).toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+
 
   return (
     <div
@@ -1258,7 +1273,7 @@ const EmailDetails = ({
                       </div>
                       
                       <span className="text-xs font-medium text-gray-400 dark:text-gray-500 shrink-0">
-                        {m.sentDate ? formatDate(m.sentDate) : m.receivedDate ? formatDate(m.receivedDate) : m.date ? formatDate(m.date) : ""}
+                        {m.sentDate ? formatDate(m.sentDate) : m.receivedDate ? formatDate(m.receivedDate) : m.date ? formatDate(m.date) : m.createdAt ? formatDate(m.createdAt) : ""}
                       </span>
                     </div>
 
@@ -1329,7 +1344,7 @@ const EmailDetails = ({
                       </span>
                     </div>
                     <span className="text-xs text-gray-400 shrink-0">
-                      {m.sentDate ? formatDate(m.sentDate) : m.receivedDate ? formatDate(m.receivedDate) : m.date ? formatDate(m.date) : ""}
+                      {m.sentDate ? formatDate(m.sentDate) : m.receivedDate ? formatDate(m.receivedDate) : m.date ? formatDate(m.date) : m.createdAt ? formatDate(m.createdAt) : ""}
                     </span>
                   </div>
                 );
@@ -1395,7 +1410,7 @@ const EmailDetails = ({
               </div>
 
               <span className="text-xs font-medium text-gray-400 dark:text-gray-500 self-start sm:self-center bg-black/[0.03] dark:bg-white/[0.04] px-2.5 py-1 rounded-full">
-                {email.sentDate ? formatDate(email.sentDate) : email.receivedDate ? formatDate(email.receivedDate) : ""}
+                {email.sentDate ? formatDate(email.sentDate) : email.receivedDate ? formatDate(email.receivedDate) : email.date ? formatDate(email.date) : email.createdAt ? formatDate(email.createdAt) : ""}
               </span>
             </div>
 
