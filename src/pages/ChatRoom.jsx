@@ -2326,7 +2326,7 @@ const ChatRoom = () => {
               {/* Unified Message Body Input Container */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 opacity-65">
-                  Message Body (HTML support)
+                  Message Body
                 </label>
                 
                 <div 
@@ -2377,7 +2377,7 @@ const ChatRoom = () => {
                         className="hidden" 
                     />
                     </label>
-                    <span className="text-[10px] text-gray-450 dark:text-gray-500 font-normal">HTML enabled • Max 5MB per file</span>
+                    <span className="text-[10px] text-gray-450 dark:text-gray-500 font-normal">Max 5MB per file</span>
                   </div>
                 </div>
               </div>
