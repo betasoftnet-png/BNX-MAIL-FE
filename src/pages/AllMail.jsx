@@ -54,7 +54,7 @@ const AllMail = ({ searchQuery }) => {
   const [filterStarred, setFilterStarred] = useState(null);
 
   const visibleEmails = emails.filter((e) => {
-    if (matchesDateFilter && !matchesDateFilter(e)) return false;
+    if (typeof matchesDateFilter === 'function' && !matchesDateFilter(e)) return false;
     // 1. Search Query
     if (searchQuery) {
       const q = searchQuery.toLowerCase();

@@ -76,7 +76,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const queryVal = searchQuery.trim().toLowerCase();
 
   const matchingEmails = queryVal
-    ? (emails || []).filter(e => (matchesDateFilter ? matchesDateFilter(e) : true)).filter(e => 
+    ? (emails || []).filter(e => (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true)).filter(e => 
         e.subject?.toLowerCase().includes(queryVal) ||
         e.from?.toLowerCase().includes(queryVal) ||
         e.senderEmail?.toLowerCase().includes(queryVal) ||

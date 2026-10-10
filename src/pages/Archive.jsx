@@ -11,7 +11,7 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 const Archive = ({ searchQuery }) => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleUnarchive, handleSnooze, handleApplyLabel } = useMail();
+  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleUnarchive, handleSnooze, handleApplyLabel, matchesDateFilter } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
@@ -45,7 +45,7 @@ const Archive = ({ searchQuery }) => {
   const [filterStarred, setFilterStarred] = useState(null);
 
   const visibleEmails = emails.filter((e) => {
-    if (matchesDateFilter && !matchesDateFilter(e)) return false;
+    if (typeof matchesDateFilter === 'function' && !matchesDateFilter(e)) return false;
     // 1. Search Query
     if (searchQuery) {
       const q = searchQuery.toLowerCase();

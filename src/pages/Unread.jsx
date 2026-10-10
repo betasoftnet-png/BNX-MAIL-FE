@@ -44,7 +44,7 @@ const Unread = ({ searchQuery }) => {
 
   const visibleEmails = unreadEmails.filter(
     (e) =>
-      (matchesDateFilter ? matchesDateFilter(e) : true) &&
+      (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true) &&
       (!searchQuery ||
         e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -44,10 +44,16 @@ export const MailProvider = ({ children }) => {
     const { emailsPerPage: limit } = useTheme();
     const [emails, setEmails] = useState([]);
     const [dateFilter, setDateFilter] = useState("ALL");
+    const [customDateRange, setCustomDateRange] = useState(null);
+
+    const resetDateFilter = useCallback(() => {
+        setDateFilter("ALL");
+        setCustomDateRange(null);
+    }, []);
 
     const matchesDateFilter = useCallback((email) => {
-        return matchesDateRange(email, dateFilter);
-    }, [dateFilter]);
+        return matchesDateRange(email, dateFilter, customDateRange);
+    }, [dateFilter, customDateRange]);
 
     const [currentFolder, setCurrentFolder] = useState('inbox');
     const currentFolderRef = useRef('inbox');
@@ -1284,6 +1290,9 @@ export const MailProvider = ({ children }) => {
             closeCompose,
             dateFilter,
             setDateFilter,
+            customDateRange,
+            setCustomDateRange,
+            resetDateFilter,
             matchesDateFilter
         }}>
             {children}
@@ -1330,6 +1339,9 @@ export const useMail = () => {
             handlePageChange: () => {},
             dateFilter: "ALL",
             setDateFilter: () => {},
+            customDateRange: null,
+            setCustomDateRange: () => {},
+            resetDateFilter: () => {},
             matchesDateFilter: () => true,
         };
     }

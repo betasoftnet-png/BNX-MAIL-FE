@@ -25,7 +25,8 @@ const Snoozed = ({ searchQuery }) => {
     handleArchive, 
     handleUnarchive, 
     handleSnooze,
-    openCompose 
+    openCompose,
+    matchesDateFilter 
   } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
@@ -52,7 +53,7 @@ const Snoozed = ({ searchQuery }) => {
 
   const visibleEmails = emails.filter(
     (e) =>
-      (matchesDateFilter ? matchesDateFilter(e) : true) &&
+      (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true) &&
       (!searchQuery ||
         e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||

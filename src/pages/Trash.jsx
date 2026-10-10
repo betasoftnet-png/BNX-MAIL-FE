@@ -34,7 +34,7 @@ const Trash = ({ searchQuery }) => {
 
   const visibleEmails = emails.filter(
     (e) =>
-      (matchesDateFilter ? matchesDateFilter(e) : true) &&
+      (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true) &&
       (!searchQuery ||
         e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||

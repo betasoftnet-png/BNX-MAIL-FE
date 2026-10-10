@@ -122,6 +122,8 @@ export const matchesDateRange = (email, filter = "ALL", customRange = null) => {
   return true;
 };
 
+export const matchesDateFilter = matchesDateRange;
+
 /**
  * Formats a Date or date string to DD-MM-YYYY format
  */
