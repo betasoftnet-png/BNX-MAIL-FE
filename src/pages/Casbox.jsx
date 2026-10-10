@@ -601,196 +601,6 @@ const Casbox = () => {
     setActiveMessageMenuId(null);
   }, [selectedMessage?.id, selectedMessage?.contact, selectedMessage?.senderEmail, selectedMessage?.receiverEmail]);
 
-  const cleanMessageBody = useCallback((body) => {
-    if (typeof body !== 'string') return body || '';
-    const match = body.match(/^\[Replying to [^:]+:\s*"[^"]*"\]\n([\s\S]*)$/);
-    return match ? match[1] : body;
-  }, []);
-
-  const getPinnedSenderLabel = useCallback((pinnedMsg) => {
-    if (!pinnedMsg) return '';
-    if (pinnedMsg.senderLabel) return pinnedMsg.senderLabel;
-    const isMe = isCurrentUser(pinnedMsg.senderEmail || pinnedMsg.sender);
-    const sEmail = pinnedMsg.senderEmail || pinnedMsg.sender || '';
-    return isMe ? (user?.username || sEmail.split('@')[0]) : getDisplayName(sEmail, pinnedMsg);
-  }, [isCurrentUser, user?.username, getDisplayName]);
-
-  const isCurrentMessagePinned = useCallback((msg, contactEmail) => {
-    if (!contactEmail || !msg) return false;
-    const pinned = pinnedMessagesMap[contactEmail.toLowerCase()];
-    if (!pinned) return false;
-    const pId = pinned.id !== undefined ? pinned.id : pinned.uid;
-    const mId = msg.id !== undefined ? msg.id : msg.uid;
-    if (pId !== undefined && mId !== undefined && (pId === mId || String(pId) === String(mId))) return true;
-    const pFallback = `${pinned.timestamp}-${pinned.senderEmail || pinned.sender}-${pinned.body}`;
-    const mFallback = `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`;
-    return pFallback === mFallback;
-  }, [pinnedMessagesMap]);
-
-  const handleTogglePinMessage = useCallback((msg, senderLabel, contactEmail) => {
-    if (!contactEmail || !msg) return;
-    const normContact = contactEmail.toLowerCase();
-    setActiveMessageMenuId(null);
-
-    if (isCurrentMessagePinned(msg, contactEmail)) {
-      setPinnedMessagesMap(prev => {
-        const next = { ...prev };
-        delete next[normContact];
-        try {
-          localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
-        } catch (e) {}
-        return next;
-      });
-      toast.success("Message unpinned");
-    } else {
-      const pinPayload = {
-        ...msg,
-        senderLabel: senderLabel || getDisplayName(msg.senderEmail || msg.sender, msg)
-      };
-      setPinnedMessagesMap(prev => {
-        const next = { ...prev, [normContact]: pinPayload };
-        try {
-          localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
-        } catch (e) {}
-        return next;
-      });
-      toast.success("Message pinned");
-    }
-  }, [isCurrentMessagePinned, getDisplayName]);
-
-  const handleUnpinMessage = useCallback((contactEmail) => {
-    if (!contactEmail) return;
-    const normContact = contactEmail.toLowerCase();
-    setPinnedMessagesMap(prev => {
-      const next = { ...prev };
-      delete next[normContact];
-      try {
-        localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
-    toast.success("Message unpinned");
-  }, []);
-
-  const handleScrollToMessage = useCallback((pinnedMsg) => {
-    if (!pinnedMsg) return;
-    const targetId = pinnedMsg.id !== undefined ? pinnedMsg.id : pinnedMsg.uid;
-    const fallbackId = `${pinnedMsg.timestamp}-${pinnedMsg.senderEmail || pinnedMsg.sender}-${pinnedMsg.body}`;
-    const uniqueKey = targetId !== undefined && targetId !== null ? targetId : fallbackId;
-
-    const el = document.getElementById(`casbox-msg-${uniqueKey}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setHighlightedMessageId(uniqueKey);
-      setTimeout(() => setHighlightedMessageId(null), 2500);
-    } else {
-      toast("Message is in earlier history", { icon: "ℹ️" });
-    }
-  }, []);
-
-  const handleInitiateReply = useCallback((msg, senderLabel) => {
-    setActiveMessageMenuId(null);
-    setReplyingToMessage({
-      ...msg,
-      senderLabel: senderLabel || getDisplayName(msg.senderEmail || msg.sender, msg)
-    });
-    setTimeout(() => {
-      chatInputRef.current?.focus();
-    }, 50);
-  }, [getDisplayName]);
-
-  const handleInitiateUnsend = useCallback((msg) => {
-    setActiveMessageMenuId(null);
-    setUnsendMessageTarget(msg);
-  }, []);
-
-  const handleConfirmUnsendMessage = useCallback(() => {
-    if (!unsendMessageTarget) return;
-    const target = unsendMessageTarget;
-    const targetId = target.id !== undefined ? target.id : target.uid;
-    const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
-    const fallbackId = `${target.timestamp}-${target.senderEmail || target.sender}-${target.receiverEmail || target.receiver}-${target.body}`;
-
-    setDeletedMessageIds(prev => {
-      const updated = new Set(prev);
-      if (targetId !== undefined && targetId !== null) {
-        updated.add(targetId);
-        updated.add(strId);
-      }
-      updated.add(fallbackId);
-      try {
-        const json = JSON.stringify(Array.from(updated));
-        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
-        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
-      } catch (e) {}
-      return updated;
-    });
-
-    setMessages(prev => prev.filter(m => {
-      const mId = m.id !== undefined ? m.id : m.uid;
-      if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return false;
-      const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-      return mFallback !== fallbackId;
-    }));
-
-    setThreadMessages(prev => prev.filter(m => {
-      const mId = m.id !== undefined ? m.id : m.uid;
-      if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return false;
-      const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-      return mFallback !== fallbackId;
-    }));
-
-    if (selectedMessage) {
-      const otherEmail = getOtherUserEmail(selectedMessage);
-      if (otherEmail) {
-        const currPinned = pinnedMessagesMap[otherEmail.toLowerCase()];
-        if (currPinned) {
-          const pId = currPinned.id !== undefined ? currPinned.id : currPinned.uid;
-          const pFallback = `${currPinned.timestamp}-${currPinned.senderEmail || currPinned.sender}-${currPinned.body}`;
-          if ((targetId !== undefined && (pId === targetId || String(pId) === strId)) || pFallback === fallbackId) {
-            handleUnpinMessage(otherEmail);
-          }
-        }
-      }
-    }
-
-    if (replyingToMessage) {
-      const rId = replyingToMessage.id !== undefined ? replyingToMessage.id : replyingToMessage.uid;
-      if (targetId !== undefined && (rId === targetId || String(rId) === strId)) {
-        setReplyingToMessage(null);
-      }
-    }
-
-    setUnsendMessageTarget(null);
-    setActiveMessageMenuId(null);
-    toast.success("Message unsent");
-  }, [unsendMessageTarget, selectedMessage, pinnedMessagesMap, handleUnpinMessage, replyingToMessage]);
-
-  const renderReplyPreviewInBubble = useCallback((msg, isMe) => {
-    if (!msg || typeof msg.body !== 'string') return null;
-    const match = msg.body.match(/^\[Replying to ([^:]+):\s*"([^"]*)"\]\n/);
-    if (!match) return null;
-    const quotedSender = match[1];
-    const quotedSnippet = match[2];
-
-    return (
-      <div
-        className={`mb-1 p-2 rounded-xl text-[11px] border-l-4 select-none ${
-          isMe
-            ? 'bg-black/15 text-white border-white/70'
-            : 'bg-black/5 dark:bg-white/5 text-gray-700 dark:text-gray-200 border-blue-500 dark:border-blue-400'
-        }`}
-      >
-        <div className={`font-bold text-[10px] leading-tight mb-0.5 ${isMe ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
-          {quotedSender}
-        </div>
-        <div className="truncate leading-tight opacity-80 text-[11px]">
-          {quotedSnippet}
-        </div>
-      </div>
-    );
-  }, []);
-
   const toggleSelectRow = useCallback((rowId) => {
     setSelectedRowIds((prev) => {
       const next = new Set(prev);
@@ -1265,6 +1075,189 @@ const Casbox = () => {
     const name = getDisplayName(emailOrUsername, msg);
     return name ? name.charAt(0).toUpperCase() : "?";
   };
+
+  // Message Action Helpers (Reply, Pin, Unsend) - Declared after getDisplayName & getOtherUserEmail
+  const cleanMessageBody = useCallback((body) => {
+    if (typeof body !== 'string') return body || '';
+    const match = body.match(/^\[Replying to [^:]+:\s*"[^"]*"\]\n([\s\S]*)$/);
+    return match ? match[1] : body;
+  }, []);
+
+  const getPinnedSenderLabel = useCallback((pinnedMsg) => {
+    if (!pinnedMsg) return '';
+    if (pinnedMsg.senderLabel) return pinnedMsg.senderLabel;
+    const isMe = isCurrentUser(pinnedMsg.senderEmail || pinnedMsg.sender);
+    const sEmail = pinnedMsg.senderEmail || pinnedMsg.sender || '';
+    return isMe ? (user?.username || sEmail.split('@')[0]) : getDisplayName(sEmail, pinnedMsg);
+  }, [isCurrentUser, user?.username, getDisplayName]);
+
+  const isCurrentMessagePinned = useCallback((msg, contactEmail) => {
+    if (!contactEmail || !msg) return false;
+    const pinned = pinnedMessagesMap[contactEmail.toLowerCase()];
+    if (!pinned) return false;
+    const pId = pinned.id !== undefined ? pinned.id : pinned.uid;
+    const mId = msg.id !== undefined ? msg.id : msg.uid;
+    if (pId !== undefined && mId !== undefined && (pId === mId || String(pId) === String(mId))) return true;
+    const pFallback = `${pinned.timestamp}-${pinned.senderEmail || pinned.sender}-${pinned.body}`;
+    const mFallback = `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`;
+    return pFallback === mFallback;
+  }, [pinnedMessagesMap]);
+
+  const handleUnpinMessage = useCallback((contactEmail) => {
+    if (!contactEmail) return;
+    const normContact = contactEmail.toLowerCase();
+    setPinnedMessagesMap(prev => {
+      const next = { ...prev };
+      delete next[normContact];
+      try {
+        localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    toast.success("Message unpinned");
+  }, []);
+
+  const handleTogglePinMessage = useCallback((msg, senderLabel, contactEmail) => {
+    if (!contactEmail || !msg) return;
+    const normContact = contactEmail.toLowerCase();
+    setActiveMessageMenuId(null);
+
+    if (isCurrentMessagePinned(msg, contactEmail)) {
+      handleUnpinMessage(contactEmail);
+    } else {
+      const pinPayload = {
+        ...msg,
+        senderLabel: senderLabel || getDisplayName(msg.senderEmail || msg.sender, msg)
+      };
+      setPinnedMessagesMap(prev => {
+        const next = { ...prev, [normContact]: pinPayload };
+        try {
+          localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+      toast.success("Message pinned");
+    }
+  }, [isCurrentMessagePinned, getDisplayName, handleUnpinMessage]);
+
+  const handleScrollToMessage = useCallback((pinnedMsg) => {
+    if (!pinnedMsg) return;
+    const targetId = pinnedMsg.id !== undefined ? pinnedMsg.id : pinnedMsg.uid;
+    const fallbackId = `${pinnedMsg.timestamp}-${pinnedMsg.senderEmail || pinnedMsg.sender}-${pinnedMsg.body}`;
+    const uniqueKey = targetId !== undefined && targetId !== null ? targetId : fallbackId;
+
+    const el = document.getElementById(`casbox-msg-${uniqueKey}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMessageId(uniqueKey);
+      setTimeout(() => setHighlightedMessageId(null), 2500);
+    } else {
+      toast("Message is in earlier history", { icon: "ℹ️" });
+    }
+  }, []);
+
+  const handleInitiateReply = useCallback((msg, senderLabel) => {
+    setActiveMessageMenuId(null);
+    setReplyingToMessage({
+      ...msg,
+      senderLabel: senderLabel || getDisplayName(msg.senderEmail || msg.sender, msg)
+    });
+    setTimeout(() => {
+      chatInputRef.current?.focus();
+    }, 50);
+  }, [getDisplayName]);
+
+  const handleInitiateUnsend = useCallback((msg) => {
+    setActiveMessageMenuId(null);
+    setUnsendMessageTarget(msg);
+  }, []);
+
+  const handleConfirmUnsendMessage = useCallback(() => {
+    if (!unsendMessageTarget) return;
+    const target = unsendMessageTarget;
+    const targetId = target.id !== undefined ? target.id : target.uid;
+    const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
+    const fallbackId = `${target.timestamp}-${target.senderEmail || target.sender}-${target.receiverEmail || target.receiver}-${target.body}`;
+
+    setDeletedMessageIds(prev => {
+      const updated = new Set(prev);
+      if (targetId !== undefined && targetId !== null) {
+        updated.add(targetId);
+        updated.add(strId);
+      }
+      updated.add(fallbackId);
+      try {
+        const json = JSON.stringify(Array.from(updated));
+        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+      } catch (e) {}
+      return updated;
+    });
+
+    setMessages(prev => prev.filter(m => {
+      const mId = m.id !== undefined ? m.id : m.uid;
+      if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return false;
+      const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+      return mFallback !== fallbackId;
+    }));
+
+    setThreadMessages(prev => prev.filter(m => {
+      const mId = m.id !== undefined ? m.id : m.uid;
+      if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return false;
+      const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+      return mFallback !== fallbackId;
+    }));
+
+    if (selectedMessage) {
+      const otherEmail = getOtherUserEmail(selectedMessage);
+      if (otherEmail) {
+        const currPinned = pinnedMessagesMap[otherEmail.toLowerCase()];
+        if (currPinned) {
+          const pId = currPinned.id !== undefined ? currPinned.id : currPinned.uid;
+          const pFallback = `${currPinned.timestamp}-${currPinned.senderEmail || currPinned.sender}-${currPinned.body}`;
+          if ((targetId !== undefined && (pId === targetId || String(pId) === strId)) || pFallback === fallbackId) {
+            handleUnpinMessage(otherEmail);
+          }
+        }
+      }
+    }
+
+    if (replyingToMessage) {
+      const rId = replyingToMessage.id !== undefined ? replyingToMessage.id : replyingToMessage.uid;
+      if (targetId !== undefined && (rId === targetId || String(rId) === strId)) {
+        setReplyingToMessage(null);
+      }
+    }
+
+    setUnsendMessageTarget(null);
+    setActiveMessageMenuId(null);
+    toast.success("Message unsent");
+  }, [unsendMessageTarget, selectedMessage, pinnedMessagesMap, handleUnpinMessage, replyingToMessage, getOtherUserEmail]);
+
+  const renderReplyPreviewInBubble = useCallback((msg, isMe) => {
+    if (!msg || typeof msg.body !== 'string') return null;
+    const match = msg.body.match(/^\[Replying to ([^:]+):\s*"([^"]*)"\]\n/);
+    if (!match) return null;
+    const quotedSender = match[1];
+    const quotedSnippet = match[2];
+
+    return (
+      <div
+        className={`mb-1 p-2 rounded-xl text-[11px] border-l-4 select-none ${
+          isMe
+            ? 'bg-black/15 text-white border-white/70'
+            : 'bg-black/5 dark:bg-white/5 text-gray-700 dark:text-gray-200 border-blue-500 dark:border-blue-400'
+        }`}
+      >
+        <div className={`font-bold text-[10px] leading-tight mb-0.5 ${isMe ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
+          {quotedSender}
+        </div>
+        <div className="truncate leading-tight opacity-80 text-[11px]">
+          {quotedSnippet}
+        </div>
+      </div>
+    );
+  }, []);
 
   const handleOpenEditNameModal = (chatOrMsg, e) => {
     if (e) e.stopPropagation();
