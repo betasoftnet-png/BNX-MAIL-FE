@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useMail } from "../context/MailContext";
 import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI } from "../services/api";
-import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward } from "react-icons/md";
+import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore } from "react-icons/md";
 import { SiAdobeacrobatreader } from "react-icons/si";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
@@ -578,6 +578,219 @@ const Casbox = () => {
   const filterMenuRef = React.useRef(null);
   const combineMenuRef = React.useRef(null);
 
+  // Three-Dot Message Actions: Reply, Pin, Unsend
+  const [activeMessageMenuId, setActiveMessageMenuId] = useState(null);
+  const [replyingToMessage, setReplyingToMessage] = useState(null);
+  const [unsendMessageTarget, setUnsendMessageTarget] = useState(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+  const [pinnedMessagesMap, setPinnedMessagesMap] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bnx_casbox_pinned_messages');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const chatInputRef = React.useRef(null);
+  const messageMenuRef = React.useRef(null);
+
+  // Reset reply and menu when switching conversation
+  useEffect(() => {
+    setReplyingToMessage(null);
+    setActiveMessageMenuId(null);
+  }, [selectedMessage?.id, selectedMessage?.contact, selectedMessage?.senderEmail, selectedMessage?.receiverEmail]);
+
+  const cleanMessageBody = useCallback((body) => {
+    if (typeof body !== 'string') return body || '';
+    const match = body.match(/^\[Replying to [^:]+:\s*"[^"]*"\]\n([\s\S]*)$/);
+    return match ? match[1] : body;
+  }, []);
+
+  const getPinnedSenderLabel = useCallback((pinnedMsg) => {
+    if (!pinnedMsg) return '';
+    if (pinnedMsg.senderLabel) return pinnedMsg.senderLabel;
+    const isMe = isCurrentUser(pinnedMsg.senderEmail || pinnedMsg.sender);
+    const sEmail = pinnedMsg.senderEmail || pinnedMsg.sender || '';
+    return isMe ? (user?.username || sEmail.split('@')[0]) : getDisplayName(sEmail, pinnedMsg);
+  }, [isCurrentUser, user?.username, getDisplayName]);
+
+  const isCurrentMessagePinned = useCallback((msg, contactEmail) => {
+    if (!contactEmail || !msg) return false;
+    const pinned = pinnedMessagesMap[contactEmail.toLowerCase()];
+    if (!pinned) return false;
+    const pId = pinned.id !== undefined ? pinned.id : pinned.uid;
+    const mId = msg.id !== undefined ? msg.id : msg.uid;
+    if (pId !== undefined && mId !== undefined && (pId === mId || String(pId) === String(mId))) return true;
+    const pFallback = `${pinned.timestamp}-${pinned.senderEmail || pinned.sender}-${pinned.body}`;
+    const mFallback = `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`;
+    return pFallback === mFallback;
+  }, [pinnedMessagesMap]);
+
+  const handleTogglePinMessage = useCallback((msg, senderLabel, contactEmail) => {
+    if (!contactEmail || !msg) return;
+    const normContact = contactEmail.toLowerCase();
+    setActiveMessageMenuId(null);
+
+    if (isCurrentMessagePinned(msg, contactEmail)) {
+      setPinnedMessagesMap(prev => {
+        const next = { ...prev };
+        delete next[normContact];
+        try {
+          localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+      toast.success("Message unpinned");
+    } else {
+      const pinPayload = {
+        ...msg,
+        senderLabel: senderLabel || getDisplayName(msg.senderEmail || msg.sender, msg)
+      };
+      setPinnedMessagesMap(prev => {
+        const next = { ...prev, [normContact]: pinPayload };
+        try {
+          localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+      toast.success("Message pinned");
+    }
+  }, [isCurrentMessagePinned, getDisplayName]);
+
+  const handleUnpinMessage = useCallback((contactEmail) => {
+    if (!contactEmail) return;
+    const normContact = contactEmail.toLowerCase();
+    setPinnedMessagesMap(prev => {
+      const next = { ...prev };
+      delete next[normContact];
+      try {
+        localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    toast.success("Message unpinned");
+  }, []);
+
+  const handleScrollToMessage = useCallback((pinnedMsg) => {
+    if (!pinnedMsg) return;
+    const targetId = pinnedMsg.id !== undefined ? pinnedMsg.id : pinnedMsg.uid;
+    const fallbackId = `${pinnedMsg.timestamp}-${pinnedMsg.senderEmail || pinnedMsg.sender}-${pinnedMsg.body}`;
+    const uniqueKey = targetId !== undefined && targetId !== null ? targetId : fallbackId;
+
+    const el = document.getElementById(`casbox-msg-${uniqueKey}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMessageId(uniqueKey);
+      setTimeout(() => setHighlightedMessageId(null), 2500);
+    } else {
+      toast("Message is in earlier history", { icon: "ℹ️" });
+    }
+  }, []);
+
+  const handleInitiateReply = useCallback((msg, senderLabel) => {
+    setActiveMessageMenuId(null);
+    setReplyingToMessage({
+      ...msg,
+      senderLabel: senderLabel || getDisplayName(msg.senderEmail || msg.sender, msg)
+    });
+    setTimeout(() => {
+      chatInputRef.current?.focus();
+    }, 50);
+  }, [getDisplayName]);
+
+  const handleInitiateUnsend = useCallback((msg) => {
+    setActiveMessageMenuId(null);
+    setUnsendMessageTarget(msg);
+  }, []);
+
+  const handleConfirmUnsendMessage = useCallback(() => {
+    if (!unsendMessageTarget) return;
+    const target = unsendMessageTarget;
+    const targetId = target.id !== undefined ? target.id : target.uid;
+    const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
+    const fallbackId = `${target.timestamp}-${target.senderEmail || target.sender}-${target.receiverEmail || target.receiver}-${target.body}`;
+
+    setDeletedMessageIds(prev => {
+      const updated = new Set(prev);
+      if (targetId !== undefined && targetId !== null) {
+        updated.add(targetId);
+        updated.add(strId);
+      }
+      updated.add(fallbackId);
+      try {
+        const json = JSON.stringify(Array.from(updated));
+        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+      } catch (e) {}
+      return updated;
+    });
+
+    setMessages(prev => prev.filter(m => {
+      const mId = m.id !== undefined ? m.id : m.uid;
+      if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return false;
+      const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+      return mFallback !== fallbackId;
+    }));
+
+    setThreadMessages(prev => prev.filter(m => {
+      const mId = m.id !== undefined ? m.id : m.uid;
+      if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return false;
+      const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+      return mFallback !== fallbackId;
+    }));
+
+    if (selectedMessage) {
+      const otherEmail = getOtherUserEmail(selectedMessage);
+      if (otherEmail) {
+        const currPinned = pinnedMessagesMap[otherEmail.toLowerCase()];
+        if (currPinned) {
+          const pId = currPinned.id !== undefined ? currPinned.id : currPinned.uid;
+          const pFallback = `${currPinned.timestamp}-${currPinned.senderEmail || currPinned.sender}-${currPinned.body}`;
+          if ((targetId !== undefined && (pId === targetId || String(pId) === strId)) || pFallback === fallbackId) {
+            handleUnpinMessage(otherEmail);
+          }
+        }
+      }
+    }
+
+    if (replyingToMessage) {
+      const rId = replyingToMessage.id !== undefined ? replyingToMessage.id : replyingToMessage.uid;
+      if (targetId !== undefined && (rId === targetId || String(rId) === strId)) {
+        setReplyingToMessage(null);
+      }
+    }
+
+    setUnsendMessageTarget(null);
+    setActiveMessageMenuId(null);
+    toast.success("Message unsent");
+  }, [unsendMessageTarget, selectedMessage, pinnedMessagesMap, handleUnpinMessage, replyingToMessage]);
+
+  const renderReplyPreviewInBubble = useCallback((msg, isMe) => {
+    if (!msg || typeof msg.body !== 'string') return null;
+    const match = msg.body.match(/^\[Replying to ([^:]+):\s*"([^"]*)"\]\n/);
+    if (!match) return null;
+    const quotedSender = match[1];
+    const quotedSnippet = match[2];
+
+    return (
+      <div
+        className={`mb-1 p-2 rounded-xl text-[11px] border-l-4 select-none ${
+          isMe
+            ? 'bg-black/15 text-white border-white/70'
+            : 'bg-black/5 dark:bg-white/5 text-gray-700 dark:text-gray-200 border-blue-500 dark:border-blue-400'
+        }`}
+      >
+        <div className={`font-bold text-[10px] leading-tight mb-0.5 ${isMe ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
+          {quotedSender}
+        </div>
+        <div className="truncate leading-tight opacity-80 text-[11px]">
+          {quotedSnippet}
+        </div>
+      </div>
+    );
+  }, []);
+
   const toggleSelectRow = useCallback((rowId) => {
     setSelectedRowIds((prev) => {
       const next = new Set(prev);
@@ -603,6 +816,9 @@ const Casbox = () => {
       }
       if (listMenuRef.current && !listMenuRef.current.contains(e.target)) {
         setOpenMenuId(null);
+      }
+      if (messageMenuRef.current && !messageMenuRef.current.contains(e.target)) {
+        setActiveMessageMenuId(null);
       }
     };
     document.addEventListener("mousedown", handleOutsideClick);
@@ -2281,16 +2497,23 @@ const Casbox = () => {
 
     try {
       setSendingChat(true);
+      let messageBody = newChatText.trim();
+      if (replyingToMessage) {
+        const quoteSnippet = (cleanMessageBody(replyingToMessage.body) || "").replace(/\n/g, ' ').slice(0, 100);
+        messageBody = `[Replying to ${replyingToMessage.senderLabel}: "${quoteSnippet}"]\n${messageBody}`;
+      }
+
       const payload = {
         receiverEmail: otherEmail,
         subject: selectedMessage?.subject || "Casbox Message",
-        body: newChatText.trim(),
+        body: messageBody,
         attachmentsJson: null
       };
 
       const res = await casboxAPI.sendMessage(payload);
 
       setNewChatText("");
+      setReplyingToMessage(null);
 
       const newMsg = res.data;
 
@@ -3826,6 +4049,46 @@ const Casbox = () => {
           </div>
         </div>
 
+        {/* Pinned message banner */}
+        {(() => {
+          const pinnedMsg = otherUserEmail ? pinnedMessagesMap[otherUserEmail.toLowerCase()] : null;
+          if (!pinnedMsg) return null;
+          return (
+            <div
+              onClick={() => handleScrollToMessage(pinnedMsg)}
+              className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2.5 bg-gray-50/80 dark:bg-[#1a1a1a]/80 border-b border-gray-100 dark:border-gray-800 shrink-0 cursor-pointer hover:bg-gray-100/70 dark:hover:bg-[#222]/80 transition-colors select-none relative z-10"
+            >
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-gray-700 dark:text-gray-300">
+                  <MdPushPin size={18} className="rotate-45" />
+                </div>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="font-semibold text-xs text-gray-800 dark:text-gray-200 leading-tight">
+                    Pinned message
+                  </span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate leading-tight mt-0.5">
+                    <span className="font-medium text-gray-600 dark:text-gray-300">
+                      {getPinnedSenderLabel(pinnedMsg)}:
+                    </span>{" "}
+                    {cleanMessageBody(pinnedMsg.body) || "(Attachment)"}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUnpinMessage(otherUserEmail);
+                }}
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                title="Unpin message"
+              >
+                <MdClose size={16} />
+              </button>
+            </div>
+          );
+        })()}
+
         {/* Message Thread Panel */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col hidden-scrollbar">
           {loadingThread && threadMessages.length === 0 ? (
@@ -3843,6 +4106,9 @@ const Casbox = () => {
               const senderEmail = msg.senderEmail || msg.sender || "";
               const senderLabel = isMe ? (user?.username || senderEmail.split("@")[0]) : getDisplayName(senderEmail, msg);
               const senderInitial = isMe ? (user?.username || senderEmail).charAt(0).toUpperCase() : getContactInitial(senderEmail, msg);
+              const msgTargetId = msg.id !== undefined ? msg.id : msg.uid;
+              const msgFallbackId = `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`;
+              const msgUniqueId = msgTargetId !== undefined && msgTargetId !== null ? msgTargetId : msgFallbackId;
 
               return (
                 <div key={msg.id || index} className="flex items-start gap-2.5 sm:gap-4 md:gap-5 w-full py-1 min-w-0">
@@ -3880,18 +4146,85 @@ const Casbox = () => {
 
                   {/* Right Column: Chat Message */}
                   <div className="flex-1 flex flex-col items-start min-w-0">
-                    {/* Bubble */}
-                    <div className="max-w-[92%] sm:max-w-[85%] flex flex-col items-start min-w-0">
-                      <div
-                        className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden ${isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'}`}
-                        style={{
-                          backgroundColor: isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#1e1e1e' : '#f3f4f6'),
-                          color: isMe ? '#ffffff' : (theme?.mode === 'dark' ? '#f3f4f6' : '#1f2937'),
-                          borderColor: isMe ? 'transparent' : (theme?.border || '#e2e8f0')
-                        }}
-                      >
-                        <p className="whitespace-pre-wrap leading-relaxed break-words">{msg.body}</p>
-                        {renderBubbleAttachments(msg)}
+                    <div 
+                      id={`casbox-msg-${msgUniqueId}`}
+                      className={`max-w-[92%] sm:max-w-[85%] flex flex-col items-start min-w-0 rounded-2xl transition-all duration-300 ${
+                        highlightedMessageId === msgUniqueId ? 'ring-2 ring-blue-500/80 bg-blue-50/30 dark:bg-blue-900/20 p-1 -m-1' : ''
+                      }`}
+                    >
+                      {/* Bubble + Three Dot Action Container */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 relative group max-w-full">
+                        {/* Bubble */}
+                        <div
+                          className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden ${isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'}`}
+                          style={{
+                            backgroundColor: isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#1e1e1e' : '#f3f4f6'),
+                            color: isMe ? '#ffffff' : (theme?.mode === 'dark' ? '#f3f4f6' : '#1f2937'),
+                            borderColor: isMe ? 'transparent' : (theme?.border || '#e2e8f0')
+                          }}
+                        >
+                          {renderReplyPreviewInBubble(msg, isMe)}
+                          <p className="whitespace-pre-wrap leading-relaxed break-words">{cleanMessageBody(msg.body)}</p>
+                          {renderBubbleAttachments(msg)}
+                        </div>
+
+                        {/* Three-Dot Action Trigger */}
+                        <div className="relative shrink-0 flex items-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMessageMenuId(prev => prev === msgUniqueId ? null : msgUniqueId);
+                            }}
+                            className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
+                              activeMessageMenuId === msgUniqueId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+                            }`}
+                            title="Message actions"
+                          >
+                            <MdMoreVert size={18} />
+                          </button>
+
+                          {/* Dropdown Menu */}
+                          {activeMessageMenuId === msgUniqueId && (
+                            <div
+                              ref={messageMenuRef}
+                              className={`absolute left-full ml-1.5 z-50 min-w-[125px] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl py-1.5 px-1 animate-in fade-in zoom-in-95 duration-150 select-none ${
+                                index >= sortedThread.length - 2 ? 'bottom-0' : 'top-0'
+                              }`}
+                              style={{ borderColor: theme?.border || '#e2e8f0' }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleInitiateReply(msg, senderLabel)}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                              >
+                                <MdReply size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                <span>Reply</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePinMessage(msg, senderLabel, otherUserEmail)}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                              >
+                                <MdPushPin size={16} className={`shrink-0 ${isCurrentMessagePinned(msg, otherUserEmail) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                                <span>{isCurrentMessagePinned(msg, otherUserEmail) ? 'Unpin' : 'Pin'}</span>
+                              </button>
+
+                              {isMe && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleInitiateUnsend(msg)}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <MdRestore size={16} className="text-red-600 shrink-0" />
+                                  <span>Unsend</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Timestamp outside and below the bubble */}
@@ -3957,60 +4290,94 @@ const Casbox = () => {
               </button>
             </div>
           ) : (
-            <form
-              onSubmit={handleSendChatMessage}
-              className="flex items-center gap-3 bg-transparent w-full relative"
-            >
-              <div className="relative shrink-0 flex items-center" ref={emojiPickerRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer flex items-center justify-center shrink-0"
-                  title="Insert Emoji"
+            <div className="flex flex-col w-full">
+              {/* WhatsApp-style Compact Reply Preview */}
+              {replyingToMessage && (
+                <div 
+                  className="mb-2.5 px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1e1e1e] border-l-4 flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-bottom-1 duration-150"
+                  style={{ borderColor: theme?.accent || '#135bec' }}
                 >
-                  <MdInsertEmoticon size={20} />
-                </button>
-                {showEmojiPicker && (
-                  <div
-                    className="absolute bottom-14 left-0 z-50 bg-white dark:bg-gray-800 border shadow-2xl rounded-2xl p-3 w-72 max-w-sm"
-                    style={{ borderColor: theme?.border || 'rgba(0,0,0,0.1)' }}
-                  >
-                    <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-1 select-none">
-                      Popular Emojis
-                    </div>
-                    <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto hidden-scrollbar">
-                      {POPULAR_EMOJIS.map((emoji, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => handleEmojiSelect(emoji)}
-                          className="w-7 h-7 flex items-center justify-center text-lg rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer select-none border-0 bg-transparent"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <MdReply size={18} className="shrink-0" style={{ color: theme?.accent || '#135bec' }} />
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span 
+                        className="text-xs font-bold truncate leading-tight"
+                        style={{ color: theme?.accent || '#135bec' }}
+                      >
+                        {replyingToMessage.senderLabel}
+                      </span>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate leading-tight mt-0.5">
+                        {cleanMessageBody(replyingToMessage.body) || "(Attachment)"}
+                      </span>
                     </div>
                   </div>
-                )}
-              </div>
-              <input
-                type="text"
-                placeholder="Type a message..."
-                value={newChatText}
-                onChange={(e) => setNewChatText(e.target.value)}
-                className="flex-1 px-4 py-2.5 rounded-full text-sm border focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent"
-                style={{ borderColor: theme?.border || '#e2e8f0', color: theme?.text || '#000' }}
-                disabled={sendingChat}
-              />
-              <button
-                type="submit"
-                disabled={sendingChat || !newChatText.trim()}
-                className="p-2.5 rounded-full text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm shrink-0 border-0"
-                style={{ backgroundColor: theme?.accent || "#135bec" }}
+                  <button
+                    type="button"
+                    onClick={() => setReplyingToMessage(null)}
+                    className="p-1 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                    title="Cancel reply"
+                  >
+                    <MdClose size={16} />
+                  </button>
+                </div>
+              )}
+
+              <form
+                onSubmit={handleSendChatMessage}
+                className="flex items-center gap-3 bg-transparent w-full relative"
               >
-                <MdSend size={18} />
-              </button>
-            </form>
+                <div className="relative shrink-0 flex items-center" ref={emojiPickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className="p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer flex items-center justify-center shrink-0"
+                    title="Insert Emoji"
+                  >
+                    <MdInsertEmoticon size={20} />
+                  </button>
+                  {showEmojiPicker && (
+                    <div
+                      className="absolute bottom-14 left-0 z-50 bg-white dark:bg-gray-800 border shadow-2xl rounded-2xl p-3 w-72 max-w-sm"
+                      style={{ borderColor: theme?.border || 'rgba(0,0,0,0.1)' }}
+                    >
+                      <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-1 select-none">
+                        Popular Emojis
+                      </div>
+                      <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto hidden-scrollbar">
+                        {POPULAR_EMOJIS.map((emoji, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleEmojiSelect(emoji)}
+                            className="w-7 h-7 flex items-center justify-center text-lg rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer select-none border-0 bg-transparent"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  placeholder="Type a message..."
+                  value={newChatText}
+                  onChange={(e) => setNewChatText(e.target.value)}
+                  className="flex-1 px-4 py-2.5 rounded-full text-sm border focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent"
+                  style={{ borderColor: theme?.border || '#e2e8f0', color: theme?.text || '#000' }}
+                  disabled={sendingChat}
+                />
+                <button
+                  type="submit"
+                  disabled={sendingChat || !newChatText.trim()}
+                  className="p-2.5 rounded-full text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm shrink-0 border-0"
+                  style={{ backgroundColor: theme?.accent || "#135bec" }}
+                >
+                  <MdSend size={18} />
+                </button>
+              </form>
+            </div>
           )}
         </div>
       </div>
@@ -4428,6 +4795,47 @@ const Casbox = () => {
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   )}
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Unsend Confirmation Modal */}
+        {unsendMessageTarget && (
+          <div
+            className="fixed inset-0 bg-black/60 z-[2000] flex items-center justify-center animate-fade-in p-4 backdrop-blur-sm"
+            onClick={() => setUnsendMessageTarget(null)}
+          >
+            <div
+              className="bg-white dark:bg-[#1e1e1e] rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden p-6 border border-gray-100 dark:border-gray-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4 mx-auto">
+                <MdRestore size={26} />
+              </div>
+
+              <h3 className="font-bold text-lg text-center text-gray-900 dark:text-white mb-2">
+                Unsend message?
+              </h3>
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
+                Are you sure you want to unsend this message? This will remove the message for everyone in this conversation.
+              </p>
+
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setUnsendMessageTarget(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmUnsendMessage}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Unsend
                 </button>
               </div>
             </div>
