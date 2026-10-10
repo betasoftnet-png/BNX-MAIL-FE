@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../context/LanguageContext";
+import { Calendar, X } from "lucide-react";
+import { getDateFilterLabel } from "../utils/dateFilter";
 import { mailAPI } from "../services/api";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
@@ -18,7 +20,7 @@ const Inbox = ({ searchQuery }) => {
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
-  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter } = useMail();
+  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter, dateFilter, customDateRange, resetDateFilter } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [activeTab, setActiveTab] = useState('ALL');

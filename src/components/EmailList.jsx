@@ -22,7 +22,7 @@ const EmailList = ({
   const { t } = useTranslation();
   const { user } = useAuth();
   const { theme, emailsPerPage, backgroundImage } = useTheme();
-  const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze } = useMail();
+  const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter } = useMail();
   const snoozeAction = onSnooze || contextHandleSnooze;
 
   const [snoozeOpenUid, setSnoozeOpenUid] = useState(null);

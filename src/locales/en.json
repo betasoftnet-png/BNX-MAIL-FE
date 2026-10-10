@@ -73,7 +73,16 @@
     "all_time": "All Time",
     "last_1_day": "Last 1 Day",
     "last_1_week": "Last 1 Week",
-    "last_1_year": "Last 1 Year"
+    "last_1_year": "Last 1 Year",
+    "last_1_month": "Last 1 Month",
+    "custom_date": "Custom Date",
+    "custom_date_range": "Custom Date Range",
+    "start_date": "Start Date",
+    "end_date": "End Date",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "clear_filter": "Clear date filter",
+    "no_emails_date_range": "No emails found for this date range."
   },
   "common": {
     "compose": "Compose",

@@ -7,12 +7,13 @@ import { useMail } from "../context/MailContext";
 import { MdSettings, MdEmail, MdLogout, MdLightMode, MdDarkMode, MdNotifications, MdCheckCircle, MdManageAccounts, MdPersonAdd, MdPhotoCamera, MdMenu, MdAdd, MdApps, MdOutlineNoteAlt } from "react-icons/md";
 import { userAPI, casboxAPI, chatAPI } from "../services/api";
 import toast from "react-hot-toast";
-import { SlidersHorizontal, Calendar, Check } from "lucide-react";
+import { SlidersHorizontal, Calendar, Check, ChevronRight } from "lucide-react";
 // import logo from "../assets/bnx.jpeg";
 
 import logo from "../assets/bnx-remove.png";
 import bitToolLogo from "../assets/BIT-TOOL-2.png";
 import AppLauncher from "./AppLauncher";
+import CustomDateRangeModal from "./CustomDateRangeModal";
 
 const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSidebar, onToggleBitToolSidebar, onOpenNotes }) => {
   const { t } = useTranslation();
@@ -20,7 +21,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const location = useLocation();
   const { user, logout, logoutAll, switchAccount, getSessions } = useAuth();
   const { theme, currentThemeName, changeTheme, backgroundImage } = useTheme();
-  const { openCompose, emails, dateFilter, setDateFilter, matchesDateFilter } = useMail();
+  const { openCompose, emails, dateFilter, setDateFilter, customDateRange, setCustomDateRange, matchesDateFilter } = useMail();
   const isPrimary = user?.isPrimary || user?.mailboxes?.find(m => m.email === user.email)?.isPrimary;
 
   const currentTab = location.pathname.startsWith('/colab') || location.pathname.startsWith('/chat') || location.pathname.startsWith('/casbox') ? 'chat'
@@ -35,6 +36,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const dropdownRef = useRef(null);
   const [showAppLauncher, setShowAppLauncher] = useState(false);
   const [showDateFilterDropdown, setShowDateFilterDropdown] = useState(false);
+  const [showCustomCalendar, setShowCustomCalendar] = useState(false);
   const dateFilterRef = useRef(null);
 
   const [allCasboxMessages, setAllCasboxMessages] = useState([]);
@@ -400,7 +402,8 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                       { id: "ALL", label: t('navbar.all_time', 'All Time') },
                       { id: "1_DAY", label: t('navbar.last_1_day', 'Last 1 Day') },
                       { id: "1_WEEK", label: t('navbar.last_1_week', 'Last 1 Week') },
-                      { id: "1_YEAR", label: t('navbar.last_1_year', 'Last 1 Year') },
+                      { id: "1_MONTH", label: t('navbar.last_1_month', 'Last 1 Month') },
+                      { id: "CUSTOM", label: t('navbar.custom_date', 'Custom Date'), isCustom: true },
                     ].map((opt) => {
                       const isSelected = (dateFilter || "ALL") === opt.id;
                       return (
@@ -408,8 +411,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                           key={opt.id}
                           type="button"
                           onClick={() => {
-                            setDateFilter(opt.id);
-                            setShowDateFilterDropdown(false);
+                            if (opt.isCustom) {
+                              setShowDateFilterDropdown(false);
+                              setShowCustomCalendar(true);
+                            } else {
+                              setDateFilter(opt.id);
+                              if (setCustomDateRange) setCustomDateRange(null);
+                              setShowDateFilterDropdown(false);
+                            }
                           }}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer text-left ${
                             isSelected
@@ -428,9 +437,11 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                             />
                             <span className="truncate">{opt.label}</span>
                           </div>
-                          {isSelected && (
+                          {isSelected ? (
                             <Check size={15} className="text-blue-600 dark:text-blue-400 shrink-0 ml-2" />
-                          )}
+                          ) : opt.isCustom ? (
+                            <ChevronRight size={15} className="text-gray-400 shrink-0 ml-2" />
+                          ) : null}
                         </button>
                       );
                     })}
@@ -637,6 +648,17 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           </button>
         </div>
       </div>
+      <CustomDateRangeModal
+        isOpen={showCustomCalendar}
+        onClose={() => setShowCustomCalendar(false)}
+        initialRange={customDateRange}
+        onApply={(range) => {
+          setDateFilter("CUSTOM");
+          if (setCustomDateRange) setCustomDateRange(range);
+          setShowCustomCalendar(false);
+          setShowDateFilterDropdown(false);
+        }}
+      />
     </nav>
   );
 };
