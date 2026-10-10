@@ -68,7 +68,12 @@
     "notifications": "அறிவிப்புகள்",
     "help": "உதவி",
     "bit_tools": "BIT கருவிகள்",
-    "primary_account": "முதன்மை கணக்கு"
+    "primary_account": "முதன்மை கணக்கு",
+    "filter_by_date": "தேதி அடிப்படையில் வடிகட்டு",
+    "all_time": "எல்லா நேரமும்",
+    "last_1_day": "கடந்த 1 நாள்",
+    "last_1_week": "கடந்த 1 வாரம்",
+    "last_1_year": "கடந்த 1 வருடம்"
   },
   "common": {
     "compose": "எழுது",

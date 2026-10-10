@@ -18,7 +18,7 @@ const Inbox = ({ searchQuery }) => {
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
-  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose } = useMail();
+  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [activeTab, setActiveTab] = useState('ALL');
@@ -65,6 +65,7 @@ const Inbox = ({ searchQuery }) => {
         ? (activeTab === 'ALL' || getTabCategory(e) === activeTab)
         : true;
       return matchesTab &&
+        (matchesDateFilter ? matchesDateFilter(e) : true) &&
         (!searchQuery ||
           e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||

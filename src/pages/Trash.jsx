@@ -14,7 +14,7 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 const Trash = ({ searchQuery }) => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, fetchEmails, handleDeletePermanently, handleSnooze, handleApplyLabel, handleToggleStar, handleArchive } = useMail();
+  const { emails, loading, fetchEmails, handleDeletePermanently, handleSnooze, handleApplyLabel, handleToggleStar, handleArchive, matchesDateFilter } = useMail();
   const [selectedEmail, setSelectedEmail] = useState(null);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -34,14 +34,15 @@ const Trash = ({ searchQuery }) => {
 
   const visibleEmails = emails.filter(
     (e) =>
-      !searchQuery ||
-      e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase())
+      (matchesDateFilter ? matchesDateFilter(e) : true) &&
+      (!searchQuery ||
+        e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleSelectEmail = (email) => {

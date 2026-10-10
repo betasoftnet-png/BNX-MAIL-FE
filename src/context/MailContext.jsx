@@ -4,6 +4,7 @@ import { API_ENDPOINTS } from '../Data/constants';
 import { useAuth } from './AuthContext';
 import { useTheme } from './ThemeContext';
 import { filterDuplicateSpamEmails } from '../utils/spamFilter';
+import { matchesDateRange } from '../utils/dateFilter';
 import toast from 'react-hot-toast';
 
 const getPersistedReadUids = (userEmail) => {
@@ -42,6 +43,12 @@ export const MailProvider = ({ children }) => {
     const { user } = useAuth();
     const { emailsPerPage: limit } = useTheme();
     const [emails, setEmails] = useState([]);
+    const [dateFilter, setDateFilter] = useState("ALL");
+
+    const matchesDateFilter = useCallback((email) => {
+        return matchesDateRange(email, dateFilter);
+    }, [dateFilter]);
+
     const [currentFolder, setCurrentFolder] = useState('inbox');
     const currentFolderRef = useRef('inbox');
     const pagesCache = useRef({});
@@ -1274,7 +1281,10 @@ export const MailProvider = ({ children }) => {
             composeData,
             setComposeData,
             openCompose,
-            closeCompose
+            closeCompose,
+            dateFilter,
+            setDateFilter,
+            matchesDateFilter
         }}>
             {children}
         </MailContext.Provider>
@@ -1318,6 +1328,9 @@ export const useMail = () => {
             handleEmailSent: () => {},
             invalidateCache: () => {},
             handlePageChange: () => {},
+            dateFilter: "ALL",
+            setDateFilter: () => {},
+            matchesDateFilter: () => true,
         };
     }
     return context;

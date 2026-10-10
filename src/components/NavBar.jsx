@@ -7,6 +7,7 @@ import { useMail } from "../context/MailContext";
 import { MdSettings, MdEmail, MdLogout, MdLightMode, MdDarkMode, MdNotifications, MdCheckCircle, MdManageAccounts, MdPersonAdd, MdPhotoCamera, MdMenu, MdAdd, MdApps, MdOutlineNoteAlt } from "react-icons/md";
 import { userAPI, casboxAPI, chatAPI } from "../services/api";
 import toast from "react-hot-toast";
+import { SlidersHorizontal, Calendar, Check } from "lucide-react";
 // import logo from "../assets/bnx.jpeg";
 
 import logo from "../assets/bnx-remove.png";
@@ -19,7 +20,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const location = useLocation();
   const { user, logout, logoutAll, switchAccount, getSessions } = useAuth();
   const { theme, currentThemeName, changeTheme, backgroundImage } = useTheme();
-  const { openCompose, emails } = useMail();
+  const { openCompose, emails, dateFilter, setDateFilter, matchesDateFilter } = useMail();
   const isPrimary = user?.isPrimary || user?.mailboxes?.find(m => m.email === user.email)?.isPrimary;
 
   const currentTab = location.pathname.startsWith('/colab') || location.pathname.startsWith('/chat') || location.pathname.startsWith('/casbox') ? 'chat'
@@ -33,6 +34,8 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
   const [showAppLauncher, setShowAppLauncher] = useState(false);
+  const [showDateFilterDropdown, setShowDateFilterDropdown] = useState(false);
+  const dateFilterRef = useRef(null);
 
   const [allCasboxMessages, setAllCasboxMessages] = useState([]);
   const [allChatRooms, setAllChatRooms] = useState([]);
@@ -60,6 +63,9 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
         setShowSearchResults(false);
       }
+      if (dateFilterRef.current && !dateFilterRef.current.contains(event.target)) {
+        setShowDateFilterDropdown(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -68,7 +74,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const queryVal = searchQuery.trim().toLowerCase();
 
   const matchingEmails = queryVal
-    ? (emails || []).filter(e => 
+    ? (emails || []).filter(e => (matchesDateFilter ? matchesDateFilter(e) : true)).filter(e => 
         e.subject?.toLowerCase().includes(queryVal) ||
         e.from?.toLowerCase().includes(queryVal) ||
         e.senderEmail?.toLowerCase().includes(queryVal) ||
@@ -356,6 +362,83 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
               )}
             </div>
           </form>
+
+          {/* DATE FILTER (Mail section only) */}
+          {currentTab === 'mail' && (
+            <div className="relative shrink-0" ref={dateFilterRef}>
+              <button
+                type="button"
+                onClick={() => setShowDateFilterDropdown((prev) => !prev)}
+                className={`p-1.5 sm:p-2 rounded-xl flex items-center justify-center transition-all cursor-pointer relative ${
+                  showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
+                    ? "bg-white/20 text-white shadow-sm border border-white/30"
+                    : "bg-white/10 hover:bg-white/20 text-white/90 hover:text-white border border-white/10"
+                }`}
+                title={t('navbar.filter_by_date', 'Filter by date')}
+                aria-label="Filter by date"
+                aria-expanded={showDateFilterDropdown}
+              >
+                <SlidersHorizontal size={17} className="text-white" />
+                {dateFilter && dateFilter !== "ALL" && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-[#195bac]" />
+                )}
+              </button>
+
+              {showDateFilterDropdown && (
+                <div
+                  className="absolute right-0 mt-2 w-48 sm:w-52 rounded-2xl shadow-xl border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900 py-1.5 px-1.5"
+                  style={{ borderColor: theme.border || "#e2e8f0" }}
+                >
+                  {/* Header */}
+                  <div className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none">
+                    <Calendar size={15} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                    <span>{t('navbar.filter_by_date', 'Filter by date')}</span>
+                  </div>
+
+                  <div className="flex flex-col gap-0.5 mt-0.5">
+                    {[
+                      { id: "ALL", label: t('navbar.all_time', 'All Time') },
+                      { id: "1_DAY", label: t('navbar.last_1_day', 'Last 1 Day') },
+                      { id: "1_WEEK", label: t('navbar.last_1_week', 'Last 1 Week') },
+                      { id: "1_YEAR", label: t('navbar.last_1_year', 'Last 1 Year') },
+                    ].map((opt) => {
+                      const isSelected = (dateFilter || "ALL") === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            setDateFilter(opt.id);
+                            setShowDateFilterDropdown(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer text-left ${
+                            isSelected
+                              ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <Calendar
+                              size={15}
+                              className={`shrink-0 ${
+                                isSelected
+                                  ? "text-blue-600 dark:text-blue-400"
+                                  : "text-gray-500 dark:text-gray-400"
+                              }`}
+                            />
+                            <span className="truncate">{opt.label}</span>
+                          </div>
+                          {isSelected && (
+                            <Check size={15} className="text-blue-600 dark:text-blue-400 shrink-0 ml-2" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* USER */}
           <div className="relative" ref={dropdownRef}>

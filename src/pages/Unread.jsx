@@ -15,7 +15,7 @@ const Unread = ({ searchQuery }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose } = useMail();
+  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
 
   const unreadEmails = emails.filter((e) => !e.isRead || String(e.uid) === String(selectedEmailUid));
@@ -44,14 +44,15 @@ const Unread = ({ searchQuery }) => {
 
   const visibleEmails = unreadEmails.filter(
     (e) =>
-      !searchQuery ||
-      e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase())
+      (matchesDateFilter ? matchesDateFilter(e) : true) &&
+      (!searchQuery ||
+        e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleSelectEmail = (email) => {

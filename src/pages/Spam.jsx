@@ -17,7 +17,7 @@ const Spam = ({ searchQuery }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, handleMarkRead, openCompose } = useMail();
+  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, handleMarkRead, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
 
@@ -92,9 +92,10 @@ const Spam = ({ searchQuery }) => {
   }, [fetchEmails]);
 
   const visibleEmails = useMemo(() => {
-    if (!searchQuery) return uniqueEmails;
+    const filteredByDate = matchesDateFilter ? uniqueEmails.filter(matchesDateFilter) : uniqueEmails;
+    if (!searchQuery) return filteredByDate;
     const q = searchQuery.toLowerCase();
-    return uniqueEmails.filter(
+    return filteredByDate.filter(
       (e) =>
         e.subject?.toLowerCase().includes(q) ||
         e.from?.toLowerCase().includes(q) ||
@@ -104,7 +105,7 @@ const Spam = ({ searchQuery }) => {
         e.body?.toLowerCase().includes(q) ||
         e.textPlain?.toLowerCase().includes(q)
     );
-  }, [uniqueEmails, searchQuery]);
+  }, [uniqueEmails, searchQuery, matchesDateFilter]);
 
   const handleSelectEmail = (email) => {
     setSelectedEmailUid(email.uid);

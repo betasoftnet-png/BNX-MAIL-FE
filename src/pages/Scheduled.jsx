@@ -4,6 +4,7 @@ import { mailAPI } from "../services/api";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
+import { useMail } from "../context/MailContext";
 import toast from "react-hot-toast";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
@@ -12,6 +13,7 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 const Scheduled = ({ searchQuery }) => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
+  const { matchesDateFilter } = useMail();
 
   const [emails, setEmails] = useState([]);
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -29,42 +31,19 @@ const Scheduled = ({ searchQuery }) => {
     });
   };
 
-
-
   const visibleEmails = emails.filter(
     (e) =>
-      !searchQuery ||
-      e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase())
+      (matchesDateFilter ? matchesDateFilter(e) : true) &&
+      (!searchQuery ||
+        e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  useEffect(() => {
-    fetchScheduled();
-  }, []);
-
-  /* ---------------- FETCH SCHEDULED ---------------- */
-  const fetchScheduled = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const res = await mailAPI.getScheduled();
-      if (res.data?.success) {
-        setEmails(res.data.data.emails || []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch scheduled emails:", err);
-      setError("Failed to load scheduled emails");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ---------------- ACTIONS ---------------- */
   const handleDelete = async (uid) => {
     try {
       toast.loading("Cancelling scheduled email...", { id: "cancel-schedule" });

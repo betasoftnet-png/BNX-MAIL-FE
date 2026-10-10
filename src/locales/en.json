@@ -68,7 +68,12 @@
     "notifications": "Notifications",
     "help": "Help",
     "bit_tools": "Toggle BIT Tools",
-    "primary_account": "Primary Account"
+    "primary_account": "Primary Account",
+    "filter_by_date": "Filter by date",
+    "all_time": "All Time",
+    "last_1_day": "Last 1 Day",
+    "last_1_week": "Last 1 Week",
+    "last_1_year": "Last 1 Year"
   },
   "common": {
     "compose": "Compose",

@@ -3,12 +3,14 @@ import { mailAPI } from "../services/api";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
+import { useMail } from "../context/MailContext";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 
 const Outbox = ({ searchQuery }) => {
   const { theme, readingPaneMode } = useTheme();
+  const { matchesDateFilter } = useMail();
 
   const [emails, setEmails] = useState([]);
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -26,45 +28,19 @@ const Outbox = ({ searchQuery }) => {
     });
   };
 
-
-
   const visibleEmails = emails.filter(
     (e) =>
-      !searchQuery ||
-      e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase())
+      (matchesDateFilter ? matchesDateFilter(e) : true) &&
+      (!searchQuery ||
+        e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  useEffect(() => {
-    fetchOutbox();
-  }, []);
-
-  /* ---------------- FETCH OUTBOX ---------------- */
-  const fetchOutbox = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      // 🔹 Backend-ready (replace when endpoint exists)
-      // const res = await mailAPI.getOutbox();
-      // if (res.data?.success) setEmails(res.data.data.emails || []);
-
-      // TEMP safe fallback
-      setEmails([]);
-    } catch (err) {
-      console.error("Failed to fetch outbox:", err);
-      setError("Failed to load outbox");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ---------------- ACTIONS ---------------- */
   const handleDelete = (uid) => {
     setEmails((prev) => prev.filter((e) => e.uid !== uid));
     setSelectedEmail(null);
