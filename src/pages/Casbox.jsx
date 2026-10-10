@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useMail } from "../context/MailContext";
 import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI } from "../services/api";
-import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore } from "react-icons/md";
+import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore, MdOutlineEmojiEmotions, MdAdd } from "react-icons/md";
 import { SiAdobeacrobatreader } from "react-icons/si";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
@@ -185,6 +185,123 @@ const POPULAR_EMOJIS = [
   "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "👀",
   "❤️", "🩷", "🧡", "💛", "💚", "💙", "🩵", "💜", "🖤", "🩶", "🤍", "🤎", "💔", "❤️‍🔥", "❤️‍🩹", "❣️", "💕", "💞", "💓", "💗",
   "🎉", "✨", "🔥", "💡", "🌟", "🎈", "🎁", "💬", "✉️", "📅", "💻", "📱", "⌚", "📷", "🎨", "🎵", "✈️", "🚗", "🏠", "💼"
+];
+
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+const EMOJI_CATEGORIES = [
+  {
+    id: 'smileys',
+    name: 'Smileys & People',
+    icon: '😃',
+    emojis: [
+      { emoji: '😀', name: 'grinning' }, { emoji: '😃', name: 'smiley' }, { emoji: '😄', name: 'smile' }, { emoji: '😁', name: 'grin' },
+      { emoji: '😆', name: 'laughing' }, { emoji: '😅', name: 'sweat smile' }, { emoji: '😂', name: 'joy' }, { emoji: '🤣', name: 'rofl' },
+      { emoji: '😊', name: 'blush' }, { emoji: '😇', name: 'innocent' }, { emoji: '🙂', name: 'slightly smiling' }, { emoji: '🙃', name: 'upside down' },
+      { emoji: '😉', name: 'wink' }, { emoji: '😌', name: 'relieved' }, { emoji: '😍', name: 'heart eyes' }, { emoji: '🥰', name: 'smiling with hearts' },
+      { emoji: '😘', name: 'kissing heart' }, { emoji: '😗', name: 'kissing' }, { emoji: '😙', name: 'kissing smiling eyes' }, { emoji: '😚', name: 'kissing closed eyes' },
+      { emoji: '😋', name: 'yum' }, { emoji: '😛', name: 'stuck out tongue' }, { emoji: '😝', name: 'stuck out tongue closed eyes' }, { emoji: '😜', name: 'stuck out tongue wink' },
+      { emoji: '🤪', name: 'zany' }, { emoji: '🤨', name: 'raised eyebrow' }, { emoji: '🧐', name: 'monocle' }, { emoji: '🤓', name: 'nerd' },
+      { emoji: '😎', name: 'sunglasses' }, { emoji: '🥸', name: 'disguise' }, { emoji: '🥳', name: 'partying' }, { emoji: '😏', name: 'smirk' },
+      { emoji: '😒', name: 'unamused' }, { emoji: '😞', name: 'disappointed' }, { emoji: '😔', name: 'pensive' }, { emoji: '😟', name: 'worried' },
+      { emoji: '😕', name: 'confused' }, { emoji: '🙁', name: 'slightly frowning' }, { emoji: '☹️', name: 'frowning' }, { emoji: '😣', name: 'persevere' },
+      { emoji: '😖', name: 'confounded' }, { emoji: '😫', name: 'tired' }, { emoji: '😩', name: 'weary' }, { emoji: '🥺', name: 'pleading' },
+      { emoji: '😢', name: 'cry' }, { emoji: '😭', name: 'sob' }, { emoji: '😮', name: 'open mouth' }, { emoji: '😱', name: 'scream' },
+      { emoji: '😡', name: 'rage' }, { emoji: '😠', name: 'angry' }, { emoji: '😤', name: 'triumph' }, { emoji: '🤫', name: 'shushing' },
+      { emoji: '🤗', name: 'hugs' }, { emoji: '🤔', name: 'thinking' }, { emoji: '🤐', name: 'zipper mouth' }, { emoji: '😴', name: 'sleeping' },
+      { emoji: '👍', name: 'thumbs up' }, { emoji: '👎', name: 'thumbs down' }, { emoji: '👏', name: 'clap' }, { emoji: '🙌', name: 'hooray' },
+      { emoji: '👐', name: 'open hands' }, { emoji: '🤲', name: 'palms up' }, { emoji: '🤝', name: 'handshake' }, { emoji: '🙏', name: 'pray thanks' },
+      { emoji: '✌️', name: 'peace' }, { emoji: '🤞', name: 'crossed fingers' }, { emoji: '🤟', name: 'love you' }, { emoji: '🤘', name: 'rock' },
+      { emoji: '🤙', name: 'call me' }, { emoji: '👌', name: 'ok hand' }, { emoji: '🤌', name: 'pinched fingers' }, { emoji: '👊', name: 'fist' }
+    ]
+  },
+  {
+    id: 'animals',
+    name: 'Animals & Nature',
+    icon: '🐻',
+    emojis: [
+      { emoji: '🐶', name: 'dog' }, { emoji: '🐱', name: 'cat' }, { emoji: '🐭', name: 'mouse' }, { emoji: '🐹', name: 'hamster' },
+      { emoji: '🐰', name: 'rabbit' }, { emoji: '🦊', name: 'fox' }, { emoji: '🐻', name: 'bear' }, { emoji: '🐼', name: 'panda' },
+      { emoji: '🐨', name: 'koala' }, { emoji: '🐯', name: 'tiger' }, { emoji: '🦁', name: 'lion' }, { emoji: '🐮', name: 'cow' },
+      { emoji: '🐷', name: 'pig' }, { emoji: '🐸', name: 'frog' }, { emoji: '🐵', name: 'monkey' }, { emoji: '🐔', name: 'chicken' },
+      { emoji: '🐧', name: 'penguin' }, { emoji: '🐦', name: 'bird' }, { emoji: '🐤', name: 'chick' }, { emoji: '🦆', name: 'duck' },
+      { emoji: '🦅', name: 'eagle' }, { emoji: '🦉', name: 'owl' }, { emoji: '🦇', name: 'bat' }, { emoji: '🐺', name: 'wolf' },
+      { emoji: '🐗', name: 'boar' }, { emoji: '🐴', name: 'horse' }, { emoji: '🦄', name: 'unicorn' }, { emoji: '🐝', name: 'bee' },
+      { emoji: '🐛', name: 'bug' }, { emoji: '🦋', name: 'butterfly' }, { emoji: '🐌', name: 'snail' }, { emoji: '🐞', name: 'ladybug' },
+      { emoji: '🌸', name: 'cherry blossom' }, { emoji: '🌹', name: 'rose' }, { emoji: '🌺', name: 'hibiscus' }, { emoji: '🌻', name: 'sunflower' },
+      { emoji: '🌼', name: 'blossom' }, { emoji: '🌷', name: 'tulip' }, { emoji: '🌱', name: 'seedling' }, { emoji: '🌲', name: 'evergreen tree' },
+      { emoji: '🌳', name: 'deciduous tree' }, { emoji: '🌴', name: 'palm tree' }, { emoji: '🌵', name: 'cactus' }, { emoji: '🍀', name: 'four leaf clover' }
+    ]
+  },
+  {
+    id: 'food',
+    name: 'Food & Drink',
+    icon: '🍔',
+    emojis: [
+      { emoji: '🍏', name: 'green apple' }, { emoji: '🍎', name: 'red apple' }, { emoji: '🍐', name: 'pear' }, { emoji: '🍊', name: 'tangerine' },
+      { emoji: '🍋', name: 'lemon' }, { emoji: '🍌', name: 'banana' }, { emoji: '🍉', name: 'watermelon' }, { emoji: '🍇', name: 'grapes' },
+      { emoji: '🍓', name: 'strawberry' }, { emoji: '🫐', name: 'blueberries' }, { emoji: '🍈', name: 'melon' }, { emoji: '🍒', name: 'cherries' },
+      { emoji: '🍑', name: 'peach' }, { emoji: '🥭', name: 'mango' }, { emoji: '🍍', name: 'pineapple' }, { emoji: '🥥', name: 'coconut' },
+      { emoji: '🥝', name: 'kiwi' }, { emoji: '🍅', name: 'tomato' }, { emoji: '🥑', name: 'avocado' }, { emoji: '🥦', name: 'broccoli' },
+      { emoji: '🍔', name: 'hamburger' }, { emoji: '🍟', name: 'french fries' }, { emoji: '🍕', name: 'pizza' }, { emoji: '🌭', name: 'hot dog' },
+      { emoji: '🥪', name: 'sandwich' }, { emoji: '🌮', name: 'taco' }, { emoji: '🌯', name: 'burrito' }, { emoji: '🍜', name: 'ramen' },
+      { emoji: '🍣', name: 'sushi' }, { emoji: '🍦', name: 'ice cream' }, { emoji: '🍩', name: 'doughnut' }, { emoji: '🍪', name: 'cookie' },
+      { emoji: '🎂', name: 'birthday cake' }, { emoji: '🍰', name: 'shortcake' }, { emoji: '🍫', name: 'chocolate' }, { emoji: '☕', name: 'coffee' }
+    ]
+  },
+  {
+    id: 'activities',
+    name: 'Activities',
+    icon: '⚽',
+    emojis: [
+      { emoji: '⚽', name: 'soccer ball' }, { emoji: '🏀', name: 'basketball' }, { emoji: '🏈', name: 'football' }, { emoji: '⚾', name: 'baseball' },
+      { emoji: '🥎', name: 'softball' }, { emoji: '🎾', name: 'tennis' }, { emoji: '🏐', name: 'volleyball' }, { emoji: '🏉', name: 'rugby' },
+      { emoji: '🥏', name: 'frisbee' }, { emoji: '🎱', name: '8 ball pool' }, { emoji: '🏓', name: 'ping pong' }, { emoji: '🏸', name: 'badminton' },
+      { emoji: '🏒', name: 'ice hockey' }, { emoji: '🏑', name: 'field hockey' }, { emoji: '🥊', name: 'boxing glove' }, { emoji: '🥋', name: 'martial arts' },
+      { emoji: '🎯', name: 'dart' }, { emoji: '⛳', name: 'golf' }, { emoji: '🎳', name: 'bowling' }, { emoji: '🎮', name: 'video game' },
+      { emoji: '🎲', name: 'game die' }, { emoji: '🧩', name: 'puzzle' }, { emoji: '🎨', name: 'art palette' }, { emoji: '🎬', name: 'clapper board' }
+    ]
+  },
+  {
+    id: 'travel',
+    name: 'Travel & Places',
+    icon: '🚗',
+    emojis: [
+      { emoji: '🚗', name: 'car' }, { emoji: '🚕', name: 'taxi' }, { emoji: '🚙', name: 'suv' }, { emoji: '🚌', name: 'bus' },
+      { emoji: '🚎', name: 'trolleybus' }, { emoji: '🏎️', name: 'race car' }, { emoji: '🚓', name: 'police car' }, { emoji: '🚑', name: 'ambulance' },
+      { emoji: '🚒', name: 'fire engine' }, { emoji: '🚐', name: 'minibus' }, { emoji: '🛻', name: 'pickup truck' }, { emoji: '🚚', name: 'delivery truck' },
+      { emoji: '🚛', name: 'semi truck' }, { emoji: '🚜', name: 'tractor' }, { emoji: '🛵', name: 'scooter' }, { emoji: '🏍️', name: 'motorcycle' },
+      { emoji: '🚲', name: 'bicycle' }, { emoji: '🛴', name: 'kick scooter' }, { emoji: '✈️', name: 'airplane' }, { emoji: '🚀', name: 'rocket' },
+      { emoji: '🛸', name: 'ufo' }, { emoji: '🚁', name: 'helicopter' }, { emoji: '⛵', name: 'sailboat' }, { emoji: '🚢', name: 'ship' }
+    ]
+  },
+  {
+    id: 'objects',
+    name: 'Objects',
+    icon: '💡',
+    emojis: [
+      { emoji: '💡', name: 'light bulb' }, { emoji: '🔦', name: 'flashlight' }, { emoji: '🕯️', name: 'candle' }, { emoji: '📱', name: 'mobile phone' },
+      { emoji: '💻', name: 'laptop' }, { emoji: '🖥️', name: 'desktop computer' }, { emoji: '🖨️', name: 'printer' }, { emoji: '⌨️', name: 'keyboard' },
+      { emoji: '🖱️', name: 'computer mouse' }, { emoji: '📷', name: 'camera' }, { emoji: '📹', name: 'video camera' }, { emoji: '🔍', name: 'magnifying glass' },
+      { emoji: '🔎', name: 'magnifying glass right' }, { emoji: '🔬', name: 'microscope' }, { emoji: '🔭', name: 'telescope' }, { emoji: '📡', name: 'satellite antenna' },
+      { emoji: '📺', name: 'tv' }, { emoji: '📻', name: 'radio' }, { emoji: '⏰', name: 'alarm clock' }, { emoji: '⏱️', name: 'stopwatch' },
+      { emoji: '⏳', name: 'hourglass' }, { emoji: '🔑', name: 'key' }, { emoji: '🔒', name: 'lock' }, { emoji: '🔓', name: 'unlock' }
+    ]
+  },
+  {
+    id: 'symbols',
+    name: 'Symbols & Flags',
+    icon: '🏳️',
+    emojis: [
+      { emoji: '❤️', name: 'red heart' }, { emoji: '🧡', name: 'orange heart' }, { emoji: '💛', name: 'yellow heart' }, { emoji: '💚', name: 'green heart' },
+      { emoji: '💙', name: 'blue heart' }, { emoji: '💜', name: 'purple heart' }, { emoji: '🖤', name: 'black heart' }, { emoji: '🤍', name: 'white heart' },
+      { emoji: '💔', name: 'broken heart' }, { emoji: '❣️', name: 'heart exclamation' }, { emoji: '💕', name: 'two hearts' }, { emoji: '💞', name: 'revolving hearts' },
+      { emoji: '💓', name: 'beating heart' }, { emoji: '💗', name: 'growing heart' }, { emoji: '💖', name: 'sparkling heart' }, { emoji: '💘', name: 'heart arrow' },
+      { emoji: '✨', name: 'sparkles' }, { emoji: '⭐', name: 'star' }, { emoji: '🌟', name: 'glowing star' }, { emoji: '🔥', name: 'fire' },
+      { emoji: '💯', name: '100' }, { emoji: '✅', name: 'check mark' }, { emoji: '❌', name: 'cross mark' }, { emoji: '⚠️', name: 'warning' },
+      { emoji: '🏳️', name: 'white flag' }, { emoji: '🚩', name: 'triangular flag' }, { emoji: '🏁', name: 'chequered flag' }, { emoji: '🎉', name: 'party popper' }
+    ]
+  }
 ];
 
 const resolveAvatarUrl = (url, identifier) => {
@@ -592,13 +709,31 @@ const Casbox = () => {
     }
   });
 
+  // Emoji Reactions State
+  const [activeReactionMsgId, setActiveReactionMsgId] = useState(null);
+  const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
+  const [emojiSearchTerm, setEmojiSearchTerm] = useState("");
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState("smileys");
+  const [reactionsMap, setReactionsMap] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bnx_casbox_reactions');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
   const chatInputRef = React.useRef(null);
   const messageMenuRef = React.useRef(null);
+  const reactionBarRef = React.useRef(null);
 
-  // Reset reply and menu when switching conversation
+  // Reset reply, menu, and reaction pickers when switching conversation
   useEffect(() => {
     setReplyingToMessage(null);
     setActiveMessageMenuId(null);
+    setActiveReactionMsgId(null);
+    setShowFullEmojiPicker(false);
+    setEmojiSearchTerm("");
   }, [selectedMessage?.id, selectedMessage?.contact, selectedMessage?.senderEmail, selectedMessage?.receiverEmail]);
 
   const toggleSelectRow = useCallback((rowId) => {
@@ -629,6 +764,10 @@ const Casbox = () => {
       }
       if (messageMenuRef.current && !messageMenuRef.current.contains(e.target)) {
         setActiveMessageMenuId(null);
+      }
+      if (reactionBarRef.current && !reactionBarRef.current.contains(e.target)) {
+        setActiveReactionMsgId(null);
+        setShowFullEmojiPicker(false);
       }
     };
     document.addEventListener("mousedown", handleOutsideClick);
@@ -1258,6 +1397,43 @@ const Casbox = () => {
       </div>
     );
   }, []);
+
+  // Emoji Reaction Toggle Handler
+  const handleToggleReaction = useCallback((msgId, emoji) => {
+    if (!msgId || !emoji) return;
+    const currentUserId = user?.email || user?.username || 'me';
+
+    setReactionsMap(prev => {
+      const msgReactions = prev[msgId] || {};
+      const existingReactors = msgReactions[emoji] || [];
+      const hasReacted = existingReactors.includes(currentUserId);
+
+      let updatedReactors;
+      if (hasReacted) {
+        // Toggle off if same user clicks again
+        updatedReactors = existingReactors.filter(u => u !== currentUserId);
+      } else {
+        // Add user reaction
+        updatedReactors = [...existingReactors, currentUserId];
+      }
+
+      const nextMsgReactions = { ...msgReactions };
+      if (updatedReactors.length === 0) {
+        delete nextMsgReactions[emoji];
+      } else {
+        nextMsgReactions[emoji] = updatedReactors;
+      }
+
+      const nextMap = { ...prev, [msgId]: nextMsgReactions };
+      try {
+        localStorage.setItem('bnx_casbox_reactions', JSON.stringify(nextMap));
+      } catch (e) {}
+      return nextMap;
+    });
+
+    setActiveReactionMsgId(null);
+    setShowFullEmojiPicker(false);
+  }, [user?.email, user?.username]);
 
   const handleOpenEditNameModal = (chatOrMsg, e) => {
     if (e) e.stopPropagation();
@@ -4161,23 +4337,203 @@ const Casbox = () => {
                           {renderBubbleAttachments(msg)}
                         </div>
 
-                        {/* Three-Dot Action Trigger */}
-                        <div className="relative shrink-0 flex items-center">
+                        {/* Reaction Badges Beside Bubble */}
+                        {(() => {
+                          const msgReactions = reactionsMap[msgUniqueId];
+                          if (!msgReactions || Object.keys(msgReactions).length === 0) return null;
+                          const currentUserId = user?.email || user?.username || 'me';
+
+                          return (
+                            <div className="flex items-center gap-1 shrink-0 select-none">
+                              {Object.entries(msgReactions).map(([emoji, reactors]) => {
+                                if (!reactors || reactors.length === 0) return null;
+                                const hasReacted = reactors.includes(currentUserId);
+                                const tooltipText = reactors.map(r => r === currentUserId ? 'You' : (r.includes('@') ? r.split('@')[0] : r)).join(', ');
+
+                                return (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleReaction(msgUniqueId, emoji);
+                                    }}
+                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs shadow-2xs cursor-pointer transition-all hover:scale-105 active:scale-95 ${
+                                      hasReacted
+                                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 font-semibold text-blue-700 dark:text-blue-300'
+                                        : 'bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                    }`}
+                                    title={`${tooltipText} reacted with ${emoji}`}
+                                  >
+                                    <span>{emoji}</span>
+                                    <span className="text-[11px] font-medium leading-none">{reactors.length}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Action Trigger Buttons: Smiley Icon + Three-Dot Menu */}
+                        <div className="relative shrink-0 flex items-center gap-0.5">
+                          {/* Smiley Icon Button for Emoji Reactions */}
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              setActiveMessageMenuId(null);
+                              setActiveReactionMsgId(prev => prev === msgUniqueId ? null : msgUniqueId);
+                              setShowFullEmojiPicker(false);
+                              setEmojiSearchTerm("");
+                            }}
+                            className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
+                              activeReactionMsgId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+                            }`}
+                            title="Add reaction"
+                          >
+                            <MdOutlineEmojiEmotions size={18} />
+                          </button>
+
+                          {/* Three-Dot Menu Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveReactionMsgId(null);
+                              setShowFullEmojiPicker(false);
                               setActiveMessageMenuId(prev => prev === msgUniqueId ? null : msgUniqueId);
                             }}
                             className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
-                              activeMessageMenuId === msgUniqueId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+                              activeMessageMenuId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
                             }`}
                             title="Message actions"
                           >
                             <MdMoreVert size={18} />
                           </button>
 
-                          {/* Dropdown Menu */}
+                          {/* Quick Reaction Floating Bar & Full Picker */}
+                          {activeReactionMsgId === msgUniqueId && (
+                            <div
+                              ref={reactionBarRef}
+                              className={`absolute z-50 flex flex-col items-start ${
+                                index >= sortedThread.length - 2
+                                  ? 'bottom-0 left-full ml-1.5'
+                                  : 'top-0 left-full ml-1.5'
+                              }`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {/* Quick Reactions Pill */}
+                              <div className="bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-full shadow-lg px-2.5 py-1 flex items-center gap-1.5 select-none animate-in fade-in zoom-in-95 duration-150">
+                                {QUICK_REACTIONS.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => handleToggleReaction(msgUniqueId, emoji)}
+                                    className="w-7 h-7 flex items-center justify-center text-lg hover:scale-130 active:scale-95 transition-transform cursor-pointer rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                                    title={emoji}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setShowFullEmojiPicker(prev => !prev)}
+                                  className={`w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-sm font-bold ${
+                                    showFullEmojiPicker ? 'bg-black/10 dark:bg-white/20 text-gray-900 dark:text-white' : ''
+                                  }`}
+                                  title="More emojis"
+                                >
+                                  <MdAdd size={16} />
+                                </button>
+                              </div>
+
+                              {/* Full Emoji Picker */}
+                              {showFullEmojiPicker && (
+                                <div
+                                  className={`mt-2 w-72 sm:w-80 bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl p-3 z-50 flex flex-col animate-in fade-in slide-in-from-top-2 duration-200 ${
+                                    index >= sortedThread.length - 2 ? 'absolute bottom-full mb-2 left-0' : ''
+                                  }`}
+                                  style={{ borderColor: theme?.border || '#e2e8f0' }}
+                                >
+                                  {/* Search bar */}
+                                  <div className="relative mb-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Search emoji..."
+                                      value={emojiSearchTerm}
+                                      onChange={(e) => setEmojiSearchTerm(e.target.value)}
+                                      className="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800 dark:text-gray-200"
+                                    />
+                                    <MdSearch className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                  </div>
+
+                                  {/* Category Tabs */}
+                                  <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-1.5 mb-2 px-1">
+                                    {EMOJI_CATEGORIES.map(cat => (
+                                      <button
+                                        key={cat.id}
+                                        type="button"
+                                        onClick={() => { setActiveEmojiCategory(cat.id); setEmojiSearchTerm(''); }}
+                                        className={`p-1 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
+                                          activeEmojiCategory === cat.id && !emojiSearchTerm ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 scale-110' : 'text-gray-500 opacity-70 hover:opacity-100'
+                                        }`}
+                                        title={cat.name}
+                                      >
+                                        {cat.icon}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Category Title */}
+                                  <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
+                                    {emojiSearchTerm ? `Search results for "${emojiSearchTerm}"` : (EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory)?.name || 'Smileys & People')}
+                                  </div>
+
+                                  {/* Emoji Grid */}
+                                  <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto hidden-scrollbar px-0.5">
+                                    {(() => {
+                                      const term = emojiSearchTerm.trim().toLowerCase();
+                                      let list = [];
+                                      if (term) {
+                                        EMOJI_CATEGORIES.forEach(c => {
+                                          c.emojis.forEach(e => {
+                                            if (e.name.toLowerCase().includes(term) && !list.some(x => x.emoji === e.emoji)) {
+                                              list.push(e);
+                                            }
+                                          });
+                                        });
+                                      } else {
+                                        const cat = EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory) || EMOJI_CATEGORIES[0];
+                                        list = cat.emojis;
+                                      }
+
+                                      if (list.length === 0) {
+                                        return (
+                                          <div className="col-span-8 py-6 text-center text-xs text-gray-400">
+                                            No emojis found
+                                          </div>
+                                        );
+                                      }
+
+                                      return list.map(item => (
+                                        <button
+                                          key={item.emoji + item.name}
+                                          type="button"
+                                          onClick={() => handleToggleReaction(msgUniqueId, item.emoji)}
+                                          className="w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:scale-125 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer select-none"
+                                          title={item.name}
+                                        >
+                                          {item.emoji}
+                                        </button>
+                                      ));
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Three-Dot Dropdown Menu */}
                           {activeMessageMenuId === msgUniqueId && (
                             <div
                               ref={messageMenuRef}
