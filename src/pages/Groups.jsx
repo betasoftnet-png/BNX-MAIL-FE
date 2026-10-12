@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup } from "react-icons/md";
+import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive } from "react-icons/md";
 import { chatAPI } from "../services/api";
 import chatCache from "../services/chatCache";
 import { useAuth } from "../context/AuthContext";
@@ -28,8 +28,55 @@ const Groups = () => {
     const [pendingInvitations, setPendingInvitations] = useState(() => chatCache.getInvitations() || []);
     const [showInvitationsModal, setShowInvitationsModal] = useState(false);
 
+    const [openMenuChatId, setOpenMenuChatId] = useState(null);
+    const [archivedGroupIds, setArchivedGroupIds] = useState(() => {
+        try {
+            const saved = localStorage.getItem('bnx_colab_archived_group_ids');
+            return saved ? new Set(JSON.parse(saved)) : new Set();
+        } catch (e) {
+            return new Set();
+        }
+    });
+
     const [groupData, setGroupData] = useState({ name: "", members: "" });
     const [directEmail, setDirectEmail] = useState("");
+
+    useEffect(() => {
+        const handleClickOutside = () => {
+            setOpenMenuChatId(null);
+        };
+        if (openMenuChatId !== null) {
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [openMenuChatId]);
+
+    const handleArchiveGroup = async (chat, e) => {
+        if (e) e.stopPropagation();
+        setOpenMenuChatId(null);
+        const chatId = String(chat.id);
+
+        setArchivedGroupIds(prev => {
+            const next = new Set(prev);
+            next.add(chatId);
+            try {
+                localStorage.setItem('bnx_colab_archived_group_ids', JSON.stringify(Array.from(next)));
+            } catch (err) {}
+            return next;
+        });
+
+        toast.success(`"${chat.name || 'Group'}" archived`);
+
+        try {
+            if (typeof chatAPI.archiveGroup === 'function') {
+                await chatAPI.archiveGroup(chat.id);
+            } else if (typeof chatAPI.archiveChat === 'function') {
+                await chatAPI.archiveChat(chat.id);
+            }
+        } catch (err) {
+            console.warn("Backend chat archive API call failed:", err);
+        }
+    };
 
     const fetchChats = async (isBackground = false) => {
         if (!user?.email) return;
@@ -157,8 +204,10 @@ const Groups = () => {
         }
     };
 
-    // Filter by search AND by type (GROUP vs DIRECT)
+    // Filter by search AND by type (GROUP vs DIRECT) and exclude archived groups
     const filteredChats = chats.filter(chat => {
+        if (archivedGroupIds.has(String(chat.id))) return false;
+
         const matchesSearch = 
             chat.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             chat.memberEmails?.some(email => email.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -263,12 +312,12 @@ const Groups = () => {
                                     className="group relative p-5 rounded-2xl border border-gray-200/50 dark:border-gray-800/50 bg-white/40 dark:bg-gray-800/40 hover:bg-white/60 dark:hover:bg-gray-800/60 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1"
                                 >
                                     <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-inner ${chat.type === 'GROUP' ? 'bg-gradient-to-br from-primary to-purple-600' : 'bg-gradient-to-br from-teal-500 to-blue-600'}`}>
+                                        <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-inner shrink-0 ${chat.type === 'GROUP' ? 'bg-gradient-to-br from-primary to-purple-600' : 'bg-gradient-to-br from-teal-500 to-blue-600'}`}>
                                                 {chatDisplayName.charAt(0).toUpperCase()}
                                             </div>
-                                            <div>
-                                                <h3 className="font-bold text-lg leading-tight" style={{ color: theme.text }}>
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="font-bold text-lg leading-tight truncate" style={{ color: theme.text }}>
                                                     {chatDisplayName}
                                                 </h3>
                                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
@@ -276,11 +325,41 @@ const Groups = () => {
                                                 </span>
                                             </div>
                                         </div>
-                                        {chat.unreadCount > 0 && (
-                                            <span className="bg-primary text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-                                                {chat.unreadCount}
-                                            </span>
-                                        )}
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            {chat.unreadCount > 0 && (
+                                                <span className="bg-primary text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
+                                                    {chat.unreadCount}
+                                                </span>
+                                            )}
+                                            <div className="relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenMenuChatId(prev => prev === chat.id ? null : chat.id);
+                                                    }}
+                                                    className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                                                    title="More options"
+                                                >
+                                                    <MdMoreVert size={18} />
+                                                </button>
+                                                {openMenuChatId === chat.id && (
+                                                    <div 
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in zoom-in-95 duration-150 select-none text-left"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => handleArchiveGroup(chat, e)}
+                                                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                                        >
+                                                            <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                                            <span>Archive</span>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <p className="text-sm opacity-70 line-clamp-2 mb-4 h-10" style={{ color: theme.subText }}>
