@@ -54,7 +54,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
   const isChatMode = location.pathname.startsWith("/colab") || location.pathname.startsWith("/chat") || location.pathname.startsWith("/casbox");
   const isVaultMode = location.pathname.startsWith("/vault");
-  const [isColabExpanded, setIsColabExpanded] = useState(true);
+  const [isColabExpanded, setIsColabExpanded] = useState(false);
 
   const isArchivedActive = location.pathname === '/colab/archived';
   const isColabActive = (location.pathname === '/colab' || location.pathname.startsWith('/chat')) && !isArchivedActive;
@@ -392,10 +392,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
               {/* Colab Item & Nested Archived Item */}
               <div className="flex flex-col">
                 <div
-                  onClick={() => {
-                    handleNavigation('/colab');
-                    setIsColabExpanded(true);
-                  }}
+                  onClick={() => handleNavigation('/colab')}
                   className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
                     isColabActive
                       ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
@@ -417,39 +414,45 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                     }}
                     className="p-1 -mr-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 hide-on-collapse opacity-70 group-hover:opacity-100 transition-opacity ml-1 cursor-pointer flex items-center justify-center"
                     title={isColabExpanded ? "Collapse Archived" : "Expand Archived"}
-                    aria-label="Toggle Archived"
+                    aria-label={isColabExpanded ? "Collapse Archived" : "Expand Archived"}
                   >
-                    <ChevronDown
-                      size={18}
-                      strokeWidth={1.8}
-                      className={`transition-transform duration-200 ${isColabExpanded ? "" : "-rotate-90"}`}
-                    />
+                    {isColabExpanded ? (
+                      <ChevronUp size={18} strokeWidth={1.8} />
+                    ) : (
+                      <ChevronDown size={18} strokeWidth={1.8} />
+                    )}
                   </button>
                 </div>
 
                 {/* Archived child option */}
-                {isColabExpanded && (
-                  <div className="mt-1 ml-3.5">
+                <div
+                  className={`transition-all duration-200 ease-in-out overflow-hidden ${
+                    isColabExpanded
+                      ? "max-h-16 opacity-100 mt-1"
+                      : "max-h-0 opacity-0 pointer-events-none"
+                  }`}
+                >
+                  <div className="ml-3.5">
                     <div
                       onClick={() => handleNavigation('/colab/archived')}
                       className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
                         isArchivedActive
                           ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
-                          : "bg-white/40 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 text-[#2d3f59] dark:text-slate-200 font-medium"
+                          : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium"
                       }`}
                     >
                       {isArchivedActive && (
                         <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
                       )}
                       <div className="w-5 flex items-center justify-center shrink-0">
-                        <MdArchive size={18} className="shrink-0" />
+                        <MdArchive size={19} className="shrink-0" />
                       </div>
                       <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">
                         {t('sidebar.archived', 'Archived')}
                       </span>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           )}
