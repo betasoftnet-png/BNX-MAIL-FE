@@ -399,6 +399,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                   <MdGroup size={19} className="shrink-0" />
                 </div>
                 <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">{t('sidebar.colab', 'Colab')}</span>
+                <ChevronDown size={18} strokeWidth={1.8} className="hide-on-collapse opacity-60 group-hover:opacity-100 transition-opacity ml-1" />
               </button>
             </div>
           )}

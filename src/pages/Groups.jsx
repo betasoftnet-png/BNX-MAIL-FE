@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive } from "react-icons/md";
+import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive, MdUnarchive, MdDeleteOutline, MdKeyboardArrowDown, MdKeyboardArrowUp } from "react-icons/md";
 import { chatAPI } from "../services/api";
 import chatCache from "../services/chatCache";
 import { useAuth } from "../context/AuthContext";
@@ -29,6 +29,8 @@ const Groups = () => {
     const [showInvitationsModal, setShowInvitationsModal] = useState(false);
 
     const [openMenuChatId, setOpenMenuChatId] = useState(null);
+    const [isArchivedExpanded, setIsArchivedExpanded] = useState(false);
+    const [groupToDelete, setGroupToDelete] = useState(null);
     const [archivedGroupIds, setArchivedGroupIds] = useState(() => {
         try {
             const saved = localStorage.getItem('bnx_colab_archived_group_ids');
@@ -75,6 +77,49 @@ const Groups = () => {
             }
         } catch (err) {
             console.warn("Backend chat archive API call failed:", err);
+        }
+    };
+
+    const handleUnarchiveGroup = async (chat, e) => {
+        if (e) e.stopPropagation();
+        setOpenMenuChatId(null);
+        const chatId = String(chat.id);
+
+        setArchivedGroupIds(prev => {
+            const next = new Set(prev);
+            next.delete(chatId);
+            try {
+                localStorage.setItem('bnx_colab_archived_group_ids', JSON.stringify(Array.from(next)));
+            } catch (err) {}
+            return next;
+        });
+
+        toast.success(`"${chat.name || 'Group'}" unarchived`);
+    };
+
+    const handleConfirmDeleteGroup = async () => {
+        if (!groupToDelete) return;
+        try {
+            setLoading(true);
+            await chatAPI.deleteGroup(groupToDelete.id);
+            toast.success(`Group "${groupToDelete.name || 'Group'}" deleted`);
+
+            setArchivedGroupIds(prev => {
+                const next = new Set(prev);
+                next.delete(String(groupToDelete.id));
+                try {
+                    localStorage.setItem('bnx_colab_archived_group_ids', JSON.stringify(Array.from(next)));
+                } catch (e) {}
+                return next;
+            });
+
+            setChats(prev => prev.filter(c => c.id !== groupToDelete.id));
+            setGroupToDelete(null);
+        } catch (err) {
+            console.error("Failed to delete group:", err);
+            toast.error("Failed to delete group");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -217,6 +262,120 @@ const Groups = () => {
         return matchesSearch && matchesMode;
     });
 
+    // Archived groups for Colab
+    const archivedChats = chats.filter(chat => {
+        if (!archivedGroupIds.has(String(chat.id))) return false;
+        if (chat.type !== 'GROUP') return false;
+        if (searchTerm) {
+            const q = searchTerm.toLowerCase();
+            return chat.name?.toLowerCase().includes(q) ||
+                   chat.memberEmails?.some(email => email.toLowerCase().includes(q));
+        }
+        return true;
+    });
+
+    const renderGroupCard = (chat, isArchived = false) => {
+        const chatPartner = chat.memberEmails?.find(e => e !== user.email);
+        const chatDisplayName = chat.type === 'DIRECT' ? chatPartner?.split('@')[0] : (chat.name || 'Unnamed');
+        const menuKey = isArchived ? `archived-${chat.id}` : `active-${chat.id}`;
+
+        return (
+            <div 
+                key={chat.id}
+                onMouseEnter={() => chatCache.prefetchChat(chat.id, chatAPI)}
+                onClick={() => navigate(`/chat/${chat.id}`, { state: { chat } })}
+                className="group relative p-5 rounded-2xl border border-gray-200/50 dark:border-gray-800/50 bg-white/40 dark:bg-gray-800/40 hover:bg-white/60 dark:hover:bg-gray-800/60 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1"
+            >
+                <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-inner shrink-0 ${chat.type === 'GROUP' ? 'bg-gradient-to-br from-primary to-purple-600' : 'bg-gradient-to-br from-teal-500 to-blue-600'}`}>
+                            {chatDisplayName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <h3 className="font-bold text-lg leading-tight truncate" style={{ color: theme.text }}>
+                                {chatDisplayName}
+                            </h3>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
+                                {chat.type}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {!isArchived && chat.unreadCount > 0 && (
+                            <span className="bg-primary text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
+                                {chat.unreadCount}
+                            </span>
+                        )}
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuChatId(prev => prev === menuKey ? null : menuKey);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                                title="More options"
+                            >
+                                <MdMoreVert size={18} />
+                            </button>
+                            {openMenuChatId === menuKey && (
+                                <div 
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in zoom-in-95 duration-150 select-none text-left"
+                                >
+                                    {isArchived ? (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleUnarchiveGroup(chat, e)}
+                                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            >
+                                                <MdUnarchive size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                                                <span>Unarchive</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenMenuChatId(null);
+                                                    setGroupToDelete(chat);
+                                                }}
+                                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            >
+                                                <MdDeleteOutline size={16} className="text-red-500 shrink-0" />
+                                                <span>Delete</span>
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleArchiveGroup(chat, e)}
+                                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                        >
+                                            <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                            <span>Archive</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <p className="text-sm opacity-70 line-clamp-2 mb-4 h-10" style={{ color: theme.subText }}>
+                    {chat.lastMessage || "No messages yet"}
+                </p>
+
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200/30 dark:border-gray-700/30 text-xs font-medium">
+                    <span style={{ color: theme.subText }}>
+                        {chat.lastMessageTime ? new Date(chat.lastMessageTime).toLocaleDateString() : 'Active now'}
+                    </span>
+                    <span className="text-primary group-hover:underline">Open chat &rarr;</span>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="flex flex-col h-full overflow-hidden bg-transparent">
             {/* HEADER */}
@@ -287,6 +446,66 @@ const Groups = () => {
 
             {/* CHAT LIST */}
             <div className="flex-1 overflow-y-auto px-6 pb-10 hidden-scrollbar">
+                {/* ARCHIVED DROPDOWN (Colab mode only) */}
+                {isGroupsMode && (
+                    <div className="mb-6">
+                        <button
+                            type="button"
+                            onClick={() => setIsArchivedExpanded(prev => !prev)}
+                            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 bg-white/40 dark:bg-gray-800/40 hover:bg-white/70 dark:hover:bg-gray-800/70 transition-all cursor-pointer shadow-2xs group"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-blue-100/60 dark:bg-blue-900/30 text-primary flex items-center justify-center shrink-0">
+                                    <MdArchive size={19} />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-sm text-gray-800 dark:text-gray-200">
+                                        Archived
+                                    </span>
+                                    {archivedChats.length > 0 && (
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-primary font-semibold">
+                                            {archivedChats.length}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors">
+                                {isArchivedExpanded ? <MdKeyboardArrowUp size={22} /> : <MdKeyboardArrowDown size={22} />}
+                            </div>
+                        </button>
+
+                        {/* Collapsible Archived Groups Section */}
+                        {isArchivedExpanded && (
+                            <div className="mt-4 p-5 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 bg-white/30 dark:bg-gray-900/30 backdrop-blur-xs animate-in fade-in slide-in-from-top-1 duration-200">
+                                <div className="flex items-center gap-2.5 mb-4">
+                                    <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-primary flex items-center justify-center shrink-0">
+                                        <MdArchive size={16} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-base leading-tight text-gray-900 dark:text-white">
+                                            Archived Colab Groups
+                                        </h3>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                            View and manage your archived colab groups
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {archivedChats.length === 0 ? (
+                                    <div className="py-10 text-center text-xs text-gray-400 dark:text-gray-500 flex flex-col items-center justify-center">
+                                        <MdArchive size={36} className="opacity-25 mb-2" />
+                                        <span className="font-medium">No archived colab groups</span>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {archivedChats.map(chat => renderGroupCard(chat, true))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {loading && chats.length === 0 ? (
                     <div className="flex justify-center p-20">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
@@ -301,83 +520,40 @@ const Groups = () => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredChats.map((chat) => {
-                            const chatPartner = chat.memberEmails?.find(e => e !== user.email);
-                            const chatDisplayName = chat.type === 'DIRECT' ? chatPartner?.split('@')[0] : (chat.name || 'Unnamed');
-                            return (
-                                <div 
-                                    key={chat.id}
-                                    onMouseEnter={() => chatCache.prefetchChat(chat.id, chatAPI)}
-                                    onClick={() => navigate(`/chat/${chat.id}`, { state: { chat } })}
-                                    className="group relative p-5 rounded-2xl border border-gray-200/50 dark:border-gray-800/50 bg-white/40 dark:bg-gray-800/40 hover:bg-white/60 dark:hover:bg-gray-800/60 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1"
-                                >
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-inner shrink-0 ${chat.type === 'GROUP' ? 'bg-gradient-to-br from-primary to-purple-600' : 'bg-gradient-to-br from-teal-500 to-blue-600'}`}>
-                                                {chatDisplayName.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <h3 className="font-bold text-lg leading-tight truncate" style={{ color: theme.text }}>
-                                                    {chatDisplayName}
-                                                </h3>
-                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
-                                                    {chat.type}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 shrink-0">
-                                            {chat.unreadCount > 0 && (
-                                                <span className="bg-primary text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-                                                    {chat.unreadCount}
-                                                </span>
-                                            )}
-                                            <div className="relative">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setOpenMenuChatId(prev => prev === chat.id ? null : chat.id);
-                                                    }}
-                                                    className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                                                    title="More options"
-                                                >
-                                                    <MdMoreVert size={18} />
-                                                </button>
-                                                {openMenuChatId === chat.id && (
-                                                    <div 
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in zoom-in-95 duration-150 select-none text-left"
-                                                    >
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => handleArchiveGroup(chat, e)}
-                                                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                                                        >
-                                                            <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                                            <span>Archive</span>
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <p className="text-sm opacity-70 line-clamp-2 mb-4 h-10" style={{ color: theme.subText }}>
-                                        {chat.lastMessage || "No messages yet"}
-                                    </p>
-
-                                    <div className="flex items-center justify-between pt-4 border-t border-gray-200/30 dark:border-gray-700/30 text-xs font-medium">
-                                        <span style={{ color: theme.subText }}>
-                                            {chat.lastMessageTime ? new Date(chat.lastMessageTime).toLocaleDateString() : 'Active now'}
-                                        </span>
-                                        <span className="text-primary group-hover:underline">Open chat &rarr;</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {filteredChats.map(chat => renderGroupCard(chat, false))}
                     </div>
                 )}
             </div>
+
+            {/* DELETE CONFIRMATION MODAL */}
+            {groupToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-200 dark:border-gray-800 text-left">
+                        <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-white">
+                            Delete Colab Group?
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                            Are you sure you want to permanently delete <strong className="text-gray-700 dark:text-gray-200">"{groupToDelete.name || 'this group'}"</strong>? This action cannot be undone.
+                        </p>
+                        <div className="flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setGroupToDelete(null)}
+                                className="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDeleteGroup}
+                                className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors cursor-pointer"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* MODALS */}
             {(showCreateGroup || showStartDirect) && (
