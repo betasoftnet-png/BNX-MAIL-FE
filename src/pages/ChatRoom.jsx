@@ -1652,9 +1652,24 @@ const ChatRoom = () => {
     }
   };
 
+  // Creator / Admin role detection
+  const isCurrentUserCreator = Boolean(
+    chat?.creatorEmail &&
+    user?.email &&
+    chat.creatorEmail.trim().toLowerCase() === user.email.trim().toLowerCase()
+  ) || Boolean(
+    chat?.creator &&
+    user?.username &&
+    String(chat.creator).trim().toLowerCase() === user.username.trim().toLowerCase()
+  );
+
   // Add Member Action
   const handleAddMembers = async (e) => {
     e.preventDefault();
+    if (!isCurrentUserCreator) {
+      toast.error("Only the Colab Admin can add new members");
+      return;
+    }
     if (!emailsInput.trim()) return;
 
     const emailsList = emailsInput.split(/[\s,]+/).filter(e => e.includes('@'));
@@ -2423,7 +2438,7 @@ const ChatRoom = () => {
                       <h4 className="text-xl font-bold text-gray-900 dark:text-white truncate">
                         {chat?.name || "Colab Group"}
                       </h4>
-                      {chat?.creatorEmail === user.email && (
+                      {isCurrentUserCreator && (
                         <button 
                           type="button"
                           onClick={() => {
@@ -2444,37 +2459,39 @@ const ChatRoom = () => {
                 </div>
               </div>
 
-              {/* Add New Members Form Card */}
-              <form 
-                onSubmit={handleAddMembers} 
-                className="p-4 bg-[#f8fafd] dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700/60 rounded-xl"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <MdPersonAdd size={18} className="text-[#1a56db] dark:text-blue-400 shrink-0" />
-                  <h5 className="text-sm font-bold text-gray-900 dark:text-white">
-                    Add New Members
-                  </h5>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Enter email addresses separated by commas or spaces.
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="alice@bnxmail.com, bob@bnxmail.com"
-                    value={emailsInput}
-                    onChange={(e) => setEmailsInput(e.target.value)}
-                    className="flex-1 px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] transition-all"
-                  />
-                  <button
-                    type="submit"
-                    disabled={addingMembers || !emailsInput.trim()}
-                    className="px-6 py-2.5 bg-[#1a56db] hover:bg-blue-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50 cursor-pointer shadow-xs transition-colors shrink-0"
-                  >
-                    {addingMembers ? "Adding..." : "Add"}
-                  </button>
-                </div>
-              </form>
+              {/* Add New Members Form Card - Restricted to Creator / Admin */}
+              {isCurrentUserCreator && (
+                <form 
+                  onSubmit={handleAddMembers} 
+                  className="p-4 bg-[#f8fafd] dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700/60 rounded-xl"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <MdPersonAdd size={18} className="text-[#1a56db] dark:text-blue-400 shrink-0" />
+                    <h5 className="text-sm font-bold text-gray-900 dark:text-white">
+                      Add New Members
+                    </h5>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Enter email addresses separated by commas or spaces.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="alice@bnxmail.com, bob@bnxmail.com"
+                      value={emailsInput}
+                      onChange={(e) => setEmailsInput(e.target.value)}
+                      className="flex-1 px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={addingMembers || !emailsInput.trim()}
+                      className="px-6 py-2.5 bg-[#1a56db] hover:bg-blue-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50 cursor-pointer shadow-xs transition-colors shrink-0"
+                    >
+                      {addingMembers ? "Adding..." : "Add"}
+                    </button>
+                  </div>
+                </form>
+              )}
 
               {/* Group Members Section Card */}
               <div className="p-4 bg-[#f8fafd] dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700/60 rounded-xl">
@@ -2487,8 +2504,11 @@ const ChatRoom = () => {
 
                 <div className="divide-y divide-gray-100 dark:divide-gray-700/60 max-h-56 overflow-y-auto pr-0.5">
                   {membersList.map((email, idx) => {
-                    const isMe = email.toLowerCase() === user?.email?.toLowerCase();
-                    const isCreator = email.toLowerCase() === chat?.creatorEmail?.toLowerCase();
+                    const isMe = email?.trim().toLowerCase() === user?.email?.trim().toLowerCase();
+                    const isCreator = Boolean(
+                      chat?.creatorEmail &&
+                      email?.trim().toLowerCase() === chat?.creatorEmail?.trim().toLowerCase()
+                    );
 
                     // Generate clean avatar color consistent with the UI
                     const avatarColor = idx === 0 
@@ -2514,7 +2534,7 @@ const ChatRoom = () => {
                           )}
                           {isCreator && (
                             <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-[#fff7ed] dark:bg-amber-900/30 text-[#ea580c] dark:text-amber-400 border border-[#ffedd5] dark:border-amber-800/50">
-                              Creator
+                              Admin
                             </span>
                           )}
                           <div className="text-gray-400 p-1">
@@ -2537,7 +2557,7 @@ const ChatRoom = () => {
                   >
                     Leave Colab
                   </button>
-                  {chat?.creatorEmail?.toLowerCase() === user?.email?.toLowerCase() && (
+                  {isCurrentUserCreator && (
                     <button
                       type="button"
                       onClick={handleDeleteGroup}
