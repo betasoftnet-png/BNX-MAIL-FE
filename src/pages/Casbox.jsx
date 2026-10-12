@@ -891,7 +891,20 @@ const Casbox = () => {
             const strId = String(id);
             return !deletedMessageIdsRef.current.has(id) && !deletedMessageIdsRef.current.has(strId);
           });
-          setThreadMessages(threadFiltered);
+          setThreadMessages(prev => {
+            if (prev.length === threadFiltered.length) {
+              const hasChange = prev.some((m, idx) => {
+                const target = threadFiltered[idx];
+                return (
+                  (m?.id !== target?.id && m?.uid !== target?.uid) ||
+                  m?.status !== target?.status ||
+                  m?.body !== target?.body
+                );
+              });
+              if (!hasChange) return prev;
+            }
+            return threadFiltered;
+          });
         }).catch(console.error);
       }
     } catch (err) {
@@ -1629,7 +1642,20 @@ const Casbox = () => {
   }, [openMenuId]);
 
   const chatEndRef = React.useRef(null);
+  const chatContainerRef = React.useRef(null);
+  const isNearBottomRef = React.useRef(true);
+  const initialScrollDoneRef = React.useRef(false);
+  const prevSelectedContactRef = React.useRef(null);
+  const prevThreadCountRef = React.useRef(0);
   const selectedContactRef = React.useRef(null);
+
+  const handleChatScroll = useCallback((e) => {
+    const container = e?.currentTarget || chatContainerRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    // Consider user near bottom if within 120px from the bottom
+    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight <= 120;
+  }, []);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -1858,10 +1884,23 @@ const Casbox = () => {
         ? selectedMessage.receiverEmail
         : selectedMessage.senderEmail;
       selectedContactRef.current = otherEmail;
+
+      const contactKey = normalizeEmail(otherEmail);
+      if (contactKey !== prevSelectedContactRef.current) {
+        prevSelectedContactRef.current = contactKey;
+        initialScrollDoneRef.current = false;
+        isNearBottomRef.current = true;
+        prevThreadCountRef.current = 0;
+      }
+
       fetchThread(otherEmail);
       setIsChatStarred(Boolean(selectedMessage.starred || selectedMessage.isStarred));
     } else {
       selectedContactRef.current = null;
+      prevSelectedContactRef.current = null;
+      initialScrollDoneRef.current = false;
+      isNearBottomRef.current = true;
+      prevThreadCountRef.current = 0;
       setThreadMessages([]);
       setIsChatStarred(false);
     }
@@ -2269,13 +2308,41 @@ const Casbox = () => {
   };
 
   useEffect(() => {
-    if (chatEndRef.current) {
-      const container = chatEndRef.current.parentElement;
-      if (container) {
+    if (!selectedMessage) return;
+
+    const container = chatContainerRef.current || chatEndRef.current?.parentElement;
+    if (!container) return;
+
+    // Case 1: First time loading messages for this conversation (open chat)
+    if (!initialScrollDoneRef.current && threadMessages.length > 0) {
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+          isNearBottomRef.current = true;
+          initialScrollDoneRef.current = true;
+        }
+      });
+      prevThreadCountRef.current = threadMessages.length;
+      return;
+    }
+
+    // Case 2: User is viewing older messages (scrolled up)
+    // Keep current scroll position unchanged when existing messages refresh, polling occurs, or new messages arrive
+    if (!isNearBottomRef.current) {
+      prevThreadCountRef.current = threadMessages.length;
+      return;
+    }
+
+    // Case 3: User is already near bottom
+    // If a new message arrived or updates happened while near bottom, maintain view at the bottom
+    requestAnimationFrame(() => {
+      if (container && isNearBottomRef.current) {
         container.scrollTop = container.scrollHeight;
       }
-    }
-  }, [threadMessages]);
+    });
+
+    prevThreadCountRef.current = threadMessages.length;
+  }, [threadMessages, selectedMessage, loadingThread]);
 
   const handleCombineRowClick = (item) => {
     if (!item?.msg) return;
@@ -4295,7 +4362,11 @@ const Casbox = () => {
         })()}
 
         {/* Message Thread Panel */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col hidden-scrollbar">
+        <div
+          ref={chatContainerRef}
+          onScroll={handleChatScroll}
+          className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col hidden-scrollbar"
+        >
           {loadingThread && threadMessages.length === 0 ? (
             <div className="flex-1 flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">
               Loading chat history...
