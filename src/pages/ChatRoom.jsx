@@ -2363,150 +2363,185 @@ const ChatRoom = () => {
 
       {/* Colab Info Overlay Modal (Displays group metadata, members, and adding controls) */}
       {showInfoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div 
-            className="w-full max-w-md p-6 rounded-2xl border shadow-xl flex flex-col max-h-[85vh] overflow-hidden"
-            style={{ backgroundColor: theme.cardBg, borderColor: theme.border, color: theme.text }}
+            className="w-full max-w-[520px] bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden text-left"
           >
             {/* Modal Header */}
-            <div className="flex justify-between items-center pb-3 border-b mb-4" style={{ borderColor: theme.border }}>
-              <h3 className="text-lg font-bold flex items-center gap-1.5">
-                <MdPeople size={20} className="text-primary" style={{ color: theme.accent }} /> Colab Channel Info
-              </h3>
+            <div className="flex items-center justify-between px-6 pt-6 pb-4">
+              <div className="flex items-center gap-2.5">
+                <MdPeople size={22} className="text-[#1a56db] dark:text-blue-500 shrink-0" />
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                  Colab Channel Info
+                </h3>
+              </div>
               <button 
                 onClick={() => setShowInfoModal(false)}
-                className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Close"
               >
-                <MdClose size={22} style={{ color: theme.text }} />
+                <MdClose size={22} />
               </button>
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="flex-1 overflow-y-auto space-y-5 pr-1 hidden-scrollbar">
-              <div>
-                {isEditingName ? (
-                  <div className="flex items-center gap-2 mb-1">
-                    <input
-                      type="text"
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      className="flex-grow p-1.5 border rounded-lg text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-primary/45"
-                      autoFocus
-                    />
-                    <button onClick={handleRenameGroup} className="p-1.5 bg-primary text-white rounded-lg hover:scale-105 transition-all">
-                      <MdCheck size={16} />
-                    </button>
-                    <button onClick={() => setIsEditingName(false)} className="p-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
-                      <MdClose size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <h4 className="font-bold text-base flex items-center gap-2">
-                    {chat?.name || "Colab Group"}
-                    {chat?.creatorEmail === user.email && (
+            <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 hidden-scrollbar">
+              {/* Channel Profile Row */}
+              <div className="flex items-center gap-4 py-1">
+                <div className="w-14 h-14 rounded-full bg-[#1a56db] flex items-center justify-center text-white font-bold text-2xl shrink-0 shadow-sm">
+                  {(chat?.name || "C").charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {isEditingName ? (
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <input
+                        type="text"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1a56db]"
+                        autoFocus
+                      />
                       <button 
-                        onClick={() => {
-                          setEditingName(chat?.name || "");
-                          setIsEditingName(true);
-                        }}
-                        className="text-gray-400 hover:text-primary transition-colors p-1"
-                        title="Rename Colab"
+                        type="button" 
+                        onClick={handleRenameGroup} 
+                        className="p-1.5 bg-[#1a56db] hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer"
+                        title="Save"
                       >
-                        <MdEdit size={14} />
+                        <MdCheck size={16} />
                       </button>
-                    )}
-                  </h4>
-                )}
-                <p className="text-xs opacity-75 mt-1 leading-relaxed" style={{ color: theme.subText }}>
-                  {chat?.description || "A collaboration channel for team messaging and email broadcasting."}
-                </p>
-                {chat?.createdAt && (
-                  <div className="mt-3 flex flex-wrap gap-2 text-[9px] uppercase font-bold tracking-wider opacity-60">
-                    <span className="bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-full">
-                      Created: {new Date(chat.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
+                      <button 
+                        type="button" 
+                        onClick={() => setIsEditingName(false)} 
+                        className="p-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+                        title="Cancel"
+                      >
+                        <MdClose size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xl font-bold text-gray-900 dark:text-white truncate">
+                        {chat?.name || "Colab Group"}
+                      </h4>
+                      {chat?.creatorEmail === user.email && (
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setEditingName(chat?.name || "");
+                            setIsEditingName(true);
+                          }}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-0.5 cursor-pointer"
+                          title="Rename Colab"
+                        >
+                          <MdEdit size={16} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-normal">
+                    {chat?.description || "A collaboration channel for team messaging and email broadcasting."}
+                  </p>
+                </div>
               </div>
 
-              {/* Add Members Form */}
-              <form onSubmit={handleAddMembers} className="p-4 bg-black/[0.02] dark:bg-white/[0.02] border border-gray-200/50 dark:border-gray-800/50 rounded-2xl">
-                <h5 className="text-xs font-bold uppercase tracking-wider mb-1 opacity-75 flex items-center gap-1">
-                  <MdPersonAdd size={16} /> Add New Members
-                </h5>
-                <p className="text-[10px] opacity-60 mb-3">
+              {/* Add New Members Form Card */}
+              <form 
+                onSubmit={handleAddMembers} 
+                className="p-4 bg-[#f8fafd] dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700/60 rounded-xl"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <MdPersonAdd size={18} className="text-[#1a56db] dark:text-blue-400 shrink-0" />
+                  <h5 className="text-sm font-bold text-gray-900 dark:text-white">
+                    Add New Members
+                  </h5>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                   Enter email addresses separated by commas or spaces.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     placeholder="alice@bnxmail.com, bob@bnxmail.com"
                     value={emailsInput}
                     onChange={(e) => setEmailsInput(e.target.value)}
-                    className="flex-grow p-2.5 border border-gray-200 dark:border-gray-800 rounded-xl text-xs bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 outline-none"
-                    autoFocus
+                    className="flex-1 px-3.5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] transition-all"
                   />
                   <button
                     type="submit"
                     disabled={addingMembers || !emailsInput.trim()}
-                    className="px-4 py-2 bg-primary text-white text-xs font-semibold rounded-xl disabled:opacity-50 cursor-pointer shadow-sm transition-all"
-                    style={{ background: theme.accent }}
+                    className="px-6 py-2.5 bg-[#1a56db] hover:bg-blue-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50 cursor-pointer shadow-xs transition-colors shrink-0"
                   >
                     {addingMembers ? "Adding..." : "Add"}
                   </button>
                 </div>
               </form>
 
-              {/* Members List */}
-              <div className="space-y-2">
-                <h5 className="text-xs font-bold uppercase tracking-wider opacity-65 flex items-center gap-1.5">
-                  <MdPeople size={16} /> Group Members ({membersList.length})
-                </h5>
-                <div className="border border-gray-100 dark:border-gray-800 rounded-2xl divide-y divide-gray-50 dark:divide-gray-800 bg-white/40 dark:bg-gray-900/10 overflow-hidden shadow-inner max-h-48 overflow-y-auto">
+              {/* Group Members Section Card */}
+              <div className="p-4 bg-[#f8fafd] dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700/60 rounded-xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <MdPeople size={18} className="text-[#1a56db] dark:text-blue-400 shrink-0" />
+                  <h5 className="text-sm font-bold text-gray-900 dark:text-white">
+                    Group Members ({membersList.length})
+                  </h5>
+                </div>
+
+                <div className="divide-y divide-gray-100 dark:divide-gray-700/60 max-h-56 overflow-y-auto pr-0.5">
                   {membersList.map((email, idx) => {
-                    const isMe = email.toLowerCase() === user.email.toLowerCase();
+                    const isMe = email.toLowerCase() === user?.email?.toLowerCase();
+                    const isCreator = email.toLowerCase() === chat?.creatorEmail?.toLowerCase();
+
+                    // Generate clean avatar color consistent with the UI
+                    const avatarColor = idx === 0 
+                      ? "bg-[#1a56db]" 
+                      : (idx % 2 === 1 ? "bg-[#8b5cf6]" : "bg-[#0ea5e9]");
+
                     return (
-                      <div key={idx} className="p-3 flex items-center justify-between text-xs transition-colors hover:bg-black/[0.01]">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary/80 to-purple-500/80 flex items-center justify-center font-bold text-white shrink-0 shadow-inner">
+                      <div key={idx} className="py-2.5 flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-3 min-w-0 mr-2">
+                          <div className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center font-bold text-white text-sm shrink-0 shadow-2xs`}>
                             {email.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-semibold text-gray-700 dark:text-gray-300 truncate">
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                             {email}
                           </span>
                         </div>
-                        {isMe && (
-                          <span className="text-[9px] uppercase tracking-wide font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-sm mr-2">
-                            Me
-                          </span>
-                        )}
-                        {email === chat?.creatorEmail && (
-                          <span className="text-[9px] uppercase tracking-wide font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-sm">
-                            Creator
-                          </span>
-                        )}
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isMe && (
+                            <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-[#eff6ff] dark:bg-blue-900/30 text-[#2563eb] dark:text-blue-400 border border-[#dbeafe] dark:border-blue-800/50">
+                              Me
+                            </span>
+                          )}
+                          {isCreator && (
+                            <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-[#fff7ed] dark:bg-amber-900/30 text-[#ea580c] dark:text-amber-400 border border-[#ffedd5] dark:border-amber-800/50">
+                              Creator
+                            </span>
+                          )}
+                          <div className="text-gray-400 p-1">
+                            <MdMoreVert size={18} />
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Danger Zone */}
+              {/* Bottom Actions */}
               {chat?.type === 'GROUP' && (
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
-                  {/* <h5 className="text-xs font-bold uppercase tracking-wider text-red-500 opacity-80 mb-2">
-                    Danger Zone {chat?.creatorEmail ? `(Creator: ${chat.creatorEmail})` : '(No Creator)'}
-                  </h5> */}
+                <div className="pt-2 flex items-center justify-end gap-3">
                   <button
+                    type="button"
                     onClick={handleLeaveGroup}
-                    className="w-full py-2.5 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-semibold rounded-xl transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-800/50"
+                    className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg transition-colors cursor-pointer"
                   >
                     Leave Colab
                   </button>
                   {chat?.creatorEmail?.toLowerCase() === user?.email?.toLowerCase() && (
                     <button
+                      type="button"
                       onClick={handleDeleteGroup}
-                      className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
+                      className="px-5 py-2.5 bg-[#dc2626] hover:bg-red-700 text-white text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
                     >
                       Delete Colab
                     </button>
