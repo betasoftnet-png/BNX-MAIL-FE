@@ -566,6 +566,42 @@ const formatSentDetailDateTime = (timestamp) => {
   }).replace(/[\u202f\u00a0]/g, ' ');
 };
 
+const getMessageDateKey = (timestamp) => {
+  if (!timestamp) return '';
+  const d = parseTimestamp(timestamp);
+  if (!d || isNaN(d.getTime()) || d.getTime() === 0) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatChatDateSeparator = (timestamp) => {
+  if (!timestamp) return '';
+  const d = parseTimestamp(timestamp);
+  if (!d || isNaN(d.getTime()) || d.getTime() === 0) return '';
+
+  const now = new Date();
+  const isCurrentDay = (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
+
+  // For the current day, display the weekday name, such as "Monday"
+  if (isCurrentDay) {
+    return weekday;
+  }
+
+  // For older messages, display the weekday name with date (e.g. "Monday, 10 Oct 2026")
+  const day = d.getDate();
+  const month = d.toLocaleDateString('en-US', { month: 'short' });
+  const year = d.getFullYear();
+  return `${weekday}, ${day} ${month} ${year}`;
+};
+
 const formatFileSize = (bytes) => {
   if (!bytes || isNaN(bytes)) return '';
   const num = Number(bytes);
@@ -4279,8 +4315,20 @@ const Casbox = () => {
               const msgFallbackId = `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`;
               const msgUniqueId = msgTargetId !== undefined && msgTargetId !== null ? msgTargetId : msgFallbackId;
 
+              const currentDateKey = getMessageDateKey(msg.timestamp);
+              const prevDateKey = index > 0 ? getMessageDateKey(sortedThread[index - 1]?.timestamp) : null;
+              const showDateSeparator = Boolean(currentDateKey && currentDateKey !== prevDateKey);
+
               return (
-                <div key={msg.id || index} className="flex items-start gap-2.5 sm:gap-4 md:gap-5 w-full py-1 min-w-0">
+                <React.Fragment key={msgUniqueId || msg.id || index}>
+                  {showDateSeparator && (
+                    <div className="flex justify-center w-full select-none py-1.5">
+                      <div className="px-4 py-1 rounded-full text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100/80 dark:bg-gray-800/80 shadow-2xs border border-gray-200/40 dark:border-gray-700/40">
+                        {formatChatDateSeparator(msg.timestamp)}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2.5 sm:gap-4 md:gap-5 w-full py-1 min-w-0">
                   {/* Left Column: Contact Card */}
                   <div className="w-16 sm:w-28 md:w-36 shrink-0 pt-0 select-none text-left">
                     <div 
@@ -4591,8 +4639,9 @@ const Casbox = () => {
                     </div>
                   </div>
                 </div>
-              );
-            })
+              </React.Fragment>
+            );
+          })
           )}
           <div ref={chatEndRef} />
         </div>
