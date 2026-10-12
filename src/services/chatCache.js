@@ -208,6 +208,20 @@ export const chatCache = {
     return Array.isArray(list);
   },
 
+  invalidateBroadcasts(chatId) {
+    if (!chatId) return;
+    memoryCache.broadcasts.delete(String(chatId));
+    try {
+      sessionStorage.removeItem(SS_PREFIX + `broadcasts_${chatId}`);
+    } catch (e) {}
+  },
+
+  invalidateChat(chatId) {
+    if (!chatId) return;
+    memoryCache.chatsById.delete(String(chatId));
+    this.invalidateBroadcasts(chatId);
+  },
+
   // Members
   getMembers(chatId) {
     if (!chatId) return null;

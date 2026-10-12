@@ -28,7 +28,9 @@ import {
   MdStarBorder,
   MdStar,
   MdInsertEmoticon,
-  MdRefresh
+  MdRefresh,
+  MdAdminPanelSettings,
+  MdPersonOutline
 } from "react-icons/md";
 import { chatAPI, mailAPI, templateAPI } from "../services/api";
 import chatCache from "../services/chatCache";
@@ -1652,22 +1654,100 @@ const ChatRoom = () => {
     }
   };
 
-  // Creator / Admin role detection
-  const isCurrentUserCreator = Boolean(
-    chat?.creatorEmail &&
-    user?.email &&
-    chat.creatorEmail.trim().toLowerCase() === user.email.trim().toLowerCase()
-  ) || Boolean(
-    chat?.creator &&
-    user?.username &&
-    String(chat.creator).trim().toLowerCase() === user.username.trim().toLowerCase()
+  // Admin & Member role detection
+  const isUserAdmin = useCallback((email) => {
+    if (!email) return false;
+    const target = email.trim().toLowerCase();
+    if (chat?.creatorEmail && chat.creatorEmail.trim().toLowerCase() === target) {
+      return true;
+    }
+    if (Array.isArray(chat?.adminEmails)) {
+      return chat.adminEmails.some(a => a && a.trim().toLowerCase() === target);
+    }
+    return false;
+  }, [chat?.creatorEmail, chat?.adminEmails]);
+
+  const isCurrentUserAdmin = Boolean(
+    (user?.email && isUserAdmin(user.email)) ||
+    (user?.username && isUserAdmin(user.username)) ||
+    (chat?.creatorEmail && user?.email && chat.creatorEmail.trim().toLowerCase() === user.email.trim().toLowerCase()) ||
+    (chat?.creator && user?.username && String(chat.creator).trim().toLowerCase() === user.username.trim().toLowerCase())
   );
+
+  const [activeMemberMenu, setActiveMemberMenu] = useState(null);
+  const [updatingRoleFor, setUpdatingRoleFor] = useState(null);
+  const memberMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (memberMenuRef.current && !memberMenuRef.current.contains(e.target)) {
+        setActiveMemberMenu(null);
+      }
+    };
+    if (activeMemberMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activeMemberMenu]);
+
+  const handleToggleMemberRole = async (targetEmail, currentIsAdmin) => {
+    if (!isCurrentUserAdmin) {
+      toast.error("Only group Admins can manage roles");
+      return;
+    }
+    const newRole = currentIsAdmin ? 'MEMBER' : 'ADMIN';
+    const confirmMessage = currentIsAdmin
+      ? `Are you sure you want to change ${targetEmail}'s role from Admin to Member?`
+      : `Are you sure you want to promote ${targetEmail} to Admin?`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      setUpdatingRoleFor(targetEmail);
+      setActiveMemberMenu(null);
+      toast.loading(`Updating role for ${targetEmail}...`, { id: 'role-update' });
+      
+      const res = await chatAPI.updateMemberRole(chatId, { email: targetEmail, role: newRole });
+      if (res?.data) {
+        setChat(res.data);
+        chatCache.setChat(chatId, res.data);
+      } else {
+        setChat(prev => {
+          if (!prev) return prev;
+          let newAdmins = Array.isArray(prev.adminEmails) ? [...prev.adminEmails] : [];
+          if (newRole === 'ADMIN') {
+            if (!newAdmins.some(a => a.toLowerCase() === targetEmail.toLowerCase())) {
+              newAdmins.push(targetEmail);
+            }
+          } else {
+            newAdmins = newAdmins.filter(a => a.toLowerCase() !== targetEmail.toLowerCase());
+          }
+          return { ...prev, adminEmails: newAdmins };
+        });
+      }
+
+      toast.success(`${targetEmail} is now ${newRole === 'ADMIN' ? 'an Admin' : 'a Member'}`, { id: 'role-update' });
+
+      // Invalidate broadcasts cache and re-fetch immediately so TDocs visibility updates
+      chatCache.invalidateBroadcasts(chatId);
+      fetchBroadcasts();
+      fetchChatMembers();
+      fetchChatDetails();
+    } catch (err) {
+      console.error("Failed to update role:", err);
+      toast.error(err.response?.data?.message || `Failed to update role`, { id: 'role-update' });
+    } finally {
+      setUpdatingRoleFor(null);
+    }
+  };
 
   // Add Member Action
   const handleAddMembers = async (e) => {
     e.preventDefault();
-    if (!isCurrentUserCreator) {
-      toast.error("Only the Colab Admin can add new members");
+    if (!isCurrentUserAdmin) {
+      toast.error("Only group Admins can add new members");
       return;
     }
     if (!emailsInput.trim()) return;
@@ -1895,8 +1975,8 @@ const ChatRoom = () => {
             <div className="h-14 min-h-[56px] px-4 border-b border-gray-200/50 dark:border-gray-800/50 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02] shrink-0 print:border-none print:bg-transparent print:p-0 print:mb-3">
               <h3 className="text-sm font-bold flex items-center gap-1.5 print:text-sm print:font-bold print:uppercase print:tracking-wider print:text-black" style={{ color: theme.text }}>
                 <MdEmail size={18} className="text-primary print:hidden" style={{ color: theme.accent }} /> 
-                <span className="print:hidden">Professional Broadcasts ({broadcasts.length})</span>
-                <span className="hidden print:inline font-bold">PROFESSIONAL BROADCASTS</span>
+                <span className="print:hidden">TDocs / Broadcasts ({broadcasts.length})</span>
+                <span className="hidden print:inline font-bold">TDOCS / BROADCASTS</span>
               </h3>
               {!isChatPaneOpen && (
                 <button 
@@ -1919,9 +1999,11 @@ const ChatRoom = () => {
               ) : broadcasts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full opacity-40 text-center p-6 mt-10 print:opacity-70 print:p-4 print:mt-2">
                   <MdEmail size={48} className="mb-3 text-gray-400 print:hidden" />
-                  <p className="text-sm font-semibold print:text-gray-600">No Broadcasts Sent</p>
-                  <p className="text-xs max-w-xs mt-1 print:hidden">
-                    Send professional email updates to all group members. Click the button below to compose.
+                  <p className="text-sm font-semibold print:text-gray-600">No TDocs Sent</p>
+                  <p className="text-xs max-w-xs mt-1 print:hidden text-gray-500 dark:text-gray-400">
+                    {isCurrentUserAdmin 
+                      ? "Admins can view all group TDocs. Send updates to members using Compose." 
+                      : "Regular Members can view only their own TDocs."}
                   </p>
                 </div>
               ) : (
@@ -2438,7 +2520,7 @@ const ChatRoom = () => {
                       <h4 className="text-xl font-bold text-gray-900 dark:text-white truncate">
                         {chat?.name || "Colab Group"}
                       </h4>
-                      {isCurrentUserCreator && (
+                      {isCurrentUserAdmin && (
                         <button 
                           type="button"
                           onClick={() => {
@@ -2459,8 +2541,8 @@ const ChatRoom = () => {
                 </div>
               </div>
 
-              {/* Add New Members Form Card - Restricted to Creator / Admin */}
-              {isCurrentUserCreator && (
+              {/* Add New Members Form Card - Restricted to Admins */}
+              {isCurrentUserAdmin && (
                 <form 
                   onSubmit={handleAddMembers} 
                   className="p-4 bg-[#f8fafd] dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700/60 rounded-xl"
@@ -2505,10 +2587,8 @@ const ChatRoom = () => {
                 <div className="divide-y divide-gray-100 dark:divide-gray-700/60 max-h-56 overflow-y-auto pr-0.5">
                   {membersList.map((email, idx) => {
                     const isMe = email?.trim().toLowerCase() === user?.email?.trim().toLowerCase();
-                    const isCreator = Boolean(
-                      chat?.creatorEmail &&
-                      email?.trim().toLowerCase() === chat?.creatorEmail?.trim().toLowerCase()
-                    );
+                    const memberIsAdmin = isUserAdmin(email);
+                    const isMenuOpen = activeMemberMenu === email;
 
                     // Generate clean avatar color consistent with the UI
                     const avatarColor = idx === 0 
@@ -2516,7 +2596,7 @@ const ChatRoom = () => {
                       : (idx % 2 === 1 ? "bg-[#8b5cf6]" : "bg-[#0ea5e9]");
 
                     return (
-                      <div key={idx} className="py-2.5 flex items-center justify-between text-sm">
+                      <div key={idx} className="py-2.5 flex items-center justify-between text-sm relative">
                         <div className="flex items-center gap-3 min-w-0 mr-2">
                           <div className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center font-bold text-white text-sm shrink-0 shadow-2xs`}>
                             {email.charAt(0).toUpperCase()}
@@ -2526,20 +2606,63 @@ const ChatRoom = () => {
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 relative">
                           {isMe && (
                             <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-[#eff6ff] dark:bg-blue-900/30 text-[#2563eb] dark:text-blue-400 border border-[#dbeafe] dark:border-blue-800/50">
                               Me
                             </span>
                           )}
-                          {isCreator && (
+                          {memberIsAdmin ? (
                             <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-[#fff7ed] dark:bg-amber-900/30 text-[#ea580c] dark:text-amber-400 border border-[#ffedd5] dark:border-amber-800/50">
                               Admin
                             </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                              Member
+                            </span>
                           )}
-                          <div className="text-gray-400 p-1">
-                            <MdMoreVert size={18} />
-                          </div>
+
+                          {/* Role Management Dropdown - Only available to Admins */}
+                          {isCurrentUserAdmin && (
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setActiveMemberMenu(isMenuOpen ? null : email)}
+                                disabled={updatingRoleFor === email}
+                                className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                                title="Manage Role"
+                              >
+                                <MdMoreVert size={18} />
+                              </button>
+
+                              {isMenuOpen && (
+                                <div 
+                                  ref={memberMenuRef}
+                                  className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1 text-xs animate-in fade-in duration-150"
+                                >
+                                  {memberIsAdmin ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleMemberRole(email, true)}
+                                      className="w-full text-left px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60 flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      <MdPersonOutline size={15} className="text-gray-500" />
+                                      Make Member
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleMemberRole(email, false)}
+                                      className="w-full text-left px-3 py-2 text-[#1a56db] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-2 cursor-pointer font-medium transition-colors"
+                                    >
+                                      <MdAdminPanelSettings size={15} className="text-[#1a56db] dark:text-blue-400" />
+                                      Make Admin
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -2557,7 +2680,7 @@ const ChatRoom = () => {
                   >
                     Leave Colab
                   </button>
-                  {isCurrentUserCreator && (
+                  {isCurrentUserAdmin && (
                     <button
                       type="button"
                       onClick={handleDeleteGroup}

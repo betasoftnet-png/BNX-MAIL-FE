@@ -379,6 +379,7 @@ export const chatAPI = {
     },
     sendMessage: (data) => api.post(API_ENDPOINTS.CHAT.SEND_MESSAGE, data),
     addMembers: (chatId, data) => api.post(`/api/chat/${chatId}/members`, data),
+    updateMemberRole: (chatId, data) => api.put(`/api/chat/${chatId}/members/role`, data),
     getMembers: (chatId, config = {}) => {
         return chatCache.dedupe(`mbrs_${chatId}`, () =>
             api.get(`/api/chat/${chatId}/members`, { timeout: 30000, ...config })
