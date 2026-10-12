@@ -1678,6 +1678,15 @@ const ChatRoom = () => {
   const [updatingRoleFor, setUpdatingRoleFor] = useState(null);
   const memberMenuRef = useRef(null);
 
+  // Custom Promotion Confirmation Modal state
+  const [promotionModalUser, setPromotionModalUser] = useState(null);
+  const [isPromoting, setIsPromoting] = useState(false);
+  const [promotionError, setPromotionError] = useState(null);
+
+  // Demotion Confirmation Modal state
+  const [demoteModalUser, setDemoteModalUser] = useState(null);
+  const [isDemoting, setIsDemoting] = useState(false);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (memberMenuRef.current && !memberMenuRef.current.contains(e.target)) {
@@ -1692,24 +1701,16 @@ const ChatRoom = () => {
     };
   }, [activeMemberMenu]);
 
-  const handleToggleMemberRole = async (targetEmail, currentIsAdmin) => {
-    if (!isCurrentUserAdmin) {
-      toast.error("Only group Admins can manage roles");
-      return;
-    }
-    const newRole = currentIsAdmin ? 'MEMBER' : 'ADMIN';
-    const confirmMessage = currentIsAdmin
-      ? `Are you sure you want to change ${targetEmail}'s role from Admin to Member?`
-      : `Are you sure you want to promote ${targetEmail} to Admin?`;
-
-    if (!window.confirm(confirmMessage)) return;
+  // Execute promotion after user confirms in the custom modal
+  const handleConfirmPromotion = async () => {
+    if (!promotionModalUser || isPromoting) return;
+    const targetEmail = promotionModalUser;
 
     try {
-      setUpdatingRoleFor(targetEmail);
-      setActiveMemberMenu(null);
-      toast.loading(`Updating role for ${targetEmail}...`, { id: 'role-update' });
-      
-      const res = await chatAPI.updateMemberRole(chatId, { email: targetEmail, role: newRole });
+      setIsPromoting(true);
+      setPromotionError(null);
+
+      const res = await chatAPI.updateMemberRole(chatId, { email: targetEmail, role: 'ADMIN' });
       if (res?.data) {
         setChat(res.data);
         chatCache.setChat(chatId, res.data);
@@ -1717,29 +1718,61 @@ const ChatRoom = () => {
         setChat(prev => {
           if (!prev) return prev;
           let newAdmins = Array.isArray(prev.adminEmails) ? [...prev.adminEmails] : [];
-          if (newRole === 'ADMIN') {
-            if (!newAdmins.some(a => a.toLowerCase() === targetEmail.toLowerCase())) {
-              newAdmins.push(targetEmail);
-            }
-          } else {
-            newAdmins = newAdmins.filter(a => a.toLowerCase() !== targetEmail.toLowerCase());
+          if (!newAdmins.some(a => a.toLowerCase() === targetEmail.toLowerCase())) {
+            newAdmins.push(targetEmail);
           }
           return { ...prev, adminEmails: newAdmins };
         });
       }
 
-      toast.success(`${targetEmail} is now ${newRole === 'ADMIN' ? 'an Admin' : 'a Member'}`, { id: 'role-update' });
-
-      // Invalidate broadcasts cache and re-fetch immediately so TDocs visibility updates
+      toast.success(`${targetEmail} is now an Admin`);
       chatCache.invalidateBroadcasts(chatId);
       fetchBroadcasts();
       fetchChatMembers();
       fetchChatDetails();
+      setPromotionModalUser(null);
     } catch (err) {
-      console.error("Failed to update role:", err);
-      toast.error(err.response?.data?.message || `Failed to update role`, { id: 'role-update' });
+      console.error("Failed to promote member to Admin:", err);
+      const errMsg = err.response?.data?.message || "Failed to promote member to Admin. Please try again.";
+      setPromotionError(errMsg);
+      toast.error(errMsg);
     } finally {
-      setUpdatingRoleFor(null);
+      setIsPromoting(false);
+    }
+  };
+
+  // Execute demotion after user confirms in the custom demote modal
+  const handleConfirmDemote = async () => {
+    if (!demoteModalUser || isDemoting) return;
+    const targetEmail = demoteModalUser;
+
+    try {
+      setIsDemoting(true);
+
+      const res = await chatAPI.updateMemberRole(chatId, { email: targetEmail, role: 'MEMBER' });
+      if (res?.data) {
+        setChat(res.data);
+        chatCache.setChat(chatId, res.data);
+      } else {
+        setChat(prev => {
+          if (!prev) return prev;
+          let newAdmins = Array.isArray(prev.adminEmails) ? [...prev.adminEmails] : [];
+          newAdmins = newAdmins.filter(a => a.toLowerCase() !== targetEmail.toLowerCase());
+          return { ...prev, adminEmails: newAdmins };
+        });
+      }
+
+      toast.success(`${targetEmail} is now a Member`);
+      chatCache.invalidateBroadcasts(chatId);
+      fetchBroadcasts();
+      fetchChatMembers();
+      fetchChatDetails();
+      setDemoteModalUser(null);
+    } catch (err) {
+      console.error("Failed to change Admin to Member:", err);
+      toast.error(err.response?.data?.message || "Failed to change Admin to Member. Please try again.");
+    } finally {
+      setIsDemoting(false);
     }
   };
 
@@ -2643,7 +2676,10 @@ const ChatRoom = () => {
                                   {memberIsAdmin ? (
                                     <button
                                       type="button"
-                                      onClick={() => handleToggleMemberRole(email, true)}
+                                      onClick={() => {
+                                        setActiveMemberMenu(null);
+                                        setDemoteModalUser(email);
+                                      }}
                                       className="w-full text-left px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60 flex items-center gap-2 cursor-pointer transition-colors"
                                     >
                                       <MdPersonOutline size={15} className="text-gray-500" />
@@ -2652,7 +2688,11 @@ const ChatRoom = () => {
                                   ) : (
                                     <button
                                       type="button"
-                                      onClick={() => handleToggleMemberRole(email, false)}
+                                      onClick={() => {
+                                        setActiveMemberMenu(null);
+                                        setPromotionError(null);
+                                        setPromotionModalUser(email);
+                                      }}
                                       className="w-full text-left px-3 py-2 text-[#1a56db] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-2 cursor-pointer font-medium transition-colors"
                                     >
                                       <MdAdminPanelSettings size={15} className="text-[#1a56db] dark:text-blue-400" />
@@ -2691,6 +2731,171 @@ const ChatRoom = () => {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Promote Member to Admin Custom Confirmation Modal */}
+      {promotionModalUser && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => !isPromoting && setPromotionModalUser(null)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-md w-full overflow-hidden p-6 relative animate-in zoom-in-95 duration-200 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Close Button */}
+            <button
+              type="button"
+              onClick={() => !isPromoting && setPromotionModalUser(null)}
+              disabled={isPromoting}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer disabled:opacity-50"
+              title="Close"
+            >
+              <MdClose size={20} />
+            </button>
+
+            {/* Blue Shield Icon */}
+            <div className="w-14 h-14 rounded-full bg-[#eff6ff] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 flex items-center justify-center mx-auto mb-4 shadow-2xs">
+              <MdAdminPanelSettings size={32} />
+            </div>
+
+            {/* Heading */}
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+              Promote Member to Admin?
+            </h3>
+
+            {/* Selected Member Email */}
+            <div className="inline-block max-w-full px-3.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-800 dark:text-gray-200 truncate mb-3">
+              {promotionModalUser}
+            </div>
+
+            {/* Supporting Text */}
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
+              This member will receive admin permissions for this Colab group.
+            </p>
+
+            {/* Admin Permissions Information Section */}
+            <div className="p-3.5 rounded-xl bg-[#f8fafd] dark:bg-gray-900/40 border border-blue-100 dark:border-blue-900/40 text-left mb-6">
+              <div className="flex items-start gap-2.5">
+                <MdInfoOutline size={18} className="text-[#1a56db] dark:text-blue-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-gray-600 dark:text-gray-300 leading-normal space-y-1">
+                  <p className="font-semibold text-gray-800 dark:text-gray-100">
+                    Admin Permissions:
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-gray-500 dark:text-gray-400">
+                    <li>Can add new members to this group and manage member roles</li>
+                    <li>Can view all group TDocs and send professional broadcasts</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Inline Error Message on Failure */}
+            {promotionError && (
+              <div className="mb-4 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 font-medium text-left">
+                {promotionError}
+              </div>
+            )}
+
+            {/* Bottom Actions */}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setPromotionModalUser(null)}
+                disabled={isPromoting}
+                className="w-1/2 py-2.5 px-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPromotion}
+                disabled={isPromoting}
+                className="w-1/2 py-2.5 px-4 rounded-xl bg-[#1a56db] hover:bg-blue-700 text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isPromoting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Promoting...</span>
+                  </>
+                ) : (
+                  "Confirm Promotion"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Demote Admin to Member Custom Confirmation Modal */}
+      {demoteModalUser && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => !isDemoting && setDemoteModalUser(null)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-md w-full overflow-hidden p-6 relative animate-in zoom-in-95 duration-200 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Close Button */}
+            <button
+              type="button"
+              onClick={() => !isDemoting && setDemoteModalUser(null)}
+              disabled={isDemoting}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer disabled:opacity-50"
+              title="Close"
+            >
+              <MdClose size={20} />
+            </button>
+
+            {/* Neutral Member Icon */}
+            <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center mx-auto mb-4 shadow-2xs">
+              <MdPersonOutline size={30} />
+            </div>
+
+            {/* Heading */}
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+              Change Admin to Member?
+            </h3>
+
+            {/* Selected Member Email */}
+            <div className="inline-block max-w-full px-3.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-800 dark:text-gray-200 truncate mb-3">
+              {demoteModalUser}
+            </div>
+
+            {/* Supporting Text */}
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+              This user will be changed to a regular Member. Their TDocs access will be restricted to their own documents.
+            </p>
+
+            {/* Bottom Actions */}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setDemoteModalUser(null)}
+                disabled={isDemoting}
+                className="w-1/2 py-2.5 px-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDemote}
+                disabled={isDemoting}
+                className="w-1/2 py-2.5 px-4 rounded-xl bg-gray-700 hover:bg-gray-800 text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDemoting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Updating...</span>
+                  </>
+                ) : (
+                  "Change to Member"
+                )}
+              </button>
             </div>
           </div>
         </div>
