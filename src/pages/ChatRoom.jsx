@@ -2008,8 +2008,8 @@ const ChatRoom = () => {
             <div className="h-14 min-h-[56px] px-4 border-b border-gray-200/50 dark:border-gray-800/50 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02] shrink-0 print:border-none print:bg-transparent print:p-0 print:mb-3">
               <h3 className="text-sm font-bold flex items-center gap-1.5 print:text-sm print:font-bold print:uppercase print:tracking-wider print:text-black" style={{ color: theme.text }}>
                 <MdEmail size={18} className="text-primary print:hidden" style={{ color: theme.accent }} /> 
-                <span className="print:hidden">TDocs / Broadcasts ({broadcasts.length})</span>
-                <span className="hidden print:inline font-bold">TDOCS / BROADCASTS</span>
+                <span className="print:hidden">Broadcasts</span>
+                <span className="hidden print:inline font-bold">BROADCASTS</span>
               </h3>
               {!isChatPaneOpen && (
                 <button 
