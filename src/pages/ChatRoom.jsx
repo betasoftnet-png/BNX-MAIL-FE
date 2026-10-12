@@ -24,7 +24,6 @@ import {
   MdFileDownload,
   MdArchive,
   MdAccessTime,
-  MdLabel,
   MdDelete,
   MdPrint,
   MdStarBorder,
@@ -1785,12 +1784,6 @@ const ChatRoom = () => {
             title="Archive"
           >
             <MdArchive size={20} />
-          </button>
-          <button
-            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-indigo-500 cursor-pointer"
-            title="Labels"
-          >
-            <MdLabel size={20} />
           </button>
         </div>
 
