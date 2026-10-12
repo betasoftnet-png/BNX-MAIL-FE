@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive, MdUnarchive, MdDeleteOutline } from "react-icons/md";
+import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive, MdUnarchive, MdDeleteOutline, MdStar, MdStarBorder } from "react-icons/md";
 import { chatAPI } from "../services/api";
 import chatCache from "../services/chatCache";
 import { useAuth } from "../context/AuthContext";
@@ -13,17 +13,24 @@ const Groups = () => {
     const { user } = useAuth();
     const { theme } = useTheme();
 
-    // Determine if we are in "Groups" mode, "Direct Messages" mode, or dedicated "Archived" view
+    // Determine view modes: Groups vs Direct, and dedicated sub-views (Archived, Starred)
     const isArchivedView = location.pathname === '/colab/archived';
+    const isStarredView = location.pathname === '/colab/starred';
     const isGroupsMode = location.pathname.includes('/colab');
     const modeTitle = isArchivedView 
         ? "Archived Colab Groups" 
+        : isStarredView
+        ? "Starred Colab Groups"
         : (isGroupsMode ? "Colab" : "Direct Messages");
     const modeIcon = isArchivedView 
         ? <MdArchive className="text-primary" /> 
+        : isStarredView
+        ? <MdStar className="text-amber-400" />
         : (isGroupsMode ? <MdGroup className="text-primary" /> : <MdChat className="text-primary" />);
     const modeSubtitle = isArchivedView
         ? "View and manage your archived colab groups"
+        : isStarredView
+        ? "View your starred colab groups"
         : (isGroupsMode ? "Collaborate with your teams" : "Your private conversations");
 
     // Instant initial load from cache (< 50ms)
@@ -41,6 +48,14 @@ const Groups = () => {
     const [archivedGroupIds, setArchivedGroupIds] = useState(() => {
         try {
             const saved = localStorage.getItem('bnx_colab_archived_group_ids');
+            return saved ? new Set(JSON.parse(saved)) : new Set();
+        } catch (e) {
+            return new Set();
+        }
+    });
+    const [starredGroupIds, setStarredGroupIds] = useState(() => {
+        try {
+            const saved = localStorage.getItem('bnx_colab_starred_group_ids');
             return saved ? new Set(JSON.parse(saved)) : new Set();
         } catch (e) {
             return new Set();
@@ -109,6 +124,42 @@ const Groups = () => {
         toast.success(`"${chat.name || 'Group'}" unarchived`);
     };
 
+    const handleToggleStarGroup = (chat, e) => {
+        if (e) e.stopPropagation();
+        setOpenMenuChatId(null);
+        const chatId = String(chat.id);
+        const isCurrentlyStarred = starredGroupIds.has(chatId);
+
+        setStarredGroupIds(prev => {
+            const next = new Set(prev);
+            if (isCurrentlyStarred) {
+                next.delete(chatId);
+            } else {
+                next.add(chatId);
+            }
+            try {
+                localStorage.setItem('bnx_colab_starred_group_ids', JSON.stringify(Array.from(next)));
+            } catch (err) {}
+            return next;
+        });
+
+        if (isCurrentlyStarred) {
+            toast.success(`Removed star from "${chat.name || 'Group'}"`);
+        } else {
+            toast.success(`Starred "${chat.name || 'Group'}"`);
+        }
+
+        try {
+            if (typeof chatAPI.toggleStarGroup === 'function') {
+                chatAPI.toggleStarGroup(chat.id);
+            } else if (typeof chatAPI.starGroup === 'function') {
+                chatAPI.starGroup(chat.id, !isCurrentlyStarred);
+            }
+        } catch (err) {
+            console.warn("Backend chat star API call failed:", err);
+        }
+    };
+
     const handleConfirmDeleteGroup = async () => {
         if (!groupToDelete) return;
         try {
@@ -121,6 +172,15 @@ const Groups = () => {
                 next.delete(String(groupToDelete.id));
                 try {
                     localStorage.setItem('bnx_colab_archived_group_ids', JSON.stringify(Array.from(next)));
+                } catch (e) {}
+                return next;
+            });
+
+            setStarredGroupIds(prev => {
+                const next = new Set(prev);
+                next.delete(String(groupToDelete.id));
+                try {
+                    localStorage.setItem('bnx_colab_starred_group_ids', JSON.stringify(Array.from(next)));
                 } catch (e) {}
                 return next;
             });
@@ -286,10 +346,24 @@ const Groups = () => {
         return true;
     });
 
+    // Starred groups for Colab (active, starred groups)
+    const starredChats = chats.filter(chat => {
+        if (!starredGroupIds.has(String(chat.id))) return false;
+        if (archivedGroupIds.has(String(chat.id))) return false;
+        if (chat.type !== 'GROUP') return false;
+        if (searchTerm) {
+            const q = searchTerm.toLowerCase();
+            return chat.name?.toLowerCase().includes(q) ||
+                   chat.memberEmails?.some(email => email.toLowerCase().includes(q));
+        }
+        return true;
+    });
+
     const renderGroupCard = (chat, isArchived = false) => {
         const chatPartner = chat.memberEmails?.find(e => e !== user.email);
         const chatDisplayName = chat.type === 'DIRECT' ? chatPartner?.split('@')[0] : (chat.name || 'Unnamed');
         const menuKey = isArchived ? `archived-${chat.id}` : `active-${chat.id}`;
+        const isStarred = starredGroupIds.has(String(chat.id));
 
         return (
             <div 
@@ -304,9 +378,14 @@ const Groups = () => {
                             {chatDisplayName.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-lg leading-tight truncate" style={{ color: theme.text }}>
-                                {chatDisplayName}
-                            </h3>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                                <h3 className="font-bold text-lg leading-tight truncate" style={{ color: theme.text }}>
+                                    {chatDisplayName}
+                                </h3>
+                                {isStarred && (
+                                    <MdStar size={16} className="text-amber-400 shrink-0" title="Starred" />
+                                )}
+                            </div>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
                                 {chat.type}
                             </span>
@@ -359,14 +438,29 @@ const Groups = () => {
                                             </button>
                                         </>
                                     ) : (
-                                        <button
-                                            type="button"
-                                            onClick={(e) => handleArchiveGroup(chat, e)}
-                                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                                        >
-                                            <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                            <span>Archive</span>
-                                        </button>
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleArchiveGroup(chat, e)}
+                                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            >
+                                                <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                                <span>Archive</span>
+                                            </button>
+                                            <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleToggleStarGroup(chat, e)}
+                                                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                            >
+                                                {isStarred ? (
+                                                    <MdStar size={16} className="text-amber-400 shrink-0" />
+                                                ) : (
+                                                    <MdStarBorder size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                                )}
+                                                <span>Star</span>
+                                            </button>
+                                        </>
                                     )}
                                 </div>
                             )}
@@ -402,7 +496,7 @@ const Groups = () => {
                     </p>
                 </div>
                 <div className="flex gap-3">
-                    {!isArchivedView && (
+                    {!isArchivedView && !isStarredView && (
                         isGroupsMode ? (
                             <button 
                                 onClick={() => setShowCreateGroup(true)}
@@ -425,7 +519,7 @@ const Groups = () => {
             </div>
 
             {/* INVITATIONS BANNER */}
-            {pendingInvitations.length > 0 && isGroupsMode && !isArchivedView && (
+            {pendingInvitations.length > 0 && isGroupsMode && !isArchivedView && !isStarredView && (
                 <div className="mx-6 mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex items-center justify-between shadow-sm animate-fade-in">
                     <div className="flex items-center gap-3 text-blue-800 dark:text-blue-300">
                         <MdPersonAdd size={24} />
@@ -449,7 +543,7 @@ const Groups = () => {
                     <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input 
                         type="text"
-                        placeholder={`Search ${isArchivedView ? 'archived colab groups' : (isGroupsMode ? 'colab groups' : 'messages')}...`}
+                        placeholder={`Search ${isArchivedView ? 'archived colab groups' : isStarredView ? 'starred colab groups' : (isGroupsMode ? 'colab groups' : 'messages')}...`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200/50 dark:border-gray-800/50 bg-white/50 dark:bg-gray-800/50 outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -474,6 +568,22 @@ const Groups = () => {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {archivedChats.map(chat => renderGroupCard(chat, true))}
+                        </div>
+                    )
+                ) : isStarredView ? (
+                    loading && chats.length === 0 ? (
+                        <div className="flex justify-center p-20">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                        </div>
+                    ) : starredChats.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-20 opacity-50">
+                            <MdStarBorder size={64} className="mb-4 text-amber-400" />
+                            <p className="text-lg font-medium">No starred colab groups</p>
+                            <p className="text-sm">Click the three-dot menu on any group card and select Star to add it here</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {starredChats.map(chat => renderGroupCard(chat, false))}
                         </div>
                     )
                 ) : (

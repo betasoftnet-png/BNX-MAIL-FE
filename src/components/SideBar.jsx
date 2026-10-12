@@ -57,7 +57,8 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
   const [isColabExpanded, setIsColabExpanded] = useState(false);
 
   const isArchivedActive = location.pathname === '/colab/archived';
-  const isColabActive = (location.pathname === '/colab' || location.pathname.startsWith('/chat')) && !isArchivedActive;
+  const isStarredActive = location.pathname === '/colab/starred';
+  const isColabActive = (location.pathname === '/colab' || location.pathname.startsWith('/chat')) && !isArchivedActive && !isStarredActive;
 
   const [isCreating, setIsCreating] = useState(false);
   const [onLabelCreatedCb, setOnLabelCreatedCb] = useState(null);
@@ -424,15 +425,16 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                   </button>
                 </div>
 
-                {/* Archived child option */}
+                {/* Nested Submenu: Archive & Star */}
                 <div
                   className={`transition-all duration-200 ease-in-out overflow-hidden ${
                     isColabExpanded
-                      ? "max-h-16 opacity-100 mt-1"
+                      ? "max-h-28 opacity-100 mt-1"
                       : "max-h-0 opacity-0 pointer-events-none"
                   }`}
                 >
-                  <div className="ml-3.5">
+                  <div className="ml-3.5 space-y-1">
+                    {/* Archive option */}
                     <div
                       onClick={() => handleNavigation('/colab/archived')}
                       className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
@@ -448,7 +450,27 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                         <MdArchive size={19} className="shrink-0" />
                       </div>
                       <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">
-                        {t('sidebar.archived', 'Archived')}
+                        {t('sidebar.archive', 'Archive')}
+                      </span>
+                    </div>
+
+                    {/* Star option */}
+                    <div
+                      onClick={() => handleNavigation('/colab/starred')}
+                      className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
+                        isStarredActive
+                          ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
+                          : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium"
+                      }`}
+                    >
+                      {isStarredActive && (
+                        <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
+                      )}
+                      <div className="w-5 flex items-center justify-center shrink-0">
+                        <Star size={18} strokeWidth={1.8} className="shrink-0" />
+                      </div>
+                      <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">
+                        {t('sidebar.star', 'Star')}
                       </span>
                     </div>
                   </div>
