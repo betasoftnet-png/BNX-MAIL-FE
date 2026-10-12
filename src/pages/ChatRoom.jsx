@@ -30,7 +30,8 @@ import {
   MdInsertEmoticon,
   MdRefresh,
   MdAdminPanelSettings,
-  MdPersonOutline
+  MdPersonOutline,
+  MdDeleteOutline
 } from "react-icons/md";
 import { chatAPI, mailAPI, templateAPI } from "../services/api";
 import chatCache from "../services/chatCache";
@@ -1687,6 +1688,11 @@ const ChatRoom = () => {
   const [demoteModalUser, setDemoteModalUser] = useState(null);
   const [isDemoting, setIsDemoting] = useState(false);
 
+  // Remove Member Confirmation Modal state
+  const [removeMemberModalUser, setRemoveMemberModalUser] = useState(null);
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [removeMemberError, setRemoveMemberError] = useState(null);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (memberMenuRef.current && !memberMenuRef.current.contains(e.target)) {
@@ -1773,6 +1779,47 @@ const ChatRoom = () => {
       toast.error(err.response?.data?.message || "Failed to change Admin to Member. Please try again.");
     } finally {
       setIsDemoting(false);
+    }
+  };
+
+  // Execute remove member after user confirms in the custom modal
+  const handleConfirmRemoveMember = async () => {
+    if (!removeMemberModalUser || isRemovingMember) return;
+    const targetEmail = removeMemberModalUser;
+
+    try {
+      setIsRemovingMember(true);
+      setRemoveMemberError(null);
+
+      const res = await chatAPI.removeMember(chatId, targetEmail);
+      if (res?.data) {
+        setChat(res.data);
+        chatCache.setChat(chatId, res.data);
+      } else {
+        setChat(prev => {
+          if (!prev) return prev;
+          let newAdmins = Array.isArray(prev.adminEmails) ? [...prev.adminEmails] : [];
+          newAdmins = newAdmins.filter(a => a.toLowerCase() !== targetEmail.toLowerCase());
+          let newMembers = Array.isArray(prev.memberEmails) ? [...prev.memberEmails] : [];
+          newMembers = newMembers.filter(m => m.toLowerCase() !== targetEmail.toLowerCase());
+          return { ...prev, adminEmails: newAdmins, memberEmails: newMembers };
+        });
+      }
+
+      toast.success(`${targetEmail} was removed from the Colab group`);
+      chatCache.invalidateMembers(chatId);
+      chatCache.invalidateBroadcasts(chatId);
+      fetchChatMembers();
+      fetchChatDetails();
+      fetchBroadcasts();
+      setRemoveMemberModalUser(null);
+    } catch (err) {
+      console.error("Failed to remove member:", err);
+      const errMsg = err.response?.data?.message || "Failed to remove member from Colab group. Please try again.";
+      setRemoveMemberError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setIsRemovingMember(false);
     }
   };
 
@@ -2621,6 +2668,7 @@ const ChatRoom = () => {
                   {membersList.map((email, idx) => {
                     const isMe = email?.trim().toLowerCase() === user?.email?.trim().toLowerCase();
                     const memberIsAdmin = isUserAdmin(email);
+                    const isTargetCreator = Boolean(chat?.creatorEmail && chat.creatorEmail.trim().toLowerCase() === email?.trim().toLowerCase());
                     const isMenuOpen = activeMemberMenu === email;
 
                     // Generate clean avatar color consistent with the UI
@@ -2655,15 +2703,15 @@ const ChatRoom = () => {
                             </span>
                           )}
 
-                          {/* Role Management Dropdown - Only available to Admins */}
-                          {isCurrentUserAdmin && (
+                          {/* Role Management Dropdown - Only available to Admins, hidden for self and creator */}
+                          {isCurrentUserAdmin && !isMe && !isTargetCreator && (
                             <div className="relative">
                               <button
                                 type="button"
                                 onClick={() => setActiveMemberMenu(isMenuOpen ? null : email)}
                                 disabled={updatingRoleFor === email}
                                 className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-                                title="Manage Role"
+                                title="Manage Member"
                               >
                                 <MdMoreVert size={18} />
                               </button>
@@ -2671,8 +2719,9 @@ const ChatRoom = () => {
                               {isMenuOpen && (
                                 <div 
                                   ref={memberMenuRef}
-                                  className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1 text-xs animate-in fade-in duration-150"
+                                  className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1 text-xs animate-in fade-in duration-150"
                                 >
+                                  {/* 1. Make Admin / Make Member first */}
                                   {memberIsAdmin ? (
                                     <button
                                       type="button"
@@ -2699,6 +2748,23 @@ const ChatRoom = () => {
                                       Make Admin
                                     </button>
                                   )}
+
+                                  {/* Divider */}
+                                  <div className="my-1 border-t border-gray-100 dark:border-gray-700/60" />
+
+                                  {/* 2. Remove Member option directly below Make Admin */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMemberMenu(null);
+                                      setRemoveMemberError(null);
+                                      setRemoveMemberModalUser(email);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2 cursor-pointer font-medium transition-colors"
+                                  >
+                                    <MdDeleteOutline size={15} className="text-red-500 dark:text-red-400" />
+                                    Remove Member
+                                  </button>
                                 </div>
                               )}
                             </div>
@@ -2894,6 +2960,84 @@ const ChatRoom = () => {
                   </>
                 ) : (
                   "Change to Member"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Member Custom Confirmation Modal */}
+      {removeMemberModalUser && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => !isRemovingMember && setRemoveMemberModalUser(null)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-md w-full overflow-hidden p-6 relative animate-in zoom-in-95 duration-200 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Close Button */}
+            <button
+              type="button"
+              onClick={() => !isRemovingMember && setRemoveMemberModalUser(null)}
+              disabled={isRemovingMember}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer disabled:opacity-50"
+              title="Close"
+            >
+              <MdClose size={20} />
+            </button>
+
+            {/* Red Trash Icon */}
+            <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-4 shadow-2xs">
+              <MdDeleteOutline size={30} />
+            </div>
+
+            {/* Heading */}
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+              Remove Member?
+            </h3>
+
+            {/* Selected Member Email */}
+            <div className="inline-block max-w-full px-3.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-800 dark:text-gray-200 truncate mb-3">
+              {removeMemberModalUser}
+            </div>
+
+            {/* Message */}
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+              Are you sure you want to remove this member from the Colab group?
+            </p>
+
+            {/* Inline Error Message on Failure */}
+            {removeMemberError && (
+              <div className="mb-4 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 font-medium text-left">
+                {removeMemberError}
+              </div>
+            )}
+
+            {/* Bottom Actions */}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setRemoveMemberModalUser(null)}
+                disabled={isRemovingMember}
+                className="w-1/2 py-2.5 px-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemoveMember}
+                disabled={isRemovingMember}
+                className="w-1/2 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isRemovingMember ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Removing...</span>
+                  </>
+                ) : (
+                  "Remove Member"
                 )}
               </button>
             </div>

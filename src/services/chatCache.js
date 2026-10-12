@@ -242,6 +242,14 @@ export const chatCache = {
     writeSS(`members_${chatId}`, members);
   },
 
+  invalidateMembers(chatId) {
+    if (!chatId) return;
+    memoryCache.members.delete(String(chatId));
+    try {
+      sessionStorage.removeItem(SS_PREFIX + `members_${chatId}`);
+    } catch (e) {}
+  },
+
   // Pending Invitations
   getInvitations() {
     if (memoryCache.invitations?.data) return memoryCache.invitations.data;

@@ -380,6 +380,12 @@ export const chatAPI = {
     sendMessage: (data) => api.post(API_ENDPOINTS.CHAT.SEND_MESSAGE, data),
     addMembers: (chatId, data) => api.post(`/api/chat/${chatId}/members`, data),
     updateMemberRole: (chatId, data) => api.put(`/api/chat/${chatId}/members/role`, data),
+    removeMember: (chatId, email) => {
+        return api.delete(`/api/chat/${chatId}/members/${encodeURIComponent(email)}`).then(res => {
+            chatCache.invalidateMembers(chatId);
+            return res;
+        });
+    },
     getMembers: (chatId, config = {}) => {
         return chatCache.dedupe(`mbrs_${chatId}`, () =>
             api.get(`/api/chat/${chatId}/members`, { timeout: 30000, ...config })
