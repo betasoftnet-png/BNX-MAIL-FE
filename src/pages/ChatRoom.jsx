@@ -22,7 +22,6 @@ import {
   MdInsertDriveFile,
   MdVisibility,
   MdFileDownload,
-  MdArchive,
   MdAccessTime,
   MdDelete,
   MdPrint,
@@ -733,26 +732,6 @@ const ChatRoom = () => {
       setIsChatStarred(false);
     }
   }, [chat]);
-
-  const handleArchiveChat = async () => {
-    const targetId = chatId || chat?.uid || chat?.id;
-    if (!targetId) return;
-
-    try {
-      if (mailAPI.archive) {
-        await mailAPI.archive(targetId, 'chat');
-      }
-      toast.success("Chat archived");
-      if (chat?.type === 'DIRECT') {
-        navigate("/chat");
-      } else {
-        navigate("/colab");
-      }
-    } catch (err) {
-      console.error("Failed to archive chat", err);
-      toast.error("Failed to archive chat");
-    }
-  };
 
   const handleSnoozeChat = async (wakeUpDate) => {
     const targetId = chatId || chat?.uid || chat?.id;
@@ -1776,14 +1755,6 @@ const ChatRoom = () => {
             title="Back"
           >
             <MdArrowBack size={20} />
-          </button>
-          <div className="h-5 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
-          <button
-            onClick={handleArchiveChat}
-            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
-            title="Archive"
-          >
-            <MdArchive size={20} />
           </button>
         </div>
 
