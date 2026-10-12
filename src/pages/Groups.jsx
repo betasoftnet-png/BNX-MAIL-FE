@@ -659,7 +659,7 @@ const Groups = () => {
                                             />
                                         </div>
                                         <div className="mb-4">
-                                            <label className="block text-sm font-medium mb-1 opacity-70">Member Emails (comma separated)</label>
+                                            <label className="block text-sm font-medium mb-1 opacity-70">Member Emails</label>
                                             <textarea 
                                                 value={groupData.members}
                                                 onChange={(e) => setGroupData({...groupData, members: e.target.value})}
