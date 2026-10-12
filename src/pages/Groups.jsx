@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive, MdUnarchive, MdDeleteOutline, MdKeyboardArrowDown, MdKeyboardArrowUp } from "react-icons/md";
+import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive, MdUnarchive, MdDeleteOutline } from "react-icons/md";
 import { chatAPI } from "../services/api";
 import chatCache from "../services/chatCache";
 import { useAuth } from "../context/AuthContext";
@@ -13,10 +13,18 @@ const Groups = () => {
     const { user } = useAuth();
     const { theme } = useTheme();
 
-    // Determine if we are in "Groups" mode or "Direct Messages" mode
+    // Determine if we are in "Groups" mode, "Direct Messages" mode, or dedicated "Archived" view
+    const isArchivedView = location.pathname === '/colab/archived';
     const isGroupsMode = location.pathname.includes('/colab');
-    const modeTitle = isGroupsMode ? "Colab" : "Direct Messages";
-    const modeIcon = isGroupsMode ? <MdGroup className="text-primary" /> : <MdChat className="text-primary" />;
+    const modeTitle = isArchivedView 
+        ? "Archived Colab Groups" 
+        : (isGroupsMode ? "Colab" : "Direct Messages");
+    const modeIcon = isArchivedView 
+        ? <MdArchive className="text-primary" /> 
+        : (isGroupsMode ? <MdGroup className="text-primary" /> : <MdChat className="text-primary" />);
+    const modeSubtitle = isArchivedView
+        ? "View and manage your archived colab groups"
+        : (isGroupsMode ? "Collaborate with your teams" : "Your private conversations");
 
     // Instant initial load from cache (< 50ms)
     const [chats, setChats] = useState(() => chatCache.getUserChats(user?.email) || []);
@@ -29,7 +37,6 @@ const Groups = () => {
     const [showInvitationsModal, setShowInvitationsModal] = useState(false);
 
     const [openMenuChatId, setOpenMenuChatId] = useState(null);
-    const [isArchivedExpanded, setIsArchivedExpanded] = useState(false);
     const [groupToDelete, setGroupToDelete] = useState(null);
     const [archivedGroupIds, setArchivedGroupIds] = useState(() => {
         try {
@@ -52,6 +59,11 @@ const Groups = () => {
             return () => document.removeEventListener('click', handleClickOutside);
         }
     }, [openMenuChatId]);
+
+    useEffect(() => {
+        setSearchTerm("");
+        setOpenMenuChatId(null);
+    }, [location.pathname]);
 
     const handleArchiveGroup = async (chat, e) => {
         if (e) e.stopPropagation();
@@ -386,32 +398,34 @@ const Groups = () => {
                         {modeTitle}
                     </h2>
                     <p className="text-sm opacity-60" style={{ color: theme.subText }}>
-                        {isGroupsMode ? "Collaborate with your teams" : "Your private conversations"}
+                        {modeSubtitle}
                     </p>
                 </div>
                 <div className="flex gap-3">
-                    {isGroupsMode ? (
-                        <button 
-                            onClick={() => setShowCreateGroup(true)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white hover:opacity-90 transition-all font-medium shadow-md"
-                        >
-                            <MdGroupAdd size={20} />
-                            New Colab
-                        </button>
-                    ) : (
-                        <button 
-                            onClick={() => setShowStartDirect(true)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/30 text-primary hover:bg-primary/10 transition-all font-medium"
-                        >
-                            <MdPersonAdd size={20} />
-                            New Chat
-                        </button>
+                    {!isArchivedView && (
+                        isGroupsMode ? (
+                            <button 
+                                onClick={() => setShowCreateGroup(true)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white hover:opacity-90 transition-all font-medium shadow-md cursor-pointer"
+                            >
+                                <MdGroupAdd size={20} />
+                                New Colab
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={() => setShowStartDirect(true)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/30 text-primary hover:bg-primary/10 transition-all font-medium cursor-pointer"
+                            >
+                                <MdPersonAdd size={20} />
+                                New Chat
+                            </button>
+                        )
                     )}
                 </div>
             </div>
 
             {/* INVITATIONS BANNER */}
-            {pendingInvitations.length > 0 && isGroupsMode && (
+            {pendingInvitations.length > 0 && isGroupsMode && !isArchivedView && (
                 <div className="mx-6 mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex items-center justify-between shadow-sm animate-fade-in">
                     <div className="flex items-center gap-3 text-blue-800 dark:text-blue-300">
                         <MdPersonAdd size={24} />
@@ -422,7 +436,7 @@ const Groups = () => {
                     </div>
                     <button 
                         onClick={() => setShowInvitationsModal(true)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors cursor-pointer"
                     >
                         View Invitations
                     </button>
@@ -435,7 +449,7 @@ const Groups = () => {
                     <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input 
                         type="text"
-                        placeholder={`Search ${isGroupsMode ? 'colab groups' : 'messages'}...`}
+                        placeholder={`Search ${isArchivedView ? 'archived colab groups' : (isGroupsMode ? 'colab groups' : 'messages')}...`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200/50 dark:border-gray-800/50 bg-white/50 dark:bg-gray-800/50 outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -446,82 +460,40 @@ const Groups = () => {
 
             {/* CHAT LIST */}
             <div className="flex-1 overflow-y-auto px-6 pb-10 hidden-scrollbar">
-                {/* ARCHIVED DROPDOWN (Colab mode only) */}
-                {isGroupsMode && (
-                    <div className="mb-6">
-                        <button
-                            type="button"
-                            onClick={() => setIsArchivedExpanded(prev => !prev)}
-                            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 bg-white/40 dark:bg-gray-800/40 hover:bg-white/70 dark:hover:bg-gray-800/70 transition-all cursor-pointer shadow-2xs group"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-blue-100/60 dark:bg-blue-900/30 text-primary flex items-center justify-center shrink-0">
-                                    <MdArchive size={19} />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold text-sm text-gray-800 dark:text-gray-200">
-                                        Archived
-                                    </span>
-                                    {archivedChats.length > 0 && (
-                                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-primary font-semibold">
-                                            {archivedChats.length}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors">
-                                {isArchivedExpanded ? <MdKeyboardArrowUp size={22} /> : <MdKeyboardArrowDown size={22} />}
-                            </div>
-                        </button>
-
-                        {/* Collapsible Archived Groups Section */}
-                        {isArchivedExpanded && (
-                            <div className="mt-4 p-5 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 bg-white/30 dark:bg-gray-900/30 backdrop-blur-xs animate-in fade-in slide-in-from-top-1 duration-200">
-                                <div className="flex items-center gap-2.5 mb-4">
-                                    <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-primary flex items-center justify-center shrink-0">
-                                        <MdArchive size={16} />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-base leading-tight text-gray-900 dark:text-white">
-                                            Archived Colab Groups
-                                        </h3>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                            View and manage your archived colab groups
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {archivedChats.length === 0 ? (
-                                    <div className="py-10 text-center text-xs text-gray-400 dark:text-gray-500 flex flex-col items-center justify-center">
-                                        <MdArchive size={36} className="opacity-25 mb-2" />
-                                        <span className="font-medium">No archived colab groups</span>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {archivedChats.map(chat => renderGroupCard(chat, true))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {loading && chats.length === 0 ? (
-                    <div className="flex justify-center p-20">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                    </div>
-                ) : filteredChats.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-20 opacity-50">
-                        {isGroupsMode ? <MdGroup size={64} className="mb-4" /> : <MdChat size={64} className="mb-4" />}
-                        <p className="text-lg font-medium">No {isGroupsMode ? 'colab groups' : 'messages'} found</p>
-                        <p className="text-sm">
-                            {isGroupsMode ? 'Create a colab group to start collaborating' : 'Start a new chat to begin messaging'}
-                        </p>
-                    </div>
+                {isArchivedView ? (
+                    loading && chats.length === 0 ? (
+                        <div className="flex justify-center p-20">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                        </div>
+                    ) : archivedChats.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-20 opacity-50">
+                            <MdArchive size={64} className="mb-4 text-primary" />
+                            <p className="text-lg font-medium">No archived colab groups found</p>
+                            <p className="text-sm">Groups you archive will appear here</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {archivedChats.map(chat => renderGroupCard(chat, true))}
+                        </div>
+                    )
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredChats.map(chat => renderGroupCard(chat, false))}
-                    </div>
+                    loading && chats.length === 0 ? (
+                        <div className="flex justify-center p-20">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                        </div>
+                    ) : filteredChats.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-20 opacity-50">
+                            {isGroupsMode ? <MdGroup size={64} className="mb-4" /> : <MdChat size={64} className="mb-4" />}
+                            <p className="text-lg font-medium">No {isGroupsMode ? 'colab groups' : 'messages'} found</p>
+                            <p className="text-sm">
+                                {isGroupsMode ? 'Create a colab group to start collaborating' : 'Start a new chat to begin messaging'}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredChats.map(chat => renderGroupCard(chat, false))}
+                        </div>
+                    )
                 )}
             </div>
 
