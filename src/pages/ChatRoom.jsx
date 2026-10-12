@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   MdArrowBack,
@@ -718,6 +718,9 @@ const ChatRoom = () => {
   const [isSendingComment, setIsSendingComment] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const hasInitialScrolledRef = useRef(false);
+  const prevChatIdRef = useRef(chatId);
+  const prevMessagesLengthRef = useRef(messages.length);
   const [isChatStarred, setIsChatStarred] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef(null);
@@ -1025,30 +1028,98 @@ const ChatRoom = () => {
     }
   };
 
-  const isUserNearBottom = () => {
+  const isUserNearBottom = useCallback(() => {
     const container = messagesContainerRef.current || messagesEndRef.current?.parentElement;
     if (!container) return true;
     const threshold = 150;
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     return distanceFromBottom <= threshold;
-  };
+  }, []);
 
-  const scrollToBottom = (force = false) => {
+  const scrollToBottom = useCallback((force = false) => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
     if (force || isUserNearBottom()) {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      } else if (messagesEndRef.current?.parentElement) {
-        messagesEndRef.current.parentElement.scrollTop = messagesEndRef.current.parentElement.scrollHeight;
-      }
+      container.scrollTop = container.scrollHeight;
       setHasNewMessagesBelow(false);
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      });
     }
-  };
+  }, [isUserNearBottom]);
 
-  const handleMessagesScroll = () => {
+  const handleMessagesScroll = useCallback(() => {
     if (isUserNearBottom()) {
       setHasNewMessagesBelow(false);
     }
-  };
+  }, [isUserNearBottom]);
+
+  // Synchronously position scroll at bottom before browser paint
+  useLayoutEffect(() => {
+    if (!chatId || messages.length === 0) return;
+
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const isFirstScrollForChat = !hasInitialScrolledRef.current || prevChatIdRef.current !== chatId;
+
+    if (isFirstScrollForChat) {
+      hasInitialScrolledRef.current = true;
+      prevChatIdRef.current = chatId;
+      prevMessagesLengthRef.current = messages.length;
+
+      // Scroll immediately before paint so oldest message is never visible
+      container.scrollTop = container.scrollHeight;
+      setHasNewMessagesBelow(false);
+
+      // Verify on animation frame in case fonts or flex layout expand
+      const rafId = requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      });
+      return () => cancelAnimationFrame(rafId);
+    } else {
+      const hasNewMessage = messages.length > prevMessagesLengthRef.current;
+      prevMessagesLengthRef.current = messages.length;
+
+      if (hasNewMessage) {
+        const lastMsg = messages[messages.length - 1];
+        const isFromMe = isMessageFromMe(lastMsg, user);
+
+        if (isFromMe || isUserNearBottom()) {
+          container.scrollTop = container.scrollHeight;
+          setHasNewMessagesBelow(false);
+          const rafId = requestAnimationFrame(() => {
+            if (messagesContainerRef.current) {
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+            }
+          });
+          return () => cancelAnimationFrame(rafId);
+        } else {
+          setHasNewMessagesBelow(true);
+        }
+      }
+    }
+  }, [chatId, messages, user, isUserNearBottom]);
+
+  // Re-scroll when comments pane expands or becomes visible
+  useLayoutEffect(() => {
+    if (isChatPaneOpen && messages.length > 0) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+        const rafId = requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+          }
+        });
+        return () => cancelAnimationFrame(rafId);
+      }
+    }
+  }, [isChatPaneOpen, messages.length]);
 
 
   const handleIncomingMessage = useCallback((response, fromRestTempId = null) => {
@@ -1128,7 +1199,7 @@ const ChatRoom = () => {
     });
 
     if (isMe || nearBottom) {
-      setTimeout(() => scrollToBottom(true), 50);
+      scrollToBottom(true);
     } else {
       setHasNewMessagesBelow(true);
     }
@@ -1229,6 +1300,9 @@ const ChatRoom = () => {
     }
     abortControllerRef.current = new AbortController();
     isFetchingHistoryRef.current = false;
+    hasInitialScrolledRef.current = false;
+    prevChatIdRef.current = chatId;
+    prevMessagesLengthRef.current = 0;
 
     // Clear stale messages and comments error when changing chat
     const cached = chatCache.getMessages(chatId);
@@ -1390,7 +1464,7 @@ const ChatRoom = () => {
       clearTimeout(timeoutId);
       isFetchingHistoryRef.current = false;
       setLoadingComments(false);
-      setTimeout(() => scrollToBottom(true), 50);
+      scrollToBottom(true);
     }
   }, [chatId]);
 
@@ -1595,7 +1669,7 @@ const ChatRoom = () => {
     setSelectedAttachments([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setIsSendingComment(true);
-    setTimeout(() => scrollToBottom(true), 50);
+    scrollToBottom(true);
 
     const payload = {
       chatId: parseInt(chatId),
