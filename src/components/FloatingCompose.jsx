@@ -677,8 +677,9 @@ const FloatingCompose = () => {
                 detail: { receiverEmail: formData.to.trim(), message: res.data } 
             }));
         } catch(err) {
-            setError(err.response?.data?.message || "Failed to send chat message");
-            toast.error("Failed to send message");
+            const errMsg = err.response?.data?.message || "Failed to send message";
+            setError(errMsg);
+            toast.error(errMsg);
         } finally {
             sendingRef.current = false;
             setSending(false);

@@ -5,7 +5,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useMail } from "../context/MailContext";
-import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI } from "../services/api";
+import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI, blockedContactsAPI } from "../services/api";
 import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore, MdOutlineEmojiEmotions, MdAdd } from "react-icons/md";
 import { SiAdobeacrobatreader } from "react-icons/si";
 import toast from "react-hot-toast";
@@ -831,6 +831,47 @@ const Casbox = () => {
   });
   const [showBlockedModal, setShowBlockedModal] = useState(false);
 
+  const blockedContactsRef = React.useRef(blockedContacts);
+  useEffect(() => {
+    blockedContactsRef.current = blockedContacts;
+  }, [blockedContacts]);
+
+  const loadBlockedContacts = useCallback(async () => {
+    try {
+      const res = await blockedContactsAPI.getBlockedContacts();
+      const rawList = res.data?.data || res.data || [];
+      const list = Array.isArray(rawList) ? rawList : [];
+      const normalizedList = list
+        .map(item => (typeof item === 'string' ? item : item?.email || item?.blockedEmail || ''))
+        .map(normalizeEmail)
+        .filter(Boolean);
+      const uniqueList = Array.from(new Set(normalizedList));
+      setBlockedContacts(uniqueList);
+      try {
+        sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(uniqueList));
+      } catch (e) {}
+    } catch (err) {
+      console.warn("Failed to load blocked contacts from server", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user?.email) {
+      loadBlockedContacts();
+    }
+  }, [user?.email, loadBlockedContacts]);
+
+  const isBlockedContact = useCallback((targetEmail) => {
+    if (!targetEmail) return false;
+    const norm = normalizeEmail(targetEmail);
+    const local = norm.includes('@') ? norm.split('@')[0] : norm;
+    return blockedContacts.some(b => {
+      const bNorm = normalizeEmail(b);
+      const bLocal = bNorm.includes('@') ? bNorm.split('@')[0] : bNorm;
+      return bNorm === norm || bLocal === local;
+    });
+  }, [blockedContacts]);
+
   const acceptedContactsRef = React.useRef(acceptedContacts);
   useEffect(() => {
     acceptedContactsRef.current = acceptedContacts;
@@ -952,12 +993,24 @@ const Casbox = () => {
         try {
           const newMsg = JSON.parse(message.body);
           if (newMsg && newMsg.id) {
+            const sender = normalizeEmail(newMsg.senderEmail || newMsg.sender);
+            const senderLocal = sender.includes('@') ? sender.split('@')[0] : sender;
+
+            // Reject incoming messages from blocked users
+            const isBlocked = blockedContactsRef.current.some(b => {
+              const bNorm = normalizeEmail(b);
+              const bLocal = bNorm.includes('@') ? bNorm.split('@')[0] : bNorm;
+              return bNorm === sender || bLocal === senderLocal;
+            });
+            if (isBlocked) {
+              return;
+            }
+
             setMessages(prev => {
               if (prev.some(m => m.id === newMsg.id)) return prev;
               return [newMsg, ...prev];
             });
 
-            const sender = normalizeEmail(newMsg.senderEmail || newMsg.sender);
             const otherEmail = normalizeEmail(
               isCurrentUserRef.current(sender)
                 ? (newMsg.receiverEmail || newMsg.receiver)
@@ -1663,17 +1716,10 @@ const Casbox = () => {
         const res = await userAPI.getSettings();
         const s = (res.data && res.data.data) ? res.data.data : (res.data || {});
         const accepted = s.casboxAccepted || [];
-        const blocked = s.casboxBlocked || [];
         if (Array.isArray(accepted)) {
           setAcceptedContacts(accepted);
           try {
             sessionStorage.setItem('bnx_casbox_accepted', JSON.stringify(accepted));
-          } catch (e) {}
-        }
-        if (Array.isArray(blocked)) {
-          setBlockedContacts(blocked);
-          try {
-            sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(blocked));
           } catch (e) {}
         }
       } catch (e) {
@@ -2493,6 +2539,7 @@ const Casbox = () => {
       const contactNorm = normalizeEmail(rawContact);
       const contactLocal = contactNorm.includes('@') ? contactNorm.split('@')[0] : contactNorm;
 
+      if (blockedSet.has(contactNorm) || blockedSet.has(contactLocal)) continue;
       if (disconnectedSet.has(contactNorm) || disconnectedSet.has(contactLocal)) continue;
 
       // Match existing group by either full normalized address or local part to prevent duplicates
@@ -2762,6 +2809,11 @@ const Casbox = () => {
       ? selectedMessage.receiverEmail
       : selectedMessage.senderEmail;
 
+    if (isBlockedContact(otherEmail)) {
+      toast.error("You have blocked this contact. Unblock to send messages.");
+      return;
+    }
+
     if (isDisconnectedContact(otherEmail)) {
       toast.error("Cannot send message. This connection is disconnected.");
       return;
@@ -2801,7 +2853,7 @@ const Casbox = () => {
 
     } catch (err) {
       console.error("Failed to send Casbox message", err);
-      const errMsg = err.response?.data?.message || err.response?.data?.error || "Cannot send message. This connection is disconnected.";
+      const errMsg = err.response?.data?.message || err.response?.data?.error || "Failed to send message.";
       toast.error(errMsg);
     } finally {
       setSendingChat(false);
@@ -3874,35 +3926,49 @@ const Casbox = () => {
   };
 
   const handleBlockRequest = async (senderEmail) => {
+    if (!senderEmail) return;
+    const emailLower = normalizeEmail(senderEmail);
+    if (!emailLower) return;
+
     try {
-      const emailLower = normalizeEmail(senderEmail);
-      const newBlocked = Array.from(new Set([...blockedContacts.map(normalizeEmail), emailLower])).filter(Boolean);
+      await blockedContactsAPI.blockSender(emailLower);
+      const newBlocked = Array.from(new Set([...blockedContactsRef.current.map(normalizeEmail), emailLower])).filter(Boolean);
       setBlockedContacts(newBlocked);
       try {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
       } catch (e) {}
-      await userAPI.updateSettings({ casboxBlocked: newBlocked });
       toast.success("User blocked");
-      setSelectedMessage(null);
+      setSelectedMessage((prev) => {
+        if (!prev) return null;
+        const other = normalizeEmail(prev.senderEmail === user?.email ? prev.receiverEmail : prev.senderEmail);
+        return other === emailLower ? null : prev;
+      });
+      fetchMessages(true);
     } catch (e) {
-      toast.error("Failed to block user");
-      setBlockedContacts(blockedContacts);
+      console.error("Failed to block user", e);
+      const msg = e.response?.data?.message || e.message || "Failed to block user";
+      toast.error(msg);
     }
   };
 
   const handleUnblockUser = async (senderEmail) => {
+    if (!senderEmail) return;
+    const emailLower = normalizeEmail(senderEmail);
+    if (!emailLower) return;
+
     try {
-      const emailLower = normalizeEmail(senderEmail);
-      const newBlocked = blockedContacts.filter(email => normalizeEmail(email) !== emailLower);
+      await blockedContactsAPI.unblockSender(emailLower);
+      const newBlocked = blockedContactsRef.current.filter(email => normalizeEmail(email) !== emailLower);
       setBlockedContacts(newBlocked);
       try {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
       } catch (e) {}
-      await userAPI.updateSettings({ casboxBlocked: newBlocked });
       toast.success("User unblocked");
+      fetchMessages(true);
     } catch (e) {
-      toast.error("Failed to unblock user");
-      setBlockedContacts(blockedContacts);
+      console.error("Failed to unblock user", e);
+      const msg = e.response?.data?.message || e.message || "Failed to unblock user";
+      toast.error(msg);
     }
   };
 
@@ -4289,12 +4355,17 @@ const Casbox = () => {
                   </button>
                   <button
                     onClick={() => {
-                      handleBlockRequest(otherUserEmail);
+                      if (isBlockedContact(otherUserEmail)) {
+                        handleUnblockUser(otherUserEmail);
+                      } else {
+                        handleBlockRequest(otherUserEmail);
+                      }
                       setShowMoreMenu(false);
                     }}
                     className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2"
                   >
-                    Block Contact
+                    <MdBlock size={16} />
+                    {isBlockedContact(otherUserEmail) ? "Unblock Contact" : "Block Contact"}
                   </button>
                   <button
                     onClick={() => {
@@ -4722,7 +4793,20 @@ const Casbox = () => {
           className="p-4 border-t bg-white dark:bg-[#121212] shrink-0"
           style={{ borderColor: theme?.border || '#e2e8f0' }}
         >
-          {isDisconnectedContact(otherUserEmail) ? (
+          {isBlockedContact(otherUserEmail) ? (
+            <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200/80 dark:border-red-800/40 text-red-900 dark:text-red-200 text-xs">
+              <span className="font-semibold flex items-center gap-1.5">
+                <MdBlock size={16} className="text-red-500" /> You have blocked this user. Unblock to send messages.
+              </span>
+              <button
+                type="button"
+                onClick={() => handleUnblockUser(otherUserEmail)}
+                className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-xs transition-colors shrink-0 cursor-pointer shadow-xs"
+              >
+                Unblock
+              </button>
+            </div>
+          ) : isDisconnectedContact(otherUserEmail) ? (
             <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 text-xs">
               <span className="font-semibold">Cannot send message. This connection is disconnected.</span>
               <button
