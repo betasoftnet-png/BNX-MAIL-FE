@@ -341,37 +341,6 @@ const AppContent = () => {
       </div>
       
       <FloatingCompose />
-      <Toaster
-        position="bottom-center"
-        toastOptions={{
-          className: "custom-toast",
-        }}
-      >
-        {(t) => {
-          let displayMessage = t.message;
-          if (typeof displayMessage === 'string') {
-            displayMessage = getFriendlyMessage(displayMessage);
-          }
-          return (
-            <ToastBar toast={{ ...t, message: displayMessage }}>
-              {({ icon, message }) => (
-                <>
-                  {icon}
-                  {message}
-                  {t.type !== 'loading' && (
-                    <button
-                      onClick={() => toast.dismiss(t.id)}
-                      className="ml-2 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 text-xs font-semibold leading-none cursor-pointer p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </>
-              )}
-            </ToastBar>
-          );
-        }}
-      </Toaster>
     </div>
   );
 };
@@ -438,6 +407,37 @@ const App = () => (
                   />
                 </Routes>
               </React.Suspense>
+              <Toaster
+                position="bottom-center"
+                toastOptions={{
+                  className: "custom-toast",
+                }}
+              >
+                {(t) => {
+                  let displayMessage = t.message;
+                  if (typeof displayMessage === 'string') {
+                    displayMessage = getFriendlyMessage(displayMessage);
+                  }
+                  return (
+                    <ToastBar toast={{ ...t, message: displayMessage }}>
+                      {({ icon, message }) => (
+                        <>
+                          {icon}
+                          {message}
+                          {t.type !== 'loading' && (
+                            <button
+                              onClick={() => toast.dismiss(t.id)}
+                              className="ml-2 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 text-xs font-semibold leading-none cursor-pointer p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </ToastBar>
+                  );
+                }}
+              </Toaster>
             </Router>
           </SignupProvider>
         </SocketProvider>
