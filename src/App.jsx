@@ -15,54 +15,56 @@ import SideBar from "./components/SideBar";
 import FloatingCompose from "./components/FloatingCompose";
 import BitToolSidebar from "./components/BitToolSidebar";
 import { StickyNote, NotesManager } from "./components/StickyNotes";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { lazyRetry } from "./utils/lazyRetry";
 
-/* Pages - Lazy Loaded for instant application start */
-const Login = React.lazy(() => import("./pages/Login"));
-const ForgotPassword = React.lazy(() => import("./pages/ForgotPassword"));
-const CreateMailbox = React.lazy(() => import("./pages/CreateMailbox"));
-const Inbox = React.lazy(() => import("./pages/Inbox"));
-const Starred = React.lazy(() => import("./pages/Starred"));
-const Unread = React.lazy(() => import("./pages/Unread"));
-const Draft = React.lazy(() => import("./pages/Draft"));
-const Send = React.lazy(() => import("./pages/Send"));
-const Outbox = React.lazy(() => import("./pages/Outbox"));
-const Scheduled = React.lazy(() => import("./pages/Scheduled"));
-const Spam = React.lazy(() => import("./pages/Spam"));
-const Trash = React.lazy(() => import("./pages/Trash"));
-const AllMail = React.lazy(() => import("./pages/AllMail"));
-const Archive = React.lazy(() => import("./pages/Archive"));
-const Settings = React.lazy(() => import("./pages/Settings"));
-const Groups = React.lazy(() => import("./pages/Groups"));
-const ChatRoom = React.lazy(() => import("./pages/ChatRoom"));
-const GroupDetails = React.lazy(() => import("./pages/GroupDetails"));
-const Terms = React.lazy(() => import("./pages/Terms"));
-const Privacy = React.lazy(() => import("./pages/Privacy"));
-const VerifyDomain = React.lazy(() => import("./pages/VerifyDomain"));
-const Templates = React.lazy(() => import("./pages/Templates"));
-const Snoozed = React.lazy(() => import("./pages/Snoozed"));
-const Subscriptions = React.lazy(() => import("./pages/Subscriptions"));
-const Vault = React.lazy(() => import("./pages/Vault"));
-const Casbox = React.lazy(() => import("./pages/Casbox"));
-const Maintenance = React.lazy(() => import("./pages/Maintenance"));
-const Support = React.lazy(() => import("./pages/Support"));
-const BulkMail = React.lazy(() => import("./pages/BulkMail"));
-const Notification = React.lazy(() => import("./pages/Notification"));
-const StorageManagement = React.lazy(() => import("./pages/StorageManagement"));
-const MailBackup = React.lazy(() => import("./pages/MailBackup"));
-const MailBackupViewer = React.lazy(() => import("./pages/MailBackupViewer"));
-const AnalyticsApp = React.lazy(() => import("./components/AnalyticsApp"));
+/* Pages - Lazy Loaded with auto-retry and chunk reload recovery */
+const Login = lazyRetry(() => import("./pages/Login"), "Login");
+const ForgotPassword = lazyRetry(() => import("./pages/ForgotPassword"), "ForgotPassword");
+const CreateMailbox = lazyRetry(() => import("./pages/CreateMailbox"), "CreateMailbox");
+const Inbox = lazyRetry(() => import("./pages/Inbox"), "Inbox");
+const Starred = lazyRetry(() => import("./pages/Starred"), "Starred");
+const Unread = lazyRetry(() => import("./pages/Unread"), "Unread");
+const Draft = lazyRetry(() => import("./pages/Draft"), "Draft");
+const Send = lazyRetry(() => import("./pages/Send"), "Send");
+const Outbox = lazyRetry(() => import("./pages/Outbox"), "Outbox");
+const Scheduled = lazyRetry(() => import("./pages/Scheduled"), "Scheduled");
+const Spam = lazyRetry(() => import("./pages/Spam"), "Spam");
+const Trash = lazyRetry(() => import("./pages/Trash"), "Trash");
+const AllMail = lazyRetry(() => import("./pages/AllMail"), "AllMail");
+const Archive = lazyRetry(() => import("./pages/Archive"), "Archive");
+const Settings = lazyRetry(() => import("./pages/Settings"), "Settings");
+const Groups = lazyRetry(() => import("./pages/Groups"), "Groups");
+const ChatRoom = lazyRetry(() => import("./pages/ChatRoom"), "ChatRoom");
+const GroupDetails = lazyRetry(() => import("./pages/GroupDetails"), "GroupDetails");
+const Terms = lazyRetry(() => import("./pages/Terms"), "Terms");
+const Privacy = lazyRetry(() => import("./pages/Privacy"), "Privacy");
+const VerifyDomain = lazyRetry(() => import("./pages/VerifyDomain"), "VerifyDomain");
+const Templates = lazyRetry(() => import("./pages/Templates"), "Templates");
+const Snoozed = lazyRetry(() => import("./pages/Snoozed"), "Snoozed");
+const Subscriptions = lazyRetry(() => import("./pages/Subscriptions"), "Subscriptions");
+const Vault = lazyRetry(() => import("./pages/Vault"), "Vault");
+const Casbox = lazyRetry(() => import("./pages/Casbox"), "Casbox");
+const Maintenance = lazyRetry(() => import("./pages/Maintenance"), "Maintenance");
+const Support = lazyRetry(() => import("./pages/Support"), "Support");
+const BulkMail = lazyRetry(() => import("./pages/BulkMail"), "BulkMail");
+const Notification = lazyRetry(() => import("./pages/Notification"), "Notification");
+const StorageManagement = lazyRetry(() => import("./pages/StorageManagement"), "StorageManagement");
+const MailBackup = lazyRetry(() => import("./pages/MailBackup"), "MailBackup");
+const MailBackupViewer = lazyRetry(() => import("./pages/MailBackupViewer"), "MailBackupViewer");
+const AnalyticsApp = lazyRetry(() => import("./components/AnalyticsApp"), "AnalyticsApp");
 
 /* Signup Pages */
-const SignupLayout = React.lazy(() => import("./pages/signup/SignupLayout"));
-const SignupSelection = React.lazy(() => import("./pages/signup/SignupSelection"));
-const SignupProfile = React.lazy(() => import("./pages/signup/SignupProfile"));
-const SignupChild = React.lazy(() => import("./pages/signup/SignupChild"));
-const SignupMobileVerify = React.lazy(() => import("./pages/signup/SignupMobileVerify"));
-const SignupParentVerify = React.lazy(() => import("./pages/signup/SignupParentVerify"));
-const SignupBusiness = React.lazy(() => import("./pages/signup/SignupBusiness"));
-const SignupMail = React.lazy(() => import("./pages/signup/SignupMail"));
-const SignupPasswordSetup = React.lazy(() => import("./pages/signup/SignupPasswordSetup"));
-const SignupBusinessOnboarding = React.lazy(() => import("./pages/signup/SignupBusinessOnboarding"));
+const SignupLayout = lazyRetry(() => import("./pages/signup/SignupLayout"), "SignupLayout");
+const SignupSelection = lazyRetry(() => import("./pages/signup/SignupSelection"), "SignupSelection");
+const SignupProfile = lazyRetry(() => import("./pages/signup/SignupProfile"), "SignupProfile");
+const SignupChild = lazyRetry(() => import("./pages/signup/SignupChild"), "SignupChild");
+const SignupMobileVerify = lazyRetry(() => import("./pages/signup/SignupMobileVerify"), "SignupMobileVerify");
+const SignupParentVerify = lazyRetry(() => import("./pages/signup/SignupParentVerify"), "SignupParentVerify");
+const SignupBusiness = lazyRetry(() => import("./pages/signup/SignupBusiness"), "SignupBusiness");
+const SignupMail = lazyRetry(() => import("./pages/signup/SignupMail"), "SignupMail");
+const SignupPasswordSetup = lazyRetry(() => import("./pages/signup/SignupPasswordSetup"), "SignupPasswordSetup");
+const SignupBusinessOnboarding = lazyRetry(() => import("./pages/signup/SignupBusinessOnboarding"), "SignupBusinessOnboarding");
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-full min-h-[300px] w-full">
@@ -261,43 +263,45 @@ const AppContent = () => {
               WebkitBackdropFilter: backgroundImage ? "none" : "none",
             }}
           >
-            <React.Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/" element={<Inbox searchQuery={searchQuery} />} />
-                <Route path="/analytics" element={<AnalyticsApp />} />
-                <Route path="/inbox" element={<Inbox searchQuery={searchQuery} />} />
-                <Route path="/all-inbox" element={<Inbox searchQuery={searchQuery} />} />
-                <Route path="/starred" element={<Starred searchQuery={searchQuery} />} />
-                <Route path="/unread" element={<Unread searchQuery={searchQuery} />} />
-                <Route path="/snoozed" element={<Snoozed searchQuery={searchQuery} />} />
-                <Route path="/draft" element={<Draft searchQuery={searchQuery} />} />
-                <Route path="/sent" element={<Send searchQuery={searchQuery} />} />
-                <Route path="/outbox" element={<Outbox searchQuery={searchQuery} />} />
-                <Route path="/scheduled" element={<Scheduled searchQuery={searchQuery} />} />
-                <Route path="/spam" element={<Spam searchQuery={searchQuery} />} />
-                <Route path="/bulk-mail" element={<BulkMail searchQuery={searchQuery} />} />
-                <Route path="/notifyhub" element={<Notification searchQuery={searchQuery} />} />
-                <Route path="/trash" element={<Trash searchQuery={searchQuery} />} />
-                <Route path="/archive" element={<Archive searchQuery={searchQuery} />} />
-                <Route path="/all-mail" element={<AllMail searchQuery={searchQuery} />} />
-                <Route path="/allmail" element={<AllMail searchQuery={searchQuery} />} />
-                <Route path="/templates" element={<Templates />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/colab" element={<Groups />} />
-                <Route path="/colab/archived" element={<Groups />} />
-                <Route path="/colab/starred" element={<Groups />} />
-                <Route path="/colab/:id" element={<GroupDetails />} />
-                {/* <Route path="/chat" element={<Groups />} /> */}
-                <Route path="/chat/:chatId" element={<ChatRoom />} />
-                <Route path="/label/:labelId" element={<AllMail searchQuery={searchQuery} />} />
-                <Route path="/subscriptions" element={<Subscriptions searchQuery={searchQuery} />} />
-                <Route path="/vault" element={<Vault />} />
-                <Route path="/casbox" element={<Casbox />} />
-                <Route path="/support" element={<Support />} />
-                <Route path="/mail-backup" element={<MailBackup />} />
-                <Route path="/mail-backup/:id" element={<MailBackupViewer />} />
-              </Routes>
-            </React.Suspense>
+            <ErrorBoundary>
+              <React.Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Inbox searchQuery={searchQuery} />} />
+                  <Route path="/analytics" element={<AnalyticsApp />} />
+                  <Route path="/inbox" element={<Inbox searchQuery={searchQuery} />} />
+                  <Route path="/all-inbox" element={<Inbox searchQuery={searchQuery} />} />
+                  <Route path="/starred" element={<Starred searchQuery={searchQuery} />} />
+                  <Route path="/unread" element={<Unread searchQuery={searchQuery} />} />
+                  <Route path="/snoozed" element={<Snoozed searchQuery={searchQuery} />} />
+                  <Route path="/draft" element={<Draft searchQuery={searchQuery} />} />
+                  <Route path="/sent" element={<Send searchQuery={searchQuery} />} />
+                  <Route path="/outbox" element={<Outbox searchQuery={searchQuery} />} />
+                  <Route path="/scheduled" element={<Scheduled searchQuery={searchQuery} />} />
+                  <Route path="/spam" element={<Spam searchQuery={searchQuery} />} />
+                  <Route path="/bulk-mail" element={<BulkMail searchQuery={searchQuery} />} />
+                  <Route path="/notifyhub" element={<Notification searchQuery={searchQuery} />} />
+                  <Route path="/trash" element={<Trash searchQuery={searchQuery} />} />
+                  <Route path="/archive" element={<Archive searchQuery={searchQuery} />} />
+                  <Route path="/all-mail" element={<AllMail searchQuery={searchQuery} />} />
+                  <Route path="/allmail" element={<AllMail searchQuery={searchQuery} />} />
+                  <Route path="/templates" element={<Templates />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/colab" element={<Groups />} />
+                  <Route path="/colab/archived" element={<Groups />} />
+                  <Route path="/colab/starred" element={<Groups />} />
+                  <Route path="/colab/:id" element={<GroupDetails />} />
+                  {/* <Route path="/chat" element={<Groups />} /> */}
+                  <Route path="/chat/:chatId" element={<ChatRoom />} />
+                  <Route path="/label/:labelId" element={<AllMail searchQuery={searchQuery} />} />
+                  <Route path="/subscriptions" element={<Subscriptions searchQuery={searchQuery} />} />
+                  <Route path="/vault" element={<Vault />} />
+                  <Route path="/casbox" element={<Casbox />} />
+                  <Route path="/support" element={<Support />} />
+                  <Route path="/mail-backup" element={<MailBackup />} />
+                  <Route path="/mail-backup/:id" element={<MailBackupViewer />} />
+                </Routes>
+              </React.Suspense>
+            </ErrorBoundary>
           </main>
 
           <BitToolSidebar 
@@ -354,59 +358,61 @@ const App = () => (
         <SocketProvider>
           <SignupProvider>
             <Router>
-              <React.Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Navigate to="/signup/selection" replace />} />
-                  
-                  {/* Signup Flow */}
-                  <Route path="/signup" element={<SignupLayout />}>
-                    <Route path="selection" element={<SignupSelection />} />
-                    <Route path="profile" element={<SignupProfile />} />
-                    <Route path="child" element={<SignupChild />} />
-                    <Route path="parent-verify" element={<SignupParentVerify />} />
-                    <Route path="business" element={<SignupBusiness />} />
-                    <Route path="mobile-verify" element={<SignupMobileVerify />} />
-                    <Route path="mail" element={<SignupMail />} />
-                    <Route path="password-setup" element={<SignupPasswordSetup />} />
-                  </Route>
+              <ErrorBoundary>
+                <React.Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Navigate to="/signup/selection" replace />} />
+                    
+                    {/* Signup Flow */}
+                    <Route path="/signup" element={<SignupLayout />}>
+                      <Route path="selection" element={<SignupSelection />} />
+                      <Route path="profile" element={<SignupProfile />} />
+                      <Route path="child" element={<SignupChild />} />
+                      <Route path="parent-verify" element={<SignupParentVerify />} />
+                      <Route path="business" element={<SignupBusiness />} />
+                      <Route path="mobile-verify" element={<SignupMobileVerify />} />
+                      <Route path="mail" element={<SignupMail />} />
+                      <Route path="password-setup" element={<SignupPasswordSetup />} />
+                    </Route>
 
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route path="/create-mailbox" element={<CreateMailbox />} />
-                  <Route path="/terms" element={<Terms />} />
-                  <Route path="/privacy" element={<Privacy />} />
-                  <Route path="/verify-domain" element={<VerifyDomain />} />
-                  <Route path="/maintenance" element={<Maintenance />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/create-mailbox" element={<CreateMailbox />} />
+                    <Route path="/terms" element={<Terms />} />
+                    <Route path="/privacy" element={<Privacy />} />
+                    <Route path="/verify-domain" element={<VerifyDomain />} />
+                    <Route path="/maintenance" element={<Maintenance />} />
 
-                  {/* Protected Business Onboarding */}
-                  <Route 
-                    path="/signup/business-onboarding" 
-                    element={
-                      <ProtectedRoute>
-                        <SignupBusinessOnboarding />
-                      </ProtectedRoute>
-                    } 
-                  />
+                    {/* Protected Business Onboarding */}
+                    <Route 
+                      path="/signup/business-onboarding" 
+                      element={
+                        <ProtectedRoute>
+                          <SignupBusinessOnboarding />
+                        </ProtectedRoute>
+                      } 
+                    />
 
-                  <Route 
-                    path="/storage-management" 
-                    element={
-                      <ProtectedRoute>
-                        <StorageManagement />
-                      </ProtectedRoute>
-                    } 
-                  />
+                    <Route 
+                      path="/storage-management" 
+                      element={
+                        <ProtectedRoute>
+                          <StorageManagement />
+                        </ProtectedRoute>
+                      } 
+                    />
 
-                  <Route
-                    path="/*"
-                    element={
-                      <ProtectedRoute>
-                        <AppContent />
-                      </ProtectedRoute>
-                    }
-                  />
-                </Routes>
-              </React.Suspense>
+                    <Route
+                      path="/*"
+                      element={
+                        <ProtectedRoute>
+                          <AppContent />
+                        </ProtectedRoute>
+                      }
+                    />
+                  </Routes>
+                </React.Suspense>
+              </ErrorBoundary>
               <Toaster
                 position="bottom-center"
                 toastOptions={{
