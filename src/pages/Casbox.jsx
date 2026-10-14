@@ -1501,17 +1501,90 @@ const Casbox = () => {
     toast.success("Message unsent");
   }, [unsendMessageTarget, selectedMessage, pinnedMessagesMap, handleUnpinMessage, replyingToMessage, getOtherUserEmail]);
 
+  // Accurately calculates message age in seconds, accounting for server vs client timezone representation and clock skew
+  const getMessageAgeSeconds = useCallback((msg, referenceTime = Date.now()) => {
+    if (!msg) return Infinity;
+    const rawTs = msg.timestamp || msg.createdAt || msg.time;
+    if (!rawTs) return Infinity;
+
+    if (typeof rawTs === 'number') {
+      const diff = (referenceTime - rawTs) / 1000;
+      return diff >= -30 ? Math.max(0, diff) : Infinity;
+    }
+
+    if (rawTs instanceof Date) {
+      const diff = (referenceTime - rawTs.getTime()) / 1000;
+      return diff >= -30 ? Math.max(0, diff) : Infinity;
+    }
+
+    if (Array.isArray(rawTs)) {
+      const [y, m = 1, d = 1, h = 0, min = 0, s = 0] = rawTs;
+      const dLocal = new Date(y, m - 1, d, h, min, s).getTime();
+      const dUtc = new Date(Date.UTC(y, m - 1, d, h, min, s)).getTime();
+      const diffL = (referenceTime - dLocal) / 1000;
+      const diffU = (referenceTime - dUtc) / 1000;
+      const candL = diffL >= -30 && diffL <= 600 ? diffL : null;
+      const candU = diffU >= -30 && diffU <= 600 ? diffU : null;
+      if (candL !== null && candU !== null) return Math.max(0, Math.min(candL, candU));
+      if (candL !== null) return Math.max(0, candL);
+      if (candU !== null) return Math.max(0, candU);
+      return Math.max(0, Math.min(Math.abs(diffL), Math.abs(diffU)));
+    }
+
+    if (typeof rawTs === 'string') {
+      let str = rawTs.trim();
+      if (!str) return Infinity;
+      if (str.includes(' ') && !str.includes('T')) {
+        str = str.replace(' ', 'T');
+      }
+
+      const hasTz = /Z$|[+-]\d{2}(:?\d{2})?$/i.test(str);
+      if (hasTz) {
+        const d = new Date(str);
+        if (isNaN(d.getTime())) return Infinity;
+        const diff = (referenceTime - d.getTime()) / 1000;
+        return diff >= -30 ? Math.max(0, diff) : Infinity;
+      }
+
+      // No timezone offset specified in string (e.g. "2026-10-14T14:40:00")
+      // Evaluate both local server time and UTC server time interpretations
+      const dLocal = new Date(str).getTime();
+      const dUtc = new Date(`${str}Z`).getTime();
+      const diffL = !isNaN(dLocal) ? (referenceTime - dLocal) / 1000 : Infinity;
+      const diffU = !isNaN(dUtc) ? (referenceTime - dUtc) / 1000 : Infinity;
+
+      const validL = diffL >= -30 && diffL <= 600;
+      const validU = diffU >= -30 && diffU <= 600;
+
+      if (validL && !validU) return Math.max(0, diffL);
+      if (validU && !validL) return Math.max(0, diffU);
+      if (validL && validU) return Math.max(0, Math.min(diffL, diffU));
+
+      // Handle timezone offset discrepancy (e.g. IST +05:30)
+      if (diffL < -120) {
+        const tzOffsetSec = (new Date().getTimezoneOffset()) * 60;
+        const adjustedDiff = diffL - tzOffsetSec;
+        if (adjustedDiff >= -30 && adjustedDiff <= 600) {
+          return Math.max(0, adjustedDiff);
+        }
+      }
+
+      if (diffL >= 0 && diffU < 0) return diffL;
+      if (diffU >= 0 && diffL < 0) return diffU;
+      return Math.min(Math.abs(diffL), Math.abs(diffU));
+    }
+
+    return Infinity;
+  }, []);
+
   // Check if message was sent by current user and is within the 5-minute (300 seconds) window
   const isMessageEditable = useCallback((msg) => {
     if (!msg) return false;
     const msgSender = msg.senderEmail || msg.sender;
-    if (!isCurrentUser(msgSender)) return false;
-    const createdMs = getTimestampMs(msg.timestamp);
-    if (!createdMs) return false;
-    const diffMs = nowTime - createdMs;
-    // Available only during the first 5 minutes (300 seconds) after original message was sent
-    return diffMs >= 0 && diffMs <= 300 * 1000;
-  }, [isCurrentUser, nowTime]);
+    if (!msgSender || !isCurrentUser(msgSender)) return false;
+    const ageSeconds = getMessageAgeSeconds(msg, nowTime);
+    return ageSeconds >= 0 && ageSeconds <= 300;
+  }, [isCurrentUser, nowTime, getMessageAgeSeconds]);
 
   const handleInitiateEdit = useCallback((msg) => {
     setActiveMessageMenuId(null);
@@ -1548,8 +1621,8 @@ const Casbox = () => {
     }
 
     // Server-enforced & client check: 5-minute limit calculated from original creation timestamp
-    const createdMs = getTimestampMs(editingMessage.timestamp);
-    if (Date.now() - createdMs > 300 * 1000) {
+    const ageSeconds = getMessageAgeSeconds(editingMessage, Date.now());
+    if (ageSeconds > 300) {
       toast.error("Messages can only be edited within 5 minutes of sending.");
       setEditingMessage(null);
       setNewChatText("");
@@ -1575,21 +1648,35 @@ const Casbox = () => {
 
     try {
       setSavingEdit(true);
-      await casboxAPI.editMessage(targetId, finalBody);
+      const res = await casboxAPI.editMessage(targetId, finalBody);
+      const updatedData = res?.data;
+      const updatedBody = updatedData?.body || finalBody;
 
       // Update in threadMessages and messages preserving original ID, sender, receiver, timestamp
       setThreadMessages(prev => prev.map(m => {
         const mId = m.id !== undefined ? m.id : m.uid;
-        if (mId === targetId || (m.timestamp === editingMessage.timestamp && (m.senderEmail || m.sender) === (editingMessage.senderEmail || editingMessage.sender))) {
-          return { ...m, body: finalBody, isEdited: true, edited: true };
+        if (mId === targetId || String(mId) === String(targetId) || (m.timestamp === editingMessage.timestamp && (m.senderEmail || m.sender) === (editingMessage.senderEmail || editingMessage.sender))) {
+          return {
+            ...m,
+            ...(updatedData || {}),
+            body: updatedBody,
+            isEdited: true,
+            edited: true
+          };
         }
         return m;
       }));
 
       setMessages(prev => prev.map(m => {
         const mId = m.id !== undefined ? m.id : m.uid;
-        if (mId === targetId || (m.timestamp === editingMessage.timestamp && (m.senderEmail || m.sender) === (editingMessage.senderEmail || editingMessage.sender))) {
-          return { ...m, body: finalBody, isEdited: true, edited: true };
+        if (mId === targetId || String(mId) === String(targetId) || (m.timestamp === editingMessage.timestamp && (m.senderEmail || m.sender) === (editingMessage.senderEmail || editingMessage.sender))) {
+          return {
+            ...m,
+            ...(updatedData || {}),
+            body: updatedBody,
+            isEdited: true,
+            edited: true
+          };
         }
         return m;
       }));
@@ -1599,8 +1686,8 @@ const Casbox = () => {
         const next = { ...prev };
         let changed = false;
         Object.keys(next).forEach(k => {
-          if (next[k]?.id === targetId) {
-            next[k] = { ...next[k], body: finalBody, isEdited: true, edited: true };
+          if (next[k]?.id === targetId || String(next[k]?.id) === String(targetId)) {
+            next[k] = { ...next[k], body: updatedBody, isEdited: true, edited: true };
             changed = true;
           }
         });
@@ -1620,7 +1707,7 @@ const Casbox = () => {
     } finally {
       setSavingEdit(false);
     }
-  }, [editingMessage, newChatText, cleanMessageBody]);
+  }, [editingMessage, newChatText, cleanMessageBody, getMessageAgeSeconds]);
 
   const renderReplyPreviewInBubble = useCallback((msg, isMe) => {
     if (!msg || typeof msg.body !== 'string') return null;

@@ -448,7 +448,7 @@ export const casboxAPI = {
     getAllMessages: () => api.get('/api/casbox'),
     getThread: (contactEmail) => api.get(`/api/casbox/thread/${encodeURIComponent(contactEmail)}`),
     sendMessage: (data) => api.post('/api/casbox/send', data),
-    editMessage: (id, body) => api.patch(`/api/casbox/${encodeURIComponent(id)}`, { body }),
+    editMessage: (id, body) => api.patch(`/api/casbox/${encodeURIComponent(id)}`, { body, content: body }),
     updateStatus: (data) => api.patch('/api/casbox/status', data),
     markAsDelivered: () => api.post('/api/casbox/delivered'),
     archiveMessage: (id, archived = true) => api.patch(`/api/casbox/${id}/archive?archived=${archived}`),
