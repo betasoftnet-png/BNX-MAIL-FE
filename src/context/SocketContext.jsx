@@ -1,14 +1,40 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { useAuth } from './AuthContext';
 import { useMail } from './MailContext';
 import toast from 'react-hot-toast';
 
 const SocketContext = createContext();
 
-// Detect environment and set URLs
-// Force WSS for api.bnxmail.com to avoid redirects
-const WS_URL = import.meta.env.VITE_WS_URL;
+// Dynamic URL resolver: prevents connecting to 'undefined' and handles production vs development
+const getWsEndpoints = () => {
+    let wsUrl = import.meta.env.VITE_WS_URL;
+    let httpUrl = import.meta.env.VITE_API_URL;
+
+    if (typeof window !== 'undefined') {
+        const isSecure = window.location.protocol === 'https:';
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        if (!wsUrl) {
+            wsUrl = isLocal
+                ? 'ws://localhost:8080/ws'
+                : `${isSecure ? 'wss:' : 'ws:'}//api.bnxmail.com/ws`;
+        }
+
+        if (!httpUrl) {
+            httpUrl = isLocal
+                ? 'http://localhost:8080'
+                : `${isSecure ? 'https:' : 'http:'}//api.bnxmail.com`;
+        }
+    } else {
+        if (!wsUrl) wsUrl = 'wss://api.bnxmail.com/ws';
+        if (!httpUrl) httpUrl = 'https://api.bnxmail.com';
+    }
+
+    const sockJsUrl = httpUrl.endsWith('/ws') ? httpUrl : `${httpUrl}/ws`;
+    return { wsUrl, sockJsUrl };
+};
 
 export const SocketProvider = ({ children }) => {
     const { isAuthenticated, user } = useAuth();
@@ -23,6 +49,8 @@ export const SocketProvider = ({ children }) => {
     const clientRef = useRef(null);
     const generationRef = useRef(0);
     const reconnectTimerRef = useRef(null);
+    const reconnectAttemptsRef = useRef(0);
+    const useSockJsFallbackRef = useRef(false);
     const messageQueueRef = useRef([]);
     const isAuthenticatedRef = useRef(isAuthenticated);
     isAuthenticatedRef.current = isAuthenticated;
@@ -79,12 +107,22 @@ export const SocketProvider = ({ children }) => {
         if (!isAuthenticatedRef.current) return;
         if (reconnectTimerRef.current) return; // Only ONE reconnect timer at a time!
 
+        const attempts = reconnectAttemptsRef.current;
+        // Exponential backoff: 3s, 6s, 12s, up to max 30s
+        const delay = Math.min(3000 * Math.pow(2, Math.min(attempts, 4)), 30000);
+        reconnectAttemptsRef.current += 1;
+
+        // If native WebSocket fails repeatedly (e.g. proxy resets connection), switch to SockJS fallback
+        if (attempts >= 1 && !useSockJsFallbackRef.current) {
+            useSockJsFallbackRef.current = true;
+        }
+
         reconnectTimerRef.current = setTimeout(() => {
             reconnectTimerRef.current = null;
             if (isAuthenticatedRef.current) {
                 connectSocket();
             }
-        }, 5000);
+        }, delay);
     }, []);
 
     const connectSocket = useCallback(() => {
@@ -97,7 +135,7 @@ export const SocketProvider = ({ children }) => {
         const existingClient = clientRef.current;
         const existingWs = existingClient?.webSocket;
         if (existingClient && (existingClient.connected || existingClient.active)) {
-            if (existingWs && (existingWs.readyState === WebSocket.OPEN || existingWs.readyState === WebSocket.CONNECTING)) {
+            if (existingWs && (existingWs.readyState === 1 || existingWs.readyState === 0)) {
                 return;
             }
         }
@@ -111,22 +149,27 @@ export const SocketProvider = ({ children }) => {
         }
 
         const currentGen = ++generationRef.current;
+        const { wsUrl, sockJsUrl } = getWsEndpoints();
+        const useSockJs = useSockJsFallbackRef.current;
 
         const client = new Client({
-            brokerURL: WS_URL,
+            // NOTE: Do not define brokerURL when using webSocketFactory, as brokerURL overrides webSocketFactory in StompJS
             connectHeaders: {
                 Authorization: `Bearer ${token}`
             },
-            reconnectDelay: 0, // Disabled built-in loop; controlled by single reconnect timer
+            reconnectDelay: 0, // Disabled built-in loop; controlled by exponential backoff scheduleReconnect
             heartbeatIncoming: 10000,
             heartbeatOutgoing: 10000,
             webSocketFactory: () => {
-                const socket = new WebSocket(WS_URL);
+                if (useSockJs) {
+                    return new SockJS(sockJsUrl);
+                }
+                const socket = new WebSocket(wsUrl);
                 const originalSend = socket.send.bind(socket);
 
                 // Safe wrapper: NEVER call socket.send when CONNECTING, CLOSING, or CLOSED
                 socket.send = function (data) {
-                    if (this.readyState === WebSocket.OPEN) {
+                    if (this.readyState === 1) {
                         return originalSend(data);
                     }
                 };
@@ -137,6 +180,7 @@ export const SocketProvider = ({ children }) => {
 
         client.onConnect = (frame) => {
             if (currentGen !== generationRef.current) return;
+            reconnectAttemptsRef.current = 0;
             clearReconnectTimer();
             setIsConnected(true);
 
@@ -155,7 +199,7 @@ export const SocketProvider = ({ children }) => {
                 const queued = messageQueueRef.current.shift();
                 try {
                     const ws = client.webSocket;
-                    if (client.connected && ws && ws.readyState === WebSocket.OPEN) {
+                    if (client.connected && ws && (ws.readyState === 1 || ws.readyState === WebSocket?.OPEN)) {
                         client.publish(queued);
                     } else {
                         messageQueueRef.current.unshift(queued);
@@ -187,11 +231,11 @@ export const SocketProvider = ({ children }) => {
             setIsConnected(false);
         };
 
-        // Wrap publish method to enforce readyState === WebSocket.OPEN
+        // Wrap publish method to enforce readyState === 1 / WebSocket.OPEN
         const originalPublish = client.publish.bind(client);
         client.publish = function (params) {
             const ws = client.webSocket;
-            if (client.connected && ws && ws.readyState === WebSocket.OPEN) {
+            if (client.connected && ws && (ws.readyState === 1 || ws.readyState === WebSocket?.OPEN)) {
                 return originalPublish(params);
             }
             if (params) {
@@ -203,7 +247,7 @@ export const SocketProvider = ({ children }) => {
         const originalSubscribe = client.subscribe.bind(client);
         client.subscribe = function (destination, callback, headers) {
             const ws = client.webSocket;
-            if (!client.connected || !ws || ws.readyState !== WebSocket.OPEN) {
+            if (!client.connected || !ws || (ws.readyState !== 1 && ws.readyState !== WebSocket?.OPEN)) {
                 return {
                     id: null,
                     unsubscribe: () => {}
@@ -213,7 +257,7 @@ export const SocketProvider = ({ children }) => {
             const originalUnsub = sub.unsubscribe.bind(sub);
             sub.unsubscribe = function (unsubHeaders) {
                 const currentWs = client.webSocket;
-                if (client.connected && currentWs && currentWs.readyState === WebSocket.OPEN) {
+                if (client.connected && currentWs && (currentWs.readyState === 1 || currentWs.readyState === WebSocket?.OPEN)) {
                     try {
                         return originalUnsub(unsubHeaders);
                     } catch (err) {}
@@ -263,7 +307,7 @@ export const SocketProvider = ({ children }) => {
     const subscribeToChat = useCallback((chatId, callback) => {
         const client = clientRef.current;
         const ws = client?.webSocket;
-        if (!client || !isConnected || !client.connected || !ws || ws.readyState !== WebSocket.OPEN) {
+        if (!client || !isConnected || !client.connected || !ws || (ws.readyState !== 1 && ws.readyState !== WebSocket?.OPEN)) {
             return null;
         }
         try {
@@ -285,7 +329,7 @@ export const SocketProvider = ({ children }) => {
                             clientRef.current && 
                             clientRef.current.connected && 
                             currentWs && 
-                            currentWs.readyState === WebSocket.OPEN
+                            (currentWs.readyState === 1 || currentWs.readyState === WebSocket?.OPEN)
                         ) {
                             rawSub.unsubscribe();
                         }
@@ -316,7 +360,7 @@ export const SocketProvider = ({ children }) => {
 
         const client = clientRef.current;
         const ws = client?.webSocket;
-        const isSocketOpen = client && client.connected && ws && ws.readyState === WebSocket.OPEN;
+        const isSocketOpen = client && client.connected && ws && (ws.readyState === 1 || ws.readyState === WebSocket?.OPEN);
 
         const messageData = {
             destination: '/app/chat.send',
