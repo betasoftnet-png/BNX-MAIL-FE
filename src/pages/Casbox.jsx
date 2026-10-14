@@ -2494,17 +2494,6 @@ const Casbox = () => {
       };
     }
 
-    const blockedSet = new Set();
-    if (blockedContacts && Array.isArray(blockedContacts)) {
-      blockedContacts.forEach(e => {
-        const norm = normalizeEmail(e);
-        if (norm) {
-          blockedSet.add(norm);
-          if (norm.includes('@')) blockedSet.add(norm.split('@')[0]);
-        }
-      });
-    }
-
     // Disconnected contacts set
     const disconnectedSet = new Set();
     if (connections && Array.isArray(connections)) {
@@ -2532,14 +2521,12 @@ const Casbox = () => {
       const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
 
       if (!sender || !receiver) continue;
-      if (blockedSet.has(sender) || (sender.includes('@') && blockedSet.has(sender.split('@')[0]))) continue;
 
       const rawContact = isCurrentUser(sender) ? (msg.receiverEmail || msg.receiver) : (msg.senderEmail || msg.sender);
       if (!rawContact) continue;
       const contactNorm = normalizeEmail(rawContact);
       const contactLocal = contactNorm.includes('@') ? contactNorm.split('@')[0] : contactNorm;
 
-      if (blockedSet.has(contactNorm) || blockedSet.has(contactLocal)) continue;
       if (disconnectedSet.has(contactNorm) || disconnectedSet.has(contactLocal)) continue;
 
       // Match existing group by either full normalized address or local part to prevent duplicates
@@ -2912,17 +2899,6 @@ const Casbox = () => {
   const unifiedCombineMessages = useMemo(() => {
     if (!messages || messages.length === 0) return [];
 
-    const blockedSet = new Set();
-    if (blockedContacts && Array.isArray(blockedContacts)) {
-      blockedContacts.forEach(e => {
-        const norm = normalizeEmail(e);
-        if (norm) {
-          blockedSet.add(norm);
-          if (norm.includes('@')) blockedSet.add(norm.split('@')[0]);
-        }
-      });
-    }
-
     const disconnectedSet = new Set();
     if (connections && Array.isArray(connections)) {
       for (let i = 0; i < connections.length; i++) {
@@ -2953,8 +2929,6 @@ const Casbox = () => {
       const sender = normalizeEmail(msg.senderEmail || msg.sender);
       const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
       if (!sender || !receiver) continue;
-
-      if (blockedSet.has(sender) || (sender.includes('@') && blockedSet.has(sender.split('@')[0]))) continue;
 
       const isMe = isCurrentUser(sender);
       const rawContact = isMe ? (msg.receiverEmail || msg.receiver) : (msg.senderEmail || msg.sender);
@@ -3938,11 +3912,6 @@ const Casbox = () => {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
       } catch (e) {}
       toast.success("User blocked");
-      setSelectedMessage((prev) => {
-        if (!prev) return null;
-        const other = normalizeEmail(prev.senderEmail === user?.email ? prev.receiverEmail : prev.senderEmail);
-        return other === emailLower ? null : prev;
-      });
       fetchMessages(true);
     } catch (e) {
       console.error("Failed to block user", e);
