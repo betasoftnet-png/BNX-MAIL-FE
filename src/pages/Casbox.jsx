@@ -4308,49 +4308,29 @@ const Casbox = () => {
                       setShowMoreMenu(false);
                       handleOpenEditNameModal({ contact: otherUserEmail, latestMessage: selectedMessage });
                     }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2"
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2 cursor-pointer"
                   >
                     <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
                     {t('casbox.edit_contact_name', 'Edit Contact Name')}
                   </button>
-                  <button
-                    onClick={() => {
-                      handleToggleStarChat();
-                      setShowMoreMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2"
-                  >
-                    {isChatStarred ? "Unstar Conversation" : "Star Conversation"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (isBlockedContact(otherUserEmail)) {
+                  {isBlockedContact(otherUserEmail) && (
+                    <button
+                      onClick={() => {
                         handleUnblockUser(otherUserEmail);
-                      } else {
-                        handleBlockRequest(otherUserEmail);
-                      }
-                      setShowMoreMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2"
-                  >
-                    <MdBlock size={16} />
-                    {isBlockedContact(otherUserEmail) ? "Unblock Contact" : "Block Contact"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowBlockedModal(true);
-                      setShowMoreMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2"
-                  >
-                    View Blocked Users
-                  </button>
+                        setShowMoreMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer"
+                    >
+                      <MdBlock size={16} />
+                      Unblock Contact
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setShowMoreMenu(false);
                       setConversationToDelete({ contact: otherUserEmail });
                     }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2"
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer"
                   >
                     <MdDeleteOutline size={16} />
                     Delete Conversation
