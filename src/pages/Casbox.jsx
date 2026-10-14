@@ -731,9 +731,12 @@ const Casbox = () => {
   const filterMenuRef = React.useRef(null);
   const combineMenuRef = React.useRef(null);
 
-  // Three-Dot Message Actions: Reply, Pin, Unsend
+  // Three-Dot Message Actions: Reply, Pin, Edit, Unsend
   const [activeMessageMenuId, setActiveMessageMenuId] = useState(null);
   const [replyingToMessage, setReplyingToMessage] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [nowTime, setNowTime] = useState(Date.now());
   const [unsendMessageTarget, setUnsendMessageTarget] = useState(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [pinnedMessagesMap, setPinnedMessagesMap] = useState(() => {
@@ -744,6 +747,19 @@ const Casbox = () => {
       return {};
     }
   });
+
+  // Re-evaluate every 5 seconds to automatically hide the Edit option after 5 minutes
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowTime(Date.now());
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Reset editing message when switching conversations
+  useEffect(() => {
+    setEditingMessage(null);
+  }, [selectedMessage]);
 
   // Emoji Reactions State
   const [activeReactionMsgId, setActiveReactionMsgId] = useState(null);
@@ -1007,7 +1023,12 @@ const Casbox = () => {
             }
 
             setMessages(prev => {
-              if (prev.some(m => m.id === newMsg.id)) return prev;
+              const existingIdx = prev.findIndex(m => m.id === newMsg.id);
+              if (existingIdx !== -1) {
+                const next = [...prev];
+                next[existingIdx] = { ...next[existingIdx], ...newMsg };
+                return next;
+              }
               return [newMsg, ...prev];
             });
 
@@ -1018,7 +1039,12 @@ const Casbox = () => {
             );
             if (selectedContactRef.current && normalizeEmail(selectedContactRef.current) === otherEmail) {
               setThreadMessages(prev => {
-                if (prev.some(m => m.id === newMsg.id)) return prev;
+                const existingIdx = prev.findIndex(m => m.id === newMsg.id);
+                if (existingIdx !== -1) {
+                  const next = [...prev];
+                  next[existingIdx] = { ...next[existingIdx], ...newMsg };
+                  return next;
+                }
                 return [...prev, newMsg];
               });
             }
@@ -1474,6 +1500,127 @@ const Casbox = () => {
     setActiveMessageMenuId(null);
     toast.success("Message unsent");
   }, [unsendMessageTarget, selectedMessage, pinnedMessagesMap, handleUnpinMessage, replyingToMessage, getOtherUserEmail]);
+
+  // Check if message was sent by current user and is within the 5-minute (300 seconds) window
+  const isMessageEditable = useCallback((msg) => {
+    if (!msg) return false;
+    const msgSender = msg.senderEmail || msg.sender;
+    if (!isCurrentUser(msgSender)) return false;
+    const createdMs = getTimestampMs(msg.timestamp);
+    if (!createdMs) return false;
+    const diffMs = nowTime - createdMs;
+    // Available only during the first 5 minutes (300 seconds) after original message was sent
+    return diffMs >= 0 && diffMs <= 300 * 1000;
+  }, [isCurrentUser, nowTime]);
+
+  const handleInitiateEdit = useCallback((msg) => {
+    setActiveMessageMenuId(null);
+    if (!isMessageEditable(msg)) {
+      toast.error("Messages can only be edited within 5 minutes of sending.");
+      return;
+    }
+    setReplyingToMessage(null);
+    setEditingMessage(msg);
+    const text = cleanMessageBody(msg.body || "");
+    setNewChatText(text);
+    setTimeout(() => {
+      if (chatInputRef.current) {
+        chatInputRef.current.focus();
+        try {
+          chatInputRef.current.setSelectionRange(text.length, text.length);
+        } catch (e) {}
+      }
+    }, 50);
+  }, [isMessageEditable, cleanMessageBody]);
+
+  const handleCancelEditMessage = useCallback(() => {
+    setEditingMessage(null);
+    setNewChatText("");
+  }, []);
+
+  const handleSaveEditMessage = useCallback(async () => {
+    if (!editingMessage) return;
+
+    const trimmedText = newChatText.trim();
+    if (!trimmedText) {
+      toast.error("Message content cannot be empty.");
+      return;
+    }
+
+    // Server-enforced & client check: 5-minute limit calculated from original creation timestamp
+    const createdMs = getTimestampMs(editingMessage.timestamp);
+    if (Date.now() - createdMs > 300 * 1000) {
+      toast.error("Messages can only be edited within 5 minutes of sending.");
+      setEditingMessage(null);
+      setNewChatText("");
+      return;
+    }
+
+    const currentCleanBody = cleanMessageBody(editingMessage.body || "");
+    if (trimmedText === currentCleanBody) {
+      setEditingMessage(null);
+      setNewChatText("");
+      return;
+    }
+
+    let finalBody = trimmedText;
+    if (typeof editingMessage.body === 'string') {
+      const match = editingMessage.body.match(/^(\[Replying to [^:]+:\s*"[^"]*"\]\n)/);
+      if (match) {
+        finalBody = match[1] + trimmedText;
+      }
+    }
+
+    const targetId = editingMessage.id !== undefined ? editingMessage.id : editingMessage.uid;
+
+    try {
+      setSavingEdit(true);
+      await casboxAPI.editMessage(targetId, finalBody);
+
+      // Update in threadMessages and messages preserving original ID, sender, receiver, timestamp
+      setThreadMessages(prev => prev.map(m => {
+        const mId = m.id !== undefined ? m.id : m.uid;
+        if (mId === targetId || (m.timestamp === editingMessage.timestamp && (m.senderEmail || m.sender) === (editingMessage.senderEmail || editingMessage.sender))) {
+          return { ...m, body: finalBody, isEdited: true, edited: true };
+        }
+        return m;
+      }));
+
+      setMessages(prev => prev.map(m => {
+        const mId = m.id !== undefined ? m.id : m.uid;
+        if (mId === targetId || (m.timestamp === editingMessage.timestamp && (m.senderEmail || m.sender) === (editingMessage.senderEmail || editingMessage.sender))) {
+          return { ...m, body: finalBody, isEdited: true, edited: true };
+        }
+        return m;
+      }));
+
+      // Update pinned messages if this was pinned
+      setPinnedMessagesMap(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.keys(next).forEach(k => {
+          if (next[k]?.id === targetId) {
+            next[k] = { ...next[k], body: finalBody, isEdited: true, edited: true };
+            changed = true;
+          }
+        });
+        if (changed) {
+          localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
+        }
+        return next;
+      });
+
+      setEditingMessage(null);
+      setNewChatText("");
+      toast.success("Message edited");
+    } catch (err) {
+      console.error("Failed to edit message", err);
+      const errMsg = err?.response?.data?.message || err?.message || "Failed to edit message";
+      toast.error(errMsg);
+    } finally {
+      setSavingEdit(false);
+    }
+  }, [editingMessage, newChatText, cleanMessageBody]);
 
   const renderReplyPreviewInBubble = useCallback((msg, isMe) => {
     if (!msg || typeof msg.body !== 'string') return null;
@@ -5095,6 +5242,17 @@ const Casbox = () => {
                                 <span>{isCurrentMessagePinned(msg, otherUserEmail) ? 'Unpin' : 'Pin'}</span>
                               </button>
 
+                              {isMe && isMessageEditable(msg) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleInitiateEdit(msg)}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <MdEdit size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                  <span>Edit</span>
+                                </button>
+                              )}
+
                               {isMe && (
                                 <button
                                   type="button"
@@ -5109,6 +5267,13 @@ const Casbox = () => {
                           )}
                         </div>
                       </div>
+
+                      {/* Edited Label */}
+                      {(msg?.isEdited || msg?.edited) && (
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 font-normal select-none mt-0.5 ml-1 leading-none">
+                          Edited
+                        </div>
+                      )}
 
                       {/* Timestamp outside and below the bubble */}
                       <div 
@@ -5219,8 +5384,49 @@ const Casbox = () => {
                 </div>
               )}
 
+              {/* Edit Message Banner */}
+              {editingMessage && (
+                <div 
+                  className="mb-2.5 px-3 py-2 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border-l-4 flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-bottom-1 duration-150"
+                  style={{ borderColor: theme?.accent || '#135bec' }}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <MdEdit size={18} className="shrink-0" style={{ color: theme?.accent || '#135bec' }} />
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span 
+                        className="text-xs font-bold truncate leading-tight"
+                        style={{ color: theme?.accent || '#135bec' }}
+                      >
+                        Edit Message
+                      </span>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate leading-tight mt-0.5">
+                        {cleanMessageBody(editingMessage.body)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleCancelEditMessage}
+                      className="px-2.5 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveEditMessage}
+                      disabled={savingEdit || !newChatText.trim()}
+                      className="px-3 py-1 text-xs font-semibold text-white rounded-lg transition-all hover:opacity-90 disabled:opacity-50 cursor-pointer shadow-xs"
+                      style={{ backgroundColor: theme?.accent || '#135bec' }}
+                    >
+                      {savingEdit ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <form
-                onSubmit={handleSendChatMessage}
+                onSubmit={editingMessage ? (e) => { e.preventDefault(); handleSaveEditMessage(); } : handleSendChatMessage}
                 className="flex items-center gap-3 bg-transparent w-full relative"
               >
                 <div className="relative shrink-0 flex items-center" ref={emojiPickerRef}>
@@ -5258,20 +5464,27 @@ const Casbox = () => {
                 <input
                   ref={chatInputRef}
                   type="text"
-                  placeholder="Type a message..."
+                  placeholder={editingMessage ? "Edit message..." : "Type a message..."}
                   value={newChatText}
                   onChange={(e) => setNewChatText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && editingMessage) {
+                      e.preventDefault();
+                      handleCancelEditMessage();
+                    }
+                  }}
                   className="flex-1 px-4 py-2.5 rounded-full text-sm border focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent"
                   style={{ borderColor: theme?.border || '#e2e8f0', color: theme?.text || '#000' }}
-                  disabled={sendingChat}
+                  disabled={sendingChat || savingEdit}
                 />
                 <button
                   type="submit"
-                  disabled={sendingChat || !newChatText.trim()}
+                  disabled={sendingChat || savingEdit || !newChatText.trim()}
                   className="p-2.5 rounded-full text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm shrink-0 border-0"
                   style={{ backgroundColor: theme?.accent || "#135bec" }}
+                  title={editingMessage ? "Save edit" : "Send message"}
                 >
-                  <MdSend size={18} />
+                  {editingMessage ? <MdCheck size={18} /> : <MdSend size={18} />}
                 </button>
               </form>
             </div>
