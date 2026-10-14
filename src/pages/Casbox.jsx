@@ -2074,35 +2074,92 @@ const Casbox = () => {
   };
 
   const handleUnarchiveMessage = async (chatOrMsg, e) => {
-    if (e) e.stopPropagation();
+    if (e && e.stopPropagation) e.stopPropagation();
     setOpenMenuId(null);
 
-    const otherEmail = chatOrMsg.contact || (chatOrMsg.senderEmail === user?.email ? chatOrMsg.receiverEmail : chatOrMsg.senderEmail);
+    const isSingleMsg = chatOrMsg && (chatOrMsg.id !== undefined || chatOrMsg.uid !== undefined) && !Array.isArray(chatOrMsg.messages);
+    const otherEmail = chatOrMsg?.contact || (chatOrMsg?.senderEmail === user?.email ? chatOrMsg?.receiverEmail : chatOrMsg?.senderEmail);
 
-    const matchingMsgIds = otherEmail 
-      ? messages.filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && Boolean(m.isArchived || m.archived)).map(m => m.id)
-      : [];
+    let targetIds = [];
+    if (isSingleMsg) {
+      const singleId = chatOrMsg.id !== undefined ? chatOrMsg.id : chatOrMsg.uid;
+      if (singleId !== undefined && singleId !== null) {
+        targetIds = [singleId];
+      }
+    } else {
+      const matchingMsgIds = otherEmail 
+        ? messages.filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && Boolean(m.isArchived || m.archived)).map(m => m.id)
+        : [];
 
-    const targetIds = matchingMsgIds.length > 0 
-      ? matchingMsgIds 
-      : (chatOrMsg.messages ? chatOrMsg.messages.map(m => m.id) : [chatOrMsg.id || chatOrMsg.latestMessage?.id].filter(Boolean));
+      targetIds = matchingMsgIds.length > 0 
+        ? matchingMsgIds 
+        : (chatOrMsg?.messages ? chatOrMsg.messages.map(m => m.id) : [chatOrMsg?.id || chatOrMsg?.latestMessage?.id].filter(Boolean));
+    }
 
     if (targetIds.length === 0) return;
+    const targetSet = new Set(targetIds.map(String));
+    const numericTargetIds = targetIds.map(Number).filter(n => !isNaN(n));
+    const apiTargetIds = numericTargetIds.length === targetIds.length ? numericTargetIds : targetIds;
 
     try {
-      setMessages(prev => prev.map(m => targetIds.includes(m.id) ? { ...m, isArchived: false, archived: false } : m));
-      if (selectedMessage && (targetIds.includes(selectedMessage.id) || (otherEmail && getOtherUserEmail(selectedMessage) === otherEmail))) {
-        setSelectedMessage(null);
+      setMessages(prev => prev.map(m => {
+        const mId = String(m.id !== undefined ? m.id : m.uid);
+        return targetSet.has(mId) ? { ...m, isArchived: false, archived: false } : m;
+      }));
+      if (selectedMessage) {
+        const sId = String(selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid);
+        if (targetSet.has(sId) || (!isSingleMsg && otherEmail && getOtherUserEmail(selectedMessage) === otherEmail)) {
+          setSelectedMessage(null);
+        }
       }
-      if (selectedSentDetail && (targetIds.includes(selectedSentDetail.id) || (otherEmail && selectedSentDetail.contactRecipient === otherEmail))) {
-        setSelectedSentDetail(null);
+      if (selectedSentDetail) {
+        const sId = String(selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid);
+        if (targetSet.has(sId) || (!isSingleMsg && otherEmail && selectedSentDetail.contactRecipient === otherEmail)) {
+          setSelectedSentDetail(null);
+        }
       }
 
-      await casboxAPI.updateArchiveStatus(targetIds, false);
+      await casboxAPI.updateArchiveStatus(apiTargetIds, false);
       toast.success("Moved back to Messages");
     } catch (err) {
       console.error("Failed to unarchive message", err);
       toast.error("Failed to unarchive message");
+      fetchMessages(true);
+    }
+  };
+
+  const handleUnarchiveSelectedMessages = async () => {
+    if (selectedRowIds.size === 0) return;
+    const targetIds = Array.from(selectedRowIds);
+    const targetSet = new Set(targetIds.map(String));
+    const numericTargetIds = targetIds.map(Number).filter(n => !isNaN(n));
+    const apiTargetIds = numericTargetIds.length === targetIds.length ? numericTargetIds : targetIds;
+
+    try {
+      setMessages(prev => prev.map(m => {
+        const mId = String(m.id !== undefined ? m.id : m.uid);
+        return targetSet.has(mId) ? { ...m, isArchived: false, archived: false } : m;
+      }));
+
+      if (selectedSentDetail) {
+        const sId = String(selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid);
+        if (targetSet.has(sId)) {
+          setSelectedSentDetail(null);
+        }
+      }
+      if (selectedMessage) {
+        const sId = String(selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid);
+        if (targetSet.has(sId)) {
+          setSelectedMessage(null);
+        }
+      }
+
+      setSelectedRowIds(new Set());
+      await casboxAPI.updateArchiveStatus(apiTargetIds, false);
+      toast.success(`${targetIds.length > 1 ? `${targetIds.length} messages` : 'Message'} moved back to Messages`);
+    } catch (err) {
+      console.error("Failed to unarchive selected messages", err);
+      toast.error("Failed to unarchive messages");
       fetchMessages(true);
     }
   };
@@ -2738,6 +2795,95 @@ const Casbox = () => {
     });
   }, [individualMessagesList, messagesFilter, messagesSearch, isCurrentUser, getDisplayName]);
 
+  // Individual archived messages list for the Archive tab (every archived message = one row)
+  const archivedIndividualMessages = useMemo(() => {
+    if (!messages || messages.length === 0) return [];
+    const list = [];
+    const seenIds = new Set();
+
+    messages.forEach((msg) => {
+      const isArchived = Boolean(msg.isArchived || msg.archived);
+      if (!isArchived) return;
+
+      const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
+      if (seenIds.has(id)) return;
+      if (deletedMessageIds.has(id) || deletedMessageIds.has(String(id))) return;
+      seenIds.add(id);
+
+      const sender = normalizeEmail(msg.senderEmail || msg.sender);
+      const isMe = Boolean(
+        msg.direction === 'SENT' ||
+        msg.isSent === true ||
+        isCurrentUser(sender)
+      );
+
+      const otherEmail = isMe 
+        ? (msg.receiverEmail || msg.receiver) 
+        : (msg.senderEmail || msg.sender);
+
+      const chat = archivedConversations?.find(c => 
+        normalizeEmail(c.contact) === normalizeEmail(otherEmail)
+      );
+
+      list.push({
+        msg,
+        id,
+        isSent: isMe,
+        contact: otherEmail,
+        timestampMs: getTimestampMs(msg.timestamp),
+        chat,
+      });
+    });
+
+    list.sort((a, b) => b.timestampMs - a.timestampMs);
+    return list;
+  }, [messages, archivedConversations, isCurrentUser, deletedMessageIds]);
+
+  const filteredArchivedMessages = useMemo(() => {
+    if (!archivedIndividualMessages || archivedIndividualMessages.length === 0) return [];
+    
+    let list = archivedIndividualMessages;
+
+    // Apply messagesFilter
+    if (messagesFilter && messagesFilter !== 'all') {
+      const now = Date.now();
+      const oneDayAgo = now - 24 * 60 * 60 * 1000;
+      const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+      const oneMonthAgo = (() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 1);
+        return d.getTime();
+      })();
+
+      list = list.filter((item) => {
+        if (messagesFilter === 'received') return !item.isSent;
+        if (messagesFilter === 'sent') return item.isSent;
+        if (messagesFilter === '1day') return item.timestampMs >= oneDayAgo;
+        if (messagesFilter === '1week') return item.timestampMs >= oneWeekAgo;
+        if (messagesFilter === '1month') return item.timestampMs >= oneMonthAgo;
+        return true;
+      });
+    }
+
+    if (!messagesSearch.trim()) return list;
+    const q = messagesSearch.toLowerCase().trim();
+    return list.filter((item) => {
+      const msg = item.msg;
+      const personEmail = item.contact || '';
+      const personName = getDisplayName(personEmail, msg) || personEmail;
+      const rawSubject = typeof msg?.subject === 'string' ? msg.subject : '';
+      const cleanSubject = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '');
+      const body = typeof msg?.body === 'string' ? msg.body : (typeof msg?.content === 'string' ? msg.content : '');
+
+      return (
+        personName.toLowerCase().includes(q) ||
+        personEmail.toLowerCase().includes(q) ||
+        cleanSubject.toLowerCase().includes(q) ||
+        body.toLowerCase().includes(q)
+      );
+    });
+  }, [archivedIndividualMessages, messagesFilter, messagesSearch, getDisplayName]);
+
   const filteredConversationList = useMemo(() => {
     if (!conversationList || conversationList.length === 0) return [];
 
@@ -3054,18 +3200,31 @@ const Casbox = () => {
         <div className="flex-1"></div>
 
         {/* Selected Messages Actions */}
-        {activeTab === 'messages' && selectedRowIds.size > 0 && (
+        {(activeTab === 'messages' || activeTab === 'archive') && selectedRowIds.size > 0 && (
           <div className="flex items-center gap-1.5 mr-2">
-            <button
-              type="button"
-              onClick={handleArchiveSelectedMessages}
-              className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
-              title={`Archive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
-              aria-label="Archive selected messages"
-            >
-              <MdArchive size={18} className="text-gray-600 dark:text-gray-300" />
-              <span className="hidden sm:inline">Archive</span>
-            </button>
+            {activeTab === 'archive' ? (
+              <button
+                type="button"
+                onClick={handleUnarchiveSelectedMessages}
+                className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+                title={`Unarchive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
+                aria-label="Unarchive selected messages"
+              >
+                <MdUnarchive size={18} />
+                <span className="hidden sm:inline">Unarchive</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleArchiveSelectedMessages}
+                className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+                title={`Archive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
+                aria-label="Archive selected messages"
+              >
+                <MdArchive size={18} className="text-gray-600 dark:text-gray-300" />
+                <span className="hidden sm:inline">Archive</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowDeleteConfirmModal(true)}
@@ -3465,17 +3624,21 @@ const Casbox = () => {
 
       {/* Messages List Area */}
       <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent">
-        {loading && (activeTab === 'messages' ? filteredIndividualMessages.length === 0 : filteredConversationList.length === 0) ? (
+        {loading && (activeTab === 'messages' ? filteredIndividualMessages.length === 0 : activeTab === 'archive' ? filteredArchivedMessages.length === 0 : filteredConversationList.length === 0) ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
             <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
             <p className="text-xs font-medium text-gray-400 dark:text-gray-500">Loading messages...</p>
           </div>
-        ) : (activeTab === 'messages' ? filteredIndividualMessages.length === 0 : filteredConversationList.length === 0) ? (
+        ) : (activeTab === 'messages' ? filteredIndividualMessages.length === 0 : activeTab === 'archive' ? filteredArchivedMessages.length === 0 : filteredConversationList.length === 0) ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
             {activeTab === 'archive' ? (
               <>
                 <MdArchive className="text-4xl mb-3 opacity-30" />
-                <p className="text-sm font-medium">No archived messages</p>
+                <p className="text-sm font-medium">
+                  {messagesSearch || messagesFilter !== 'all'
+                    ? 'No matching archived messages found'
+                    : 'No archived messages'}
+                </p>
               </>
             ) : (
               <>
@@ -3505,8 +3668,8 @@ const Casbox = () => {
 
             // Subject: Show if present and not empty
             const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
-            const cleanRaw = rawSubject.replace(/^\[(Combine|Messages)\]\s*/i, '');
-            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null') ? cleanRaw : '';
+            const cleanRaw = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim();
+            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? cleanRaw : '';
 
             // Body preview
             let bodyPreview = "";
@@ -3678,6 +3841,215 @@ const Casbox = () => {
               </div>
             );
           })
+        ) : activeTab === 'archive' ? (
+          filteredArchivedMessages.map((item) => {
+            const { msg, id, isSent, contact, chat } = item;
+
+            const isUnread = !isSent && isMessageUnread(msg);
+
+            // Sender / Receiver Name
+            const personEmail = contact;
+            const personName = getDisplayName(personEmail, msg) || personEmail;
+            const initial = getContactInitial(personEmail, msg);
+            const avatarColorClass = getAvatarColorClass(personName || personEmail);
+
+            const rowId = id;
+            const isChecked = selectedRowIds.has(rowId);
+
+            // Subject: Show if present and not empty, strip [Combine]/[Combined]/[Messages]
+            const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
+            const cleanRaw = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim();
+            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? cleanRaw : '';
+
+            // Body preview
+            let bodyPreview = "";
+            const rawBody = msg?.body || msg?.content || '';
+            if (typeof rawBody === 'string' && rawBody.trim() && rawBody.trim().toLowerCase() !== 'null' && rawBody.trim().toLowerCase() !== 'undefined') {
+              bodyPreview = rawBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              if (bodyPreview.toLowerCase() === 'null' || bodyPreview.toLowerCase() === 'undefined') {
+                bodyPreview = "";
+              }
+            } else if (msg?.attachmentsJson || (msg?.attachments && msg.attachments.length)) {
+              bodyPreview = "Attachment";
+            }
+
+            const isSelected = Boolean(
+              selectedSentDetail && (
+                (selectedSentDetail.id !== undefined && msg?.id !== undefined && (selectedSentDetail.id === msg.id || String(selectedSentDetail.id) === String(msg.id))) ||
+                (selectedSentDetail.uid !== undefined && msg?.uid !== undefined && selectedSentDetail.uid === msg.uid) ||
+                selectedSentDetail === msg
+              )
+            );
+
+            return (
+              <div
+                key={id}
+                onClick={() => handleArchivedMessageClick(msg, chat || { contact })}
+                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${
+                  isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                }`}
+              >
+                {isSelected && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
+                )}
+
+                {/* Left side: [Checkbox] [Avatar] [Person Name] [Direction | Subject — Preview] */}
+                <div className="flex items-center min-w-0 flex-1 mr-4">
+                  {/* Checkbox */}
+                  <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleSelectRow(rowId);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-3 sm:mr-3.5 ${avatarColorClass}`}>
+                    {initial}
+                  </div>
+
+                  {/* Sender / Contact Name */}
+                  <span className={`w-32 sm:w-44 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-3 sm:mr-4 ${
+                    isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
+                  }`}>
+                    {personName}
+                  </span>
+
+                  {/* Direction + Subject + Content Preview */}
+                  <div className="flex items-center min-w-0 flex-1">
+                    {/* Direction Label */}
+                    <span className={`text-xs sm:text-sm font-semibold shrink-0 ${
+                      isSent ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'
+                    }`}>
+                      {isSent ? 'Sent' : 'Received'}
+                    </span>
+
+                    {/* Pipe separator | if subject or bodyPreview exists */}
+                    {(subject || bodyPreview) && (
+                      <span className="text-gray-400 dark:text-gray-500 mx-2 shrink-0 select-none">|</span>
+                    )}
+
+                    {/* Subject */}
+                    {subject && (
+                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[130px] sm:max-w-[200px] font-semibold ${bodyPreview ? 'mr-1.5' : ''}`}>
+                        {subject}
+                      </span>
+                    )}
+
+                    {/* Dash separator — if both subject and bodyPreview exist */}
+                    {subject && bodyPreview && (
+                      <span className="text-gray-400 dark:text-gray-500 opacity-60 mr-1.5 shrink-0 select-none">—</span>
+                    )}
+
+                    {/* Content Preview */}
+                    {bodyPreview && (
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
+                        {bodyPreview}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right side: [Time] [Status Ticks] [3-dot menu] */}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className={`text-xs font-medium whitespace-nowrap ${
+                    isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                  }`}>
+                    {formatCashboxTime(msg?.timestamp)}
+                  </span>
+
+                  {/* Sent Message Status Ticks (Sent = ticks; Received = NO tick) */}
+                  {(() => {
+                    if (!isSent) return null;
+                    const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
+                    const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+
+                    if (isSeen) {
+                      return (
+                        <span className="text-blue-500 shrink-0 flex items-center ml-2" title="Seen">
+                          <MdDoneAll size={16} />
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center ml-2" title="Sent">
+                        <MdCheck size={16} />
+                      </span>
+                    );
+                  })()}
+
+                  {/* 3-dot options menu */}
+                  <div className="relative shrink-0 ml-1" ref={openMenuId === id ? listMenuRef : null}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuId(prev => prev === id ? null : id);
+                      }}
+                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                      title="More options"
+                    >
+                      <MdMoreVert size={18} />
+                    </button>
+
+                    {openMenuId === id && (
+                      <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                        {bodyPreview && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(msg.body || msg.content || '');
+                              toast.success("Copied to clipboard");
+                              setOpenMenuId(null);
+                            }}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
+                            Copy Text
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEditNameModal(chat || { contact, latestMessage: msg }, e)}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
+                          {t('casbox.edit_name', 'Edit Name')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleUnarchiveMessage(msg, e)}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdUnarchive size={16} className="text-blue-600 dark:text-blue-400" />
+                          Unarchive
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(null);
+                            setMessageToDelete(msg || item);
+                          }}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdDeleteOutline size={16} className="text-red-500 dark:text-red-400" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
         ) : (
           filteredConversationList.map((chat) => {
             const msg = chat.latestMessage;
@@ -3708,7 +4080,8 @@ const Casbox = () => {
 
             // Subject: Show if present and not empty
             const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
-            const subject = (rawSubject && rawSubject.toLowerCase() !== 'null') ? rawSubject : '';
+            const cleanRaw = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim();
+            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? cleanRaw : '';
 
             // Body preview
             let bodyPreview = "";
@@ -3996,8 +4369,8 @@ const Casbox = () => {
     const avatarColorClass = getAvatarColorClass(personDisplayName || contactEmail);
 
     const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
-    const cleanRaw = rawSubject.replace(/^\[(Combine|Messages)\]\s*/i, '');
-    const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null') ? cleanRaw : '(No subject)';
+    const cleanRaw = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim();
+    const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? cleanRaw : '(No subject)';
     const bodyContent = msg?.body || msg?.content || '';
     const timeStr = formatSentDetailDateTime(msg?.timestamp) || formatCashboxTime(msg?.timestamp);
 
@@ -4010,7 +4383,7 @@ const Casbox = () => {
 
     return (
       <div className="flex flex-col h-full bg-[#f8f9fa] dark:bg-[#121212] overflow-hidden">
-        {/* Top Toolbar: Minimal Back (left) and Delete (right) - Seamless without bottom border */}
+        {/* Top Toolbar: Minimal Back (left) and Actions (right) */}
         <div className="flex items-center justify-between px-6 sm:px-10 py-5 bg-transparent shrink-0">
           <button
             type="button"
@@ -4025,18 +4398,40 @@ const Casbox = () => {
             <span>Back</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (selectedSentDetail) {
-                setMessageToDelete(selectedSentDetail);
-              }
-            }}
-            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
-            title="Delete"
-          >
-            <MdDeleteOutline size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            {Boolean(msg?.isArchived || msg?.archived) ? (
+              <button
+                type="button"
+                onClick={(e) => handleUnarchiveMessage(msg, e)}
+                className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                title="Unarchive"
+              >
+                <MdUnarchive size={22} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => handleArchiveMessage(msg, e)}
+                className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+                title="Archive"
+              >
+                <MdArchive size={22} />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedSentDetail) {
+                  setMessageToDelete(selectedSentDetail);
+                }
+              }}
+              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
+              title="Delete"
+            >
+              <MdDeleteOutline size={24} />
+            </button>
+          </div>
         </div>
 
         {/* Content Area - Full-screen off-white mail reading layout */}
