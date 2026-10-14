@@ -15,11 +15,11 @@ const Unread = ({ searchQuery }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter } = useMail();
+  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter, unreadCounts } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
 
   const unreadEmails = emails.filter((e) => !e.isRead || String(e.uid) === String(selectedEmailUid));
-  const unreadCount = emails.filter((e) => !e.isRead).length;
+  const unreadCount = unreadCounts?.unread !== undefined ? unreadCounts.unread : emails.filter((e) => !e.isRead).length;
   const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
 
   const [selectedIds, setSelectedIds] = useState(new Set());

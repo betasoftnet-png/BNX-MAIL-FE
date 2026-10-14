@@ -7,35 +7,16 @@ import { filterDuplicateSpamEmails } from '../utils/spamFilter';
 import { matchesDateRange } from '../utils/dateFilter';
 import toast from 'react-hot-toast';
 
-const getPersistedReadUids = (userEmail) => {
-    try {
-        const key = userEmail ? `bnx_read_emails_${userEmail.toLowerCase().trim()}` : 'bnx_read_emails';
-        const raw = localStorage.getItem(key);
-        return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch (e) {
-        return new Set();
+// Clean up any legacy persisted read UIDs from previous sessions to prevent stale overrides
+try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        Object.keys(localStorage).forEach(k => {
+            if (k.startsWith('bnx_read_emails')) {
+                localStorage.removeItem(k);
+            }
+        });
     }
-};
-
-const addPersistedReadUid = (userEmail, uid) => {
-    try {
-        if (!uid) return;
-        const key = userEmail ? `bnx_read_emails_${userEmail.toLowerCase().trim()}` : 'bnx_read_emails';
-        const current = getPersistedReadUids(userEmail);
-        current.add(String(uid));
-        localStorage.setItem(key, JSON.stringify(Array.from(current)));
-    } catch (e) {}
-};
-
-const removePersistedReadUid = (userEmail, uid) => {
-    try {
-        if (!uid) return;
-        const key = userEmail ? `bnx_read_emails_${userEmail.toLowerCase().trim()}` : 'bnx_read_emails';
-        const current = getPersistedReadUids(userEmail);
-        current.delete(String(uid));
-        localStorage.setItem(key, JSON.stringify(Array.from(current)));
-    } catch (e) {}
-};
+} catch (e) {}
 
 const MailContext = createContext();
 
@@ -65,7 +46,7 @@ export const MailProvider = ({ children }) => {
         delete pagesCache.current[folderKey];
     }, []);
     const [loading, setLoading] = useState(false);
-    const [unreadCounts, setUnreadCounts] = useState({ inbox: 0, spam: 0, trash: 0 });
+    const [unreadCounts, setUnreadCounts] = useState({ inbox: 0, unread: 0, spam: 0, trash: 0 });
     const [labels, setLabels] = useState([]);
     const [totalEmails, setTotalEmails] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -192,19 +173,6 @@ export const MailProvider = ({ children }) => {
                             };
                         } else if (!res.data.data.emails && Array.isArray(res.data.data.unreadEmails)) {
                             res.data.data.emails = res.data.data.unreadEmails;
-                        } else if (Array.isArray(res.data.data.emails) && res.data.data.emails.length === 0) {
-                            try {
-                                const inboxCheck = await mailAPI.getInbox(1, limit);
-                                if (inboxCheck?.data?.success) {
-                                    const iList = inboxCheck.data.data?.emails || (Array.isArray(inboxCheck.data.data) ? inboxCheck.data.data : []);
-                                    const iUnread = iList.filter(m => !m.isRead && !m.read);
-                                    if (iUnread.length > 0) {
-                                        res.data.data.emails = iUnread;
-                                        res.data.data.totalCount = iUnread.length;
-                                        res.data.data.unreadCount = iUnread.length;
-                                    }
-                                }
-                            } catch (e) {}
                         }
                     }
                     break;
@@ -215,15 +183,11 @@ export const MailProvider = ({ children }) => {
             if (res && res.data?.success) {
                 const data = res.data.data || {};
                 const rawEmails = data.emails || (Array.isArray(data) ? data : (data.unreadEmails || []));
-                const persistedReadSet = getPersistedReadUids(user?.email);
-                let normalizedEmails = rawEmails.map(m => {
-                    const isReadPersisted = persistedReadSet.has(String(m.uid)) || (m.id && persistedReadSet.has(String(m.id)));
-                    return {
-                        ...m,
-                        isRead: isReadPersisted ? true : (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)),
-                        starred: m.starred ?? m.isStarred ?? false
-                    };
-                });
+                let normalizedEmails = rawEmails.map(m => ({
+                    ...m,
+                    isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
+                    starred: m.starred ?? m.isStarred ?? false
+                }));
                 if (folderKey !== 'trash') {
                     normalizedEmails = normalizedEmails.filter(m => {
                         const isTrash = m.folderName?.toLowerCase() === 'trash' || m.folderName?.toLowerCase() === 'deleted' || m.isTrash === true || m.isDeleted === true || m.deleted === true;
@@ -245,7 +209,7 @@ export const MailProvider = ({ children }) => {
                         return actualEmail === currentEmail;
                     };
 
-                    if (['inbox', 'all-inbox', 'allinbox'].includes(folderKey)) {
+                    if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(folderKey)) {
                         normalizedEmails = normalizedEmails.filter(m => {
                             const isDraft = m.folderName?.toLowerCase() === 'draft' || m.folderName?.toLowerCase() === 'drafts' || m.isDraft === true || m.draft === true;
                             if (isDraft) return false;
@@ -269,19 +233,22 @@ export const MailProvider = ({ children }) => {
 
                 // Sync unread counts in real-time across all tabs and folders
                 const countKey = folderKey.replace('-', '').replace(' ', '');
-                const unread = folderKey === 'spam'
-                    ? normalizedEmails.filter(e => !e.isRead).length
-                    : (data.unreadCount !== undefined ? data.unreadCount : normalizedEmails.filter(e => !e.isRead).length);
-
-                setUnreadCounts(prev => {
-                    const next = { ...prev, [countKey]: unread };
-                    if (countKey === 'inbox') {
-                        next.unread = unread;
-                    } else if (countKey === 'unread') {
-                        next.inbox = unread;
-                    }
-                    return next;
-                });
+                if (countKey === 'inbox' || countKey === 'unread') {
+                    const unread = (targetPage === 1 && normalizedEmails.length === 0)
+                        ? 0
+                        : (data.unreadCount !== undefined ? data.unreadCount : normalizedEmails.filter(e => !e.isRead).length);
+                    setUnreadCounts(prev => ({
+                        ...prev,
+                        inbox: unread,
+                        unread: unread
+                    }));
+                } else if (countKey === 'spam') {
+                    const unread = normalizedEmails.filter(e => !e.isRead).length;
+                    setUnreadCounts(prev => ({
+                        ...prev,
+                        spam: unread
+                    }));
+                }
 
                 // Only update active screen if it matches the current folder
                 if (currentFolderRef.current.toLowerCase() === folderKey) {
@@ -372,19 +339,6 @@ export const MailProvider = ({ children }) => {
                             };
                         } else if (!res.data.data.emails && Array.isArray(res.data.data.unreadEmails)) {
                             res.data.data.emails = res.data.data.unreadEmails;
-                        } else if (Array.isArray(res.data.data.emails) && res.data.data.emails.length === 0) {
-                            try {
-                                const inboxCheck = await mailAPI.getInbox(1, limit);
-                                if (inboxCheck?.data?.success) {
-                                    const iList = inboxCheck.data.data?.emails || (Array.isArray(inboxCheck.data.data) ? inboxCheck.data.data : []);
-                                    const iUnread = iList.filter(m => !m.isRead && !m.read);
-                                    if (iUnread.length > 0) {
-                                        res.data.data.emails = iUnread;
-                                        res.data.data.totalCount = iUnread.length;
-                                        res.data.data.unreadCount = iUnread.length;
-                                    }
-                                }
-                            } catch (e) {}
                         }
                     }
                     break;
@@ -511,15 +465,11 @@ export const MailProvider = ({ children }) => {
             if (res.data?.success) {
                 const data = res.data.data || {};
                 const rawEmails = data.emails || (Array.isArray(data) ? data : (data.unreadEmails || []));
-                const persistedReadSet = getPersistedReadUids(user?.email);
-                let normalizedEmails = rawEmails.map(m => {
-                    const isReadPersisted = persistedReadSet.has(String(m.uid)) || (m.id && persistedReadSet.has(String(m.id)));
-                    return {
-                        ...m,
-                        isRead: isReadPersisted ? true : (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)),
-                        starred: m.starred ?? m.isStarred ?? false
-                    };
-                });
+                let normalizedEmails = rawEmails.map(m => ({
+                    ...m,
+                    isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
+                    starred: m.starred ?? m.isStarred ?? false
+                }));
                 if (folderKey !== 'trash') {
                     normalizedEmails = normalizedEmails.filter(m => {
                         const isTrash = m.folderName?.toLowerCase() === 'trash' || m.folderName?.toLowerCase() === 'deleted' || m.isTrash === true || m.isDeleted === true || m.deleted === true;
@@ -543,7 +493,7 @@ export const MailProvider = ({ children }) => {
                         return actualEmail === currentEmail;
                     };
 
-                    if (['inbox', 'all-inbox', 'allinbox'].includes(lowerFolder)) {
+                    if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(lowerFolder)) {
                         normalizedEmails = normalizedEmails.filter(m => {
                             const isDraft = m.folderName?.toLowerCase() === 'draft' || m.folderName?.toLowerCase() === 'drafts' || m.isDraft === true || m.draft === true;
                             if (isDraft) return false;
@@ -703,114 +653,176 @@ export const MailProvider = ({ children }) => {
     };
 
     const handleMarkRead = async (uid, silent = false) => {
-        try {
-            // Persist read status locally so it stays read across reloads/re-fetches
-            addPersistedReadUid(user?.email, uid);
+        const strUid = String(uid);
+        let wasUnread = false;
+        const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
+        const isSpamFolder = currentFolderLower === 'spam';
 
-            setEmails(prev => prev.map(m => {
-                if ((String(m.uid) === String(uid) || String(m.id) === String(uid)) && !m.isRead) {
-                    // Update unread counts locally
-                    setUnreadCounts(counts => ({
-                        ...counts,
-                        inbox: currentFolderRef.current?.toLowerCase() === 'inbox' ? Math.max(0, (counts.inbox || 0) - 1) : counts.inbox,
-                        spam: currentFolderRef.current?.toLowerCase() === 'spam' ? Math.max(0, (counts.spam || 0) - 1) : counts.spam
-                    }));
-                    return { ...m, isRead: true };
-                }
-                return m;
+        setEmails(prev => prev.map(m => {
+            if ((String(m.uid) === strUid || String(m.id) === strUid) && !m.isRead) {
+                wasUnread = true;
+                return { ...m, isRead: true };
+            }
+            return m;
+        }));
+
+        if (wasUnread) {
+            setUnreadCounts(counts => ({
+                ...counts,
+                inbox: !isSpamFolder ? Math.max(0, (counts.inbox || 0) - 1) : counts.inbox,
+                unread: !isSpamFolder ? Math.max(0, (counts.unread || 0) - 1) : counts.unread,
+                spam: isSpamFolder ? Math.max(0, (counts.spam || 0) - 1) : counts.spam
             }));
-            invalidateCache('unread');
-            if (currentFolderRef.current) {
-                invalidateCache(currentFolderRef.current);
-            }
-            if (pagesCache.current) {
-                Object.keys(pagesCache.current).forEach(f => {
-                    if (pagesCache.current[f]) {
-                        Object.keys(pagesCache.current[f]).forEach(p => {
-                            if (Array.isArray(pagesCache.current[f][p])) {
-                                pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
-                                    (String(m.uid) === String(uid) || String(m.id) === String(uid)) ? { ...m, isRead: true } : m
-                                );
-                            }
-                        });
-                    }
-                });
-            }
+        }
 
-            // Attempt existing API markRead; catch gracefully so backend IMAP folder constraints don't break frontend state
-            try {
-                await mailAPI.markRead(uid);
-            } catch (apiErr) {
-                console.warn('Backend markRead API call failed or unsupported for this folder:', apiErr);
+        invalidateCache('unread');
+        invalidateCache('inbox');
+        if (currentFolderRef.current) {
+            invalidateCache(currentFolderRef.current);
+        }
+        if (pagesCache.current) {
+            Object.keys(pagesCache.current).forEach(f => {
+                if (pagesCache.current[f]) {
+                    Object.keys(pagesCache.current[f]).forEach(p => {
+                        if (Array.isArray(pagesCache.current[f][p])) {
+                            pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
+                                (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, isRead: true } : m
+                            );
+                        }
+                    });
+                }
+            });
+        }
+
+        try {
+            await mailAPI.markRead(uid);
+        } catch (apiErr) {
+            console.warn('Backend markRead API call failed:', apiErr);
+            if (wasUnread) {
+                setEmails(prev => prev.map(m =>
+                    (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, isRead: false } : m
+                ));
+                setUnreadCounts(counts => ({
+                    ...counts,
+                    inbox: !isSpamFolder ? (counts.inbox || 0) + 1 : counts.inbox,
+                    unread: !isSpamFolder ? (counts.unread || 0) + 1 : counts.unread,
+                    spam: isSpamFolder ? (counts.spam || 0) + 1 : counts.spam
+                }));
             }
-        } catch (error) {
-            console.error('Mark read failed:', error);
         }
     };
 
     const handleMarkUnread = async (uid, silent = false) => {
-        try {
-            removePersistedReadUid(user?.email, uid);
+        const strUid = String(uid);
+        let wasRead = false;
+        const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
+        const isSpamFolder = currentFolderLower === 'spam';
 
-            setEmails(prev => prev.map(m => (String(m.uid) === String(uid) || String(m.id) === String(uid)) ? { ...m, isRead: false } : m));
+        setEmails(prev => prev.map(m => {
+            if ((String(m.uid) === strUid || String(m.id) === strUid) && m.isRead) {
+                wasRead = true;
+                return { ...m, isRead: false };
+            }
+            return m;
+        }));
+
+        if (wasRead) {
             setUnreadCounts(counts => ({
                 ...counts,
-                inbox: currentFolderRef.current?.toLowerCase() === 'inbox' ? (counts.inbox || 0) + 1 : counts.inbox,
-                spam: currentFolderRef.current?.toLowerCase() === 'spam' ? (counts.spam || 0) + 1 : counts.spam
+                inbox: !isSpamFolder ? (counts.inbox || 0) + 1 : counts.inbox,
+                unread: !isSpamFolder ? (counts.unread || 0) + 1 : counts.unread,
+                spam: isSpamFolder ? (counts.spam || 0) + 1 : counts.spam
             }));
-            invalidateCache('unread');
-            if (currentFolderRef.current) {
-                invalidateCache(currentFolderRef.current);
-            }
-            if (pagesCache.current) {
-                Object.keys(pagesCache.current).forEach(f => {
-                    if (pagesCache.current[f]) {
-                        Object.keys(pagesCache.current[f]).forEach(p => {
-                            if (Array.isArray(pagesCache.current[f][p])) {
-                                pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
-                                    (String(m.uid) === String(uid) || String(m.id) === String(uid)) ? { ...m, isRead: false } : m
-                                );
-                            }
-                        });
-                    }
-                });
-            }
-            if (currentFolderRef.current?.toLowerCase() === 'unread') {
-                fetchEmails('unread', true, currentPageRef.current);
-            }
+        }
 
-            try {
-                await mailAPI.markUnread(uid);
-            } catch (apiErr) {
-                console.warn('Backend markUnread API call failed or unsupported for this folder:', apiErr);
+        invalidateCache('unread');
+        invalidateCache('inbox');
+        if (currentFolderRef.current) {
+            invalidateCache(currentFolderRef.current);
+        }
+        if (pagesCache.current) {
+            Object.keys(pagesCache.current).forEach(f => {
+                if (pagesCache.current[f]) {
+                    Object.keys(pagesCache.current[f]).forEach(p => {
+                        if (Array.isArray(pagesCache.current[f][p])) {
+                            pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
+                                (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, isRead: false } : m
+                            );
+                        }
+                    });
+                }
+            });
+        }
+        if (currentFolderRef.current?.toLowerCase() === 'unread') {
+            fetchEmails('unread', true, currentPageRef.current);
+        }
+
+        try {
+            await mailAPI.markUnread(uid);
+        } catch (apiErr) {
+            console.warn('Backend markUnread API call failed:', apiErr);
+            if (wasRead) {
+                setEmails(prev => prev.map(m =>
+                    (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, isRead: true } : m
+                ));
+                setUnreadCounts(counts => ({
+                    ...counts,
+                    inbox: !isSpamFolder ? Math.max(0, (counts.inbox || 0) - 1) : counts.inbox,
+                    unread: !isSpamFolder ? Math.max(0, (counts.unread || 0) - 1) : counts.unread,
+                    spam: isSpamFolder ? Math.max(0, (counts.spam || 0) - 1) : counts.spam
+                }));
             }
-        } catch (error) {
-            console.error('Mark unread failed:', error);
         }
     };
 
     const handleMoveToTrash = async (uid, folder, silent = false) => {
+        const strUid = String(uid);
+        const targetFolder = folder || currentFolderRef.current || 'inbox';
+        const fKey = targetFolder.toLowerCase();
+
+        let removedEmail = null;
+        setEmails(prev => {
+            removedEmail = prev.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+            return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
+        });
+
+        if (removedEmail && !removedEmail.isRead) {
+            if (fKey === 'spam') {
+                setUnreadCounts(c => ({ ...c, spam: Math.max(0, (c.spam || 0) - 1) }));
+            } else {
+                setUnreadCounts(c => ({
+                    ...c,
+                    inbox: Math.max(0, (c.inbox || 0) - 1),
+                    unread: Math.max(0, (c.unread || 0) - 1)
+                }));
+            }
+        }
+        setTotalEmails(prev => Math.max(0, prev - 1));
+        invalidateCache('trash');
+        invalidateCache('unread');
+        invalidateCache('inbox');
+        if (folder) invalidateCache(folder);
+        if (currentFolderRef.current) invalidateCache(currentFolderRef.current);
+
         try {
-            const targetFolder = folder || currentFolderRef.current || 'inbox';
             await mailAPI.trash(uid, targetFolder);
-            setEmails(prev => {
-                const item = prev.find(m => String(m.uid) === String(uid));
-                if (item && !item.isRead) {
-                    const fKey = (folder || currentFolderRef.current || '').toLowerCase();
-                    if (fKey === 'spam') {
-                        setUnreadCounts(c => ({ ...c, spam: Math.max(0, (c.spam || 0) - 1) }));
-                    } else if (fKey === 'inbox') {
-                        setUnreadCounts(c => ({ ...c, inbox: Math.max(0, (c.inbox || 0) - 1) }));
-                    }
-                }
-                return prev.filter(m => String(m.uid) !== String(uid));
-            });
-            setTotalEmails(prev => Math.max(0, prev - 1));
-            invalidateCache('trash');
-            if (folder) invalidateCache(folder);
-            if (currentFolderRef.current) invalidateCache(currentFolderRef.current);
             if (!silent) toast.success('Moved to trash');
         } catch (error) {
+            if (removedEmail) {
+                setEmails(prev => [removedEmail, ...prev]);
+                if (!removedEmail.isRead) {
+                    if (fKey === 'spam') {
+                        setUnreadCounts(c => ({ ...c, spam: (c.spam || 0) + 1 }));
+                    } else {
+                        setUnreadCounts(c => ({
+                            ...c,
+                            inbox: (c.inbox || 0) + 1,
+                            unread: (c.unread || 0) + 1
+                        }));
+                    }
+                }
+                setTotalEmails(prev => prev + 1);
+            }
             if (!silent) toast.error('Failed to move to trash');
             throw error;
         }
@@ -832,8 +844,19 @@ export const MailProvider = ({ children }) => {
         const targetFolder = folder || currentFolderRef.current || 'INBOX';
         const strUid = String(uid);
 
+        let snoozedItem = null;
         // Optimistically remove the email from the active emails list
-        setEmails(prev => prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid));
+        setEmails(prev => {
+            snoozedItem = prev.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+            return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
+        });
+        if (snoozedItem && !snoozedItem.isRead) {
+            setUnreadCounts(c => ({
+                ...c,
+                inbox: Math.max(0, (c.inbox || 0) - 1),
+                unread: Math.max(0, (c.unread || 0) - 1)
+            }));
+        }
         setTotalEmails(prev => Math.max(0, prev - 1));
 
         // Purge from in-memory pages cache
@@ -868,6 +891,13 @@ export const MailProvider = ({ children }) => {
             return true;
         } catch (error) {
             console.error('Failed to snooze email:', error);
+            if (snoozedItem && !snoozedItem.isRead) {
+                setUnreadCounts(c => ({
+                    ...c,
+                    inbox: (c.inbox || 0) + 1,
+                    unread: (c.unread || 0) + 1
+                }));
+            }
             if (!silent) toast.error(error.response?.data?.message || 'Failed to snooze');
             // Refresh current folder to restore state on error
             if (currentFolderRef.current?.startsWith('label-')) {
@@ -1084,65 +1114,150 @@ export const MailProvider = ({ children }) => {
     };
 
     const handleArchive = async (uid, folder, silent = false) => {
+        const strUid = String(uid);
+        const targetFolder = (folder || currentFolderRef.current || 'inbox').toLowerCase();
+        let archivedItem = null;
         try {
-            await mailAPI.archive(uid, folder);
-            if (currentFolder === 'inbox') {
-                setEmails(prev => prev.filter(m => String(m.uid) !== String(uid)));
-            } else {
-                setEmails(prev => prev.map(m => String(m.uid) === String(uid) ? { ...m, folderName: 'Archive' } : m));
+            setEmails(prev => {
+                archivedItem = prev.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+                if (['inbox', 'unread', 'all-inbox', 'allinbox'].includes(currentFolderRef.current?.toLowerCase())) {
+                    return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
+                }
+                return prev.map(m => (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, folderName: 'Archive' } : m);
+            });
+            if (archivedItem && !archivedItem.isRead && targetFolder !== 'archive') {
+                setUnreadCounts(c => ({
+                    ...c,
+                    inbox: Math.max(0, (c.inbox || 0) - 1),
+                    unread: Math.max(0, (c.unread || 0) - 1)
+                }));
             }
-            // Invalidate cache
             if (folder) invalidateCache(folder);
             invalidateCache('archive');
+            invalidateCache('inbox');
+            invalidateCache('unread');
+            await mailAPI.archive(uid, folder);
             if (!silent) toast.success('Email archived');
         } catch (error) {
             console.error('Failed to archive:', error);
+            if (archivedItem && !archivedItem.isRead && targetFolder !== 'archive') {
+                setUnreadCounts(c => ({
+                    ...c,
+                    inbox: (c.inbox || 0) + 1,
+                    unread: (c.unread || 0) + 1
+                }));
+            }
+            fetchEmails(currentFolderRef.current, true, currentPageRef.current);
             if (!silent) toast.error('Failed to archive email');
         }
     };
 
     const handleUnarchive = async (uid, silent = false) => {
+        const strUid = String(uid);
+        let unarchivedItem = null;
         try {
-            await mailAPI.unarchive(uid);
-            if (currentFolder === 'archive') {
-                setEmails(prev => prev.filter(m => String(m.uid) !== String(uid)));
-            } else {
-                setEmails(prev => prev.map(m => String(m.uid) === String(uid) ? { ...m, folderName: 'INBOX' } : m));
+            setEmails(prev => {
+                unarchivedItem = prev.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+                if (currentFolderRef.current?.toLowerCase() === 'archive') {
+                    return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
+                }
+                return prev.map(m => (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, folderName: 'INBOX' } : m);
+            });
+            if (unarchivedItem && !unarchivedItem.isRead) {
+                setUnreadCounts(c => ({
+                    ...c,
+                    inbox: (c.inbox || 0) + 1,
+                    unread: (c.unread || 0) + 1
+                }));
             }
-            // Invalidate cache
             invalidateCache('archive');
             invalidateCache('inbox');
+            invalidateCache('unread');
+            await mailAPI.unarchive(uid);
             if (!silent) toast.success('Email restored');
         } catch (error) {
             console.error('Failed to unarchive:', error);
+            if (unarchivedItem && !unarchivedItem.isRead) {
+                setUnreadCounts(c => ({
+                    ...c,
+                    inbox: Math.max(0, (c.inbox || 0) - 1),
+                    unread: Math.max(0, (c.unread || 0) - 1)
+                }));
+            }
+            fetchEmails(currentFolderRef.current, true, currentPageRef.current);
             if (!silent) toast.error('Failed to unarchive email');
         }
     };
 
     const handleMarkSpam = async (uid, folder = currentFolder, silent = false) => {
+        const strUid = String(uid);
+        let spamItem = null;
         try {
+            setEmails(prev => {
+                spamItem = prev.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+                return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
+            });
+            if (spamItem && !spamItem.isRead) {
+                setUnreadCounts(c => ({
+                    ...c,
+                    inbox: Math.max(0, (c.inbox || 0) - 1),
+                    unread: Math.max(0, (c.unread || 0) - 1),
+                    spam: (c.spam || 0) + 1
+                }));
+            }
+            invalidateCache('spam');
+            invalidateCache('inbox');
+            invalidateCache('unread');
+            if (folder) invalidateCache(folder);
             await mailAPI.markSpam(uid, folder);
-            setEmails(prev => prev.filter(m => String(m.uid) !== String(uid)));
             if (!silent) toast.success('Reported as spam');
         } catch (error) {
+            console.error('Failed to report spam:', error);
+            if (spamItem && !spamItem.isRead) {
+                setUnreadCounts(c => ({
+                    ...c,
+                    inbox: (c.inbox || 0) + 1,
+                    unread: (c.unread || 0) + 1,
+                    spam: Math.max(0, (c.spam || 0) - 1)
+                }));
+            }
+            fetchEmails(currentFolderRef.current, true, currentPageRef.current);
             if (!silent) toast.error('Failed to report spam');
         }
     };
 
     const handleRestoreSpam = async (uid, silent = false) => {
+        const strUid = String(uid);
+        let restoredItem = null;
         try {
-            await mailAPI.restoreSpam(uid);
             setEmails(prev => {
-                const item = prev.find(m => String(m.uid) === String(uid));
-                if (item && !item.isRead) {
-                    setUnreadCounts(c => ({ ...c, spam: Math.max(0, (c.spam || 0) - 1) }));
-                }
-                return prev.filter(m => String(m.uid) !== String(uid));
+                restoredItem = prev.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+                return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
             });
+            if (restoredItem && !restoredItem.isRead) {
+                setUnreadCounts(c => ({
+                    ...c,
+                    spam: Math.max(0, (c.spam || 0) - 1),
+                    inbox: (c.inbox || 0) + 1,
+                    unread: (c.unread || 0) + 1
+                }));
+            }
             invalidateCache('spam');
             invalidateCache('inbox');
+            invalidateCache('unread');
+            await mailAPI.restoreSpam(uid);
             if (!silent) toast.success('Restored from spam');
         } catch (error) {
+            console.error('Failed to restore from spam:', error);
+            if (restoredItem && !restoredItem.isRead) {
+                setUnreadCounts(c => ({
+                    ...c,
+                    spam: (c.spam || 0) + 1,
+                    inbox: Math.max(0, (c.inbox || 0) - 1),
+                    unread: Math.max(0, (c.unread || 0) - 1)
+                }));
+            }
+            fetchEmails(currentFolderRef.current, true, currentPageRef.current);
             if (!silent) toast.error('Failed to restore from spam');
         }
     };
@@ -1308,7 +1423,7 @@ export const useMail = () => {
             emails: [],
             loading: false,
             labels: [],
-            unreadCounts: { inbox: 0, spam: 0, trash: 0 },
+            unreadCounts: { inbox: 0, unread: 0, spam: 0, trash: 0 },
             totalEmails: 0,
             currentPage: 1,
             fetchEmails: async () => {},
