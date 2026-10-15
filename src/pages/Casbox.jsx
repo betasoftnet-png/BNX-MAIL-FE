@@ -997,13 +997,14 @@ const Casbox = () => {
   });
   const [blockedContacts, setBlockedContacts] = useState(() => {
     try {
-      const s = sessionStorage.getItem('bnx_casbox_blocked');
+      const s = sessionStorage.getItem('bnx_casbox_blocked') || localStorage.getItem('bnx_casbox_blocked');
       return s ? JSON.parse(s) : [];
     } catch (e) {
       return [];
     }
   });
   const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const [isProcessingBlockAction, setIsProcessingBlockAction] = useState(false);
 
   const blockedContactsRef = React.useRef(blockedContacts);
   useEffect(() => {
@@ -5403,45 +5404,94 @@ const Casbox = () => {
     }
   };
 
-  const handleBlockRequest = async (senderEmail) => {
-    if (!senderEmail) return;
+  const handleBlockUser = async (senderEmail) => {
+    if (!senderEmail || isProcessingBlockAction) return;
     const emailLower = normalizeEmail(senderEmail);
     if (!emailLower) return;
 
     try {
-      await blockedContactsAPI.blockSender(emailLower);
-      const newBlocked = Array.from(new Set([...blockedContactsRef.current.map(normalizeEmail), emailLower])).filter(Boolean);
+      setIsProcessingBlockAction(true);
+      const local = emailLower.includes('@') ? emailLower.split('@')[0] : emailLower;
+      const matchedConn = connections?.find(c => {
+        const cEmail = normalizeEmail(c.contactEmail || c.email);
+        const cUser = normalizeEmail(c.contactUsername || c.username);
+        return cEmail === emailLower || cUser === emailLower || cEmail === local || cUser === local;
+      });
+
+      const identifiersToAdd = [emailLower];
+      if (local && local !== emailLower) identifiersToAdd.push(local);
+      if (matchedConn) {
+        if (matchedConn.contactEmail) identifiersToAdd.push(normalizeEmail(matchedConn.contactEmail));
+        if (matchedConn.contactUsername) identifiersToAdd.push(normalizeEmail(matchedConn.contactUsername));
+      }
+
+      const prevBlocked = blockedContactsRef.current.map(normalizeEmail);
+      const newBlocked = Array.from(new Set([...prevBlocked, ...identifiersToAdd])).filter(Boolean);
       setBlockedContacts(newBlocked);
       try {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
+        localStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
       } catch (e) {}
+
+      if (blockedContactsAPI?.blockSender) {
+        await blockedContactsAPI.blockSender(emailLower);
+      }
       toast.success("User blocked");
       fetchMessages(true);
     } catch (e) {
       console.error("Failed to block user", e);
       const msg = e.response?.data?.message || e.message || "Failed to block user";
       toast.error(msg);
+    } finally {
+      setIsProcessingBlockAction(false);
     }
   };
 
+  const handleBlockRequest = handleBlockUser;
+
   const handleUnblockUser = async (senderEmail) => {
-    if (!senderEmail) return;
+    if (!senderEmail || isProcessingBlockAction) return;
     const emailLower = normalizeEmail(senderEmail);
     if (!emailLower) return;
 
     try {
-      await blockedContactsAPI.unblockSender(emailLower);
-      const newBlocked = blockedContactsRef.current.filter(email => normalizeEmail(email) !== emailLower);
+      setIsProcessingBlockAction(true);
+      const local = emailLower.includes('@') ? emailLower.split('@')[0] : emailLower;
+      const matchedConn = connections?.find(c => {
+        const cEmail = normalizeEmail(c.contactEmail || c.email);
+        const cUser = normalizeEmail(c.contactUsername || c.username);
+        return cEmail === emailLower || cUser === emailLower || cEmail === local || cUser === local;
+      });
+
+      const identifiersToRemove = new Set([emailLower, local]);
+      if (matchedConn) {
+        if (matchedConn.contactEmail) identifiersToRemove.add(normalizeEmail(matchedConn.contactEmail));
+        if (matchedConn.contactUsername) identifiersToRemove.add(normalizeEmail(matchedConn.contactUsername));
+      }
+
+      const newBlocked = blockedContactsRef.current.filter(email => {
+        const em = normalizeEmail(email);
+        const emLocal = em.includes('@') ? em.split('@')[0] : em;
+        return !identifiersToRemove.has(em) && !identifiersToRemove.has(emLocal);
+      });
+
       setBlockedContacts(newBlocked);
       try {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
+        localStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
       } catch (e) {}
+
+      if (blockedContactsAPI?.unblockSender) {
+        await blockedContactsAPI.unblockSender(emailLower);
+      }
       toast.success("User unblocked");
       fetchMessages(true);
     } catch (e) {
       console.error("Failed to unblock user", e);
       const msg = e.response?.data?.message || e.message || "Failed to unblock user";
       toast.error(msg);
+    } finally {
+      setIsProcessingBlockAction(false);
     }
   };
 
@@ -5836,6 +5886,7 @@ const Casbox = () => {
               {showMoreMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
                   <button
+                    type="button"
                     onClick={() => {
                       setShowMoreMenu(false);
                       handleOpenEditNameModal({ contact: otherUserEmail, latestMessage: selectedMessage });
@@ -5845,19 +5896,37 @@ const Casbox = () => {
                     <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
                     {t('casbox.edit_contact_name', 'Edit Contact Name')}
                   </button>
-                  {isBlockedContact(otherUserEmail) && (
+
+                  {isBlockedContact(otherUserEmail) ? (
                     <button
-                      onClick={() => {
-                        handleUnblockUser(otherUserEmail);
+                      type="button"
+                      disabled={isProcessingBlockAction}
+                      onClick={async () => {
                         setShowMoreMenu(false);
+                        await handleUnblockUser(otherUserEmail);
                       }}
-                      className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer"
+                      className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       <MdBlock size={16} />
-                      Unblock Contact
+                      Unblock User
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isProcessingBlockAction}
+                      onClick={async () => {
+                        setShowMoreMenu(false);
+                        await handleBlockUser(otherUserEmail);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <MdBlock size={16} />
+                      Block User
                     </button>
                   )}
+
                   <button
+                    type="button"
                     onClick={() => {
                       setShowMoreMenu(false);
                       setConversationToDelete({ contact: otherUserEmail });
