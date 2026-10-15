@@ -78,7 +78,18 @@ const Groups = () => {
             setLoadingArchivedMessages(true);
             const res = await casboxAPI.getAllMessages();
             const all = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-            const archivedOnly = all.filter(m => Boolean(m.isArchived || m.archived));
+
+            const sArchived = sessionStorage.getItem('bnx_casbox_archived_message_ids') || localStorage.getItem('bnx_casbox_archived_message_ids');
+            const localArchivedSet = sArchived ? new Set(JSON.parse(sArchived).map(String)) : new Set();
+            const sUnarchived = sessionStorage.getItem('bnx_casbox_unarchived_message_ids') || localStorage.getItem('bnx_casbox_unarchived_message_ids');
+            const localUnarchivedSet = sUnarchived ? new Set(JSON.parse(sUnarchived).map(String)) : new Set();
+
+            const archivedOnly = all.filter(m => {
+                const id = String(m.id !== undefined && m.id !== null ? m.id : m.uid);
+                if (localUnarchivedSet.has(id)) return false;
+                if (localArchivedSet.has(id)) return true;
+                return Boolean(m.isArchived || m.archived);
+            });
             setArchivedMessages(archivedOnly);
         } catch (err) {
             console.error("Failed to load archived messages in Archive view:", err);
@@ -101,6 +112,26 @@ const Groups = () => {
         const targetIds = !isNaN(numericId) ? [numericId] : [msgId];
         try {
             await casboxAPI.updateArchiveStatus(targetIds, false);
+
+            try {
+                const s = localStorage.getItem('bnx_casbox_archived_message_ids') || sessionStorage.getItem('bnx_casbox_archived_message_ids');
+                if (s) {
+                    const set = new Set(JSON.parse(s));
+                    set.delete(msgId);
+                    set.delete(String(msgId));
+                    const arr = Array.from(set);
+                    localStorage.setItem('bnx_casbox_archived_message_ids', JSON.stringify(arr));
+                    sessionStorage.setItem('bnx_casbox_archived_message_ids', JSON.stringify(arr));
+                }
+                const un = localStorage.getItem('bnx_casbox_unarchived_message_ids') || sessionStorage.getItem('bnx_casbox_unarchived_message_ids');
+                const unSet = un ? new Set(JSON.parse(un)) : new Set();
+                unSet.add(msgId);
+                unSet.add(String(msgId));
+                const unArr = Array.from(unSet);
+                localStorage.setItem('bnx_casbox_unarchived_message_ids', JSON.stringify(unArr));
+                sessionStorage.setItem('bnx_casbox_unarchived_message_ids', JSON.stringify(unArr));
+            } catch (e) {}
+
             setArchivedMessages(prev => prev.filter(m => {
                 const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
                 return id !== msgId && String(id) !== String(msgId);

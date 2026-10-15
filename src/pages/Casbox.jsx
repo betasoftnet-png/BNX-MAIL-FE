@@ -765,6 +765,61 @@ const Casbox = () => {
     readMessageIdsRef.current = readMessageIds;
   }, [readMessageIds]);
 
+  const [archivedMessageIds, setArchivedMessageIds] = useState(() => {
+    try {
+      const s = sessionStorage.getItem('bnx_casbox_archived_message_ids') || localStorage.getItem('bnx_casbox_archived_message_ids');
+      return s ? new Set(JSON.parse(s)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+  const archivedMessageIdsRef = React.useRef(archivedMessageIds);
+  useEffect(() => {
+    archivedMessageIdsRef.current = archivedMessageIds;
+  }, [archivedMessageIds]);
+
+  const [unarchivedMessageIds, setUnarchivedMessageIds] = useState(() => {
+    try {
+      const s = sessionStorage.getItem('bnx_casbox_unarchived_message_ids') || localStorage.getItem('bnx_casbox_unarchived_message_ids');
+      return s ? new Set(JSON.parse(s)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+  const unarchivedMessageIdsRef = React.useRef(unarchivedMessageIds);
+  useEffect(() => {
+    unarchivedMessageIdsRef.current = unarchivedMessageIds;
+  }, [unarchivedMessageIds]);
+
+  const saveArchivedMessageIds = (nextSet) => {
+    try {
+      const arr = Array.from(nextSet);
+      sessionStorage.setItem('bnx_casbox_archived_message_ids', JSON.stringify(arr));
+      localStorage.setItem('bnx_casbox_archived_message_ids', JSON.stringify(arr));
+    } catch (e) {}
+  };
+
+  const saveUnarchivedMessageIds = (nextSet) => {
+    try {
+      const arr = Array.from(nextSet);
+      sessionStorage.setItem('bnx_casbox_unarchived_message_ids', JSON.stringify(arr));
+      localStorage.setItem('bnx_casbox_unarchived_message_ids', JSON.stringify(arr));
+    } catch (e) {}
+  };
+
+  const isMsgArchived = useCallback((m) => {
+    if (!m) return false;
+    const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+    const strId = id !== undefined && id !== null ? String(id) : null;
+    if (unarchivedMessageIds.has(id) || (strId && unarchivedMessageIds.has(strId))) {
+      return false;
+    }
+    if (archivedMessageIds.has(id) || (strId && archivedMessageIds.has(strId))) {
+      return true;
+    }
+    return Boolean(m.isArchived || m.archived);
+  }, [archivedMessageIds, unarchivedMessageIds]);
+
   const [combineSearch, setCombineSearch] = useState("");
   const [combineFilter, setCombineFilter] = useState("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -2405,7 +2460,7 @@ const Casbox = () => {
           deletedMessageIdsRef.current.has(id) ||
           (strId && deletedMessageIdsRef.current.has(strId)) ||
           deletedMessageIdsRef.current.has(fallbackId)
-        ) && !Boolean(m.isArchived || m.archived);
+        ) && !isMsgArchived(m);
       });
       setThreadMessages(filtered);
 
@@ -2518,6 +2573,23 @@ const Casbox = () => {
           : m;
       }));
 
+      setArchivedMessageIds(prev => {
+        const next = new Set(prev);
+        next.add(messageId);
+        next.add(strId);
+        saveArchivedMessageIds(next);
+        return next;
+      });
+
+      setUnarchivedMessageIds(prev => {
+        if (!prev.has(messageId) && !prev.has(strId)) return prev;
+        const next = new Set(prev);
+        next.delete(messageId);
+        next.delete(strId);
+        saveUnarchivedMessageIds(next);
+        return next;
+      });
+
       setThreadMessages(prev => prev.filter(m => {
         const mId = m.id !== undefined ? m.id : m.uid;
         return !(mId === messageId || String(mId) === strId);
@@ -2579,6 +2651,26 @@ const Casbox = () => {
         return targetSet.has(mId) ? { ...m, isArchived: true, archived: true } : m;
       }));
 
+      setArchivedMessageIds(prev => {
+        const next = new Set(prev);
+        targetIds.forEach(id => {
+          next.add(id);
+          next.add(String(id));
+        });
+        saveArchivedMessageIds(next);
+        return next;
+      });
+
+      setUnarchivedMessageIds(prev => {
+        const next = new Set(prev);
+        targetIds.forEach(id => {
+          next.delete(id);
+          next.delete(String(id));
+        });
+        saveUnarchivedMessageIds(next);
+        return next;
+      });
+
       if (selectedSentDetail) {
         const detailId = String(selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid);
         if (targetSet.has(detailId)) {
@@ -2635,6 +2727,27 @@ const Casbox = () => {
         const mId = String(m.id !== undefined ? m.id : m.uid);
         return targetSet.has(mId) ? { ...m, isArchived: false, archived: false } : m;
       }));
+
+      setArchivedMessageIds(prev => {
+        const next = new Set(prev);
+        targetIds.forEach(id => {
+          next.delete(id);
+          next.delete(String(id));
+        });
+        saveArchivedMessageIds(next);
+        return next;
+      });
+
+      setUnarchivedMessageIds(prev => {
+        const next = new Set(prev);
+        targetIds.forEach(id => {
+          next.add(id);
+          next.add(String(id));
+        });
+        saveUnarchivedMessageIds(next);
+        return next;
+      });
+
       if (selectedMessage) {
         const sId = String(selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid);
         if (targetSet.has(sId) || (!isSingleMsg && otherEmail && getOtherUserEmail(selectedMessage) === otherEmail)) {
@@ -2669,6 +2782,26 @@ const Casbox = () => {
         const mId = String(m.id !== undefined ? m.id : m.uid);
         return targetSet.has(mId) ? { ...m, isArchived: false, archived: false } : m;
       }));
+
+      setArchivedMessageIds(prev => {
+        const next = new Set(prev);
+        targetIds.forEach(id => {
+          next.delete(id);
+          next.delete(String(id));
+        });
+        saveArchivedMessageIds(next);
+        return next;
+      });
+
+      setUnarchivedMessageIds(prev => {
+        const next = new Set(prev);
+        targetIds.forEach(id => {
+          next.add(id);
+          next.add(String(id));
+        });
+        saveUnarchivedMessageIds(next);
+        return next;
+      });
 
       if (selectedSentDetail) {
         const sId = String(selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid);
@@ -3209,14 +3342,14 @@ const Casbox = () => {
         if (id !== undefined && id !== null && (deletedMessageIds.has(id) || deletedMessageIds.has(String(id)))) {
           return false;
         }
-        return !Boolean(m.isArchived || m.archived);
+        return !isMsgArchived(m);
       });
       const archivedMsgs = grp.messages.filter(m => {
         const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
         if (id !== undefined && id !== null && (deletedMessageIds.has(id) || deletedMessageIds.has(String(id)))) {
           return false;
         }
-        return Boolean(m.isArchived || m.archived);
+        return isMsgArchived(m);
       });
 
       if (archivedMsgs.length > 0) {
@@ -3320,7 +3453,7 @@ const Casbox = () => {
       unreadRequestsCount: reqUnread,
       requestMessages: requestMessagesArr
     };
-  }, [messages, blockedContacts, acceptedContacts, connections, acceptedSet, activeTab, user, isMessageUnread, isCurrentUser, deletedMessageIds, readMessageIds]);
+  }, [messages, blockedContacts, acceptedContacts, connections, acceptedSet, activeTab, user, isMessageUnread, isCurrentUser, deletedMessageIds, readMessageIds, isMsgArchived]);
 
   // Combine tab unread count computed from messages
   const unreadCombinedCount = useMemo(() => {
@@ -3336,12 +3469,15 @@ const Casbox = () => {
       if (id !== undefined && id !== null && (deletedMessageIds.has(id) || deletedMessageIds.has(String(id)))) {
         continue;
       }
+      if (isMsgArchived(m)) {
+        continue;
+      }
       if (isMessageUnread(m)) {
         count++;
       }
     }
     return count;
-  }, [messages, deletedMessageIds, isMessageUnread, readMessageIds]);
+  }, [messages, deletedMessageIds, isMessageUnread, readMessageIds, isMsgArchived]);
 
   // Contact-specific starred messages for the currently opened conversation
   const contactStarredMessages = useMemo(() => {
@@ -3424,7 +3560,7 @@ const Casbox = () => {
 
     messagesConversations.forEach((grp) => {
       (grp.messages || []).forEach((msg) => {
-        if (Boolean(msg.isArchived || msg.archived)) return;
+        if (isMsgArchived(msg)) return;
         const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
         if (seenIds.has(id)) return;
         if (deletedMessageIds.has(id) || deletedMessageIds.has(String(id))) return;
@@ -3449,7 +3585,7 @@ const Casbox = () => {
 
     list.sort((a, b) => b.timestampMs - a.timestampMs);
     return list;
-  }, [messagesConversations, isCurrentUser, deletedMessageIds]);
+  }, [messagesConversations, isCurrentUser, deletedMessageIds, isMsgArchived]);
 
   const filteredIndividualMessages = useMemo(() => {
     if (!individualMessagesList || individualMessagesList.length === 0) return [];
@@ -3502,7 +3638,7 @@ const Casbox = () => {
     const seenIds = new Set();
 
     messages.forEach((msg) => {
-      const isArchived = Boolean(msg.isArchived || msg.archived);
+      const isArchived = isMsgArchived(msg);
       if (!isArchived) return;
 
       const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
@@ -3537,7 +3673,7 @@ const Casbox = () => {
 
     list.sort((a, b) => b.timestampMs - a.timestampMs);
     return list;
-  }, [messages, archivedConversations, isCurrentUser, deletedMessageIds]);
+  }, [messages, archivedConversations, isCurrentUser, deletedMessageIds, isMsgArchived]);
 
   const filteredArchivedMessages = useMemo(() => {
     if (!archivedIndividualMessages || archivedIndividualMessages.length === 0) return [];
@@ -3770,6 +3906,7 @@ const Casbox = () => {
       const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
       if (seenIds.has(id)) continue;
       if (deletedMessageIds.has(id) || deletedMessageIds.has(String(id))) continue;
+      if (isMsgArchived(msg)) continue;
       seenIds.add(id);
 
       const sender = normalizeEmail(msg.senderEmail || msg.sender);
@@ -3799,7 +3936,7 @@ const Casbox = () => {
     // Sort ALL messages globally using the existing message timestamp - newest at top
     list.sort((a, b) => b.timestampMs - a.timestampMs);
     return list;
-  }, [messages, blockedContacts, connections, isCurrentUser, deletedMessageIds]);
+  }, [messages, blockedContacts, connections, isCurrentUser, deletedMessageIds, isMsgArchived]);
 
   const filteredCombineMessages = useMemo(() => {
     let result = unifiedCombineMessages;
