@@ -2498,6 +2498,7 @@ const Casbox = () => {
   const handleArchiveMessage = async (messageOrId, e) => {
     if (e && e.stopPropagation) e.stopPropagation();
     setOpenMenuId(null);
+    setOpenCombineMenuId(null);
 
     const messageId = (messageOrId && typeof messageOrId === 'object')
       ? (messageOrId.id !== undefined ? messageOrId.id : messageOrId.uid)
@@ -4196,8 +4197,16 @@ const Casbox = () => {
                           }}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
-                          <MdContentCopy size={15} />
+                          <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
                           Copy Text
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleArchiveMessage(msg, e)}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
+                          Archive
                         </button>
                         <button
                           type="button"
@@ -4487,6 +4496,14 @@ const Casbox = () => {
                             Copy Text
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleArchiveMessage(msg, e)}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
+                          Archive
+                        </button>
                         {chat && (
                           <button
                             type="button"
@@ -4497,14 +4514,6 @@ const Casbox = () => {
                             {t('casbox.edit_name', 'Edit Name')}
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={(e) => handleArchiveMessage(msg, e)}
-                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
-                          Archive
-                        </button>
                         <button
                           type="button"
                           onClick={(e) => {
