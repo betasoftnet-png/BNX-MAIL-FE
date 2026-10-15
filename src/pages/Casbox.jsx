@@ -998,7 +998,23 @@ const Casbox = () => {
   const [blockedContacts, setBlockedContacts] = useState(() => {
     try {
       const s = sessionStorage.getItem('bnx_casbox_blocked') || localStorage.getItem('bnx_casbox_blocked');
-      return s ? JSON.parse(s) : [];
+      const raw = s ? JSON.parse(s) : [];
+      if (!Array.isArray(raw)) return [];
+      const map = new Map();
+      raw.forEach(item => {
+        const norm = normalizeEmail(item);
+        if (!norm) return;
+        const local = norm.includes('@') ? norm.split('@')[0] : norm;
+        if (!map.has(local)) {
+          map.set(local, norm);
+        } else {
+          const cur = map.get(local);
+          if (!cur.includes('@') && norm.includes('@')) {
+            map.set(local, norm);
+          }
+        }
+      });
+      return Array.from(map.values());
     } catch (e) {
       return [];
     }
@@ -1017,13 +1033,27 @@ const Casbox = () => {
       const rawList = res.data?.data || res.data || [];
       const list = Array.isArray(rawList) ? rawList : [];
       const normalizedList = list
-        .map(item => (typeof item === 'string' ? item : item?.email || item?.blockedEmail || ''))
+        .map(item => (typeof item === 'string' ? item : item?.email || item?.blockedEmail || item?.senderEmail || ''))
         .map(normalizeEmail)
         .filter(Boolean);
-      const uniqueList = Array.from(new Set(normalizedList));
+
+      const map = new Map();
+      normalizedList.forEach(item => {
+        const local = item.includes('@') ? item.split('@')[0] : item;
+        if (!map.has(local)) {
+          map.set(local, item);
+        } else {
+          const current = map.get(local);
+          if (!current.includes('@') && item.includes('@')) {
+            map.set(local, item);
+          }
+        }
+      });
+      const uniqueList = Array.from(map.values());
       setBlockedContacts(uniqueList);
       try {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(uniqueList));
+        localStorage.setItem('bnx_casbox_blocked', JSON.stringify(uniqueList));
       } catch (e) {}
     } catch (err) {
       console.warn("Failed to load blocked contacts from server", err);
@@ -5404,6 +5434,81 @@ const Casbox = () => {
     }
   };
 
+  const getCanonicalBlockedContact = useCallback((rawIdentifier) => {
+    if (!rawIdentifier) return null;
+    const norm = normalizeEmail(rawIdentifier);
+    if (!norm) return null;
+    const local = norm.includes('@') ? norm.split('@')[0] : norm;
+
+    // 1. Check connections
+    const matchedConn = connections?.find(c => {
+      const cEmail = normalizeEmail(c.contactEmail || c.email);
+      const cUser = normalizeEmail(c.contactUsername || c.username);
+      const cLocal = cEmail.includes('@') ? cEmail.split('@')[0] : cEmail;
+      return (cEmail && (cEmail === norm || cLocal === local)) ||
+             (cUser && (cUser === norm || cUser === local));
+    });
+
+    // 2. Check conversationList
+    const matchedChat = !matchedConn ? conversationList?.find(chat => {
+      const cNorm = normalizeEmail(chat.contact);
+      const cLocal = cNorm.includes('@') ? cNorm.split('@')[0] : cNorm;
+      return cNorm === norm || cLocal === local;
+    }) : null;
+
+    const emailCandidate = (norm.includes('@') ? norm : '') ||
+      (matchedConn?.contactEmail && matchedConn.contactEmail.includes('@') ? matchedConn.contactEmail : '') ||
+      (matchedConn?.email && matchedConn.email.includes('@') ? matchedConn.email : '') ||
+      (matchedChat?.contact && matchedChat.contact.includes('@') ? matchedChat.contact : '');
+
+    const usernameCandidate = matchedConn?.contactUsername || matchedConn?.username || (!norm.includes('@') ? norm : local);
+
+    // Primary display value: prefer email address if available; otherwise show username
+    const displayValue = emailCandidate || usernameCandidate || norm;
+    const primaryIdentifier = emailCandidate || usernameCandidate || norm;
+    const groupKey = local;
+
+    const allRepresentations = new Set([norm, local]);
+    if (emailCandidate) allRepresentations.add(normalizeEmail(emailCandidate));
+    if (usernameCandidate) allRepresentations.add(normalizeEmail(usernameCandidate));
+    if (matchedConn?.contactUserId) allRepresentations.add(String(matchedConn.contactUserId));
+
+    return {
+      groupKey,
+      displayValue,
+      primaryIdentifier,
+      allRepresentations: Array.from(allRepresentations)
+    };
+  }, [connections, conversationList]);
+
+  const deduplicatedBlockedContacts = useMemo(() => {
+    if (!blockedContacts || blockedContacts.length === 0) return [];
+
+    const map = new Map();
+    blockedContacts.forEach(item => {
+      const info = getCanonicalBlockedContact(item);
+      if (!info) return;
+
+      if (!map.has(info.groupKey)) {
+        map.set(info.groupKey, info);
+      } else {
+        const existing = map.get(info.groupKey);
+        if (!existing.displayValue.includes('@') && info.displayValue.includes('@')) {
+          map.set(info.groupKey, {
+            ...existing,
+            displayValue: info.displayValue,
+            primaryIdentifier: info.primaryIdentifier,
+            allRepresentations: Array.from(new Set([...existing.allRepresentations, ...info.allRepresentations]))
+          });
+        } else {
+          existing.allRepresentations = Array.from(new Set([...existing.allRepresentations, ...info.allRepresentations]));
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  }, [blockedContacts, getCanonicalBlockedContact]);
+
   const handleBlockUser = async (senderEmail) => {
     if (!senderEmail || isProcessingBlockAction) return;
     const emailLower = normalizeEmail(senderEmail);
@@ -5411,22 +5516,19 @@ const Casbox = () => {
 
     try {
       setIsProcessingBlockAction(true);
-      const local = emailLower.includes('@') ? emailLower.split('@')[0] : emailLower;
-      const matchedConn = connections?.find(c => {
-        const cEmail = normalizeEmail(c.contactEmail || c.email);
-        const cUser = normalizeEmail(c.contactUsername || c.username);
-        return cEmail === emailLower || cUser === emailLower || cEmail === local || cUser === local;
+      const info = getCanonicalBlockedContact(emailLower);
+      const primaryId = info?.primaryIdentifier || emailLower;
+      const groupKey = info?.groupKey || (emailLower.includes('@') ? emailLower.split('@')[0] : emailLower);
+      const reps = new Set(info ? info.allRepresentations.map(normalizeEmail) : [emailLower, groupKey]);
+
+      const prevBlocked = (blockedContactsRef.current || []).map(normalizeEmail);
+      const filtered = prevBlocked.filter(b => {
+        const bNorm = normalizeEmail(b);
+        const bLocal = bNorm.includes('@') ? bNorm.split('@')[0] : bNorm;
+        return !reps.has(bNorm) && bLocal !== groupKey;
       });
 
-      const identifiersToAdd = [emailLower];
-      if (local && local !== emailLower) identifiersToAdd.push(local);
-      if (matchedConn) {
-        if (matchedConn.contactEmail) identifiersToAdd.push(normalizeEmail(matchedConn.contactEmail));
-        if (matchedConn.contactUsername) identifiersToAdd.push(normalizeEmail(matchedConn.contactUsername));
-      }
-
-      const prevBlocked = blockedContactsRef.current.map(normalizeEmail);
-      const newBlocked = Array.from(new Set([...prevBlocked, ...identifiersToAdd])).filter(Boolean);
+      const newBlocked = [...filtered, primaryId];
       setBlockedContacts(newBlocked);
       try {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
@@ -5434,7 +5536,7 @@ const Casbox = () => {
       } catch (e) {}
 
       if (blockedContactsAPI?.blockSender) {
-        await blockedContactsAPI.blockSender(emailLower);
+        await blockedContactsAPI.blockSender(primaryId);
       }
       toast.success("User blocked");
       fetchMessages(true);
@@ -5456,23 +5558,14 @@ const Casbox = () => {
 
     try {
       setIsProcessingBlockAction(true);
-      const local = emailLower.includes('@') ? emailLower.split('@')[0] : emailLower;
-      const matchedConn = connections?.find(c => {
-        const cEmail = normalizeEmail(c.contactEmail || c.email);
-        const cUser = normalizeEmail(c.contactUsername || c.username);
-        return cEmail === emailLower || cUser === emailLower || cEmail === local || cUser === local;
-      });
+      const info = getCanonicalBlockedContact(emailLower);
+      const groupKey = info?.groupKey || (emailLower.includes('@') ? emailLower.split('@')[0] : emailLower);
+      const repsToRemove = new Set(info ? info.allRepresentations.map(normalizeEmail) : [emailLower, groupKey]);
 
-      const identifiersToRemove = new Set([emailLower, local]);
-      if (matchedConn) {
-        if (matchedConn.contactEmail) identifiersToRemove.add(normalizeEmail(matchedConn.contactEmail));
-        if (matchedConn.contactUsername) identifiersToRemove.add(normalizeEmail(matchedConn.contactUsername));
-      }
-
-      const newBlocked = blockedContactsRef.current.filter(email => {
+      const newBlocked = (blockedContactsRef.current || []).filter(email => {
         const em = normalizeEmail(email);
         const emLocal = em.includes('@') ? em.split('@')[0] : em;
-        return !identifiersToRemove.has(em) && !identifiersToRemove.has(emLocal);
+        return !repsToRemove.has(em) && emLocal !== groupKey;
       });
 
       setBlockedContacts(newBlocked);
@@ -5483,6 +5576,11 @@ const Casbox = () => {
 
       if (blockedContactsAPI?.unblockSender) {
         await blockedContactsAPI.unblockSender(emailLower);
+        if (info?.primaryIdentifier && info.primaryIdentifier !== emailLower) {
+          try {
+            await blockedContactsAPI.unblockSender(info.primaryIdentifier);
+          } catch (e) {}
+        }
       }
       toast.success("User unblocked");
       fetchMessages(true);
@@ -6845,18 +6943,20 @@ const Casbox = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto p-2">
-                {blockedContacts.length === 0 ? (
+                {deduplicatedBlockedContacts.length === 0 ? (
                   <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                     <MdCheck className="mx-auto text-4xl mb-3 opacity-30 text-green-500" />
                     <p>No blocked users</p>
                   </div>
                 ) : (
-                  blockedContacts.map((email) => (
-                    <div key={email} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-white/5 rounded-xl transition-colors mx-2 my-1">
-                      <span className="font-medium text-sm text-gray-800 dark:text-gray-200 truncate pr-4">{email}</span>
+                  deduplicatedBlockedContacts.map((contact) => (
+                    <div key={contact.groupKey || contact.displayValue} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-white/5 rounded-xl transition-colors mx-2 my-1">
+                      <span className="font-medium text-sm text-gray-800 dark:text-gray-200 truncate pr-4">{contact.displayValue}</span>
                       <button
-                        onClick={() => handleUnblockUser(email)}
-                        className="px-4 py-1.5 rounded-full text-xs font-bold border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-all shrink-0"
+                        type="button"
+                        disabled={isProcessingBlockAction}
+                        onClick={() => handleUnblockUser(contact.primaryIdentifier || contact.displayValue)}
+                        className="px-4 py-1.5 rounded-full text-xs font-bold border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-all shrink-0 cursor-pointer disabled:opacity-50"
                       >
                         Unblock
                       </button>
