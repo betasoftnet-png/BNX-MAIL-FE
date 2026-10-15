@@ -1097,7 +1097,7 @@ const Casbox = () => {
         if (m.customName && m.customName.trim()) {
           const val = m.customName.trim();
           if (m.contactUserId) dtoAliases[String(m.contactUserId)] = val;
-          const other = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
+          const other = isCurrentUser(m.senderEmail || m.sender) ? (m.receiverEmail || m.receiver) : (m.senderEmail || m.sender);
           if (other) {
             dtoAliases[other.toLowerCase()] = val;
             dtoAliases[other.split('@')[0].toLowerCase()] = val;
@@ -1470,7 +1470,7 @@ const Casbox = () => {
 
       // Close current chat if disconnected
       if (selectedMessage) {
-        const other = selectedMessage.senderEmail === user?.email ? selectedMessage.receiverEmail : selectedMessage.senderEmail;
+        const other = getOtherUserEmail(selectedMessage);
         if (other) {
           const lower = other.toLowerCase();
           const local = (lower.includes('@') ? lower.split('@')[0] : lower);
@@ -1515,8 +1515,25 @@ const Casbox = () => {
   const getOtherUserEmail = useCallback((msg) => {
     if (!msg) return "";
     const sender = normalizeEmail(msg.senderEmail || msg.sender);
-    const isMe = isCurrentUser(sender);
-    return isMe ? (msg.receiverEmail || msg.receiver || "") : (msg.senderEmail || msg.sender || "");
+    const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
+    const contact = normalizeEmail(msg.contact || msg.contactRecipient || msg.contactEmail || "");
+
+    const isSenderMe = sender ? isCurrentUser(sender) : false;
+    const isReceiverMe = receiver ? isCurrentUser(receiver) : false;
+
+    if (isSenderMe) {
+      return msg.receiverEmail || msg.receiver || msg.contact || msg.contactRecipient || msg.contactEmail || "";
+    }
+    if (isReceiverMe) {
+      return msg.senderEmail || msg.sender || msg.contact || msg.contactRecipient || msg.contactEmail || "";
+    }
+    if (sender && !isCurrentUser(sender)) {
+      return msg.senderEmail || msg.sender;
+    }
+    if (receiver && !isCurrentUser(receiver)) {
+      return msg.receiverEmail || msg.receiver;
+    }
+    return contact || msg.senderEmail || msg.receiverEmail || "";
   }, [isCurrentUser]);
 
   const getDisplayName = (emailOrUsername, msg) => {
@@ -1726,9 +1743,9 @@ const Casbox = () => {
     setForwardSearchTerm("");
   }, [isSendingForward]);
 
-  const handleToggleForwardContact = useCallback((email) => {
-    if (!email) return;
-    const lower = normalizeEmail(email);
+  const handleToggleForwardContact = useCallback((identKey) => {
+    if (!identKey) return;
+    const lower = normalizeEmail(identKey);
     setSelectedForwardContactEmails(prev => {
       const next = new Set(prev);
       if (next.has(lower)) {
@@ -1739,82 +1756,6 @@ const Casbox = () => {
       return next;
     });
   }, []);
-
-  const handleSendForward = useCallback(async () => {
-    if (!forwardingMessage || selectedForwardContactEmails.size === 0 || isSendingForward) return;
-
-    setIsSendingForward(true);
-    const originalSender = forwardingMessage.senderLabel || getDisplayName(forwardingMessage.senderEmail || forwardingMessage.sender, forwardingMessage);
-    const cleanBodyText = cleanMessageBody(forwardingMessage.body || "");
-    const forwardBody = `[Forwarded from ${originalSender}]\n${cleanBodyText}`;
-    const subject = forwardingMessage.subject || selectedMessage?.subject || "Casbox Message";
-    const attachmentsJson = forwardingMessage.attachmentsJson || null;
-
-    const recipientEmails = Array.from(selectedForwardContactEmails);
-    let successCount = 0;
-    const errors = [];
-    const newMessagesSent = [];
-
-    for (const recipientEmail of recipientEmails) {
-      try {
-        const payload = {
-          receiverEmail: recipientEmail,
-          subject: subject,
-          body: forwardBody,
-          attachmentsJson: attachmentsJson
-        };
-        const res = await casboxAPI.sendMessage(payload);
-        const sentMsg = res.data;
-        if (sentMsg) {
-          newMessagesSent.push(sentMsg);
-          successCount++;
-        }
-      } catch (err) {
-        console.error(`Failed to forward message to ${recipientEmail}:`, err);
-        errors.push(recipientEmail);
-      }
-    }
-
-    if (newMessagesSent.length > 0) {
-      // Update local messages state so conversation lists & combine views update immediately
-      setMessages(prev => {
-        const prevIds = new Set(prev.map(m => m.id || m.uid));
-        const toAdd = newMessagesSent.filter(m => !prevIds.has(m.id || m.uid));
-        return [...toAdd, ...prev];
-      });
-
-      // If the currently open conversation happens to be one of the recipients, also update threadMessages
-      const currentChatEmail = normalizeEmail(getOtherUserEmail(selectedMessage));
-      if (currentChatEmail) {
-        const sentToCurrentChat = newMessagesSent.filter(m => 
-          normalizeEmail(m.receiverEmail || m.receiver) === currentChatEmail ||
-          normalizeEmail(m.senderEmail || m.sender) === currentChatEmail
-        );
-        if (sentToCurrentChat.length > 0) {
-          setThreadMessages(prev => {
-            const prevIds = new Set(prev.map(m => m.id || m.uid));
-            const toAdd = sentToCurrentChat.filter(m => !prevIds.has(m.id || m.uid));
-            return [...prev, ...toAdd];
-          });
-        }
-      }
-
-      if (successCount === 1) {
-        toast.success("Message forwarded");
-      } else {
-        toast.success(`Message forwarded to ${successCount} contacts`);
-      }
-    }
-
-    if (errors.length > 0) {
-      toast.error(`Failed to forward to ${errors.length} contact(s)`);
-    }
-
-    setIsSendingForward(false);
-    setForwardingMessage(null);
-    setSelectedForwardContactEmails(new Set());
-    setForwardSearchTerm("");
-  }, [forwardingMessage, selectedForwardContactEmails, isSendingForward, cleanMessageBody, getDisplayName, selectedMessage, getOtherUserEmail]);
 
   const handleInitiateUnsend = useCallback((msg) => {
     setActiveMessageMenuId(null);
@@ -2199,7 +2140,7 @@ const Casbox = () => {
     setOpenMenuId(null);
     setShowMoreMenu(false);
 
-    const contactEmail = chatOrMsg.contact || (chatOrMsg.senderEmail === user?.email ? chatOrMsg.receiverEmail : chatOrMsg.senderEmail);
+    const contactEmail = getOtherUserEmail(chatOrMsg);
     const msg = chatOrMsg.latestMessage || (chatOrMsg.body !== undefined ? chatOrMsg : null);
     const originalName = getOriginalName(contactEmail, msg);
     const currentName = getDisplayName(contactEmail, msg);
@@ -2252,7 +2193,7 @@ const Casbox = () => {
 
         // Update messages in state
         setMessages(prev => prev.map(m => {
-          const other = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
+          const other = getOtherUserEmail(m);
           if (other && other.toLowerCase() === contactTarget.toLowerCase()) {
             return {
               ...m,
@@ -2265,7 +2206,7 @@ const Casbox = () => {
 
         // Update threadMessages
         setThreadMessages(prev => prev.map(m => {
-          const other = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
+          const other = getOtherUserEmail(m);
           if (other && other.toLowerCase() === contactTarget.toLowerCase()) {
             return {
               ...m,
@@ -2292,7 +2233,7 @@ const Casbox = () => {
 
         // Update messages in state
         setMessages(prev => prev.map(m => {
-          const other = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
+          const other = getOtherUserEmail(m);
           if (other && other.toLowerCase() === contactTarget.toLowerCase()) {
             return {
               ...m,
@@ -2305,7 +2246,7 @@ const Casbox = () => {
 
         // Update threadMessages
         setThreadMessages(prev => prev.map(m => {
-          const other = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
+          const other = getOtherUserEmail(m);
           if (other && other.toLowerCase() === contactTarget.toLowerCase()) {
             return {
               ...m,
@@ -2664,9 +2605,7 @@ const Casbox = () => {
   const handleArchiveChat = async () => {
     if (!selectedMessage) return;
     const isCurrentlyArchived = Boolean(selectedMessage.isArchived || selectedMessage.archived);
-    const otherEmail = selectedMessage.senderEmail === user?.email
-      ? selectedMessage.receiverEmail
-      : selectedMessage.senderEmail;
+    const otherEmail = getOtherUserEmail(selectedMessage);
 
     const matchingMsgIds = messages
       .filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && (isCurrentlyArchived ? Boolean(m.isArchived || m.archived) : !Boolean(m.isArchived || m.archived)))
@@ -2682,7 +2621,7 @@ const Casbox = () => {
       if (newArchived) {
         toast.success("Message archived");
       } else {
-        const isSent = selectedMessage.senderEmail === user?.email;
+        const isSent = isCurrentUser(selectedMessage?.senderEmail || selectedMessage?.sender);
         toast.success(`Message moved back to ${isSent ? "Sent" : "Received"}`);
       }
     } catch (err) {
@@ -2841,7 +2780,7 @@ const Casbox = () => {
     setOpenMenuId(null);
 
     const isSingleMsg = chatOrMsg && (chatOrMsg.id !== undefined || chatOrMsg.uid !== undefined) && !Array.isArray(chatOrMsg.messages);
-    const otherEmail = chatOrMsg?.contact || (chatOrMsg?.senderEmail === user?.email ? chatOrMsg?.receiverEmail : chatOrMsg?.senderEmail);
+    const otherEmail = getOtherUserEmail(chatOrMsg);
 
     let targetIds = [];
     if (isSingleMsg) {
@@ -3010,9 +2949,7 @@ const Casbox = () => {
   const handleSnoozeChat = async (wakeUpDate) => {
     if (!selectedMessage) return;
     const targetId = selectedMessage.uid || selectedMessage.id;
-    const otherEmail = selectedMessage.senderEmail === user?.email
-      ? selectedMessage.receiverEmail
-      : selectedMessage.senderEmail;
+    const otherEmail = getOtherUserEmail(selectedMessage);
 
     const wakeUpAt = wakeUpDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
@@ -3023,7 +2960,7 @@ const Casbox = () => {
         await handleSnooze(targetId, wakeUpAt, 'casbox', true);
       }
       toast.success("Chat snoozed");
-      setMessages(prev => prev.filter(m => (m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail) !== otherEmail));
+      setMessages(prev => prev.filter(m => getOtherUserEmail(m) !== otherEmail));
       setSelectedMessage(null);
       fetchMessages(true);
     } catch (err) {
@@ -3035,9 +2972,7 @@ const Casbox = () => {
   const handleDeleteChat = async () => {
     if (!selectedMessage) return;
     const targetId = selectedMessage.uid || selectedMessage.id;
-    const otherEmail = selectedMessage.senderEmail === user?.email
-      ? selectedMessage.receiverEmail
-      : selectedMessage.senderEmail;
+    const otherEmail = getOtherUserEmail(selectedMessage);
 
     try {
       if (mailAPI.trash) {
@@ -3046,7 +2981,7 @@ const Casbox = () => {
         await handleMoveToTrash(targetId, 'casbox', true);
       }
       toast.success("Chat deleted");
-      setMessages(prev => prev.filter(m => (m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail) !== otherEmail));
+      setMessages(prev => prev.filter(m => getOtherUserEmail(m) !== otherEmail));
       setSelectedMessage(null);
       fetchMessages(true);
     } catch (err) {
@@ -3916,9 +3851,11 @@ const Casbox = () => {
     if (e) e.preventDefault();
     if (!newChatText.trim()) return;
 
-    const otherEmail = selectedMessage.senderEmail === user?.email
-      ? selectedMessage.receiverEmail
-      : selectedMessage.senderEmail;
+    const otherEmail = getOtherUserEmail(selectedMessage);
+    if (!otherEmail) {
+      toast.error("Could not determine contact to send message.");
+      return;
+    }
 
     if (isBlockedContact(otherEmail)) {
       toast.error("You have blocked this contact. Unblock to send messages.");
@@ -4024,20 +3961,40 @@ const Casbox = () => {
     const list = [];
     const seen = new Set();
     const myEmail = normalizeEmail(user?.email);
+    const myUsername = normalizeEmail(user?.username);
 
     // 1. From connections
     if (connections && Array.isArray(connections)) {
       connections.forEach(c => {
-        const email = normalizeEmail(c.contactEmail || c.email);
-        const username = c.contactUsername || c.username || '';
-        if (!email || email === myEmail) return;
-        if (!seen.has(email)) {
-          seen.add(email);
+        const rawEmail = c.contactEmail || c.email || '';
+        const rawUsername = c.contactUsername || c.username || '';
+        const rawUserId = c.contactUserId ? String(c.contactUserId) : '';
+
+        const sendIdentifier = (rawEmail && rawEmail.includes('@'))
+          ? rawEmail
+          : (rawUsername || rawEmail || rawUserId);
+
+        if (!sendIdentifier) return;
+        if (
+          isCurrentUser(sendIdentifier) ||
+          normalizeEmail(sendIdentifier) === myEmail ||
+          (myUsername && normalizeEmail(sendIdentifier) === myUsername)
+        ) {
+          return;
+        }
+
+        const dedupeKey = normalizeEmail(sendIdentifier);
+        if (!seen.has(dedupeKey)) {
+          seen.add(dedupeKey);
+          if (rawEmail) seen.add(normalizeEmail(rawEmail));
+          if (rawUsername) seen.add(normalizeEmail(rawUsername));
+
           list.push({
-            id: c.id || email,
-            email: c.contactEmail || c.email || email,
-            username: username,
-            displayName: c.contactDisplayName || getDisplayName(c.contactEmail || c.email || email, c),
+            id: c.id || sendIdentifier,
+            sendIdentifier: sendIdentifier,
+            email: rawEmail || (sendIdentifier.includes('@') ? sendIdentifier : ''),
+            username: rawUsername || (!sendIdentifier.includes('@') ? sendIdentifier : ''),
+            displayName: c.contactDisplayName || getDisplayName(sendIdentifier, c) || rawUsername || rawEmail || sendIdentifier,
             profilePicture: c.contactProfilePicture || c.profilePicture || null,
             profilePictureUrl: c.contactProfilePictureUrl || c.profilePictureUrl || null
           });
@@ -4051,21 +4008,39 @@ const Casbox = () => {
       : (conversationList || []);
 
     convos.forEach(chat => {
-      const contactEmail = chat.contact;
-      if (!contactEmail || normalizeEmail(contactEmail) === myEmail) return;
-      const lower = normalizeEmail(contactEmail);
-      if (!seen.has(lower)) {
-        seen.add(lower);
+      const contactVal = chat.contact;
+      if (!contactVal) return;
+      if (
+        isCurrentUser(contactVal) ||
+        normalizeEmail(contactVal) === myEmail ||
+        (myUsername && normalizeEmail(contactVal) === myUsername)
+      ) {
+        return;
+      }
+
+      const dedupeKey = normalizeEmail(contactVal);
+      const contactLocal = dedupeKey.includes('@') ? dedupeKey.split('@')[0] : dedupeKey;
+
+      if (!seen.has(dedupeKey) && !seen.has(contactLocal)) {
+        seen.add(dedupeKey);
+        seen.add(contactLocal);
+
         const matchedConn = connections?.find(c => {
           const cEmail = normalizeEmail(c.contactEmail || c.email);
-          return cEmail === lower;
+          const cUser = normalizeEmail(c.contactUsername || c.username);
+          return cEmail === dedupeKey || cUser === dedupeKey || cEmail === contactLocal || cUser === contactLocal;
         });
 
+        const sendIdentifier = (matchedConn?.contactEmail && matchedConn.contactEmail.includes('@'))
+          ? matchedConn.contactEmail
+          : (contactVal || matchedConn?.contactUsername);
+
         list.push({
-          id: contactEmail,
-          email: contactEmail,
-          username: getOriginalName(contactEmail, chat.latestMessage),
-          displayName: getDisplayName(contactEmail, chat.latestMessage),
+          id: chat.id || contactVal,
+          sendIdentifier: sendIdentifier,
+          email: (sendIdentifier && sendIdentifier.includes('@')) ? sendIdentifier : (contactVal.includes('@') ? contactVal : ''),
+          username: getOriginalName(contactVal, chat.latestMessage) || (!sendIdentifier.includes('@') ? sendIdentifier : ''),
+          displayName: getDisplayName(contactVal, chat.latestMessage) || matchedConn?.contactDisplayName || sendIdentifier,
           profilePicture: matchedConn?.contactProfilePicture || chat.latestMessage?.contactProfilePicture || null,
           profilePictureUrl: matchedConn?.contactProfilePictureUrl || chat.latestMessage?.contactProfilePictureUrl || null
         });
@@ -4077,9 +4052,10 @@ const Casbox = () => {
     return list.filter(c => {
       const em = normalizeEmail(c.email);
       const un = normalizeEmail(c.username);
-      return !blockedSet.has(em) && (!un || !blockedSet.has(un));
+      const si = normalizeEmail(c.sendIdentifier);
+      return !blockedSet.has(em) && (!un || !blockedSet.has(un)) && (!si || !blockedSet.has(si));
     });
-  }, [connections, messagesConversations, conversationList, blockedContacts, user?.email, getDisplayName, getOriginalName]);
+  }, [connections, messagesConversations, conversationList, blockedContacts, user?.email, user?.username, isCurrentUser, getDisplayName, getOriginalName]);
 
   const filteredForwardContacts = useMemo(() => {
     if (!forwardSearchTerm.trim()) return availableForwardContacts;
@@ -4088,9 +4064,104 @@ const Casbox = () => {
       const name = (c.displayName || '').toLowerCase();
       const email = (c.email || '').toLowerCase();
       const username = (c.username || '').toLowerCase();
-      return name.includes(term) || email.includes(term) || username.includes(term);
+      const ident = (c.sendIdentifier || '').toLowerCase();
+      return name.includes(term) || email.includes(term) || username.includes(term) || ident.includes(term);
     });
   }, [availableForwardContacts, forwardSearchTerm]);
+
+  const handleSendForward = useCallback(async () => {
+    if (!forwardingMessage || selectedForwardContactEmails.size === 0 || isSendingForward) return;
+
+    setIsSendingForward(true);
+    const originalSender = forwardingMessage.senderLabel || getDisplayName(forwardingMessage.senderEmail || forwardingMessage.sender, forwardingMessage);
+    const cleanBodyText = cleanMessageBody(forwardingMessage.body || "");
+    const forwardBody = `[Forwarded from ${originalSender}]\n${cleanBodyText}`;
+    const subject = forwardingMessage.subject || selectedMessage?.subject || "Casbox Message";
+    const attachmentsJson = forwardingMessage.attachmentsJson || null;
+
+    const recipientIdentifiers = Array.from(selectedForwardContactEmails);
+    let successCount = 0;
+    const errorDetails = [];
+    const newMessagesSent = [];
+
+    for (const recipientId of recipientIdentifiers) {
+      const matchedContact = availableForwardContacts.find(c => {
+        const idKey = normalizeEmail(c.sendIdentifier || c.email || c.username);
+        return (
+          idKey === recipientId ||
+          (c.email && normalizeEmail(c.email) === recipientId) ||
+          (c.username && normalizeEmail(c.username) === recipientId) ||
+          (c.sendIdentifier && normalizeEmail(c.sendIdentifier) === recipientId)
+        );
+      });
+
+      const receiverEmail = matchedContact?.sendIdentifier || matchedContact?.email || matchedContact?.username || recipientId;
+      const recipientName = matchedContact?.displayName || matchedContact?.username || receiverEmail;
+
+      try {
+        const payload = {
+          receiverEmail: receiverEmail,
+          subject: subject,
+          body: forwardBody,
+          attachmentsJson: attachmentsJson
+        };
+        const res = await casboxAPI.sendMessage(payload);
+        const sentMsg = res.data;
+        if (sentMsg) {
+          newMessagesSent.push(sentMsg);
+          successCount++;
+        }
+      } catch (err) {
+        console.error(`Failed to forward message to ${receiverEmail}:`, err);
+        const errReason = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to send";
+        errorDetails.push({ recipient: recipientName, reason: errReason });
+      }
+    }
+
+    if (newMessagesSent.length > 0) {
+      // Update local messages state so conversation lists & combine views update immediately
+      setMessages(prev => {
+        const prevIds = new Set(prev.map(m => m.id || m.uid));
+        const toAdd = newMessagesSent.filter(m => !prevIds.has(m.id || m.uid));
+        return [...toAdd, ...prev];
+      });
+
+      // If the currently open conversation happens to be one of the recipients, also update threadMessages
+      const currentChatEmail = normalizeEmail(getOtherUserEmail(selectedMessage));
+      if (currentChatEmail) {
+        const sentToCurrentChat = newMessagesSent.filter(m => 
+          normalizeEmail(m.receiverEmail || m.receiver) === currentChatEmail ||
+          normalizeEmail(m.senderEmail || m.sender) === currentChatEmail
+        );
+        if (sentToCurrentChat.length > 0) {
+          setThreadMessages(prev => {
+            const prevIds = new Set(prev.map(m => m.id || m.uid));
+            const toAdd = sentToCurrentChat.filter(m => !prevIds.has(m.id || m.uid));
+            return [...prev, ...toAdd];
+          });
+        }
+      }
+
+      if (successCount === 1) {
+        toast.success("Message forwarded");
+      } else {
+        toast.success(`Message forwarded to ${successCount} contacts`);
+      }
+    }
+
+    if (errorDetails.length > 0) {
+      if (errorDetails.length === 1) {
+        toast.error(`Failed to forward to ${errorDetails[0].recipient}: ${errorDetails[0].reason}`);
+      } else {
+        toast.error(`Failed to forward to ${errorDetails.length} contact(s)`);
+      }
+    }
+
+    setIsSendingForward(false);
+    setForwardingMessage(null);
+    setSelectedForwardContactEmails(new Set());
+    setForwardSearchTerm("");
+  }, [forwardingMessage, selectedForwardContactEmails, isSendingForward, cleanMessageBody, getDisplayName, selectedMessage, getOtherUserEmail, availableForwardContacts]);
 
   // Unified all-messages list for Combine tab
   const unifiedCombineMessages = useMemo(() => {
@@ -7156,12 +7227,12 @@ const Casbox = () => {
                   </div>
                 ) : (
                   filteredForwardContacts.map((contact) => {
-                    const emailKey = normalizeEmail(contact.email);
-                    const isSelected = selectedForwardContactEmails.has(emailKey);
+                    const identKey = normalizeEmail(contact.sendIdentifier || contact.email || contact.username);
+                    const isSelected = selectedForwardContactEmails.has(identKey);
                     return (
                       <div
-                        key={contact.id || contact.email}
-                        onClick={() => handleToggleForwardContact(contact.email)}
+                        key={contact.id || identKey}
+                        onClick={() => handleToggleForwardContact(identKey)}
                         className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors select-none ${
                           isSelected
                             ? "bg-blue-50/70 dark:bg-blue-950/30"
@@ -7185,17 +7256,17 @@ const Casbox = () => {
                           profilePictureUrl={contact.profilePictureUrl}
                           displayName={contact.displayName}
                           username={contact.username}
-                          email={contact.email}
+                          email={contact.email || contact.sendIdentifier}
                           className="w-8 h-8 shrink-0"
                         />
 
                         {/* Contact Name & Email */}
                         <div className="min-w-0 flex-1 text-left">
                           <p className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate leading-tight">
-                            {contact.displayName || contact.username || contact.email}
+                            {contact.displayName || contact.username || contact.email || contact.sendIdentifier}
                           </p>
                           <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                            {contact.email}
+                            {contact.email || contact.username || contact.sendIdentifier}
                           </p>
                         </div>
                       </div>
