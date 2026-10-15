@@ -775,6 +775,15 @@ const Casbox = () => {
     }
   });
 
+  const [starredMessagesSet, setStarredMessagesSet] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bnx_casbox_starred_messages');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+
   // Re-evaluate every 5 seconds to automatically hide the Edit option after 5 minutes
   useEffect(() => {
     const timer = setInterval(() => {
@@ -1476,6 +1485,56 @@ const Casbox = () => {
     }
   }, [isCurrentMessagePinned, getDisplayName, handleUnpinMessage]);
 
+  const getMessageKey = useCallback((msg) => {
+    if (!msg) return null;
+    const mId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
+    if (mId !== undefined && mId !== null) {
+      return String(mId);
+    }
+    return `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`;
+  }, []);
+
+  const isMessageStarred = useCallback((msg) => {
+    if (!msg) return false;
+    const key = getMessageKey(msg);
+    if (!key) return false;
+    const mId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
+    return starredMessagesSet.has(key) || (mId !== undefined && mId !== null && (starredMessagesSet.has(mId) || starredMessagesSet.has(String(mId))));
+  }, [getMessageKey, starredMessagesSet]);
+
+  const handleToggleStarMessage = useCallback((msg) => {
+    if (!msg) return;
+    setActiveMessageMenuId(null);
+    const key = getMessageKey(msg);
+    if (!key) return;
+
+    setStarredMessagesSet(prev => {
+      const next = new Set(prev);
+      const mId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
+      const isAlreadyStarred = next.has(key) || (mId !== undefined && mId !== null && (next.has(mId) || next.has(String(mId))));
+
+      if (isAlreadyStarred) {
+        next.delete(key);
+        if (mId !== undefined && mId !== null) {
+          next.delete(mId);
+          next.delete(String(mId));
+        }
+        toast.success("Message unstarred");
+      } else {
+        next.add(key);
+        if (mId !== undefined && mId !== null) {
+          next.add(String(mId));
+        }
+        toast.success("Message starred");
+      }
+
+      try {
+        localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Array.from(next)));
+      } catch (e) {}
+      return next;
+    });
+  }, [getMessageKey]);
+
   const handleScrollToMessage = useCallback((pinnedMsg) => {
     if (!pinnedMsg) return;
     const targetId = pinnedMsg.id !== undefined ? pinnedMsg.id : pinnedMsg.uid;
@@ -1564,6 +1623,23 @@ const Casbox = () => {
         setReplyingToMessage(null);
       }
     }
+
+    setStarredMessagesSet(prev => {
+      const key = targetId !== undefined && targetId !== null ? strId : fallbackId;
+      if (prev.has(key) || (targetId !== undefined && (prev.has(targetId) || prev.has(strId)))) {
+        const next = new Set(prev);
+        next.delete(key);
+        if (targetId !== undefined) {
+          next.delete(targetId);
+          next.delete(strId);
+        }
+        try {
+          localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Array.from(next)));
+        } catch (e) {}
+        return next;
+      }
+      return prev;
+    });
 
     setUnsendMessageTarget(null);
     setActiveMessageMenuId(null);
@@ -5324,6 +5400,13 @@ const Casbox = () => {
                           {renderBubbleAttachments(msg)}
                         </div>
 
+                        {/* Star indicator beside the message bubble */}
+                        {isMessageStarred(msg) && (
+                          <div className="shrink-0 flex items-center select-none" title="Starred message">
+                            <MdStar size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                          </div>
+                        )}
+
                         {/* Reaction Badges Beside Bubble */}
                         {(() => {
                           const msgReactions = reactionsMap[msgUniqueId];
@@ -5548,6 +5631,15 @@ const Casbox = () => {
                                 <span>{isCurrentMessagePinned(msg, otherUserEmail) ? 'Unpin' : 'Pin'}</span>
                               </button>
 
+                              <button
+                                type="button"
+                                onClick={() => handleToggleStarMessage(msg)}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                              >
+                                <MdStar size={16} className={`shrink-0 ${isMessageStarred(msg) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                                <span>{isMessageStarred(msg) ? 'Unstar Message' : 'Star Message'}</span>
+                              </button>
+
                               {isMe && isMessageEditable(msg) && (
                                 <button
                                   type="button"
@@ -5573,6 +5665,14 @@ const Casbox = () => {
                           )}
                         </div>
                       </div>
+
+                      {/* Star Message Indicator & Label below the bubble */}
+                      {isMessageStarred(msg) && (
+                        <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium select-none mt-0.5 ml-1 leading-none">
+                          <MdStar size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                          <span>Star Message</span>
+                        </div>
+                      )}
 
                       {/* Edited Label */}
                       {(msg?.isEdited || msg?.edited) && (
