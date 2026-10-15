@@ -784,6 +784,8 @@ const Casbox = () => {
     }
   });
 
+  const [showStarredMessagesView, setShowStarredMessagesView] = useState(false);
+
   // Re-evaluate every 5 seconds to automatically hide the Edit option after 5 minutes
   useEffect(() => {
     const timer = setInterval(() => {
@@ -822,6 +824,7 @@ const Casbox = () => {
     setActiveReactionMsgId(null);
     setShowFullEmojiPicker(false);
     setEmojiSearchTerm("");
+    setShowStarredMessagesView(false);
   }, [selectedMessage?.id, selectedMessage?.contact, selectedMessage?.senderEmail, selectedMessage?.receiverEmail]);
 
   const toggleSelectRow = useCallback((rowId) => {
@@ -3245,6 +3248,66 @@ const Casbox = () => {
     return count;
   }, [messages, deletedMessageIds, isMessageUnread, readMessageIds]);
 
+  // All starred messages across conversations
+  const allStarredMessages = useMemo(() => {
+    if (!starredMessagesSet || starredMessagesSet.size === 0) return [];
+    const list = [];
+    const seenKeys = new Set();
+
+    // 1. Thread messages first (has full details for current open chat)
+    (threadMessages || []).forEach(m => {
+      if (isMessageStarred(m)) {
+        const key = getMessageKey(m);
+        if (key && !seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push(m);
+        }
+      }
+    });
+
+    // 2. All messages
+    (messages || []).forEach(m => {
+      if (isMessageStarred(m)) {
+        const key = getMessageKey(m);
+        if (key && !seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push(m);
+        }
+      }
+    });
+
+    // Sort by timestamp descending (newest first)
+    list.sort((a, b) => getTimestampMs(b.timestamp) - getTimestampMs(a.timestamp));
+    return list;
+  }, [threadMessages, messages, isMessageStarred, getMessageKey, starredMessagesSet]);
+
+  const handleOpenOriginalConversation = useCallback((starredMsg) => {
+    if (!starredMsg) return;
+    setShowStarredMessagesView(false);
+
+    const otherEmail = getOtherUserEmail(starredMsg);
+    const currentOther = selectedMessage ? getOtherUserEmail(selectedMessage) : null;
+
+    if (currentOther && normalizeEmail(currentOther) === normalizeEmail(otherEmail)) {
+      setTimeout(() => {
+        handleScrollToMessage(starredMsg);
+      }, 50);
+    } else {
+      const matchingConvo = messagesConversations.find(c => {
+        const cEmail = normalizeEmail(c.contact);
+        return cEmail === normalizeEmail(otherEmail);
+      });
+      if (matchingConvo && matchingConvo.latestMessage) {
+        handleSelectMessage(matchingConvo.latestMessage);
+      } else {
+        handleSelectMessage(starredMsg);
+      }
+      setTimeout(() => {
+        handleScrollToMessage(starredMsg);
+      }, 350);
+    }
+  }, [selectedMessage, messagesConversations, handleSelectMessage, handleScrollToMessage, getOtherUserEmail]);
+
   // Individual messages list for the Messages tab (every message = one row, not grouped by person)
   const individualMessagesList = useMemo(() => {
     if (!messagesConversations || messagesConversations.length === 0) return [];
@@ -5189,8 +5252,27 @@ const Casbox = () => {
             </div>
           </div>
 
-          {/* Right: Archive · Delete · More */}
+          {/* Right: Star · Archive · Delete · More */}
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* Starred Messages View Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowStarredMessagesView(prev => !prev)}
+              className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
+                showStarredMessagesView
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-900/20'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100'
+              }`}
+              title={showStarredMessagesView ? "View chat history" : "Starred messages"}
+              aria-label="Starred messages"
+            >
+              {showStarredMessagesView ? (
+                <MdStar size={20} className="text-blue-600 dark:text-blue-400" />
+              ) : (
+                <MdStarBorder size={20} />
+              )}
+            </button>
+
             {/* Archive / Unarchive */}
             <button
               onClick={handleArchiveChat}
@@ -5305,7 +5387,149 @@ const Casbox = () => {
           );
         })()}
 
-        {/* Message Thread Panel */}
+        {/* Message Thread Panel or Starred Messages View */}
+        {showStarredMessagesView ? (
+          <div className="flex-1 flex flex-col min-h-0 bg-transparent overflow-hidden">
+            {/* Starred Messages Header Banner */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 bg-gray-50/70 dark:bg-[#1a1a1a]/70 border-b border-gray-100 dark:border-gray-800 shrink-0 select-none">
+              <div className="flex items-center gap-2">
+                <MdStar size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                  Starred Messages
+                </span>
+                {allStarredMessages.length > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-semibold">
+                    {allStarredMessages.length}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStarredMessagesView(false)}
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
+              >
+                Back to Chat
+              </button>
+            </div>
+
+            {/* Starred Messages List */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col hidden-scrollbar">
+              {allStarredMessages.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
+                  <MdStarBorder className="text-3xl text-gray-300 dark:text-gray-600 mb-2" />
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    No starred messages yet
+                  </span>
+                </div>
+              ) : (
+                allStarredMessages.map((msg, index) => {
+                  const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
+                  const senderEmail = msg.senderEmail || msg.sender || "";
+                  const senderLabel = isMe ? (user?.username || senderEmail.split("@")[0]) : getDisplayName(senderEmail, msg);
+                  const senderInitial = isMe ? (user?.username || senderEmail).charAt(0).toUpperCase() : getContactInitial(senderEmail, msg);
+                  const msgTargetId = msg.id !== undefined ? msg.id : msg.uid;
+                  const msgFallbackId = `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`;
+                  const msgUniqueId = msgTargetId !== undefined && msgTargetId !== null ? msgTargetId : msgFallbackId;
+
+                  return (
+                    <div key={`starred-item-${msgUniqueId || index}`} className="flex items-start gap-2.5 sm:gap-4 md:gap-5 w-full py-1 min-w-0">
+                      {/* Left Column: Contact Card */}
+                      <div className="w-16 sm:w-28 md:w-36 shrink-0 pt-0 select-none text-left">
+                        <div 
+                          className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-xl border relative shadow-sm w-full bg-gray-50/50 dark:bg-[#1e1e1e]/40 overflow-hidden"
+                          style={{
+                            borderColor: theme?.border || '#e2e8f0',
+                            borderLeftWidth: '4px',
+                            borderLeftColor: isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#4b5563' : '#d1d5db'),
+                          }}
+                        >
+                          <div className="relative shrink-0">
+                            <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs ${
+                              isMe 
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                                : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                            }`}>
+                              {senderInitial}
+                            </div>
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="font-bold text-[10px] sm:text-xs text-gray-800 dark:text-gray-200 truncate" title={senderLabel}>
+                              {senderLabel}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Column: Chat Message */}
+                      <div className="flex-1 flex flex-col items-start min-w-0">
+                        <div className="max-w-[92%] sm:max-w-[85%] flex flex-col items-start min-w-0 rounded-2xl">
+                          <div className="flex items-center gap-1.5 sm:gap-2 relative group max-w-full">
+                            {/* Bubble */}
+                            <div
+                              onClick={() => handleOpenOriginalConversation(msg)}
+                              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden cursor-pointer hover:opacity-95 transition-opacity ${
+                                isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'
+                              }`}
+                              style={{
+                                backgroundColor: isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#1e1e1e' : '#f3f4f6'),
+                                color: isMe ? '#ffffff' : (theme?.mode === 'dark' ? '#f3f4f6' : '#1f2937'),
+                                borderColor: isMe ? 'transparent' : (theme?.border || '#e2e8f0')
+                              }}
+                              title="Click to open original conversation"
+                            >
+                              {renderReplyPreviewInBubble(msg, isMe)}
+                              <p className="whitespace-pre-wrap leading-relaxed break-words">{cleanMessageBody(msg.body)}</p>
+                              {renderBubbleAttachments(msg)}
+                            </div>
+
+                            {/* Blue star beside the bubble */}
+                            <div className="shrink-0 flex items-center select-none" title="Starred message">
+                              <MdStar size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                            </div>
+
+                            {/* Unstar action button */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleStarMessage(msg);
+                              }}
+                              className="p-1 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-black/5 dark:hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shrink-0"
+                              title="Unstar message"
+                            >
+                              <MdClose size={14} />
+                            </button>
+                          </div>
+
+                          {/* Star Message Indicator & Label below the bubble */}
+                          <div className="flex items-center gap-2 text-[10px] text-blue-600 dark:text-blue-400 font-medium select-none mt-0.5 ml-1 leading-none">
+                            <span className="flex items-center gap-1">
+                              <MdStar size={11} className="shrink-0" />
+                              <span>Star Message</span>
+                            </span>
+                            <span className="text-gray-300 dark:text-gray-600">•</span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenOriginalConversation(msg)}
+                              className="hover:underline cursor-pointer font-medium"
+                            >
+                              Open in chat
+                            </button>
+                          </div>
+
+                          {/* Timestamp outside and below the bubble */}
+                          <div className="text-[9px] mt-1 select-none font-normal text-gray-400 dark:text-gray-500 self-end mr-1 text-right">
+                            {formatCashboxTime(msg?.timestamp)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        ) : (
         <div
           ref={chatContainerRef}
           onScroll={handleChatScroll}
@@ -5702,6 +5926,7 @@ const Casbox = () => {
           )}
           <div ref={chatEndRef} />
         </div>
+        )}
 
         {/* Footer Accept Request or Message Input */}
         <div
