@@ -827,9 +827,13 @@ const Casbox = () => {
   const filterMenuRef = React.useRef(null);
   const combineMenuRef = React.useRef(null);
 
-  // Three-Dot Message Actions: Reply, Pin, Edit, Unsend
+  // Three-Dot Message Actions: Reply, Pin, Edit, Unsend, Forward
   const [activeMessageMenuId, setActiveMessageMenuId] = useState(null);
   const [replyingToMessage, setReplyingToMessage] = useState(null);
+  const [forwardingMessage, setForwardingMessage] = useState(null);
+  const [forwardSearchTerm, setForwardSearchTerm] = useState("");
+  const [selectedForwardContactEmails, setSelectedForwardContactEmails] = useState(new Set());
+  const [isSendingForward, setIsSendingForward] = useState(false);
   const [editingMessage, setEditingMessage] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [nowTime, setNowTime] = useState(Date.now());
@@ -929,7 +933,7 @@ const Casbox = () => {
   const messageMenuRef = React.useRef(null);
   const reactionBarRef = React.useRef(null);
 
-  // Reset reply, menu, and reaction pickers when switching conversation
+  // Reset reply, menu, reaction pickers, and forward state when switching conversation
   useEffect(() => {
     setReplyingToMessage(null);
     setActiveMessageMenuId(null);
@@ -937,6 +941,9 @@ const Casbox = () => {
     setShowFullEmojiPicker(false);
     setEmojiSearchTerm("");
     setShowStarredMessagesView(false);
+    setForwardingMessage(null);
+    setSelectedForwardContactEmails(new Set());
+    setForwardSearchTerm("");
   }, [selectedMessage?.id, selectedMessage?.contact, selectedMessage?.senderEmail, selectedMessage?.receiverEmail]);
 
   const toggleSelectRow = useCallback((rowId) => {
@@ -1536,11 +1543,19 @@ const Casbox = () => {
     return name ? name.charAt(0).toUpperCase() : "?";
   };
 
-  // Message Action Helpers (Reply, Pin, Unsend) - Declared after getDisplayName & getOtherUserEmail
+  // Message Action Helpers (Reply, Pin, Unsend, Forward) - Declared after getDisplayName & getOtherUserEmail
   const cleanMessageBody = useCallback((body) => {
     if (typeof body !== 'string') return body || '';
-    const match = body.match(/^\[Replying to [^:]+:\s*"[^"]*"\]\n([\s\S]*)$/);
-    return match ? match[1] : body;
+    let text = body;
+    const replyMatch = text.match(/^\[Replying to [^:]+:\s*"[^"]*"\]\n([\s\S]*)$/);
+    if (replyMatch) {
+      text = replyMatch[1];
+    }
+    const forwardMatch = text.match(/^\[Forwarded(?: from ([^\]]+))?\]\n([\s\S]*)$/);
+    if (forwardMatch) {
+      text = forwardMatch[2];
+    }
+    return text;
   }, []);
 
   const getPinnedSenderLabel = useCallback((pinnedMsg) => {
@@ -1693,6 +1708,113 @@ const Casbox = () => {
       chatInputRef.current?.focus();
     }, 50);
   }, [getDisplayName]);
+
+  const handleInitiateForward = useCallback((msg, senderLabel) => {
+    setActiveMessageMenuId(null);
+    setForwardingMessage({
+      ...msg,
+      senderLabel: senderLabel || getDisplayName(msg.senderEmail || msg.sender, msg)
+    });
+    setForwardSearchTerm("");
+    setSelectedForwardContactEmails(new Set());
+  }, [getDisplayName]);
+
+  const handleCloseForwardModal = useCallback(() => {
+    if (isSendingForward) return;
+    setForwardingMessage(null);
+    setSelectedForwardContactEmails(new Set());
+    setForwardSearchTerm("");
+  }, [isSendingForward]);
+
+  const handleToggleForwardContact = useCallback((email) => {
+    if (!email) return;
+    const lower = normalizeEmail(email);
+    setSelectedForwardContactEmails(prev => {
+      const next = new Set(prev);
+      if (next.has(lower)) {
+        next.delete(lower);
+      } else {
+        next.add(lower);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSendForward = useCallback(async () => {
+    if (!forwardingMessage || selectedForwardContactEmails.size === 0 || isSendingForward) return;
+
+    setIsSendingForward(true);
+    const originalSender = forwardingMessage.senderLabel || getDisplayName(forwardingMessage.senderEmail || forwardingMessage.sender, forwardingMessage);
+    const cleanBodyText = cleanMessageBody(forwardingMessage.body || "");
+    const forwardBody = `[Forwarded from ${originalSender}]\n${cleanBodyText}`;
+    const subject = forwardingMessage.subject || selectedMessage?.subject || "Casbox Message";
+    const attachmentsJson = forwardingMessage.attachmentsJson || null;
+
+    const recipientEmails = Array.from(selectedForwardContactEmails);
+    let successCount = 0;
+    const errors = [];
+    const newMessagesSent = [];
+
+    for (const recipientEmail of recipientEmails) {
+      try {
+        const payload = {
+          receiverEmail: recipientEmail,
+          subject: subject,
+          body: forwardBody,
+          attachmentsJson: attachmentsJson
+        };
+        const res = await casboxAPI.sendMessage(payload);
+        const sentMsg = res.data;
+        if (sentMsg) {
+          newMessagesSent.push(sentMsg);
+          successCount++;
+        }
+      } catch (err) {
+        console.error(`Failed to forward message to ${recipientEmail}:`, err);
+        errors.push(recipientEmail);
+      }
+    }
+
+    if (newMessagesSent.length > 0) {
+      // Update local messages state so conversation lists & combine views update immediately
+      setMessages(prev => {
+        const prevIds = new Set(prev.map(m => m.id || m.uid));
+        const toAdd = newMessagesSent.filter(m => !prevIds.has(m.id || m.uid));
+        return [...toAdd, ...prev];
+      });
+
+      // If the currently open conversation happens to be one of the recipients, also update threadMessages
+      const currentChatEmail = normalizeEmail(getOtherUserEmail(selectedMessage));
+      if (currentChatEmail) {
+        const sentToCurrentChat = newMessagesSent.filter(m => 
+          normalizeEmail(m.receiverEmail || m.receiver) === currentChatEmail ||
+          normalizeEmail(m.senderEmail || m.sender) === currentChatEmail
+        );
+        if (sentToCurrentChat.length > 0) {
+          setThreadMessages(prev => {
+            const prevIds = new Set(prev.map(m => m.id || m.uid));
+            const toAdd = sentToCurrentChat.filter(m => !prevIds.has(m.id || m.uid));
+            return [...prev, ...toAdd];
+          });
+        }
+      }
+
+      if (successCount === 1) {
+        toast.success("Message forwarded");
+      } else {
+        toast.success(`Message forwarded to ${successCount} contacts`);
+      }
+    }
+
+    if (errors.length > 0) {
+      toast.error(`Failed to forward to ${errors.length} contact(s)`);
+    }
+
+    setIsSendingForward(false);
+    setForwardingMessage(null);
+    setSelectedForwardContactEmails(new Set());
+    setForwardSearchTerm("");
+  }, [forwardingMessage, selectedForwardContactEmails, isSendingForward, cleanMessageBody, getDisplayName, selectedMessage, getOtherUserEmail]);
 
   const handleInitiateUnsend = useCallback((msg) => {
     setActiveMessageMenuId(null);
@@ -2011,6 +2133,26 @@ const Casbox = () => {
         <div className="truncate leading-tight opacity-80 text-[11px]">
           {quotedSnippet}
         </div>
+      </div>
+    );
+  }, []);
+
+  const renderForwardPreviewInBubble = useCallback((msg, isMe) => {
+    if (!msg || typeof msg.body !== 'string') return null;
+    let body = msg.body;
+    const replyMatch = body.match(/^\[Replying to [^:]+:\s*"[^"]*"\]\n([\s\S]*)$/);
+    if (replyMatch) body = replyMatch[1];
+
+    const match = body.match(/^\[Forwarded(?: from ([^\]]+))?\]\n/);
+    if (!match) return null;
+    const origSender = match[1];
+
+    return (
+      <div className={`flex items-center gap-1 text-[11px] select-none mb-1 font-medium ${
+        isMe ? 'text-white/85' : 'text-gray-500 dark:text-gray-400'
+      }`}>
+        <MdForward size={13} className="shrink-0" />
+        <span className="italic">Forwarded{origSender ? ` • ${origSender}` : ''}</span>
       </div>
     );
   }, []);
@@ -3877,6 +4019,79 @@ const Casbox = () => {
     });
   }, [showConnectionsModal, connections, conversationList, blockedContacts, user?.email, contactAliases]);
 
+  // Available contacts for Forwarding messages (deduplicated connections and conversations, excluding blocked)
+  const availableForwardContacts = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    const myEmail = normalizeEmail(user?.email);
+
+    // 1. From connections
+    if (connections && Array.isArray(connections)) {
+      connections.forEach(c => {
+        const email = normalizeEmail(c.contactEmail || c.email);
+        const username = c.contactUsername || c.username || '';
+        if (!email || email === myEmail) return;
+        if (!seen.has(email)) {
+          seen.add(email);
+          list.push({
+            id: c.id || email,
+            email: c.contactEmail || c.email || email,
+            username: username,
+            displayName: c.contactDisplayName || getDisplayName(c.contactEmail || c.email || email, c),
+            profilePicture: c.contactProfilePicture || c.profilePicture || null,
+            profilePictureUrl: c.contactProfilePictureUrl || c.profilePictureUrl || null
+          });
+        }
+      });
+    }
+
+    // 2. From active conversations (messagesConversations or conversationList)
+    const convos = (messagesConversations && messagesConversations.length > 0)
+      ? messagesConversations
+      : (conversationList || []);
+
+    convos.forEach(chat => {
+      const contactEmail = chat.contact;
+      if (!contactEmail || normalizeEmail(contactEmail) === myEmail) return;
+      const lower = normalizeEmail(contactEmail);
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        const matchedConn = connections?.find(c => {
+          const cEmail = normalizeEmail(c.contactEmail || c.email);
+          return cEmail === lower;
+        });
+
+        list.push({
+          id: contactEmail,
+          email: contactEmail,
+          username: getOriginalName(contactEmail, chat.latestMessage),
+          displayName: getDisplayName(contactEmail, chat.latestMessage),
+          profilePicture: matchedConn?.contactProfilePicture || chat.latestMessage?.contactProfilePicture || null,
+          profilePictureUrl: matchedConn?.contactProfilePictureUrl || chat.latestMessage?.contactProfilePictureUrl || null
+        });
+      }
+    });
+
+    // Filter out blocked contacts
+    const blockedSet = new Set(blockedContacts.map(b => normalizeEmail(b)));
+    return list.filter(c => {
+      const em = normalizeEmail(c.email);
+      const un = normalizeEmail(c.username);
+      return !blockedSet.has(em) && (!un || !blockedSet.has(un));
+    });
+  }, [connections, messagesConversations, conversationList, blockedContacts, user?.email, getDisplayName, getOriginalName]);
+
+  const filteredForwardContacts = useMemo(() => {
+    if (!forwardSearchTerm.trim()) return availableForwardContacts;
+    const term = forwardSearchTerm.trim().toLowerCase();
+    return availableForwardContacts.filter(c => {
+      const name = (c.displayName || '').toLowerCase();
+      const email = (c.email || '').toLowerCase();
+      const username = (c.username || '').toLowerCase();
+      return name.includes(term) || email.includes(term) || username.includes(term);
+    });
+  }, [availableForwardContacts, forwardSearchTerm]);
+
   // Unified all-messages list for Combine tab
   const unifiedCombineMessages = useMemo(() => {
     if (!messages || messages.length === 0) return [];
@@ -5717,6 +5932,7 @@ const Casbox = () => {
                               }}
                               title="Click to open original conversation"
                             >
+                              {renderForwardPreviewInBubble(msg, isMe)}
                               {renderReplyPreviewInBubble(msg, isMe)}
                               <p className="whitespace-pre-wrap leading-relaxed break-words">{cleanMessageBody(msg.body)}</p>
                               {renderBubbleAttachments(msg)}
@@ -5859,6 +6075,7 @@ const Casbox = () => {
                             borderColor: isMe ? 'transparent' : (theme?.border || '#e2e8f0')
                           }}
                         >
+                          {renderForwardPreviewInBubble(msg, isMe)}
                           {renderReplyPreviewInBubble(msg, isMe)}
                           <p className="whitespace-pre-wrap leading-relaxed break-words">{cleanMessageBody(msg.body)}</p>
                           {renderBubbleAttachments(msg)}
@@ -6084,6 +6301,15 @@ const Casbox = () => {
                               >
                                 <MdReply size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
                                 <span>Reply</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleInitiateForward(msg, senderLabel)}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                              >
+                                <MdForward size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                <span>Forward</span>
                               </button>
 
                               <button
@@ -6831,6 +7057,192 @@ const Casbox = () => {
                 >
                   Unsend
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Forward Message Modal */}
+        {forwardingMessage && (
+          <div
+            className="fixed inset-0 bg-black/60 z-[2000] flex items-center justify-center animate-fade-in p-4 backdrop-blur-sm"
+            onClick={handleCloseForwardModal}
+          >
+            <div
+              className="bg-white dark:bg-[#1e1e1e] rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden max-h-[85vh] border border-gray-100 dark:border-gray-800 animate-in fade-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-black/20">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                    <MdForward size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-gray-900 dark:text-white leading-tight">
+                      Forward Message
+                    </h3>
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                      Select contacts to forward to
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseForwardModal}
+                  disabled={isSendingForward}
+                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors cursor-pointer"
+                >
+                  <MdClose size={18} />
+                </button>
+              </div>
+
+              {/* Original Message Preview Box */}
+              <div className="px-4 pt-3 pb-1">
+                <div className="bg-gray-50 dark:bg-black/30 border border-gray-200/80 dark:border-gray-800 rounded-xl p-3 text-left">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                      Original from: <span className="text-gray-700 dark:text-gray-200 font-bold">{forwardingMessage.senderLabel}</span>
+                    </span>
+                    {forwardingMessage.timestamp && (
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                        {formatSentDetailDateTime(forwardingMessage.timestamp) || formatCashboxTime(forwardingMessage.timestamp)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-700 dark:text-gray-200 line-clamp-3 leading-relaxed whitespace-pre-wrap break-words">
+                    {cleanMessageBody(forwardingMessage.body) || (
+                      <span className="italic text-gray-400">No text content</span>
+                    )}
+                  </p>
+                  {forwardingMessage.attachmentsJson && (
+                    <div className="mt-1 flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                      <MdAttachFile size={13} />
+                      <span>{parseMessageAttachments(forwardingMessage.attachmentsJson).length} attachment(s)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Contact Search Input */}
+              <div className="px-4 py-2">
+                <div className="relative">
+                  <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search contacts..."
+                    value={forwardSearchTerm}
+                    onChange={(e) => setForwardSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-gray-100 dark:bg-white/5 border border-transparent focus:border-blue-500 dark:focus:border-blue-400 rounded-xl outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 transition-all"
+                    autoFocus
+                  />
+                  {forwardSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setForwardSearchTerm("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    >
+                      <MdClose size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Contacts Selection List */}
+              <div className="flex-1 overflow-y-auto px-3 py-1 divide-y divide-gray-100/80 dark:divide-gray-800/60 min-h-[160px] max-h-[260px]">
+                {filteredForwardContacts.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-gray-400 dark:text-gray-500">
+                    {forwardSearchTerm ? "No matching contacts found." : "No available contacts to forward to."}
+                  </div>
+                ) : (
+                  filteredForwardContacts.map((contact) => {
+                    const emailKey = normalizeEmail(contact.email);
+                    const isSelected = selectedForwardContactEmails.has(emailKey);
+                    return (
+                      <div
+                        key={contact.id || contact.email}
+                        onClick={() => handleToggleForwardContact(contact.email)}
+                        className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors select-none ${
+                          isSelected
+                            ? "bg-blue-50/70 dark:bg-blue-950/30"
+                            : "hover:bg-gray-50 dark:hover:bg-white/5"
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <div
+                          className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                            isSelected
+                              ? "bg-blue-600 border-blue-600 text-white"
+                              : "border-gray-300 dark:border-gray-600 bg-white dark:bg-transparent"
+                          }`}
+                        >
+                          {isSelected && <MdCheck size={12} className="stroke-[3]" />}
+                        </div>
+
+                        {/* Avatar */}
+                        <ConnectionAvatar
+                          profilePicture={contact.profilePicture}
+                          profilePictureUrl={contact.profilePictureUrl}
+                          displayName={contact.displayName}
+                          username={contact.username}
+                          email={contact.email}
+                          className="w-8 h-8 shrink-0"
+                        />
+
+                        {/* Contact Name & Email */}
+                        <div className="min-w-0 flex-1 text-left">
+                          <p className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate leading-tight">
+                            {contact.displayName || contact.username || contact.email}
+                          </p>
+                          <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                            {contact.email}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-black/20 flex items-center justify-between gap-3">
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                  {selectedForwardContactEmails.size} {selectedForwardContactEmails.size === 1 ? 'contact' : 'contacts'} selected
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseForwardModal}
+                    disabled={isSendingForward}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendForward}
+                    disabled={selectedForwardContactEmails.size === 0 || isSendingForward}
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-all shadow-sm ${
+                      selectedForwardContactEmails.size === 0 || isSendingForward
+                        ? "opacity-50 cursor-not-allowed bg-blue-600"
+                        : "bg-blue-600 hover:bg-blue-700 active:scale-95 cursor-pointer"
+                    }`}
+                    style={{ backgroundColor: theme?.accent || '#135bec' }}
+                  >
+                    {isSendingForward ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Forwarding...</span>
+                      </>
+                    ) : (
+                      <>
+                        <MdForward size={16} />
+                        <span>Forward{selectedForwardContactEmails.size > 0 ? ` (${selectedForwardContactEmails.size})` : ''}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
