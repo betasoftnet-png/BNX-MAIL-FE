@@ -20,16 +20,30 @@ const normalizeEmail = (val) => {
 export const isCurrentUserEmail = (emailOrUsername, user) => {
   if (!emailOrUsername) return false;
   const n = normalizeEmail(emailOrUsername);
-  const nLocal = n.includes('@') ? n.split('@')[0] : n;
+  if (!n) return false;
+  const nHasAt = n.includes('@');
+  const nLocal = nHasAt ? n.split('@')[0] : n;
 
   const userObj = typeof user === 'object' && user !== null ? user : null;
   const uEmail = normalizeEmail(userObj?.email || (typeof user === 'string' ? user : ''));
-  const uEmailLocal = uEmail.includes('@') ? uEmail.split('@')[0] : uEmail;
-  const uName = normalizeEmail(userObj?.username || '');
-  const uNameLocal = uName.includes('@') ? uName.split('@')[0] : uName;
+  const uEmailHasAt = uEmail.includes('@');
+  const uEmailLocal = uEmailHasAt ? uEmail.split('@')[0] : uEmail;
 
-  return (uEmail && (n === uEmail || nLocal === uEmailLocal)) ||
-         (uName && (n === uName || nLocal === uNameLocal));
+  const uName = normalizeEmail(userObj?.username || '');
+  const uNameHasAt = uName.includes('@');
+  const uNameLocal = uNameHasAt ? uName.split('@')[0] : uName;
+
+  if (uEmail) {
+    if (n === uEmail) return true;
+    if ((!nHasAt || !uEmailHasAt) && nLocal === uEmailLocal) return true;
+  }
+
+  if (uName) {
+    if (n === uName) return true;
+    if ((!nHasAt || !uNameHasAt) && nLocal === uNameLocal) return true;
+  }
+
+  return false;
 };
 
 export const isCashboxSenderAccepted = (senderEmail, casboxAcceptedList) => {
@@ -724,6 +738,19 @@ const Casbox = () => {
     deletedMessageIdsRef.current = deletedMessageIds;
   }, [deletedMessageIds]);
 
+  const [readMessageIds, setReadMessageIds] = useState(() => {
+    try {
+      const s = sessionStorage.getItem('bnx_casbox_read_message_ids') || localStorage.getItem('bnx_casbox_read_message_ids');
+      return s ? new Set(JSON.parse(s)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+  const readMessageIdsRef = React.useRef(readMessageIds);
+  useEffect(() => {
+    readMessageIdsRef.current = readMessageIds;
+  }, [readMessageIds]);
+
   const [combineSearch, setCombineSearch] = useState("");
   const [combineFilter, setCombineFilter] = useState("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -909,12 +936,24 @@ const Casbox = () => {
         const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
         const strId = String(id);
         if (!deletedMessageIdsRef.current.has(id) && !deletedMessageIdsRef.current.has(strId)) {
+          // If this message was already read in the session or marked read, ensure status reflects SEEN
+          const statusUpper = String(m.status || '').trim().toUpperCase();
+          const isLocallyRead = readMessageIdsRef.current.has(id) || readMessageIdsRef.current.has(strId);
+          if (isLocallyRead && statusUpper !== 'SEEN' && statusUpper !== 'READ') {
+            m.status = 'SEEN';
+            m.isRead = true;
+            m.read = true;
+          } else if (statusUpper === 'SEEN' || statusUpper === 'READ' || m.isRead === true || m.read === true) {
+            readMessageIdsRef.current.add(id);
+            readMessageIdsRef.current.add(strId);
+          }
           filtered.push(m);
         }
 
         // Seed already seen message IDs to prevent redundant status updates
-        if (m.id && String(m.status || '').toUpperCase() === 'SEEN') {
+        if (m.id && (String(m.status || '').toUpperCase() === 'SEEN' || String(m.status || '').toUpperCase() === 'READ')) {
           markedSeenIdsRef.current.add(m.id);
+          markedSeenIdsRef.current.add(String(m.id));
         }
       }
 
@@ -981,6 +1020,13 @@ const Casbox = () => {
       }
     }, 10000);
 
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchMessages(true);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     const handleCasboxMessageSent = (e) => {
       const newMsg = e?.detail?.message;
       if (newMsg) {
@@ -992,6 +1038,7 @@ const Casbox = () => {
 
     return () => {
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener('casbox_message_sent', handleCasboxMessageSent);
     };
   }, [fetchMessages]);
@@ -1058,8 +1105,30 @@ const Casbox = () => {
         try {
           const statusDto = JSON.parse(message.body);
           if (statusDto && statusDto.id) {
-            setMessages(prev => prev.map(m => m.id === statusDto.id ? { ...m, status: statusDto.status } : m));
-            setThreadMessages(prev => prev.map(m => m.id === statusDto.id ? { ...m, status: statusDto.status } : m));
+            const isSeenOrRead = statusDto.status === 'SEEN' || statusDto.status === 'READ';
+            if (isSeenOrRead) {
+              readMessageIdsRef.current.add(statusDto.id);
+              readMessageIdsRef.current.add(String(statusDto.id));
+              setReadMessageIds(prev => {
+                const next = new Set(prev);
+                next.add(statusDto.id);
+                next.add(String(statusDto.id));
+                return next;
+              });
+            }
+            setMessages(prev => prev.map(m => (String(m.id) === String(statusDto.id) || (m.uid && String(m.uid) === String(statusDto.id)))
+              ? { ...m, status: statusDto.status, ...(isSeenOrRead ? { isRead: true, read: true } : {}) }
+              : m
+            ));
+            setThreadMessages(prev => prev.map(m => (String(m.id) === String(statusDto.id) || (m.uid && String(m.uid) === String(statusDto.id)))
+              ? { ...m, status: statusDto.status, ...(isSeenOrRead ? { isRead: true, read: true } : {}) }
+              : m
+            ));
+            setSelectedSentDetail(prev => {
+              if (!prev) return prev;
+              const isMatch = String(prev.id) === String(statusDto.id) || (prev.uid && String(prev.uid) === String(statusDto.id));
+              return isMatch ? { ...prev, status: statusDto.status, ...(isSeenOrRead ? { isRead: true, read: true } : {}) } : prev;
+            });
           }
         } catch (e) {
           console.error("Failed to parse status update", e);
@@ -1963,52 +2032,92 @@ const Casbox = () => {
     fetchSettings();
   }, []);
 
+  const inFlightSeenIdsRef = React.useRef(new Set());
+
   const markMessagesAsSeen = useCallback((ids) => {
     if (!ids || ids.length === 0) return;
 
-    // Filter to only messages that:
-    // 1. Have not already been marked as SEEN in our tracking Set
-    // 2. Are incoming/received messages (receiver is current user)
-    // 3. Are not already SEEN
-    const candidateIds = ids.filter(id => {
-      if (!id || markedSeenIdsRef.current.has(id)) return false;
-      const msg = messagesRef.current.find(m => m.id === id);
+    const candidateIds = [];
+    const idSetToUpdate = new Set();
+
+    ids.forEach(rawId => {
+      if (rawId === null || rawId === undefined || rawId === '') return;
+      const strId = String(rawId);
+      if (inFlightSeenIdsRef.current.has(strId)) return;
+
+      const msg = messagesRef.current.find(m => String(m.id) === strId || (m.uid && String(m.uid) === strId));
       if (msg) {
-        const isIncoming = isCurrentUser(msg.receiverEmail || msg.receiver);
-        if (!isIncoming) return false;
-        if (String(msg.status || '').toUpperCase() === 'SEEN') {
-          markedSeenIdsRef.current.add(id);
-          return false;
+        // Exclude messages sent by current user
+        if (isCurrentUser(msg.senderEmail || msg.sender)) return;
+        // Must be addressed to current user
+        if (!isCurrentUser(msg.receiverEmail || msg.receiver)) return;
+        const status = String(msg.status || '').trim().toUpperCase();
+        const isRead = status === 'SEEN' || status === 'READ' || msg.isRead === true || msg.read === true;
+        if (isRead && (readMessageIdsRef.current.has(rawId) || readMessageIdsRef.current.has(strId))) {
+          return;
         }
       }
-      return true;
+
+      candidateIds.push(rawId);
+      idSetToUpdate.add(strId);
     });
 
     if (candidateIds.length === 0) return;
 
-    // Track IDs immediately to avoid duplicate concurrent calls
-    candidateIds.forEach(id => markedSeenIdsRef.current.add(id));
+    // Track IDs in flight to avoid duplicate concurrent calls
+    candidateIds.forEach(id => inFlightSeenIdsRef.current.add(String(id)));
 
-    // Optimistically update message status in local state
-    setMessages(prev => prev.map(m => candidateIds.includes(m.id) ? { ...m, status: 'SEEN' } : m));
-    setThreadMessages(prev => prev.map(m => candidateIds.includes(m.id) ? { ...m, status: 'SEEN' } : m));
-
-    // Call existing message status API
-    casboxAPI.updateStatus({ messageIds: candidateIds, status: 'SEEN' }).catch(err => {
-      console.error("Failed to update message status to SEEN:", err);
-      // Remove from set if call failed so it can be retried on next user view
-      candidateIds.forEach(id => markedSeenIdsRef.current.delete(id));
+    // Track in readMessageIds state & storage so unread counter updates immediately
+    setReadMessageIds(prev => {
+      const next = new Set(prev);
+      candidateIds.forEach(id => {
+        next.add(id);
+        next.add(String(id));
+      });
+      try {
+        sessionStorage.setItem('bnx_casbox_read_message_ids', JSON.stringify(Array.from(next)));
+        localStorage.setItem('bnx_casbox_read_message_ids', JSON.stringify(Array.from(next)));
+      } catch (e) {}
+      return next;
     });
+
+    // Optimistically update message status in local state (including isRead: true)
+    setMessages(prev => prev.map(m => {
+      const match = idSetToUpdate.has(String(m.id)) || (m.uid && idSetToUpdate.has(String(m.uid)));
+      return match ? { ...m, status: 'SEEN', isRead: true, read: true } : m;
+    }));
+    setThreadMessages(prev => prev.map(m => {
+      const match = idSetToUpdate.has(String(m.id)) || (m.uid && idSetToUpdate.has(String(m.uid)));
+      return match ? { ...m, status: 'SEEN', isRead: true, read: true } : m;
+    }));
+    setSelectedSentDetail(prev => {
+      if (!prev) return prev;
+      const match = idSetToUpdate.has(String(prev.id)) || (prev.uid && idSetToUpdate.has(String(prev.uid)));
+      return match ? { ...prev, status: 'SEEN', isRead: true, read: true } : prev;
+    });
+
+    // Call existing message status API with numeric IDs
+    const numIds = candidateIds.map(id => Number(id)).filter(n => !isNaN(n) && n > 0);
+    if (numIds.length > 0) {
+      casboxAPI.updateStatus({ messageIds: numIds, status: 'SEEN' })
+        .catch(err => {
+          console.error("Failed to update message status to SEEN:", err);
+        })
+        .finally(() => {
+          candidateIds.forEach(id => inFlightSeenIdsRef.current.delete(String(id)));
+        });
+    } else {
+      candidateIds.forEach(id => inFlightSeenIdsRef.current.delete(String(id)));
+    }
   }, [isCurrentUser]);
 
   const handleSelectMessage = (msg) => {
     setOpenMenuId(null);
     setSelectedSentDetail(null);
     setSelectedMessage(msg || null);
-    if (msg && !isCurrentUser(msg.senderEmail || msg.sender)) {
-      if (msg.id && msg.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
-        markMessagesAsSeen([msg.id]);
-      }
+    const targetId = msg?.id !== undefined && msg?.id !== null ? msg.id : msg?.uid;
+    if (msg && !isCurrentUser(msg.senderEmail || msg.sender) && targetId) {
+      markMessagesAsSeen([targetId]);
     }
   };
 
@@ -2017,8 +2126,9 @@ const Casbox = () => {
     const { msg, isSent, contact } = item;
     setOpenMenuId(null);
     setSelectedMessage(null);
-    if (!isSent && msg?.id && msg?.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
-      markMessagesAsSeen([msg.id]);
+    const targetId = msg?.id !== undefined && msg?.id !== null ? msg.id : msg?.uid;
+    if (!isSent && targetId) {
+      markMessagesAsSeen([targetId]);
     }
     setSelectedSentDetail({
       ...msg,
@@ -2043,8 +2153,9 @@ const Casbox = () => {
       ? (msg.receiverEmail || msg.receiver || chat?.contact || '')
       : (msg.senderEmail || msg.sender || chat?.contact || '');
 
-    if (!isSent && msg.id && msg.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
-      markMessagesAsSeen([msg.id]);
+    const targetId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
+    if (!isSent && targetId) {
+      markMessagesAsSeen([targetId]);
     }
 
     setSelectedSentDetail({
@@ -2144,8 +2255,20 @@ const Casbox = () => {
       // Only mark received messages as SEEN when user is actively viewing this contact's conversation
       if (selectedContactRef.current && normalizeEmail(selectedContactRef.current) === normalizeEmail(contactEmail)) {
         const unreadIncomingIds = data
-          .filter(m => isCurrentUser(m.receiverEmail || m.receiver) && String(m.status || '').toUpperCase() !== 'SEEN')
-          .map(m => m.id)
+          .filter(m => {
+            if (!m) return false;
+            if (isCurrentUser(m.senderEmail || m.sender)) return false;
+            const rec = m.receiverEmail || m.receiver;
+            if (rec && !isCurrentUser(rec)) return false;
+            const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+            if (id !== undefined && id !== null && (readMessageIdsRef.current.has(id) || readMessageIdsRef.current.has(String(id)))) {
+              return false;
+            }
+            if (m.isRead === true || m.read === true) return false;
+            const st = String(m.status || '').trim().toUpperCase();
+            return st !== 'SEEN' && st !== 'READ';
+          })
+          .map(m => m.id !== undefined && m.id !== null ? m.id : m.uid)
           .filter(Boolean);
         if (unreadIncomingIds.length > 0) {
           markMessagesAsSeen(unreadIncomingIds);
@@ -2160,9 +2283,7 @@ const Casbox = () => {
 
   useEffect(() => {
     if (selectedMessage) {
-      const otherEmail = selectedMessage.senderEmail === user?.email
-        ? selectedMessage.receiverEmail
-        : selectedMessage.senderEmail;
+      const otherEmail = getOtherUserEmail(selectedMessage);
       selectedContactRef.current = otherEmail;
 
       const contactKey = normalizeEmail(otherEmail);
@@ -2684,8 +2805,9 @@ const Casbox = () => {
   const handleCombineRowClick = (item) => {
     if (!item?.msg) return;
     const { msg, isSent } = item;
-    if (!isSent && msg?.id && msg?.id !== -1 && String(msg.status || '').toUpperCase() !== 'SEEN') {
-      markMessagesAsSeen([msg.id]);
+    const targetId = msg?.id !== undefined && msg?.id !== null ? msg.id : msg?.uid;
+    if (!isSent && targetId) {
+      markMessagesAsSeen([targetId]);
     }
     handleSelectMessage(msg);
   };
@@ -2756,11 +2878,39 @@ const Casbox = () => {
 
   const isMessageUnread = useCallback((m) => {
     if (!m) return false;
-    const rec = normalizeEmail(m.receiverEmail || m.receiver);
-    if (!isCurrentUser(rec)) return false;
-    if (m.isRead === true || m.read === true) return false;
-    return String(m.status || '').trim().toUpperCase() !== 'SEEN';
-  }, [isCurrentUser]);
+
+    // Exclude messages sent by the logged-in user
+    const sender = m.senderEmail || m.sender;
+    if (isCurrentUser(sender)) return false;
+
+    // Exclude messages not addressed to current user (if receiver is specified)
+    const rec = m.receiverEmail || m.receiver;
+    if (rec && !isCurrentUser(rec)) return false;
+
+    // Exclude deleted messages and messages marked read locally in session/storage
+    const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+    if (id !== undefined && id !== null) {
+      if (deletedMessageIdsRef.current.has(id) || deletedMessageIdsRef.current.has(String(id))) {
+        return false;
+      }
+      if (readMessageIdsRef.current.has(id) || readMessageIdsRef.current.has(String(id))) {
+        return false;
+      }
+    }
+
+    // Exclude messages with boolean read flags
+    if (m.isRead === true || m.read === true || m.isRead === 'true' || m.read === 'true') {
+      return false;
+    }
+
+    // Exclude messages marked SEEN or READ
+    const status = String(m.status || '').trim().toUpperCase();
+    if (status === 'SEEN' || status === 'READ') {
+      return false;
+    }
+
+    return true;
+  }, [isCurrentUser, readMessageIds, deletedMessageIds]);
 
   const { 
     conversationList, 
@@ -2808,6 +2958,13 @@ const Casbox = () => {
 
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
+      const msgId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
+      if (msgId !== undefined && msgId !== null) {
+        if (deletedMessageIds.has(msgId) || deletedMessageIds.has(String(msgId))) {
+          continue;
+        }
+      }
+
       const sender = normalizeEmail(msg.senderEmail || msg.sender);
       const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
 
@@ -2868,16 +3025,25 @@ const Casbox = () => {
     const requestsList = [];
     const archivedList = [];
     const requestMessagesArr = [];
-    let mainUnread = 0;
-    let archUnread = 0;
-    let reqUnread = 0;
 
     conversationGroups.forEach((grp) => {
       // Sort messages within conversation descending
       grp.messages.sort((a, b) => getTimestampMs(b.timestamp) - getTimestampMs(a.timestamp));
 
-      const activeMsgs = grp.messages.filter(m => !Boolean(m.isArchived || m.archived));
-      const archivedMsgs = grp.messages.filter(m => Boolean(m.isArchived || m.archived));
+      const activeMsgs = grp.messages.filter(m => {
+        const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        if (id !== undefined && id !== null && (deletedMessageIds.has(id) || deletedMessageIds.has(String(id)))) {
+          return false;
+        }
+        return !Boolean(m.isArchived || m.archived);
+      });
+      const archivedMsgs = grp.messages.filter(m => {
+        const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        if (id !== undefined && id !== null && (deletedMessageIds.has(id) || deletedMessageIds.has(String(id)))) {
+          return false;
+        }
+        return Boolean(m.isArchived || m.archived);
+      });
 
       if (archivedMsgs.length > 0) {
         const archGrp = {
@@ -2890,7 +3056,6 @@ const Casbox = () => {
           archived: true,
         };
         archivedList.push(archGrp);
-        if (archGrp.unreadCount > 0) archUnread += archGrp.unreadCount;
       }
 
       if (activeMsgs.length > 0) {
@@ -2908,10 +3073,8 @@ const Casbox = () => {
         if (classification === 'REQUESTS') {
           requestsList.push(activeGrp);
           activeGrp.messages.forEach(m => requestMessagesArr.push(m));
-          if (activeGrp.unreadCount > 0) reqUnread += activeGrp.unreadCount;
         } else {
           messagesList.push(activeGrp);
-          if (activeGrp.unreadCount > 0) mainUnread += activeGrp.unreadCount;
         }
       }
     });
@@ -2919,6 +3082,52 @@ const Casbox = () => {
     messagesList.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
     requestsList.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
     archivedList.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+
+    // Calculate unread counts ensuring unique messages (no double counting or conversation duplication)
+    let mainUnread = 0;
+    const countedMainMessageIds = new Set();
+    messagesList.forEach(grp => {
+      grp.messages.forEach(m => {
+        const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        const key = id !== undefined && id !== null ? String(id) : `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        if (!countedMainMessageIds.has(key)) {
+          countedMainMessageIds.add(key);
+          if (isMessageUnread(m)) {
+            mainUnread++;
+          }
+        }
+      });
+    });
+
+    let archUnread = 0;
+    const countedArchMessageIds = new Set();
+    archivedList.forEach(grp => {
+      grp.messages.forEach(m => {
+        const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        const key = id !== undefined && id !== null ? String(id) : `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        if (!countedArchMessageIds.has(key)) {
+          countedArchMessageIds.add(key);
+          if (isMessageUnread(m)) {
+            archUnread++;
+          }
+        }
+      });
+    });
+
+    let reqUnread = 0;
+    const countedReqMessageIds = new Set();
+    requestsList.forEach(grp => {
+      grp.messages.forEach(m => {
+        const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        const key = id !== undefined && id !== null ? String(id) : `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        if (!countedReqMessageIds.has(key)) {
+          countedReqMessageIds.add(key);
+          if (isMessageUnread(m)) {
+            reqUnread++;
+          }
+        }
+      });
+    });
 
     let activeList = messagesList;
     if (activeTab === 'requests') {
@@ -2937,18 +3146,28 @@ const Casbox = () => {
       unreadRequestsCount: reqUnread,
       requestMessages: requestMessagesArr
     };
-  }, [messages, blockedContacts, acceptedContacts, connections, acceptedSet, activeTab, user, isMessageUnread, isCurrentUser]);
+  }, [messages, blockedContacts, acceptedContacts, connections, acceptedSet, activeTab, user, isMessageUnread, isCurrentUser, deletedMessageIds, readMessageIds]);
 
   // Combine tab unread count computed from messages
   const unreadCombinedCount = useMemo(() => {
     if (!messages || messages.length === 0) return 0;
-    return messages.filter(m => {
-      if (isCurrentUser(m.senderEmail || m.sender)) return false;
-      const status = typeof m.status === 'string' ? m.status.trim().toUpperCase() : '';
-      const isRead = status === 'SEEN' || status === 'READ' || m.isRead === true || m.read === true;
-      return !isRead;
-    }).length;
-  }, [messages, isCurrentUser]);
+    const seenIds = new Set();
+    let count = 0;
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+      const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+      const key = id !== undefined && id !== null ? String(id) : `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+      if (seenIds.has(key)) continue;
+      seenIds.add(key);
+      if (id !== undefined && id !== null && (deletedMessageIds.has(id) || deletedMessageIds.has(String(id)))) {
+        continue;
+      }
+      if (isMessageUnread(m)) {
+        count++;
+      }
+    }
+    return count;
+  }, [messages, deletedMessageIds, isMessageUnread, readMessageIds]);
 
   // Individual messages list for the Messages tab (every message = one row, not grouped by person)
   const individualMessagesList = useMemo(() => {
@@ -3362,7 +3581,7 @@ const Casbox = () => {
       <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2 shrink-0 bg-transparent">
         <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg shrink-0">
           <button
-            onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); }}
+            onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
             className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'messages' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.messages', 'Messages')}
@@ -3373,7 +3592,7 @@ const Casbox = () => {
             )}
           </button>
           <button
-            onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); }}
+            onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
             className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.combine', 'Combine')}
@@ -3384,7 +3603,7 @@ const Casbox = () => {
             )}
           </button>
           <button
-            onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); }}
+            onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
             className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.requests', 'Requests')}
