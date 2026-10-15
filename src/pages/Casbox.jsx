@@ -2405,7 +2405,7 @@ const Casbox = () => {
           deletedMessageIdsRef.current.has(id) ||
           (strId && deletedMessageIdsRef.current.has(strId)) ||
           deletedMessageIdsRef.current.has(fallbackId)
-        );
+        ) && !Boolean(m.isArchived || m.archived);
       });
       setThreadMessages(filtered);
 
@@ -2499,6 +2499,7 @@ const Casbox = () => {
     if (e && e.stopPropagation) e.stopPropagation();
     setOpenMenuId(null);
     setOpenCombineMenuId(null);
+    setActiveMessageMenuId(null);
 
     const messageId = (messageOrId && typeof messageOrId === 'object')
       ? (messageOrId.id !== undefined ? messageOrId.id : messageOrId.uid)
@@ -2517,6 +2518,11 @@ const Casbox = () => {
           : m;
       }));
 
+      setThreadMessages(prev => prev.filter(m => {
+        const mId = m.id !== undefined ? m.id : m.uid;
+        return !(mId === messageId || String(mId) === strId);
+      }));
+
       if (selectedSentDetail) {
         const sId = selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid;
         if (sId === messageId || String(sId) === strId) {
@@ -2526,7 +2532,17 @@ const Casbox = () => {
       if (selectedMessage) {
         const sId = selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid;
         if (sId === messageId || String(sId) === strId) {
-          setSelectedMessage(null);
+          // If this was the selected message reference, update it to another message if thread still has messages
+          setThreadMessages(prev => {
+            const remaining = prev.filter(m => {
+              const mId = m.id !== undefined ? m.id : m.uid;
+              return !(mId === messageId || String(mId) === strId);
+            });
+            if (remaining.length === 0) {
+              setSelectedMessage(null);
+            }
+            return remaining;
+          });
         }
       }
 
@@ -5949,6 +5965,19 @@ const Casbox = () => {
                               >
                                 <MdStar size={16} className={`shrink-0 ${isMessageStarred(msg) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
                                 <span>{isMessageStarred(msg) ? 'Unstar Message' : 'Star Message'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMessageMenuId(null);
+                                  handleArchiveMessage(msg, e);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                              >
+                                <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                <span>Archive</span>
                               </button>
 
                               {isMe && isMessageEditable(msg) && (
