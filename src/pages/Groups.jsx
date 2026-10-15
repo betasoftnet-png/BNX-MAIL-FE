@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive, MdUnarchive, MdDeleteOutline, MdStar, MdStarBorder } from "react-icons/md";
-import { chatAPI } from "../services/api";
+import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive, MdUnarchive, MdDeleteOutline, MdStar, MdStarBorder, MdArrowBack, MdClose } from "react-icons/md";
+import { chatAPI, casboxAPI } from "../services/api";
 import chatCache from "../services/chatCache";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -18,7 +18,7 @@ const Groups = () => {
     const isStarredView = location.pathname === '/colab/starred';
     const isGroupsMode = location.pathname.includes('/colab');
     const modeTitle = isArchivedView 
-        ? "Archived Colab Groups" 
+        ? "Archive" 
         : isStarredView
         ? "Starred Colab Groups"
         : (isGroupsMode ? "Colab" : "Direct Messages");
@@ -28,7 +28,7 @@ const Groups = () => {
         ? <MdStar className="text-amber-400" />
         : (isGroupsMode ? <MdGroup className="text-primary" /> : <MdChat className="text-primary" />);
     const modeSubtitle = isArchivedView
-        ? "View and manage your archived colab groups"
+        ? "View and manage your archived messages and colab conversations"
         : isStarredView
         ? "View your starred colab groups"
         : (isGroupsMode ? "Collaborate with your teams" : "Your private conversations");
@@ -45,14 +45,80 @@ const Groups = () => {
 
     const [openMenuChatId, setOpenMenuChatId] = useState(null);
     const [groupToDelete, setGroupToDelete] = useState(null);
+    const userKey = user?.email ? `_${user.email.toLowerCase()}` : '';
     const [archivedGroupIds, setArchivedGroupIds] = useState(() => {
         try {
+            const uSaved = userKey ? localStorage.getItem(`bnx_colab_archived_group_ids${userKey}`) : null;
+            if (uSaved) return new Set(JSON.parse(uSaved));
             const saved = localStorage.getItem('bnx_colab_archived_group_ids');
             return saved ? new Set(JSON.parse(saved)) : new Set();
         } catch (e) {
             return new Set();
         }
     });
+
+    const saveArchivedGroupIds = (nextSet) => {
+        try {
+            const arr = Array.from(nextSet);
+            if (userKey) {
+                localStorage.setItem(`bnx_colab_archived_group_ids${userKey}`, JSON.stringify(arr));
+            }
+            localStorage.setItem('bnx_colab_archived_group_ids', JSON.stringify(arr));
+        } catch (e) {}
+    };
+
+    const [archivedMessages, setArchivedMessages] = useState([]);
+    const [loadingArchivedMessages, setLoadingArchivedMessages] = useState(false);
+    const [selectedArchivedMessage, setSelectedArchivedMessage] = useState(null);
+    const [archiveSourceFilter, setArchiveSourceFilter] = useState('ALL'); // 'ALL' | 'COLAB' | 'MESSAGE'
+
+    const fetchArchivedMessages = async () => {
+        if (!isArchivedView) return;
+        try {
+            setLoadingArchivedMessages(true);
+            const res = await casboxAPI.getAllMessages();
+            const all = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+            const archivedOnly = all.filter(m => Boolean(m.isArchived || m.archived));
+            setArchivedMessages(archivedOnly);
+        } catch (err) {
+            console.error("Failed to load archived messages in Archive view:", err);
+        } finally {
+            setLoadingArchivedMessages(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isArchivedView) {
+            fetchArchivedMessages();
+        }
+    }, [isArchivedView, user?.email]);
+
+    const handleUnarchiveMessage = async (msg, e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        const msgId = msg?.id !== undefined && msg?.id !== null ? msg.id : msg?.uid;
+        if (msgId === undefined || msgId === null) return;
+        const numericId = Number(msgId);
+        const targetIds = !isNaN(numericId) ? [numericId] : [msgId];
+        try {
+            await casboxAPI.updateArchiveStatus(targetIds, false);
+            setArchivedMessages(prev => prev.filter(m => {
+                const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
+                return id !== msgId && String(id) !== String(msgId);
+            }));
+            if (selectedArchivedMessage) {
+                const sId = selectedArchivedMessage.id !== undefined && selectedArchivedMessage.id !== null
+                    ? selectedArchivedMessage.id : selectedArchivedMessage.uid;
+                if (sId === msgId || String(sId) === String(msgId)) {
+                    setSelectedArchivedMessage(null);
+                }
+            }
+            toast.success("Message unarchived");
+        } catch (err) {
+            console.error("Failed to unarchive message", err);
+            toast.error("Failed to unarchive message");
+        }
+    };
+
     const [starredGroupIds, setStarredGroupIds] = useState(() => {
         try {
             const saved = localStorage.getItem('bnx_colab_starred_group_ids');
@@ -88,9 +154,7 @@ const Groups = () => {
         setArchivedGroupIds(prev => {
             const next = new Set(prev);
             next.add(chatId);
-            try {
-                localStorage.setItem('bnx_colab_archived_group_ids', JSON.stringify(Array.from(next)));
-            } catch (err) {}
+            saveArchivedGroupIds(next);
             return next;
         });
 
@@ -115,9 +179,7 @@ const Groups = () => {
         setArchivedGroupIds(prev => {
             const next = new Set(prev);
             next.delete(chatId);
-            try {
-                localStorage.setItem('bnx_colab_archived_group_ids', JSON.stringify(Array.from(next)));
-            } catch (err) {}
+            saveArchivedGroupIds(next);
             return next;
         });
 
@@ -359,6 +421,93 @@ const Groups = () => {
         return true;
     });
 
+    // Filtered archived messages
+    const filteredArchivedMessages = archivedMessages.filter(msg => {
+        if (!searchTerm.trim()) return true;
+        const q = searchTerm.toLowerCase();
+        const sender = (msg.senderDisplayName || msg.senderUsername || msg.senderEmail || '').toLowerCase();
+        const receiver = (msg.receiverDisplayName || msg.receiverUsername || msg.receiverEmail || '').toLowerCase();
+        const subject = (msg.subject || '').toLowerCase();
+        const body = (msg.body || msg.content || '').toLowerCase();
+        return sender.includes(q) || receiver.includes(q) || subject.includes(q) || body.includes(q);
+    });
+
+    const renderArchivedMessageRow = (msg) => {
+        const isSent = Boolean(
+            msg.direction === 'SENT' ||
+            msg.isSent === true ||
+            (user?.email && (msg.senderEmail === user.email || msg.sender === user.email))
+        );
+        const otherEmail = isSent ? (msg.receiverEmail || msg.receiver) : (msg.senderEmail || msg.sender);
+        const personName = isSent
+            ? (msg.receiverDisplayName || msg.receiverUsername || otherEmail?.split('@')[0] || 'Unknown')
+            : (msg.senderDisplayName || msg.senderUsername || otherEmail?.split('@')[0] || 'Unknown');
+        const initial = personName ? personName.charAt(0).toUpperCase() : '?';
+
+        const rawSubject = typeof msg.subject === 'string' ? msg.subject.trim() : '';
+        const cleanSubject = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim();
+        const subject = (cleanSubject && cleanSubject.toLowerCase() !== 'null') ? cleanSubject : '';
+
+        let bodyPreview = '';
+        const rawBody = msg.body || msg.content || '';
+        if (typeof rawBody === 'string' && rawBody.trim()) {
+            bodyPreview = rawBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+
+        return (
+            <div
+                key={`msg-${msg.id || msg.uid}`}
+                onClick={() => setSelectedArchivedMessage(msg)}
+                className="group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors bg-white/60 dark:bg-gray-800/40 rounded-2xl mb-2 cursor-pointer shadow-2xs border border-gray-200/40 dark:border-gray-800/40"
+            >
+                <div className="flex items-center min-w-0 flex-1 mr-4">
+                    <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs shrink-0 select-none mr-3">
+                        {initial}
+                    </div>
+                    <span className="w-32 sm:w-44 text-xs sm:text-sm font-semibold truncate shrink-0 mr-3" style={{ color: theme.text }}>
+                        {personName}
+                    </span>
+                    <div className="shrink-0 mr-3">
+                        {isSent ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
+                                Sent
+                            </span>
+                        ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                                Received
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center min-w-0 flex-1">
+                        {subject && (
+                            <span className="text-xs sm:text-sm font-semibold truncate shrink-0 max-w-[150px] mr-2" style={{ color: theme.text }}>
+                                {subject}
+                            </span>
+                        )}
+                        <span className="text-xs sm:text-sm opacity-60 truncate flex-1 min-w-0" style={{ color: theme.subText }}>
+                            {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
+                            {bodyPreview || '(No content)'}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0 ml-2">
+                    <span className="text-xs font-medium opacity-60 whitespace-nowrap" style={{ color: theme.subText }}>
+                        {msg.timestamp ? new Date(msg.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={(e) => handleUnarchiveMessage(msg, e)}
+                        className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                        title="Unarchive message"
+                    >
+                        <MdUnarchive size={18} />
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     const renderGroupCard = (chat, isArchived = false) => {
         const chatPartner = chat.memberEmails?.find(e => e !== user.email);
         const chatDisplayName = chat.type === 'DIRECT' ? chatPartner?.split('@')[0] : (chat.name || 'Unnamed');
@@ -543,32 +692,178 @@ const Groups = () => {
                     <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input 
                         type="text"
-                        placeholder={`Search ${isArchivedView ? 'archived colab groups' : isStarredView ? 'starred colab groups' : (isGroupsMode ? 'colab groups' : 'messages')}...`}
+                        placeholder={`Search ${isArchivedView ? 'archived items' : isStarredView ? 'starred colab groups' : (isGroupsMode ? 'colab groups' : 'messages')}...`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200/50 dark:border-gray-800/50 bg-white/50 dark:bg-gray-800/50 outline-none focus:ring-2 focus:ring-primary/30 transition-all"
                         style={{ color: theme.text }}
                     />
                 </div>
+
+                {/* Archive Source Filter Tabs */}
+                {isArchivedView && !selectedArchivedMessage && (
+                    <div className="flex items-center gap-2 mt-3 select-none">
+                        <button
+                            type="button"
+                            onClick={() => setArchiveSourceFilter('ALL')}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                                archiveSourceFilter === 'ALL'
+                                    ? 'bg-blue-600 text-white shadow-xs'
+                                    : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                            }`}
+                        >
+                            All ({archivedChats.length + filteredArchivedMessages.length})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setArchiveSourceFilter('COLAB')}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                                archiveSourceFilter === 'COLAB'
+                                    ? 'bg-blue-600 text-white shadow-xs'
+                                    : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                            }`}
+                        >
+                            Colab Conversations ({archivedChats.length})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setArchiveSourceFilter('MESSAGE')}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                                archiveSourceFilter === 'MESSAGE'
+                                    ? 'bg-blue-600 text-white shadow-xs'
+                                    : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                            }`}
+                        >
+                            Messages ({filteredArchivedMessages.length})
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* CHAT LIST */}
+            {/* CHAT LIST OR SINGLE ARCHIVED MESSAGE VIEWER */}
             <div className="flex-1 overflow-y-auto px-6 pb-10 hidden-scrollbar">
                 {isArchivedView ? (
-                    loading && chats.length === 0 ? (
-                        <div className="flex justify-center p-20">
-                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                        </div>
-                    ) : archivedChats.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-20 opacity-50">
-                            <MdArchive size={64} className="mb-4 text-primary" />
-                            <p className="text-lg font-medium">No archived colab groups found</p>
-                            <p className="text-sm">Groups you archive will appear here</p>
+                    selectedArchivedMessage ? (
+                        /* Single Message View Layout for Archived Message */
+                        <div className="flex flex-col h-full bg-white dark:bg-[#121212] rounded-2xl border border-gray-200/60 dark:border-gray-800/60 overflow-hidden shadow-sm animate-in fade-in duration-150">
+                            <div className="px-6 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0 bg-gray-50/50 dark:bg-gray-800/30">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedArchivedMessage(null)}
+                                    className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                                >
+                                    <MdArrowBack size={18} />
+                                    <span>Back to Archive</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleUnarchiveMessage(selectedArchivedMessage)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 transition-colors cursor-pointer"
+                                    title="Unarchive message"
+                                >
+                                    <MdUnarchive size={16} />
+                                    <span>Unarchive</span>
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-[#f8f9fa] dark:bg-[#121212] text-left">
+                                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-5 tracking-tight">
+                                    {selectedArchivedMessage.subject ? selectedArchivedMessage.subject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim() : 'Archived Message'}
+                                </h1>
+
+                                <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl p-6 border border-gray-200/70 dark:border-gray-800 shadow-sm text-left">
+                                    <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800/60 mb-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center text-sm">
+                                                {(selectedArchivedMessage.senderDisplayName || selectedArchivedMessage.senderUsername || selectedArchivedMessage.senderEmail || 'U').charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                                    {selectedArchivedMessage.senderDisplayName || selectedArchivedMessage.senderUsername || selectedArchivedMessage.senderEmail}
+                                                </div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                    to {selectedArchivedMessage.receiverDisplayName || selectedArchivedMessage.receiverUsername || selectedArchivedMessage.receiverEmail}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+                                                {selectedArchivedMessage.timestamp ? new Date(selectedArchivedMessage.timestamp).toLocaleString() : ''}
+                                            </div>
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                                selectedArchivedMessage.senderEmail === user?.email || selectedArchivedMessage.isSent
+                                                    ? 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400'
+                                                    : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
+                                            }`}>
+                                                {selectedArchivedMessage.senderEmail === user?.email || selectedArchivedMessage.isSent ? 'Sent' : 'Received'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                                        {selectedArchivedMessage.body || selectedArchivedMessage.content || '(No message content)'}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {archivedChats.map(chat => renderGroupCard(chat, true))}
-                        </div>
+                        (loading && chats.length === 0) || loadingArchivedMessages ? (
+                            <div className="flex justify-center p-20">
+                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                            </div>
+                        ) : (archivedChats.length === 0 && filteredArchivedMessages.length === 0) ? (
+                            <div className="flex flex-col items-center justify-center p-20 opacity-50">
+                                <MdArchive size={64} className="mb-4 text-primary" />
+                                <p className="text-lg font-medium">No archived items found</p>
+                                <p className="text-sm">Messages and Colab conversations you archive will appear here</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6 text-left">
+                                {/* Colab Conversations Section */}
+                                {(archiveSourceFilter === 'ALL' || archiveSourceFilter === 'COLAB') && archivedChats.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                                <MdGroup size={18} className="text-primary" />
+                                                Colab Conversations ({archivedChats.length})
+                                            </h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            {archivedChats.map(chat => renderGroupCard(chat, true))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Messages Section */}
+                                {(archiveSourceFilter === 'ALL' || archiveSourceFilter === 'MESSAGE') && filteredArchivedMessages.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                                <MdChat size={18} className="text-primary" />
+                                                Messages ({filteredArchivedMessages.length})
+                                            </h3>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {filteredArchivedMessages.map(msg => renderArchivedMessageRow(msg))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {archiveSourceFilter === 'COLAB' && archivedChats.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center p-16 opacity-50">
+                                        <MdGroup size={48} className="mb-3 text-primary" />
+                                        <p className="text-sm font-medium">No archived Colab conversations found</p>
+                                    </div>
+                                )}
+
+                                {archiveSourceFilter === 'MESSAGE' && filteredArchivedMessages.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center p-16 opacity-50">
+                                        <MdChat size={48} className="mb-3 text-primary" />
+                                        <p className="text-sm font-medium">No archived messages found</p>
+                                    </div>
+                                )}
+                            </div>
+                        )
                     )
                 ) : isStarredView ? (
                     loading && chats.length === 0 ? (
