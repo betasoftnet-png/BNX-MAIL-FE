@@ -5343,7 +5343,7 @@ const Casbox = () => {
             </div>
           </div>
 
-          {/* Right: Star · Archive · Delete · More */}
+          {/* Right: Star · Delete · More */}
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             {/* Starred Messages View Toggle */}
             <button
@@ -5361,19 +5361,6 @@ const Casbox = () => {
                 <MdStar size={20} className="text-blue-600 dark:text-blue-400" />
               ) : (
                 <MdStarBorder size={20} />
-              )}
-            </button>
-
-            {/* Archive / Unarchive */}
-            <button
-              onClick={handleArchiveChat}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
-              title={Boolean(selectedMessage?.isArchived || selectedMessage?.archived) ? "Unarchive" : "Archive"}
-            >
-              {Boolean(selectedMessage?.isArchived || selectedMessage?.archived) ? (
-                <MdUnarchive size={20} className="text-blue-600 dark:text-blue-400" />
-              ) : (
-                <MdArchive size={20} />
               )}
             </button>
 
