@@ -46,6 +46,20 @@ export const isCurrentUserEmail = (emailOrUsername, user) => {
   return false;
 };
 
+export const isSameContact = (contactA, contactB) => {
+  if (!contactA || !contactB) return false;
+  const aNorm = normalizeEmail(contactA);
+  const bNorm = normalizeEmail(contactB);
+  if (!aNorm || !bNorm) return false;
+  if (aNorm === bNorm) return true;
+  const aHasAt = aNorm.includes('@');
+  const bHasAt = bNorm.includes('@');
+  const aLocal = aHasAt ? aNorm.split('@')[0] : aNorm;
+  const bLocal = bHasAt ? bNorm.split('@')[0] : bNorm;
+  if ((!aHasAt || !bHasAt) && aLocal === bLocal) return true;
+  return false;
+};
+
 export const isCashboxSenderAccepted = (senderEmail, casboxAcceptedList) => {
   if (!senderEmail || !casboxAcceptedList) return false;
   const normalizedSender = normalizeEmail(senderEmail);
@@ -775,14 +789,57 @@ const Casbox = () => {
     }
   });
 
-  const [starredMessagesSet, setStarredMessagesSet] = useState(() => {
+  const [starredMessagesMap, setStarredMessagesMap] = useState(() => {
     try {
-      const saved = localStorage.getItem('bnx_casbox_starred_messages');
-      return saved ? new Set(JSON.parse(saved)) : new Set();
+      const uKey = (user?.email || user?.username || 'default').toLowerCase();
+      const userMap = localStorage.getItem(`bnx_casbox_starred_map_${uKey}`) || localStorage.getItem('bnx_casbox_starred_map');
+      if (userMap) return JSON.parse(userMap);
+
+      const legacySaved = localStorage.getItem(`bnx_casbox_starred_messages_${uKey}`) || localStorage.getItem('bnx_casbox_starred_messages');
+      if (legacySaved) {
+        const parsed = JSON.parse(legacySaved);
+        if (Array.isArray(parsed)) {
+          const map = {};
+          parsed.forEach(id => {
+            map[String(id)] = { id: String(id), userId: uKey };
+          });
+          return map;
+        } else if (typeof parsed === 'object' && parsed !== null) {
+          return parsed;
+        }
+      }
+      return {};
     } catch (e) {
-      return new Set();
+      return {};
     }
   });
+
+  const starredMessagesSet = useMemo(() => new Set(Object.keys(starredMessagesMap)), [starredMessagesMap]);
+
+  useEffect(() => {
+    try {
+      const uKey = (user?.email || user?.username || 'default').toLowerCase();
+      const userMap = localStorage.getItem(`bnx_casbox_starred_map_${uKey}`) || localStorage.getItem('bnx_casbox_starred_map');
+      if (userMap) {
+        setStarredMessagesMap(JSON.parse(userMap));
+        return;
+      }
+      const legacySaved = localStorage.getItem(`bnx_casbox_starred_messages_${uKey}`) || localStorage.getItem('bnx_casbox_starred_messages');
+      if (legacySaved) {
+        const parsed = JSON.parse(legacySaved);
+        if (Array.isArray(parsed)) {
+          const map = {};
+          parsed.forEach(id => { map[String(id)] = { id: String(id), userId: uKey }; });
+          setStarredMessagesMap(map);
+          return;
+        } else if (typeof parsed === 'object' && parsed !== null) {
+          setStarredMessagesMap(parsed);
+          return;
+        }
+      }
+      setStarredMessagesMap({});
+    } catch (e) {}
+  }, [user?.email, user?.username]);
 
   const [showStarredMessagesView, setShowStarredMessagesView] = useState(false);
 
@@ -1511,32 +1568,49 @@ const Casbox = () => {
     const key = getMessageKey(msg);
     if (!key) return;
 
-    setStarredMessagesSet(prev => {
-      const next = new Set(prev);
-      const mId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
-      const isAlreadyStarred = next.has(key) || (mId !== undefined && mId !== null && (next.has(mId) || next.has(String(mId))));
+    const mId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
+    const activeContact = (selectedMessage ? getOtherUserEmail(selectedMessage) : null) || getOtherUserEmail(msg) || '';
+    const uKey = (user?.email || user?.username || 'default').toLowerCase();
+
+    setStarredMessagesMap(prev => {
+      const next = { ...prev };
+      const isAlreadyStarred = Boolean(
+        next[key] || 
+        (mId !== undefined && mId !== null && (next[mId] || next[String(mId)]))
+      );
 
       if (isAlreadyStarred) {
-        next.delete(key);
+        delete next[key];
         if (mId !== undefined && mId !== null) {
-          next.delete(mId);
-          next.delete(String(mId));
+          delete next[mId];
+          delete next[String(mId)];
         }
         toast.success("Message unstarred");
       } else {
-        next.add(key);
+        const entry = {
+          id: key,
+          messageId: mId !== undefined && mId !== null ? String(mId) : key,
+          contact: activeContact,
+          contactNorm: normalizeEmail(activeContact),
+          userId: uKey,
+          timestamp: msg.timestamp || Date.now()
+        };
+        next[key] = entry;
         if (mId !== undefined && mId !== null) {
-          next.add(String(mId));
+          next[String(mId)] = entry;
         }
         toast.success("Message starred");
       }
 
       try {
-        localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Array.from(next)));
+        localStorage.setItem(`bnx_casbox_starred_map_${uKey}`, JSON.stringify(next));
+        localStorage.setItem('bnx_casbox_starred_map', JSON.stringify(next));
+        localStorage.setItem(`bnx_casbox_starred_messages_${uKey}`, JSON.stringify(Object.keys(next)));
+        localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Object.keys(next)));
       } catch (e) {}
       return next;
     });
-  }, [getMessageKey]);
+  }, [getMessageKey, selectedMessage, getOtherUserEmail, user?.email, user?.username]);
 
   const handleScrollToMessage = useCallback((pinnedMsg) => {
     if (!pinnedMsg) return;
@@ -1627,17 +1701,21 @@ const Casbox = () => {
       }
     }
 
-    setStarredMessagesSet(prev => {
+    setStarredMessagesMap(prev => {
       const key = targetId !== undefined && targetId !== null ? strId : fallbackId;
-      if (prev.has(key) || (targetId !== undefined && (prev.has(targetId) || prev.has(strId)))) {
-        const next = new Set(prev);
-        next.delete(key);
+      if (prev[key] || (targetId !== undefined && (prev[targetId] || prev[strId]))) {
+        const next = { ...prev };
+        delete next[key];
         if (targetId !== undefined) {
-          next.delete(targetId);
-          next.delete(strId);
+          delete next[targetId];
+          delete next[strId];
         }
         try {
-          localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Array.from(next)));
+          const uKey = (user?.email || user?.username || 'default').toLowerCase();
+          localStorage.setItem(`bnx_casbox_starred_map_${uKey}`, JSON.stringify(next));
+          localStorage.setItem('bnx_casbox_starred_map', JSON.stringify(next));
+          localStorage.setItem(`bnx_casbox_starred_messages_${uKey}`, JSON.stringify(Object.keys(next)));
+          localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Object.keys(next)));
         } catch (e) {}
         return next;
       }
@@ -3248,13 +3326,16 @@ const Casbox = () => {
     return count;
   }, [messages, deletedMessageIds, isMessageUnread, readMessageIds]);
 
-  // All starred messages across conversations
-  const allStarredMessages = useMemo(() => {
-    if (!starredMessagesSet || starredMessagesSet.size === 0) return [];
+  // Contact-specific starred messages for the currently opened conversation
+  const contactStarredMessages = useMemo(() => {
+    if (!selectedMessage) return [];
+    const activeContact = getOtherUserEmail(selectedMessage);
+    if (!activeContact) return [];
+
     const list = [];
     const seenKeys = new Set();
 
-    // 1. Thread messages first (has full details for current open chat)
+    // 1. Thread messages for the active conversation
     (threadMessages || []).forEach(m => {
       if (isMessageStarred(m)) {
         const key = getMessageKey(m);
@@ -3265,13 +3346,21 @@ const Casbox = () => {
       }
     });
 
-    // 2. All messages
+    // 2. Messages from global state, strictly matching this active contact only
     (messages || []).forEach(m => {
       if (isMessageStarred(m)) {
+        const mContact = getOtherUserEmail(m);
         const key = getMessageKey(m);
-        if (key && !seenKeys.has(key)) {
-          seenKeys.add(key);
-          list.push(m);
+        const mapEntry = key ? starredMessagesMap[key] : null;
+
+        const isMatch = (mContact && isSameContact(mContact, activeContact)) ||
+                        (mapEntry && isSameContact(mapEntry.contact, activeContact));
+
+        if (isMatch) {
+          if (key && !seenKeys.has(key)) {
+            seenKeys.add(key);
+            list.push(m);
+          }
         }
       }
     });
@@ -3279,7 +3368,9 @@ const Casbox = () => {
     // Sort by timestamp descending (newest first)
     list.sort((a, b) => getTimestampMs(b.timestamp) - getTimestampMs(a.timestamp));
     return list;
-  }, [threadMessages, messages, isMessageStarred, getMessageKey, starredMessagesSet]);
+  }, [threadMessages, messages, isMessageStarred, getMessageKey, starredMessagesMap, selectedMessage, getOtherUserEmail]);
+
+  const allStarredMessages = contactStarredMessages;
 
   const handleOpenOriginalConversation = useCallback((starredMsg) => {
     if (!starredMsg) return;
