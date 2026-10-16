@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useMail } from "../context/MailContext";
 import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI, blockedContactsAPI } from "../services/api";
-import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore, MdOutlineEmojiEmotions, MdAdd } from "react-icons/md";
+import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore, MdOutlineEmojiEmotions, MdAdd, MdCheckBox } from "react-icons/md";
 import { SiAdobeacrobatreader } from "react-icons/si";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
@@ -839,6 +839,8 @@ const Casbox = () => {
   const [nowTime, setNowTime] = useState(Date.now());
   const [unsendMessageTarget, setUnsendMessageTarget] = useState(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+  const [isMessageSelectionMode, setIsMessageSelectionMode] = useState(false);
+  const [selectedMessageItemIds, setSelectedMessageItemIds] = useState(new Set());
   const [pinnedMessagesMap, setPinnedMessagesMap] = useState(() => {
     try {
       const saved = localStorage.getItem('bnx_casbox_pinned_messages');
@@ -1876,6 +1878,50 @@ const Casbox = () => {
     setActiveMessageMenuId(null);
     toast.success("Message unsent");
   }, [unsendMessageTarget, selectedMessage, pinnedMessagesMap, handleUnpinMessage, replyingToMessage, getOtherUserEmail]);
+
+  // Message Selection Mode (WhatsApp-style)
+  const handleEnterMessageSelectionMode = useCallback(() => {
+    setActiveMessageMenuId(null);
+    setActiveReactionMsgId(null);
+    setIsMessageSelectionMode(true);
+    setSelectedMessageItemIds(new Set());
+  }, []);
+
+  const handleExitMessageSelectionMode = useCallback(() => {
+    setIsMessageSelectionMode(false);
+    setSelectedMessageItemIds(new Set());
+  }, []);
+
+  const handleClearMessageSelection = useCallback(() => {
+    setSelectedMessageItemIds(new Set());
+  }, []);
+
+  const handleToggleSelectMessage = useCallback((msgId) => {
+    if (!msgId) return;
+    setSelectedMessageItemIds(prev => {
+      const next = new Set(prev);
+      if (next.has(msgId)) {
+        next.delete(msgId);
+      } else {
+        next.add(msgId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Ensure selection state is handled correctly when switching conversations
+  useEffect(() => {
+    setIsMessageSelectionMode(false);
+    setSelectedMessageItemIds(new Set());
+  }, [
+    selectedMessage?.id,
+    selectedMessage?.uid,
+    selectedMessage?.timestamp,
+    selectedMessage?.senderEmail,
+    selectedMessage?.receiverEmail,
+    selectedMessage?.sender,
+    selectedMessage?.receiver
+  ]);
 
   // Accurately calculates message age in seconds, accounting for server vs client timezone representation and clock skew
   const getMessageAgeSeconds = useCallback((msg, referenceTime = Date.now()) => {
@@ -5919,147 +5965,197 @@ const Casbox = () => {
 
     return (
       <div className="flex flex-col h-full bg-white dark:bg-[#121212] border-l border-gray-100 dark:border-gray-800 overflow-hidden">
-        {/* Combined Header: Back → Contact Info | Archive · Delete · More */}
-        <div
-          className="flex items-center justify-between gap-2 px-4 sm:px-5 py-2.5 border-b shrink-0 relative z-20 bg-white dark:bg-[#121212] min-w-0"
-          style={{ borderColor: theme?.border || '#e2e8f0' }}
-        >
-          {/* Left: Back + Avatar + Name/Email */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            {/* Back button */}
-            <button
-              onClick={() => setSelectedMessage(null)}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer shrink-0"
-              title="Back"
-            >
-              <MdArrowBack size={20} />
-            </button>
-
-            {/* Divider */}
-            <div className="h-5 w-[1px] bg-gray-200 dark:bg-gray-700 shrink-0" />
-
-            {/* Contact Avatar */}
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm shrink-0">
-              {getContactInitial(otherUserEmail, selectedMessage)}
-            </div>
-
-            {/* Contact Name + Email */}
-            <div className="flex flex-col min-w-0 flex-1">
-              <span
-                className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate leading-tight"
-                title={getDisplayName(otherUserEmail, selectedMessage)}
-              >
-                {getDisplayName(otherUserEmail, selectedMessage)}
-              </span>
-              <span
-                className="text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate leading-tight"
-                title={otherUserEmail}
-              >
-                {otherUserEmail}
-              </span>
-            </div>
-          </div>
-
-          {/* Right: Star · Delete · More */}
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-            {/* Starred Messages View Toggle */}
-            <button
-              type="button"
-              onClick={() => setShowStarredMessagesView(prev => !prev)}
-              className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
-                showStarredMessagesView
-                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-900/20'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100'
-              }`}
-              title={showStarredMessagesView ? "View chat history" : "Starred messages"}
-              aria-label="Starred messages"
-            >
-              {showStarredMessagesView ? (
-                <MdStar size={20} className="text-blue-600 dark:text-blue-400" />
-              ) : (
-                <MdStarBorder size={20} />
-              )}
-            </button>
-
-            {/* Delete */}
-            <button
-              onClick={() => {
-                const other = getOtherUserEmail(selectedMessage);
-                setConversationToDelete({ contact: other });
-              }}
-              className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
-              title="Delete conversation"
-            >
-              <MdDeleteOutline size={20} />
-            </button>
-
-            {/* More menu */}
-            <div className="relative" ref={moreMenuRef}>
+        {/* Combined Header / Message Selection Mode Controls */}
+        {isMessageSelectionMode ? (
+          <div
+            className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 border-b shrink-0 relative z-20 bg-blue-50/80 dark:bg-[#1a2234] min-w-0 transition-colors select-none"
+            style={{ borderColor: theme?.border || '#e2e8f0' }}
+          >
+            {/* Left: Close icon + selected count */}
+            <div className="flex items-center gap-3 min-w-0">
               <button
-                onClick={() => setShowMoreMenu(prev => !prev)}
-                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                title="More"
+                type="button"
+                onClick={handleExitMessageSelectionMode}
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors flex items-center justify-center cursor-pointer shrink-0"
+                title="Cancel selection"
+                aria-label="Cancel selection"
               >
-                <MdMoreVert size={20} />
+                <MdClose size={20} />
               </button>
-              {showMoreMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowMoreMenu(false);
-                      handleOpenEditNameModal({ contact: otherUserEmail, latestMessage: selectedMessage });
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2 cursor-pointer"
-                  >
-                    <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
-                    {t('casbox.edit_contact_name', 'Edit Contact Name')}
-                  </button>
+              <span className={`text-xs sm:text-sm font-bold truncate ${
+                selectedMessageItemIds.size > 0 
+                  ? 'text-gray-900 dark:text-gray-100' 
+                  : 'text-gray-400 dark:text-gray-500'
+              }`}>
+                {selectedMessageItemIds.size === 1
+                  ? '1 selected'
+                  : `${selectedMessageItemIds.size} selected`}
+              </span>
+            </div>
 
-                  {isBlockedContact(otherUserEmail) ? (
-                    <button
-                      type="button"
-                      disabled={isProcessingBlockAction}
-                      onClick={async () => {
-                        setShowMoreMenu(false);
-                        await handleUnblockUser(otherUserEmail);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      <MdBlock size={16} />
-                      Unblock User
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={isProcessingBlockAction}
-                      onClick={async () => {
-                        setShowMoreMenu(false);
-                        await handleBlockUser(otherUserEmail);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      <MdBlock size={16} />
-                      Block User
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowMoreMenu(false);
-                      setConversationToDelete({ contact: otherUserEmail });
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer"
-                  >
-                    <MdDeleteOutline size={16} />
-                    Delete Conversation
-                  </button>
-                </div>
-              )}
+            {/* Right: Deselect all (disabled when 0) + Cancel button */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={selectedMessageItemIds.size === 0}
+                onClick={handleClearMessageSelection}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                title={selectedMessageItemIds.size === 0 ? "No messages selected" : "Deselect all messages"}
+              >
+                Deselect all
+              </button>
+              <button
+                type="button"
+                onClick={handleExitMessageSelectionMode}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
+                title="Exit selection mode"
+              >
+                Cancel
+              </button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div
+            className="flex items-center justify-between gap-2 px-4 sm:px-5 py-2.5 border-b shrink-0 relative z-20 bg-white dark:bg-[#121212] min-w-0"
+            style={{ borderColor: theme?.border || '#e2e8f0' }}
+          >
+            {/* Left: Back + Avatar + Name/Email */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              {/* Back button */}
+              <button
+                onClick={() => setSelectedMessage(null)}
+                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer shrink-0"
+                title="Back"
+              >
+                <MdArrowBack size={20} />
+              </button>
+
+              {/* Divider */}
+              <div className="h-5 w-[1px] bg-gray-200 dark:bg-gray-700 shrink-0" />
+
+              {/* Contact Avatar */}
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm shrink-0">
+                {getContactInitial(otherUserEmail, selectedMessage)}
+              </div>
+
+              {/* Contact Name + Email */}
+              <div className="flex flex-col min-w-0 flex-1">
+                <span
+                  className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate leading-tight"
+                  title={getDisplayName(otherUserEmail, selectedMessage)}
+                >
+                  {getDisplayName(otherUserEmail, selectedMessage)}
+                </span>
+                <span
+                  className="text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate leading-tight"
+                  title={otherUserEmail}
+                >
+                  {otherUserEmail}
+                </span>
+              </div>
+            </div>
+
+            {/* Right: Star · Delete · More */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {/* Starred Messages View Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowStarredMessagesView(prev => !prev)}
+                className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
+                  showStarredMessagesView
+                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-900/20'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100'
+                }`}
+                title={showStarredMessagesView ? "View chat history" : "Starred messages"}
+                aria-label="Starred messages"
+              >
+                {showStarredMessagesView ? (
+                  <MdStar size={20} className="text-blue-600 dark:text-blue-400" />
+                ) : (
+                  <MdStarBorder size={20} />
+                )}
+              </button>
+
+              {/* Delete */}
+              <button
+                onClick={() => {
+                  const other = getOtherUserEmail(selectedMessage);
+                  setConversationToDelete({ contact: other });
+                }}
+                className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
+                title="Delete conversation"
+              >
+                <MdDeleteOutline size={20} />
+              </button>
+
+              {/* More menu */}
+              <div className="relative" ref={moreMenuRef}>
+                <button
+                  onClick={() => setShowMoreMenu(prev => !prev)}
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                  title="More"
+                >
+                  <MdMoreVert size={20} />
+                </button>
+                {showMoreMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        handleOpenEditNameModal({ contact: otherUserEmail, latestMessage: selectedMessage });
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2 cursor-pointer"
+                    >
+                      <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
+                      {t('casbox.edit_contact_name', 'Edit Contact Name')}
+                    </button>
+
+                    {isBlockedContact(otherUserEmail) ? (
+                      <button
+                        type="button"
+                        disabled={isProcessingBlockAction}
+                        onClick={async () => {
+                          setShowMoreMenu(false);
+                          await handleUnblockUser(otherUserEmail);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <MdBlock size={16} />
+                        Unblock User
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isProcessingBlockAction}
+                        onClick={async () => {
+                          setShowMoreMenu(false);
+                          await handleBlockUser(otherUserEmail);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <MdBlock size={16} />
+                        Block User
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        setConversationToDelete({ contact: otherUserEmail });
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer"
+                    >
+                      <MdDeleteOutline size={16} />
+                      Delete Conversation
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Pinned message banner */}
         {(() => {
@@ -6325,13 +6421,49 @@ const Casbox = () => {
                     >
                       {/* Bubble + Three Dot Action Container */}
                       <div className="flex items-center gap-1.5 sm:gap-2 relative group max-w-full">
+                        {isMessageSelectionMode && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleSelectMessage(msgUniqueId);
+                            }}
+                            className="shrink-0 flex items-center justify-center cursor-pointer select-none p-0.5"
+                            title={selectedMessageItemIds.has(msgUniqueId) ? "Deselect message" : "Select message"}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedMessageItemIds.has(msgUniqueId)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleToggleSelectMessage(msgUniqueId);
+                              }}
+                              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 cursor-pointer accent-blue-600 transition-transform hover:scale-110"
+                            />
+                          </div>
+                        )}
+
                         {/* Bubble */}
                         <div
-                          className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden ${isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'}`}
+                          onClick={isMessageSelectionMode ? () => handleToggleSelectMessage(msgUniqueId) : undefined}
+                          className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden transition-all duration-150 ${
+                            isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'
+                          } ${
+                            isMessageSelectionMode ? 'cursor-pointer' : ''
+                          } ${
+                            selectedMessageItemIds.has(msgUniqueId)
+                              ? 'ring-2 ring-blue-500 ring-offset-1 border-blue-400 dark:border-blue-500 shadow-sm'
+                              : ''
+                          }`}
                           style={{
-                            backgroundColor: isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#1e1e1e' : '#f3f4f6'),
-                            color: isMe ? '#ffffff' : (theme?.mode === 'dark' ? '#f3f4f6' : '#1f2937'),
-                            borderColor: isMe ? 'transparent' : (theme?.border || '#e2e8f0')
+                            backgroundColor: selectedMessageItemIds.has(msgUniqueId)
+                              ? (isMe ? '#2563eb' : (theme?.mode === 'dark' ? 'rgba(30, 58, 138, 0.45)' : '#eff6ff'))
+                              : (isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#1e1e1e' : '#f3f4f6')),
+                            color: selectedMessageItemIds.has(msgUniqueId) && !isMe
+                              ? (theme?.mode === 'dark' ? '#bfdbfe' : '#1e3a8a')
+                              : (isMe ? '#ffffff' : (theme?.mode === 'dark' ? '#f3f4f6' : '#1f2937')),
+                            borderColor: selectedMessageItemIds.has(msgUniqueId)
+                              ? '#3b82f6'
+                              : (isMe ? 'transparent' : (theme?.border || '#e2e8f0'))
                           }}
                         >
                           {renderForwardPreviewInBubble(msg, isMe)}
@@ -6385,247 +6517,258 @@ const Casbox = () => {
                         })()}
 
                         {/* Action Trigger Buttons: Smiley Icon + Three-Dot Menu */}
-                        <div className="relative shrink-0 flex items-center gap-0.5">
-                          {/* Smiley Icon Button for Emoji Reactions */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMessageMenuId(null);
-                              setActiveReactionMsgId(prev => prev === msgUniqueId ? null : msgUniqueId);
-                              setShowFullEmojiPicker(false);
-                              setEmojiSearchTerm("");
-                            }}
-                            className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
-                              activeReactionMsgId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
-                            }`}
-                            title="Add reaction"
-                          >
-                            <MdOutlineEmojiEmotions size={18} />
-                          </button>
-
-                          {/* Three-Dot Menu Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveReactionMsgId(null);
-                              setShowFullEmojiPicker(false);
-                              setActiveMessageMenuId(prev => prev === msgUniqueId ? null : msgUniqueId);
-                            }}
-                            className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
-                              activeMessageMenuId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
-                            }`}
-                            title="Message actions"
-                          >
-                            <MdMoreVert size={18} />
-                          </button>
-
-                          {/* Quick Reaction Floating Bar & Full Picker */}
-                          {activeReactionMsgId === msgUniqueId && (
-                            <div
-                              ref={reactionBarRef}
-                              className={`absolute z-50 flex flex-col items-start ${
-                                index >= sortedThread.length - 2
-                                  ? 'bottom-0 left-full ml-1.5'
-                                  : 'top-0 left-full ml-1.5'
+                        {!isMessageSelectionMode && (
+                          <div className="relative shrink-0 flex items-center gap-0.5">
+                            {/* Smiley Icon Button for Emoji Reactions */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMessageMenuId(null);
+                                setActiveReactionMsgId(prev => prev === msgUniqueId ? null : msgUniqueId);
+                                setShowFullEmojiPicker(false);
+                                setEmojiSearchTerm("");
+                              }}
+                              className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
+                                activeReactionMsgId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
                               }`}
-                              onClick={(e) => e.stopPropagation()}
+                              title="Add reaction"
                             >
-                              {/* Quick Reactions Pill */}
-                              <div className="bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-full shadow-lg px-2.5 py-1 flex items-center gap-1.5 select-none animate-in fade-in zoom-in-95 duration-150">
-                                {QUICK_REACTIONS.map((emoji) => (
+                              <MdOutlineEmojiEmotions size={18} />
+                            </button>
+
+                            {/* Three-Dot Menu Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveReactionMsgId(null);
+                                setShowFullEmojiPicker(false);
+                                setActiveMessageMenuId(prev => prev === msgUniqueId ? null : msgUniqueId);
+                              }}
+                              className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
+                                activeMessageMenuId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+                              }`}
+                              title="Message actions"
+                            >
+                              <MdMoreVert size={18} />
+                            </button>
+
+                            {/* Quick Reaction Floating Bar & Full Picker */}
+                            {activeReactionMsgId === msgUniqueId && (
+                              <div
+                                ref={reactionBarRef}
+                                className={`absolute z-50 flex flex-col items-start ${
+                                  index >= sortedThread.length - 2
+                                    ? 'bottom-0 left-full ml-1.5'
+                                    : 'top-0 left-full ml-1.5'
+                                }`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {/* Quick Reactions Pill */}
+                                <div className="bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-full shadow-lg px-2.5 py-1 flex items-center gap-1.5 select-none animate-in fade-in zoom-in-95 duration-150">
+                                  {QUICK_REACTIONS.map((emoji) => (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => handleToggleReaction(msgUniqueId, emoji)}
+                                      className="w-7 h-7 flex items-center justify-center text-lg hover:scale-130 active:scale-95 transition-transform cursor-pointer rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                                      title={emoji}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
                                   <button
-                                    key={emoji}
                                     type="button"
-                                    onClick={() => handleToggleReaction(msgUniqueId, emoji)}
-                                    className="w-7 h-7 flex items-center justify-center text-lg hover:scale-130 active:scale-95 transition-transform cursor-pointer rounded-full hover:bg-black/5 dark:hover:bg-white/10"
-                                    title={emoji}
+                                    onClick={() => setShowFullEmojiPicker(prev => !prev)}
+                                    className={`w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-sm font-bold ${
+                                      showFullEmojiPicker ? 'bg-black/10 dark:bg-white/20 text-gray-900 dark:text-white' : ''
+                                    }`}
+                                    title="More emojis"
                                   >
-                                    {emoji}
+                                    <MdAdd size={16} />
                                   </button>
-                                ))}
-                                <button
-                                  type="button"
-                                  onClick={() => setShowFullEmojiPicker(prev => !prev)}
-                                  className={`w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-sm font-bold ${
-                                    showFullEmojiPicker ? 'bg-black/10 dark:bg-white/20 text-gray-900 dark:text-white' : ''
-                                  }`}
-                                  title="More emojis"
-                                >
-                                  <MdAdd size={16} />
-                                </button>
-                              </div>
-
-                              {/* Full Emoji Picker */}
-                              {showFullEmojiPicker && (
-                                <div
-                                  className={`mt-2 w-72 sm:w-80 bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl p-3 z-50 flex flex-col animate-in fade-in slide-in-from-top-2 duration-200 ${
-                                    index >= sortedThread.length - 2 ? 'absolute bottom-full mb-2 left-0' : ''
-                                  }`}
-                                  style={{ borderColor: theme?.border || '#e2e8f0' }}
-                                >
-                                  {/* Search bar */}
-                                  <div className="relative mb-2">
-                                    <input
-                                      type="text"
-                                      placeholder="Search emoji..."
-                                      value={emojiSearchTerm}
-                                      onChange={(e) => setEmojiSearchTerm(e.target.value)}
-                                      className="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800 dark:text-gray-200"
-                                    />
-                                    <MdSearch className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                  </div>
-
-                                  {/* Category Tabs */}
-                                  <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-1.5 mb-2 px-1">
-                                    {EMOJI_CATEGORIES.map(cat => (
-                                      <button
-                                        key={cat.id}
-                                        type="button"
-                                        onClick={() => { setActiveEmojiCategory(cat.id); setEmojiSearchTerm(''); }}
-                                        className={`p-1 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
-                                          activeEmojiCategory === cat.id && !emojiSearchTerm ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 scale-110' : 'text-gray-500 opacity-70 hover:opacity-100'
-                                        }`}
-                                        title={cat.name}
-                                      >
-                                        {cat.icon}
-                                      </button>
-                                    ))}
-                                  </div>
-
-                                  {/* Category Title */}
-                                  <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
-                                    {emojiSearchTerm ? `Search results for "${emojiSearchTerm}"` : (EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory)?.name || 'Smileys & People')}
-                                  </div>
-
-                                  {/* Emoji Grid */}
-                                  <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto hidden-scrollbar px-0.5">
-                                    {(() => {
-                                      const term = emojiSearchTerm.trim().toLowerCase();
-                                      let list = [];
-                                      if (term) {
-                                        EMOJI_CATEGORIES.forEach(c => {
-                                          c.emojis.forEach(e => {
-                                            if (e.name.toLowerCase().includes(term) && !list.some(x => x.emoji === e.emoji)) {
-                                              list.push(e);
-                                            }
-                                          });
-                                        });
-                                      } else {
-                                        const cat = EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory) || EMOJI_CATEGORIES[0];
-                                        list = cat.emojis;
-                                      }
-
-                                      if (list.length === 0) {
-                                        return (
-                                          <div className="col-span-8 py-6 text-center text-xs text-gray-400">
-                                            No emojis found
-                                          </div>
-                                        );
-                                      }
-
-                                      return list.map(item => (
-                                        <button
-                                          key={item.emoji + item.name}
-                                          type="button"
-                                          onClick={() => handleToggleReaction(msgUniqueId, item.emoji)}
-                                          className="w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:scale-125 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer select-none"
-                                          title={item.name}
-                                        >
-                                          {item.emoji}
-                                        </button>
-                                      ));
-                                    })()}
-                                  </div>
                                 </div>
-                              )}
-                            </div>
-                          )}
 
-                          {/* Three-Dot Dropdown Menu */}
-                          {activeMessageMenuId === msgUniqueId && (
-                            <div
-                              ref={messageMenuRef}
-                              className={`absolute left-full ml-1.5 z-50 min-w-[125px] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl py-1.5 px-1 animate-in fade-in zoom-in-95 duration-150 select-none ${
-                                index >= sortedThread.length - 2 ? 'bottom-0' : 'top-0'
-                              }`}
-                              style={{ borderColor: theme?.border || '#e2e8f0' }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => handleInitiateReply(msg, senderLabel)}
-                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                {/* Full Emoji Picker */}
+                                {showFullEmojiPicker && (
+                                  <div
+                                    className={`mt-2 w-72 sm:w-80 bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl p-3 z-50 flex flex-col animate-in fade-in slide-in-from-top-2 duration-200 ${
+                                      index >= sortedThread.length - 2 ? 'absolute bottom-full mb-2 left-0' : ''
+                                    }`}
+                                    style={{ borderColor: theme?.border || '#e2e8f0' }}
+                                  >
+                                    {/* Search bar */}
+                                    <div className="relative mb-2">
+                                      <input
+                                        type="text"
+                                        placeholder="Search emoji..."
+                                        value={emojiSearchTerm}
+                                        onChange={(e) => setEmojiSearchTerm(e.target.value)}
+                                        className="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800 dark:text-gray-200"
+                                      />
+                                      <MdSearch className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    </div>
+
+                                    {/* Category Tabs */}
+                                    <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-1.5 mb-2 px-1">
+                                      {EMOJI_CATEGORIES.map(cat => (
+                                        <button
+                                          key={cat.id}
+                                          type="button"
+                                          onClick={() => { setActiveEmojiCategory(cat.id); setEmojiSearchTerm(''); }}
+                                          className={`p-1 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
+                                            activeEmojiCategory === cat.id && !emojiSearchTerm ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 scale-110' : 'text-gray-500 opacity-70 hover:opacity-100'
+                                          }`}
+                                          title={cat.name}
+                                        >
+                                          {cat.icon}
+                                        </button>
+                                      ))}
+                                    </div>
+
+                                    {/* Category Title */}
+                                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
+                                      {emojiSearchTerm ? `Search results for "${emojiSearchTerm}"` : (EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory)?.name || 'Smileys & People')}
+                                    </div>
+
+                                    {/* Emoji Grid */}
+                                    <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto hidden-scrollbar px-0.5">
+                                      {(() => {
+                                        const term = emojiSearchTerm.trim().toLowerCase();
+                                        let list = [];
+                                        if (term) {
+                                          EMOJI_CATEGORIES.forEach(c => {
+                                            c.emojis.forEach(e => {
+                                              if (e.name.toLowerCase().includes(term) && !list.some(x => x.emoji === e.emoji)) {
+                                                list.push(e);
+                                              }
+                                            });
+                                          });
+                                        } else {
+                                          const cat = EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory) || EMOJI_CATEGORIES[0];
+                                          list = cat.emojis;
+                                        }
+
+                                        if (list.length === 0) {
+                                          return (
+                                            <div className="col-span-8 py-6 text-center text-xs text-gray-400">
+                                              No emojis found
+                                            </div>
+                                          );
+                                        }
+
+                                        return list.map(item => (
+                                          <button
+                                            key={item.emoji + item.name}
+                                            type="button"
+                                            onClick={() => handleToggleReaction(msgUniqueId, item.emoji)}
+                                            className="w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:scale-125 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer select-none"
+                                            title={item.name}
+                                          >
+                                            {item.emoji}
+                                          </button>
+                                        ));
+                                      })()}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Three-Dot Dropdown Menu */}
+                            {activeMessageMenuId === msgUniqueId && (
+                              <div
+                                ref={messageMenuRef}
+                                className={`absolute left-full ml-1.5 z-50 min-w-[125px] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl py-1.5 px-1 animate-in fade-in zoom-in-95 duration-150 select-none ${
+                                  index >= sortedThread.length - 2 ? 'bottom-0' : 'top-0'
+                                }`}
+                                style={{ borderColor: theme?.border || '#e2e8f0' }}
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <MdReply size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                <span>Reply</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleInitiateForward(msg, senderLabel)}
-                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                              >
-                                <MdForward size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                <span>Forward</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleTogglePinMessage(msg, senderLabel, otherUserEmail)}
-                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                              >
-                                <MdPushPin size={16} className={`shrink-0 ${isCurrentMessagePinned(msg, otherUserEmail) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
-                                <span>{isCurrentMessagePinned(msg, otherUserEmail) ? 'Unpin' : 'Pin'}</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleToggleStarMessage(msg)}
-                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                              >
-                                <MdStar size={16} className={`shrink-0 ${isMessageStarred(msg) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
-                                <span>{isMessageStarred(msg) ? 'Unstar Message' : 'Star Message'}</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMessageMenuId(null);
-                                  handleArchiveMessage(msg, e);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                              >
-                                <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                <span>Archive</span>
-                              </button>
-
-                              {isMe && isMessageEditable(msg) && (
                                 <button
                                   type="button"
-                                  onClick={() => handleInitiateEdit(msg)}
+                                  onClick={() => handleInitiateReply(msg, senderLabel)}
                                   className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
                                 >
-                                  <MdEdit size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                  <span>Edit</span>
+                                  <MdReply size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                  <span>Reply</span>
                                 </button>
-                              )}
 
-                              {isMe && (
                                 <button
                                   type="button"
-                                  onClick={() => handleInitiateUnsend(msg)}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  onClick={() => handleInitiateForward(msg, senderLabel)}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
                                 >
-                                  <MdRestore size={16} className="text-red-600 shrink-0" />
-                                  <span>Unsend</span>
+                                  <MdForward size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                  <span>Forward</span>
                                 </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePinMessage(msg, senderLabel, otherUserEmail)}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <MdPushPin size={16} className={`shrink-0 ${isCurrentMessagePinned(msg, otherUserEmail) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                                  <span>{isCurrentMessagePinned(msg, otherUserEmail) ? 'Unpin' : 'Pin'}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStarMessage(msg)}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <MdStar size={16} className={`shrink-0 ${isMessageStarred(msg) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                                  <span>{isMessageStarred(msg) ? 'Unstar Message' : 'Star Message'}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMessageMenuId(null);
+                                    handleArchiveMessage(msg, e);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                  <span>Archive</span>
+                                </button>
+
+                                {isMe && isMessageEditable(msg) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleInitiateEdit(msg)}
+                                    className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <MdEdit size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                    <span>Edit</span>
+                                  </button>
+                                )}
+
+                                {isMe && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleInitiateUnsend(msg)}
+                                    className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <MdRestore size={16} className="text-red-600 shrink-0" />
+                                    <span>Unsend</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleEnterMessageSelectionMode()}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <MdCheckBox size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                  <span>Select</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Star Message Indicator & Label below the bubble */}
