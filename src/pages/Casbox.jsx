@@ -1596,17 +1596,28 @@ const Casbox = () => {
 
   // Message Action Helpers (Reply, Pin, Unsend, Forward) - Declared after getDisplayName & getOtherUserEmail
   const cleanMessageBody = useCallback((body) => {
-    if (typeof body !== 'string') return body || '';
+    if (typeof body !== 'string' || !body) return '';
     let text = body;
-    const replyMatch = text.match(/^\[Replying to [^:]+:\s*"([\s\S]*?)"\]\n([\s\S]*)$/);
-    if (replyMatch) {
-      text = replyMatch[2];
+
+    // Safely strip reply prefix: [Replying to ...]\n
+    if (text.startsWith('[Replying to ')) {
+      const replyEnd = text.indexOf(']\n');
+      if (replyEnd !== -1) {
+        text = text.substring(replyEnd + 2);
+      }
     }
-    const forwardMatch = text.match(/^\[Forwarded(?: from ([^\]]+))?\]\n([\s\S]*)$/);
-    if (forwardMatch) {
-      text = forwardMatch[2];
+
+    if (typeof text !== 'string') return '';
+
+    // Safely strip forwarded prefix: [Forwarded ...]\n
+    if (text.startsWith('[Forwarded')) {
+      const fwdEnd = text.indexOf(']\n');
+      if (fwdEnd !== -1) {
+        text = text.substring(fwdEnd + 2);
+      }
     }
-    return text;
+
+    return typeof text === 'string' ? text : '';
   }, []);
 
   const getPinnedSenderLabel = useCallback((pinnedMsg) => {
@@ -1750,9 +1761,29 @@ const Casbox = () => {
   }, []);
 
   const parseReplyHeader = useCallback((body) => {
-    if (!body || typeof body !== 'string') return null;
-    const match = body.match(/^\[Replying to ([^:]+?)(?:\s+(?:id=|id:|#|\(id:)([^\s:)]+)\)?)?:\s*"([\s\S]*?)"\]\n/);
-    if (!match) return null;
+    if (typeof body !== 'string' || !body || !body.startsWith('[Replying to ')) return null;
+
+    const closingIndex = body.indexOf(']\n');
+    if (closingIndex === -1) return null;
+
+    const header = body.substring(0, closingIndex + 1);
+    if (!header) return null;
+
+    const match = header.match(/^\[Replying to ([^:]+?)(?:\s+(?:id=|id:|#|\(id:)([^\s:)]+)\)?)?:\s*"([\s\S]*?)"\]$/);
+    if (!match) {
+      const colonIdx = header.indexOf(':');
+      if (colonIdx !== -1) {
+        const senderPart = header.substring(13, colonIdx).trim();
+        const quotePart = header.substring(colonIdx + 1, header.length - 1).trim().replace(/^"/, '').replace(/"$/, '');
+        return {
+          quotedSender: senderPart || '',
+          originalMsgId: null,
+          quotedSnippet: quotePart || ''
+        };
+      }
+      return null;
+    }
+
     return {
       quotedSender: (match[1] || "").trim(),
       originalMsgId: match[2] ? match[2].trim() : null,
@@ -2222,10 +2253,10 @@ const Casbox = () => {
     }
 
     let finalBody = trimmedText;
-    if (typeof editingMessage.body === 'string') {
-      const match = editingMessage.body.match(/^(\[Replying to [^:]+:\s*"[\s\S]*?"\]\n)/);
-      if (match) {
-        finalBody = match[1] + trimmedText;
+    if (editingMessage && typeof editingMessage.body === 'string' && editingMessage.body.startsWith('[Replying to ')) {
+      const closingIndex = editingMessage.body.indexOf(']\n');
+      if (closingIndex !== -1) {
+        finalBody = editingMessage.body.substring(0, closingIndex + 2) + trimmedText;
       }
     }
 
@@ -2328,13 +2359,20 @@ const Casbox = () => {
   }, [parseReplyHeader, handleNavigateToOriginalMessage]);
 
   const renderForwardPreviewInBubble = useCallback((msg, isMe) => {
-    if (!msg || typeof msg.body !== 'string') return null;
+    if (!msg || typeof msg.body !== 'string' || !msg.body) return null;
     let body = msg.body;
-    const replyMatch = body.match(/^\[Replying to [^:]+:\s*"[\s\S]*?"\]\n([\s\S]*)$/);
-    if (replyMatch) body = replyMatch[2];
 
-    const match = body.match(/^\[Forwarded(?: from ([^\]]+))?\]\n/);
-    if (!match) return null;
+    // If this is a reply containing a forwarded message, strip the reply header first
+    if (body.startsWith('[Replying to ')) {
+      const replyEnd = body.indexOf(']\n');
+      if (replyEnd !== -1) {
+        body = body.substring(replyEnd + 2);
+      }
+    }
+
+    if (typeof body !== 'string' || !body.startsWith('[Forwarded')) {
+      return null;
+    }
 
     return (
       <div className={`flex items-center gap-1 text-[11px] select-none mb-1 font-medium ${
