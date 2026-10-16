@@ -2138,23 +2138,19 @@ const Casbox = () => {
 
   const renderReplyPreviewInBubble = useCallback((msg, isMe) => {
     if (!msg || typeof msg.body !== 'string') return null;
-    const match = msg.body.match(/^\[Replying to ([^:]+):\s*"([^"]*)"\]\n/);
+    const match = msg.body.match(/^\[Replying to [^:]+:\s*"([\s\S]*?)"\]\n/);
     if (!match) return null;
-    const quotedSender = match[1];
-    const quotedSnippet = match[2];
+    const quotedSnippet = match[1];
 
     return (
       <div
-        className={`mb-1 p-2 rounded-xl text-[11px] border-l-4 select-none ${
+        className={`mb-1.5 p-2 rounded-xl text-[11px] border-l-4 select-none ${
           isMe
             ? 'bg-black/15 text-white border-white/70'
             : 'bg-black/5 dark:bg-white/5 text-gray-700 dark:text-gray-200 border-blue-500 dark:border-blue-400'
         }`}
       >
-        <div className={`font-bold text-[10px] leading-tight mb-0.5 ${isMe ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
-          {quotedSender}
-        </div>
-        <div className="truncate leading-tight opacity-80 text-[11px]">
+        <div className="line-clamp-2 leading-relaxed opacity-90 text-[11px] break-words">
           {quotedSnippet}
         </div>
       </div>
