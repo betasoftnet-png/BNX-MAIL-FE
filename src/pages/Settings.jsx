@@ -28,7 +28,7 @@ import {
 } from "react-icons/md";
 import { emailAPI, authAPI, userAPI, signatureAPI, settingsAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { useTheme, PRESET_BACKGROUNDS } from "../context/ThemeContext";
+import { useTheme, PRESET_BACKGROUNDS, themes } from "../context/ThemeContext";
 import { useTranslation, normalizeLang } from "../context/LanguageContext";
 import toast from "react-hot-toast";
 import ReactQuill, { Quill } from "react-quill";
@@ -75,10 +75,15 @@ const Settings = () => {
   const mainContentRef = useRef(null);
   const [customBgUrl, setCustomBgUrl] = useState("");
   const [selectedWallpaper, setSelectedWallpaper] = useState(backgroundImage);
+  const [selectedTheme, setSelectedTheme] = useState(() => currentThemeName || localStorage.getItem("theme") || "Classic");
 
   useEffect(() => {
     setSelectedWallpaper(backgroundImage);
-  }, [backgroundImage]);
+  }, [backgroundImage, activeTab]);
+
+  useEffect(() => {
+    setSelectedTheme(currentThemeName || "Classic");
+  }, [currentThemeName, activeTab]);
 
   const [activeTab, setActiveTab] = useState("accounts");
 
@@ -152,7 +157,13 @@ const Settings = () => {
     const saved = localStorage.getItem("bnx_setting_undoSendDelay");
     return saved !== null ? Number(saved) : 0;
   });
-  const [readingPaneMode, setReadingPaneMode] = useState("no_split");
+  const [readingPaneMode, setReadingPaneMode] = useState(() => globalReadingPaneMode || "no_split");
+
+  useEffect(() => {
+    if (globalReadingPaneMode) {
+      setReadingPaneMode(globalReadingPaneMode);
+    }
+  }, [globalReadingPaneMode, activeTab]);
   const [bulkMailEnabled, setBulkMailEnabled] = useState(() => localStorage.getItem("bnx_bulk_mail_filter") !== "false");
   const [notificationEnabled, setNotificationEnabled] = useState(() => localStorage.getItem("bnx_notification_filter") !== "false");
 
@@ -385,7 +396,14 @@ const Settings = () => {
         setQuietHoursEnabled(d.quietHoursEnabled ?? false);
         setQuietHoursStart(d.quietHoursStart || "22:00");
         setQuietHoursEnd(d.quietHoursEnd || "07:00");
-        setThemeMode(d.themeMode || "System Default");
+        if (d.themeMode && themes[d.themeMode]) {
+          setThemeMode(d.themeMode);
+          if (!localStorage.getItem("theme")) {
+            changeTheme(d.themeMode);
+          }
+        } else {
+          setThemeMode(d.themeMode || "System Default");
+        }
         setAccentColor(d.accentColor || customAccentColor || "#135bec");
         setFontSize(d.fontSize || customFontSize || 1.0);
         setDensity(d.density || "Default");
@@ -927,6 +945,10 @@ const Settings = () => {
     e.preventDefault();
     if (savingRef.current) return;
 
+    if (selectedTheme && themes[selectedTheme]) {
+      changeTheme(selectedTheme);
+    }
+
     updateCustomAccentColor(accentColor);
     updateCustomFontSize(fontSize);
     setEmailsPerPageState(localEmailsPerPage);
@@ -942,7 +964,7 @@ const Settings = () => {
     }
 
     await saveBackendSettings({
-      themeMode,
+      themeMode: selectedTheme || themeMode,
       accentColor,
       fontSize,
       density,
@@ -955,8 +977,9 @@ const Settings = () => {
     setCustomBgUrl("");
     if (bgFileRef.current) bgFileRef.current.value = "";
     clearBackgroundImage();
+    setSelectedTheme("Classic");
     changeTheme("Classic");
-    setThemeMode("Light");
+    setThemeMode("Classic");
     setAccentColor("#135bec");
     updateCustomAccentColor("#135bec");
     setFontSize(1.0);
@@ -969,7 +992,7 @@ const Settings = () => {
       setReadingPaneModeState("no_split");
     }
     await saveBackendSettings({
-      themeMode: "Light",
+      themeMode: "Classic",
       accentColor: "#135bec",
       fontSize: 1.0,
       density: "Default",
@@ -1863,18 +1886,18 @@ const Settings = () => {
                         key={tKey}
                         type="button"
                         onClick={() => {
-                          changeTheme(tKey);
-                          setThemeMode(tKey === "Dark" ? "Dark" : "Light");
+                          setSelectedTheme(tKey);
+                          setThemeMode(tKey);
                         }}
-                        className={`h-[46px] px-2.5 text-[13px] font-medium rounded-xl border cursor-pointer transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 ${currentThemeName === tKey ? "border-primary ring-2 ring-primary" : "hover:bg-black/5 dark:hover:bg-white/5"}`}
-                        style={currentThemeName === tKey ? { borderColor: theme.accent, color: theme.accent } : { borderColor: theme.border, color: theme.text }}
+                        className={`h-[46px] px-2.5 text-[13px] font-medium rounded-xl border cursor-pointer transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 ${selectedTheme === tKey ? "border-primary ring-2 ring-primary" : "hover:bg-black/5 dark:hover:bg-white/5"}`}
+                        style={selectedTheme === tKey ? { borderColor: theme.accent, color: theme.accent } : { borderColor: theme.border, color: theme.text }}
                       >
                         <span className="truncate">{label}</span>
                         {tKey === "Classic" && (
                           <span
                             className="px-1.5 py-0.5 text-[9px] leading-none font-bold uppercase tracking-wider rounded shrink-0 inline-flex items-center justify-center select-none"
                             style={
-                              currentThemeName === "Classic"
+                              selectedTheme === "Classic"
                                 ? { backgroundColor: `${theme.accent}15`, color: theme.accent }
                                 : { backgroundColor: "rgba(100, 116, 139, 0.15)", color: "rgba(100, 116, 139, 0.75)" }
                             }
@@ -2012,13 +2035,7 @@ const Settings = () => {
                   <label className="text-sm font-semibold" style={{ color: theme.text }}>{t("settings.reading_pane", "Reading Pane")}</label>
                   <select
                     value={readingPaneMode}
-                    onChange={e => {
-                      const val = e.target.value;
-                      setReadingPaneMode(val);
-                      if (setReadingPaneModeState) {
-                        setReadingPaneModeState(val);
-                      }
-                    }}
+                    onChange={e => setReadingPaneMode(e.target.value)}
                     className="w-full p-3 text-sm rounded-xl border outline-none cursor-pointer focus:ring-2 focus:border-transparent transition-all"
                     style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                   >
