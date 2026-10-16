@@ -1880,11 +1880,15 @@ const Casbox = () => {
   }, [unsendMessageTarget, selectedMessage, pinnedMessagesMap, handleUnpinMessage, replyingToMessage, getOtherUserEmail]);
 
   // Message Selection Mode (WhatsApp-style)
-  const handleEnterMessageSelectionMode = useCallback(() => {
+  const handleEnterMessageSelectionMode = useCallback((initialMsgId) => {
     setActiveMessageMenuId(null);
     setActiveReactionMsgId(null);
     setIsMessageSelectionMode(true);
-    setSelectedMessageItemIds(new Set());
+    if (initialMsgId !== undefined && initialMsgId !== null) {
+      setSelectedMessageItemIds(new Set([String(initialMsgId)]));
+    } else {
+      setSelectedMessageItemIds(new Set());
+    }
   }, []);
 
   const handleExitMessageSelectionMode = useCallback(() => {
@@ -1898,12 +1902,13 @@ const Casbox = () => {
 
   const handleToggleSelectMessage = useCallback((msgId) => {
     if (!msgId) return;
+    const strId = String(msgId);
     setSelectedMessageItemIds(prev => {
       const next = new Set(prev);
-      if (next.has(msgId)) {
-        next.delete(msgId);
+      if (next.has(strId)) {
+        next.delete(strId);
       } else {
-        next.add(msgId);
+        next.add(strId);
       }
       return next;
     });
@@ -5963,29 +5968,281 @@ const Casbox = () => {
     const isContactRequest = Boolean(otherNorm && !isContactAccepted);
     const sortedThread = [...threadMessages].sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
 
+    // Bulk action handlers for message selection mode
+    const handleSelectAllMessages = () => {
+      const allKeys = new Set();
+      sortedThread.forEach(m => {
+        const key = getMessageKey(m);
+        if (key) allKeys.add(key);
+      });
+      setSelectedMessageItemIds(allKeys);
+    };
+
+    const handleBulkStarMessages = () => {
+      if (selectedMessageItemIds.size === 0) return;
+      const selectedIds = new Set(selectedMessageItemIds);
+      const msgsToStar = sortedThread.filter(m => {
+        const key = getMessageKey(m);
+        return key && selectedIds.has(key);
+      });
+
+      if (msgsToStar.length === 0) return;
+
+      const activeContact = (selectedMessage ? getOtherUserEmail(selectedMessage) : null) || '';
+      const uKey = (user?.email || user?.username || 'default').toLowerCase();
+      const allAlreadyStarred = msgsToStar.every(m => isMessageStarred(m));
+
+      setStarredMessagesMap(prev => {
+        const next = { ...prev };
+        msgsToStar.forEach(msg => {
+          const key = getMessageKey(msg);
+          const mId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
+
+          if (allAlreadyStarred) {
+            if (key) delete next[key];
+            if (mId !== undefined && mId !== null) {
+              delete next[mId];
+              delete next[String(mId)];
+            }
+          } else {
+            const entry = {
+              id: key,
+              messageId: mId !== undefined && mId !== null ? String(mId) : key,
+              contact: activeContact,
+              contactNorm: normalizeEmail(activeContact),
+              userId: uKey,
+              timestamp: msg.timestamp || Date.now()
+            };
+            if (key) next[key] = entry;
+            if (mId !== undefined && mId !== null) {
+              next[String(mId)] = entry;
+            }
+          }
+        });
+
+        try {
+          localStorage.setItem(`bnx_casbox_starred_map_${uKey}`, JSON.stringify(next));
+          localStorage.setItem('bnx_casbox_starred_map', JSON.stringify(next));
+          localStorage.setItem(`bnx_casbox_starred_messages_${uKey}`, JSON.stringify(Object.keys(next)));
+          localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Object.keys(next)));
+        } catch (e) {}
+
+        return next;
+      });
+
+      toast.success(allAlreadyStarred
+        ? `${msgsToStar.length === 1 ? 'Message' : `${msgsToStar.length} messages`} unstarred`
+        : `${msgsToStar.length === 1 ? 'Message' : `${msgsToStar.length} messages`} starred`
+      );
+      handleExitMessageSelectionMode();
+    };
+
+    const handleBulkDeleteMessages = () => {
+      if (selectedMessageItemIds.size === 0) return;
+      const selectedIds = new Set(selectedMessageItemIds);
+      const msgsToDelete = sortedThread.filter(m => {
+        const key = getMessageKey(m);
+        return key && selectedIds.has(key);
+      });
+
+      if (msgsToDelete.length === 0) return;
+
+      setDeletedMessageIds(prev => {
+        const updated = new Set(prev);
+        msgsToDelete.forEach(m => {
+          const targetId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+          if (targetId !== undefined && targetId !== null) {
+            updated.add(targetId);
+            updated.add(String(targetId));
+          }
+          const fallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+          updated.add(fallbackId);
+          const altFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.body}`;
+          updated.add(altFallback);
+        });
+        try {
+          const json = JSON.stringify(Array.from(updated));
+          sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+          localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        } catch (e) {}
+        return updated;
+      });
+
+      setMessages(prev => prev.filter(m => {
+        const key = getMessageKey(m);
+        const targetId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        return !(
+          (key && selectedIds.has(key)) ||
+          (targetId !== undefined && (selectedIds.has(targetId) || selectedIds.has(String(targetId))))
+        );
+      }));
+
+      setThreadMessages(prev => prev.filter(m => {
+        const key = getMessageKey(m);
+        const targetId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        return !(
+          (key && selectedIds.has(key)) ||
+          (targetId !== undefined && (selectedIds.has(targetId) || selectedIds.has(String(targetId))))
+        );
+      }));
+
+      // Unpin any deleted messages if they were pinned
+      setPinnedMessagesMap(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.keys(next).forEach(cKey => {
+          const pinned = next[cKey];
+          if (pinned) {
+            const pKey = getMessageKey(pinned);
+            if (pKey && selectedIds.has(pKey)) {
+              delete next[cKey];
+              changed = true;
+            }
+          }
+        });
+        if (changed) {
+          try {
+            localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
+          } catch (e) {}
+        }
+        return changed ? next : prev;
+      });
+
+      toast.success(msgsToDelete.length === 1 ? "Message deleted" : `${msgsToDelete.length} messages deleted`);
+      handleExitMessageSelectionMode();
+    };
+
+    const handleBulkForwardMessages = () => {
+      if (selectedMessageItemIds.size === 0) return;
+      const selectedIds = new Set(selectedMessageItemIds);
+      const msgsToForward = sortedThread
+        .filter(m => {
+          const key = getMessageKey(m);
+          return key && selectedIds.has(key);
+        })
+        .sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
+
+      if (msgsToForward.length === 0) return;
+
+      if (msgsToForward.length === 1) {
+        const msg = msgsToForward[0];
+        const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
+        const sLabel = isMe ? (user?.username || 'You') : getDisplayName(msg.senderEmail || msg.sender, msg);
+        handleInitiateForward(msg, sLabel);
+      } else {
+        const combinedBody = msgsToForward
+          .map(m => {
+            const body = cleanMessageBody(m.body || "");
+            const isMe = isCurrentUser(m?.senderEmail || m?.sender);
+            const author = isMe ? (user?.username || 'You') : getDisplayName(m.senderEmail || m.sender, m);
+            return `[${author}]: ${body}`;
+          })
+          .filter(Boolean)
+          .join("\n\n");
+
+        setForwardingMessage({
+          body: combinedBody,
+          senderLabel: `${msgsToForward.length} selected messages`,
+          timestamp: msgsToForward[msgsToForward.length - 1]?.timestamp || Date.now()
+        });
+        setForwardSearchTerm("");
+        setSelectedForwardContactEmails(new Set());
+      }
+
+      handleExitMessageSelectionMode();
+    };
+
+    const handleBulkArchiveMessages = async () => {
+      if (selectedMessageItemIds.size === 0) return;
+      const selectedIds = new Set(selectedMessageItemIds);
+      const msgsToArchive = sortedThread.filter(m => {
+        const key = getMessageKey(m);
+        return key && selectedIds.has(key);
+      });
+
+      if (msgsToArchive.length === 0) return;
+
+      const targetIds = [];
+      msgsToArchive.forEach(m => {
+        const targetId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        if (targetId !== undefined && targetId !== null) {
+          targetIds.push(targetId);
+        }
+      });
+      const targetIdSet = new Set(targetIds.map(String));
+
+      try {
+        setThreadMessages(prev => prev.filter(m => {
+          const key = getMessageKey(m);
+          const mId = String(m.id !== undefined ? m.id : m.uid);
+          return !(key && selectedIds.has(key)) && !targetIdSet.has(mId);
+        }));
+
+        setMessages(prev => prev.map(m => {
+          const mId = String(m.id !== undefined ? m.id : m.uid);
+          return targetIdSet.has(mId) ? { ...m, isArchived: true, archived: true } : m;
+        }));
+
+        setArchivedMessageIds(prev => {
+          const next = new Set(prev);
+          targetIds.forEach(id => {
+            next.add(id);
+            next.add(String(id));
+          });
+          saveArchivedMessageIds(next);
+          return next;
+        });
+
+        setUnarchivedMessageIds(prev => {
+          const next = new Set(prev);
+          targetIds.forEach(id => {
+            next.delete(id);
+            next.delete(String(id));
+          });
+          saveUnarchivedMessageIds(next);
+          return next;
+        });
+
+        if (targetIds.length > 0) {
+          const apiTargetIds = targetIds.map(id => {
+            const num = Number(id);
+            return !isNaN(num) ? num : id;
+          });
+          await casboxAPI.updateArchiveStatus(apiTargetIds, true);
+        }
+
+        toast.success(msgsToArchive.length === 1 ? "Message archived" : `${msgsToArchive.length} messages archived`);
+        handleExitMessageSelectionMode();
+      } catch (err) {
+        console.error("Failed to archive selected messages", err);
+        toast.error("Failed to archive messages");
+        fetchMessages(true);
+      }
+    };
+
     return (
       <div className="flex flex-col h-full bg-white dark:bg-[#121212] border-l border-gray-100 dark:border-gray-800 overflow-hidden">
-        {/* Combined Header / Message Selection Mode Controls */}
+        {/* WhatsApp-Style Message Selection Mode Bulk Action Toolbar */}
         {isMessageSelectionMode ? (
           <div
-            className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 border-b shrink-0 relative z-20 bg-blue-50/80 dark:bg-[#1a2234] min-w-0 transition-colors select-none"
+            className="flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-5 py-2.5 border-b shrink-0 relative z-20 bg-blue-50/90 dark:bg-[#1a2234] min-w-0 transition-colors select-none"
             style={{ borderColor: theme?.border || '#e2e8f0' }}
           >
             {/* Left: Close icon + selected count */}
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <button
                 type="button"
                 onClick={handleExitMessageSelectionMode}
-                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors flex items-center justify-center cursor-pointer shrink-0"
-                title="Cancel selection"
-                aria-label="Cancel selection"
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors flex items-center justify-center cursor-pointer shrink-0"
+                title="Close selection"
+                aria-label="Close selection"
               >
                 <MdClose size={20} />
               </button>
               <span className={`text-xs sm:text-sm font-bold truncate ${
                 selectedMessageItemIds.size > 0 
                   ? 'text-gray-900 dark:text-gray-100' 
-                  : 'text-gray-400 dark:text-gray-500'
+                  : 'text-gray-500 dark:text-gray-400'
               }`}>
                 {selectedMessageItemIds.size === 1
                   ? '1 selected'
@@ -5993,25 +6250,81 @@ const Casbox = () => {
               </span>
             </div>
 
-            {/* Right: Deselect all (disabled when 0) + Cancel button */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Right: Action Buttons (Star, Delete, Forward, Archive, Select/Deselect All) */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {/* Star */}
               <button
                 type="button"
                 disabled={selectedMessageItemIds.size === 0}
-                onClick={handleClearMessageSelection}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                title={selectedMessageItemIds.size === 0 ? "No messages selected" : "Deselect all messages"}
+                onClick={handleBulkStarMessages}
+                className="px-2 sm:px-2.5 py-1.5 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                title={selectedMessageItemIds.size === 0 ? "Select messages to star" : "Star selected messages"}
               >
-                Deselect all
+                <MdStar size={18} className="text-yellow-500 dark:text-yellow-400 shrink-0" />
+                <span className="hidden sm:inline">Star</span>
               </button>
+
+              {/* Delete */}
               <button
                 type="button"
-                onClick={handleExitMessageSelectionMode}
-                className="px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
-                title="Exit selection mode"
+                disabled={selectedMessageItemIds.size === 0}
+                onClick={handleBulkDeleteMessages}
+                className="px-2 sm:px-2.5 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                title={selectedMessageItemIds.size === 0 ? "Select messages to delete" : "Delete selected messages"}
               >
-                Cancel
+                <MdDeleteOutline size={18} className="shrink-0" />
+                <span className="hidden sm:inline">Delete</span>
               </button>
+
+              {/* Forward */}
+              <button
+                type="button"
+                disabled={selectedMessageItemIds.size === 0}
+                onClick={handleBulkForwardMessages}
+                className="px-2 sm:px-2.5 py-1.5 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                title={selectedMessageItemIds.size === 0 ? "Select messages to forward" : "Forward selected messages"}
+              >
+                <MdForward size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                <span className="hidden sm:inline">Forward</span>
+              </button>
+
+              {/* Archive */}
+              <button
+                type="button"
+                disabled={selectedMessageItemIds.size === 0}
+                onClick={handleBulkArchiveMessages}
+                className="px-2 sm:px-2.5 py-1.5 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                title={selectedMessageItemIds.size === 0 ? "Select messages to archive" : "Archive selected messages"}
+              >
+                <MdArchive size={18} className="text-gray-600 dark:text-gray-300 shrink-0" />
+                <span className="hidden sm:inline">Archive</span>
+              </button>
+
+              <div className="h-4 w-[1px] bg-gray-300 dark:bg-gray-700 mx-0.5 sm:mx-1 shrink-0" />
+
+              {/* Select all / Deselect all */}
+              {selectedMessageItemIds.size > 0 && selectedMessageItemIds.size === sortedThread.length ? (
+                <button
+                  type="button"
+                  onClick={handleClearMessageSelection}
+                  className="px-2.5 py-1.5 text-xs font-semibold rounded-lg text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Deselect all messages"
+                >
+                  <MdClose size={16} className="text-gray-500 shrink-0" />
+                  <span className="hidden sm:inline">Deselect all</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={sortedThread.length === 0}
+                  onClick={handleSelectAllMessages}
+                  className="px-2.5 py-1.5 text-xs font-semibold rounded-lg text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Select all messages"
+                >
+                  <MdCheckBox size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                  <span className="hidden sm:inline">Select all</span>
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -6361,9 +6674,7 @@ const Casbox = () => {
               const senderEmail = msg.senderEmail || msg.sender || "";
               const senderLabel = isMe ? (user?.username || senderEmail.split("@")[0]) : getDisplayName(senderEmail, msg);
               const senderInitial = isMe ? (user?.username || senderEmail).charAt(0).toUpperCase() : getContactInitial(senderEmail, msg);
-              const msgTargetId = msg.id !== undefined ? msg.id : msg.uid;
-              const msgFallbackId = `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`;
-              const msgUniqueId = msgTargetId !== undefined && msgTargetId !== null ? msgTargetId : msgFallbackId;
+              const msgUniqueId = getMessageKey(msg) || String(msg.id !== undefined && msg.id !== null ? msg.id : (msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`));
 
               const currentDateKey = getMessageDateKey(msg.timestamp);
               const prevDateKey = index > 0 ? getMessageDateKey(sortedThread[index - 1]?.timestamp) : null;
@@ -6423,32 +6734,27 @@ const Casbox = () => {
                       <div className="flex items-center gap-1.5 sm:gap-2 relative group max-w-full">
                         {isMessageSelectionMode && (
                           <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleSelectMessage(msgUniqueId);
-                            }}
-                            className="shrink-0 flex items-center justify-center cursor-pointer select-none p-0.5"
-                            title={selectedMessageItemIds.has(msgUniqueId) ? "Deselect message" : "Select message"}
+                            onClick={(e) => e.stopPropagation()}
+                            className="shrink-0 flex items-center justify-center select-none py-1 px-0.5"
                           >
                             <input
                               type="checkbox"
+                              id={`select-checkbox-${msgUniqueId}`}
                               checked={selectedMessageItemIds.has(msgUniqueId)}
                               onChange={(e) => {
                                 e.stopPropagation();
                                 handleToggleSelectMessage(msgUniqueId);
                               }}
                               className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 cursor-pointer accent-blue-600 transition-transform hover:scale-110"
+                              title={selectedMessageItemIds.has(msgUniqueId) ? "Deselect message" : "Select message"}
                             />
                           </div>
                         )}
 
                         {/* Bubble */}
                         <div
-                          onClick={isMessageSelectionMode ? () => handleToggleSelectMessage(msgUniqueId) : undefined}
                           className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden transition-all duration-150 ${
                             isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'
-                          } ${
-                            isMessageSelectionMode ? 'cursor-pointer' : ''
                           } ${
                             selectedMessageItemIds.has(msgUniqueId)
                               ? 'ring-2 ring-blue-500 ring-offset-1 border-blue-400 dark:border-blue-500 shadow-sm'
@@ -6759,7 +7065,7 @@ const Casbox = () => {
 
                                 <button
                                   type="button"
-                                  onClick={() => handleEnterMessageSelectionMode()}
+                                  onClick={() => handleEnterMessageSelectionMode(msgUniqueId)}
                                   className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
                                 >
                                   <MdCheckBox size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
