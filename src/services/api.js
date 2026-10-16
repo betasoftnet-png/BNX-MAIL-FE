@@ -231,8 +231,26 @@ export const authAPI = {
     sendMobileOtp: (data) => api.post('/api/auth/send-mobile-otp', data),
     verifyMobileOtp: (data) => api.post('/api/auth/verify-mobile-otp', data),
     fetchGstins: (pan) => api.get('/api/auth/fetch-gstins', { params: { pan } }),
-    verifyBusiness: (data) => api.post('/api/auth/verify-business', data),
 };
+
+const cleanSenderEmailParam = (input) => {
+    if (!input) return '';
+    if (typeof input === 'object') {
+        if (input.nativeEvent || input.target || input.preventDefault || input._reactName) {
+            return '';
+        }
+        input = input.email || input.senderEmail || input.address || input.sender || '';
+    }
+    const str = String(input || '').trim();
+    if (str.includes('<') && str.includes('>')) {
+        const match = str.match(/<([^>]+)>/);
+        if (match && match[1]) {
+            return match[1].trim();
+        }
+    }
+    return str;
+};
+
 // Mail APIs
 export const mailAPI = {
     getInbox: (page = 1, limit = 50) => api.get(`${API_ENDPOINTS.MAIL.INBOX}?page=${page}&limit=${limit}`),
@@ -272,14 +290,20 @@ export const mailAPI = {
     clearSpam: () => api.post('/api/mail/spam/clear'),
 
     unsubscribe: (senderEmail) => {
-        const email = (senderEmail || '').trim();
+        const email = cleanSenderEmailParam(senderEmail);
+        if (!email) {
+            return Promise.resolve({ data: { success: false, message: 'Invalid sender email' } });
+        }
         return api.post(
             `${API_ENDPOINTS.MAIL.UNSUBSCRIBE}?senderEmail=${encodeURIComponent(email)}&email=${encodeURIComponent(email)}`,
             { senderEmail: email, email: email }
         );
     },
     subscribe: (senderEmail) => {
-        const email = (senderEmail || '').trim();
+        const email = cleanSenderEmailParam(senderEmail);
+        if (!email) {
+            return Promise.resolve({ data: { success: false, message: 'Invalid sender email' } });
+        }
         return api.post(
             `${API_ENDPOINTS.MAIL.SUBSCRIBE}?senderEmail=${encodeURIComponent(email)}&email=${encodeURIComponent(email)}`,
             { senderEmail: email, email: email }

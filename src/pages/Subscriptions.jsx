@@ -215,8 +215,10 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
   }, [fetchSubscriptionsData]);
 
   const handleToggleBlock = async (senderEmail, isBlocked) => {
-    if (!senderEmail) return;
-    const lowerEmail = senderEmail.trim().toLowerCase();
+    const raw = typeof senderEmail === "string" ? senderEmail : (senderEmail?.email || senderEmail?.senderEmail || "");
+    const cleanEmail = String(raw || "").trim();
+    if (!cleanEmail) return;
+    const lowerEmail = cleanEmail.toLowerCase();
     setActionLoading(prev => ({ ...prev, [lowerEmail]: true }));
 
     const toastMessage = isBlocked
@@ -229,20 +231,20 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
         // Subscribe / Unblock sender
         const promises = [];
         if (mailAPI.subscribe) {
-          promises.push(mailAPI.subscribe(senderEmail));
+          promises.push(mailAPI.subscribe(cleanEmail));
         }
         if (blockedContactsAPI?.unblockSender) {
-          promises.push(blockedContactsAPI.unblockSender(senderEmail));
+          promises.push(blockedContactsAPI.unblockSender(cleanEmail));
         }
         results = await Promise.allSettled(promises);
       } else {
         // Unsubscribe / Block sender
         const promises = [];
         if (mailAPI.unsubscribe) {
-          promises.push(mailAPI.unsubscribe(senderEmail));
+          promises.push(mailAPI.unsubscribe(cleanEmail));
         }
         if (blockedContactsAPI?.blockSender) {
-          promises.push(blockedContactsAPI.blockSender(senderEmail));
+          promises.push(blockedContactsAPI.blockSender(cleanEmail));
         }
         results = await Promise.allSettled(promises);
       }
@@ -259,7 +261,7 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
       } else {
         setBlockedSenders(prev => {
           const exists = prev.some(e => getEmailString(e) === lowerEmail);
-          return exists ? prev : [...prev, senderEmail];
+          return exists ? prev : [...prev, cleanEmail];
         });
       }
 

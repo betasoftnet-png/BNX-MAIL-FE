@@ -214,16 +214,27 @@ const EmailDetails = ({
   };
 
   const handleUnsubscribeClick = async (targetSender = null) => {
-    const emailToUnsub = targetSender || cleanSenderEmail;
+    const rawSender = (typeof targetSender === "string" && targetSender.trim()) ? targetSender : cleanSenderEmail;
+    const emailToUnsub = (typeof rawSender === "string") ? rawSender.trim() : "";
     if (!emailToUnsub) return;
     const confirmUnsubscribe = window.confirm(`Are you sure you want to unsubscribe and block future emails from ${emailToUnsub}?`);
     if (confirmUnsubscribe) {
       try {
         toast.loading("Unsubscribing...", { id: "unsubscribe" });
-        await Promise.allSettled([
-          mailAPI.unsubscribe ? mailAPI.unsubscribe(emailToUnsub) : Promise.resolve(),
-          blockedContactsAPI.blockSender(emailToUnsub)
-        ]);
+        const promises = [];
+        if (mailAPI.unsubscribe) promises.push(mailAPI.unsubscribe(emailToUnsub));
+        if (blockedContactsAPI?.blockSender) promises.push(blockedContactsAPI.blockSender(emailToUnsub));
+
+        const results = await Promise.allSettled(promises);
+        const hasSuccess = results.some(r => r.status === "fulfilled" && (
+          (typeof r.value?.status === "number" && r.value.status >= 200 && r.value.status < 300 && r.value?.data?.success !== false) ||
+          (r.value?.success !== false && !r.value?.error)
+        ));
+
+        if (!hasSuccess) {
+          throw new Error("Failed to unsubscribe");
+        }
+
         toast.success(`Unsubscribed from ${emailToUnsub}`, { id: "unsubscribe" });
         if (fetchEmails) {
           fetchEmails(currentFolder || "inbox");
@@ -1117,7 +1128,7 @@ const EmailDetails = ({
                     )}
                     {cleanSenderEmail && !isSystemEmail && (
                       <button
-                        onClick={handleUnsubscribeClick}
+                        onClick={() => handleUnsubscribeClick()}
                         className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none"
                         title={t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
                       >
