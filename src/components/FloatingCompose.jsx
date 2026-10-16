@@ -30,11 +30,27 @@ window.Quill = Quill;
 
 // Register Font & Size attributors in Quill
 const Font = Quill.import('attributors/style/font');
-Font.whitelist = ['Arial', 'Calibri', 'Times New Roman', 'Georgia', 'Verdana', 'Courier New', 'Tahoma', 'Trebuchet MS', 'Roboto'];
+Font.whitelist = [
+  'Arial', 'arial',
+  'Roboto', 'roboto',
+  'Lato', 'lato',
+  'Montserrat', 'montserrat',
+  'Inter', 'inter',
+  'Playfair Display', 'playfair-display',
+  'Courier New', 'courier-new',
+  'Georgia', 'georgia',
+  'Times New Roman', 'times-new-roman',
+  'Calibri', 'calibri',
+  'Verdana', 'verdana',
+  'Tahoma', 'tahoma',
+  'Trebuchet MS', 'trebuchet-ms',
+  'Comic Sans MS', 'comic-sans',
+  'sans-serif', 'serif', 'monospace'
+];
 Quill.register(Font, true);
 
 const Size = Quill.import('attributors/style/size');
-Size.whitelist = ['14px', '16px', '18px', '24px'];
+Size.whitelist = ['10px', '12px', '14px', '16px', '18px', '20px', '24px', '32px'];
 Quill.register(Size, true);
 
 if (!Quill.imports['modules/imageResize']) {

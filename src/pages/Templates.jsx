@@ -1,5 +1,5 @@
 import { useTranslation } from "../context/LanguageContext";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
@@ -18,23 +18,30 @@ import toast from "react-hot-toast";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
-// Register custom fonts in Quill
-const Font = Quill.import('formats/font');
+// Register Font & Size inline style attributors in Quill
+const Font = Quill.import('attributors/style/font');
 Font.whitelist = [
-  'sans-serif',
-  'serif',
-  'monospace',
-  'roboto',
-  'lato',
-  'montserrat',
-  'playfair-display',
-  'inter',
-  'arial',
-  'courier-new',
-  'comic-sans',
-  'times-new-roman'
+  'Arial', 'arial',
+  'Roboto', 'roboto',
+  'Lato', 'lato',
+  'Montserrat', 'montserrat',
+  'Inter', 'inter',
+  'Playfair Display', 'playfair-display',
+  'Courier New', 'courier-new',
+  'Georgia', 'georgia',
+  'Times New Roman', 'times-new-roman',
+  'Calibri', 'calibri',
+  'Verdana', 'verdana',
+  'Tahoma', 'tahoma',
+  'Trebuchet MS', 'trebuchet-ms',
+  'Comic Sans MS', 'comic-sans',
+  'sans-serif', 'serif', 'monospace'
 ];
 Quill.register(Font, true);
+
+const Size = Quill.import('attributors/style/size');
+Size.whitelist = ['10px', '12px', '14px', '16px', '18px', '20px', '24px', '32px'];
+Quill.register(Size, true);
 
 export const DEFAULT_TEMPLATES = [
   {
@@ -80,30 +87,107 @@ export const DEFAULT_TEMPLATES = [
 ];
 
 const fontList = [
-  'sans-serif',
-  'serif',
-  'monospace',
-  'roboto',
-  'lato',
-  'montserrat',
-  'playfair-display',
-  'inter',
-  'arial',
-  'courier-new',
-  'comic-sans',
-  'times-new-roman'
+  'Arial',
+  'Roboto',
+  'Lato',
+  'Montserrat',
+  'Inter',
+  'Playfair Display',
+  'Courier New',
+  'Georgia',
+  'Times New Roman'
+];
+
+const sizeList = [
+  '12px',
+  '14px',
+  '16px',
+  '18px',
+  '20px',
+  '24px',
+  '32px'
 ];
 
 const quillModules = {
-  toolbar: [
-    [{ 'font': fontList }, { 'size': [] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ 'color': [] }, { 'background': [] }],
-    [{ 'align': [] }],
-    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-    ['link', 'image'],
-    ['clean']
-  ]
+  toolbar: {
+    container: [
+      [{ 'font': fontList }, { 'size': sizeList }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'align': [] }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      ['link', 'image'],
+      ['clean']
+    ],
+    handlers: {
+      font: function(value) {
+        this.quill.focus();
+        const range = this.quill.getSelection(true);
+        if (range) {
+          if (range.length > 0) {
+            this.quill.formatText(range.index, range.length, 'font', value || 'Arial', 'user');
+          } else {
+            this.quill.format('font', value || 'Arial', 'user');
+          }
+        }
+      },
+      size: function(value) {
+        this.quill.focus();
+        const range = this.quill.getSelection(true);
+        if (range) {
+          if (range.length > 0) {
+            this.quill.formatText(range.index, range.length, 'size', value || '14px', 'user');
+          } else {
+            this.quill.format('size', value || '14px', 'user');
+          }
+        }
+      }
+    }
+  }
+};
+
+const migrateOldFontClasses = (html) => {
+  if (!html) return "";
+  const fontMap = {
+    'roboto': 'Roboto',
+    'lato': 'Lato',
+    'montserrat': 'Montserrat',
+    'playfair-display': 'Playfair Display',
+    'inter': 'Inter',
+    'arial': 'Arial',
+    'courier-new': 'Courier New',
+    'times-new-roman': 'Times New Roman',
+    'comic-sans': 'Comic Sans MS',
+  };
+  return html.replace(/class="([^"]*)"/g, (match, classList) => {
+    const classes = classList.split(/\s+/);
+    let matchedFont = null;
+    const remainingClasses = [];
+    for (const cls of classes) {
+      if (cls.startsWith('ql-font-')) {
+        const fontKey = cls.replace('ql-font-', '');
+        if (fontMap[fontKey]) {
+          matchedFont = fontMap[fontKey];
+        }
+      } else {
+        remainingClasses.push(cls);
+      }
+    }
+    if (matchedFont) {
+      const classAttr = remainingClasses.length > 0 ? `class="${remainingClasses.join(' ')}" ` : '';
+      return `${classAttr}style="font-family: ${matchedFont};"`;
+    }
+    return match;
+  });
+};
+
+const ensureDefaultFontFormatting = (html) => {
+  if (!html || !html.trim()) return "";
+  const trimmed = html.trim();
+  if (trimmed.startsWith('<div style="font-family:') || trimmed.startsWith('<div style="font-family :')) {
+    return trimmed;
+  }
+  return `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5;">${trimmed}</div>`;
 };
 
 const getBodyPreview = (html) => {
@@ -136,6 +220,23 @@ const Templates = () => {
   const [formSubject, setFormSubject] = useState("");
   const [formBody, setFormBody] = useState("");
   const [formCategory, setFormCategory] = useState("");
+  const quillRef = useRef(null);
+
+  // Set default Arial 14px font on new template editor mount
+  useEffect(() => {
+    if (isModalOpen && !editingTemplate) {
+      const timer = setTimeout(() => {
+        if (quillRef.current) {
+          const editor = quillRef.current.getEditor();
+          if (editor) {
+            editor.format('font', 'Arial');
+            editor.format('size', '14px');
+          }
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isModalOpen, editingTemplate]);
 
   // Load Custom Templates
   useEffect(() => {
@@ -195,7 +296,7 @@ const Templates = () => {
     if (template) {
       setEditingTemplate(template);
       setFormSubject(template.subject);
-      setFormBody(template.body);
+      setFormBody(migrateOldFontClasses(template.body));
       setFormCategory(template.category || "");
     } else {
       setEditingTemplate(null);
@@ -243,6 +344,7 @@ const Templates = () => {
     }
 
     const templateTitle = formSubject;
+    const finalBody = ensureDefaultFontFormatting(formBody);
 
     if (editingTemplate) {
       // Edit Custom Template
@@ -252,11 +354,11 @@ const Templates = () => {
           title: templateTitle,
           name: templateTitle,
           subject: formSubject,
-          body: formBody,
+          body: finalBody,
           category: formCategory,
         }, user.email).then((res) => {
           const resObj = res.data?.data || res.data;
-          const updatedItem = { ...resObj, title: resObj.title || resObj.name || templateTitle, category: resObj.category || formCategory };
+          const updatedItem = { ...resObj, title: resObj.title || resObj.name || templateTitle, category: resObj.category || formCategory, body: finalBody };
           const updated = customTemplates.map((t) => t.id === editingTemplate.id ? updatedItem : t);
           saveCustomTemplates(updated);
           toast.success("Template updated successfully");
@@ -266,7 +368,7 @@ const Templates = () => {
       } else {
         const updated = customTemplates.map((t) =>
           t.id === editingTemplate.id
-            ? { ...t, title: templateTitle, subject: formSubject, body: formBody, category: formCategory }
+            ? { ...t, title: templateTitle, subject: formSubject, body: finalBody, category: formCategory }
             : t
         );
         saveCustomTemplates(updated);
@@ -279,11 +381,11 @@ const Templates = () => {
           title: templateTitle,
           name: templateTitle,
           subject: formSubject,
-          body: formBody,
+          body: finalBody,
           category: formCategory,
         }, user.email).then((res) => {
           const resObj = res.data?.data || res.data;
-          const newItem = { ...resObj, title: resObj.title || resObj.name || templateTitle, category: resObj.category || formCategory };
+          const newItem = { ...resObj, title: resObj.title || resObj.name || templateTitle, category: resObj.category || formCategory, body: finalBody };
           saveCustomTemplates([...customTemplates, newItem]);
           toast.success("Template created successfully");
         }).catch((err) => {
@@ -294,7 +396,7 @@ const Templates = () => {
           id: "custom-" + Date.now(),
           title: templateTitle,
           subject: formSubject,
-          body: formBody,
+          body: finalBody,
           category: formCategory,
           isDefault: false,
         };
@@ -329,9 +431,10 @@ const Templates = () => {
 
   // Use template
   const handleUseTemplate = (template) => {
+    const formattedBody = template.body ? (template.body.includes('<') && template.body.includes('>') ? template.body : template.body.replace(/\n/g, '<br/>')) : '';
     openCompose({
       subject: template.subject,
-      body: template.body ? (template.body.includes('<') && template.body.includes('>') ? template.body : template.body.replace(/\n/g, '<br/>')) : '',
+      body: ensureDefaultFontFormatting(formattedBody),
     });
   };
 
@@ -666,6 +769,7 @@ const Templates = () => {
                 </label>
                 <div className="rounded-xl border bg-white relative overflow-hidden" style={{ borderColor: theme.border }}>
                   <ReactQuill
+                    ref={quillRef}
                     theme="snow"
                     modules={quillModules}
                     bounds="self"
@@ -746,7 +850,7 @@ const Templates = () => {
                 <label className="text-xs font-bold uppercase tracking-wider block mb-2 opacity-60" style={{ color: theme.text }}>Content</label>
                 <div
                   className="p-4 rounded-xl border bg-white text-black min-h-[150px] max-h-[300px] overflow-y-auto"
-                  style={{ borderColor: theme.border }}
+                  style={{ borderColor: theme.border, fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '14px', lineHeight: 1.5 }}
                   dangerouslySetInnerHTML={{ __html: previewTemplate.body }}
                 />
               </div>
