@@ -1070,7 +1070,8 @@ const Casbox = () => {
     if (!targetEmail) return false;
     const norm = normalizeEmail(targetEmail);
     const local = norm.includes('@') ? norm.split('@')[0] : norm;
-    return blockedContacts.some(b => {
+    const list = (blockedContacts && blockedContacts.length > 0) ? blockedContacts : (blockedContactsRef.current || []);
+    return list.some(b => {
       const bNorm = normalizeEmail(b);
       const bLocal = bNorm.includes('@') ? bNorm.split('@')[0] : bNorm;
       return bNorm === norm || bLocal === local;
@@ -3887,8 +3888,12 @@ const Casbox = () => {
       return;
     }
 
-    if (isBlockedContact(otherEmail)) {
-      toast.error("You have blocked this contact. Unblock to send messages.");
+    if (
+      isBlockedContact(otherEmail) ||
+      (selectedMessage?.senderEmail && isBlockedContact(selectedMessage.senderEmail)) ||
+      (selectedMessage?.receiverEmail && isBlockedContact(selectedMessage.receiverEmail))
+    ) {
+      toast.error("This user is blocked.");
       return;
     }
 
@@ -3931,7 +3936,17 @@ const Casbox = () => {
 
     } catch (err) {
       console.error("Failed to send Casbox message", err);
-      const errMsg = err.response?.data?.message || err.response?.data?.error || "Failed to send message.";
+      const rawMsg = err.response?.data?.message || err.response?.data?.error || "";
+      const isBlockedError =
+        isBlockedContact(otherEmail) ||
+        (selectedMessage?.senderEmail && isBlockedContact(selectedMessage.senderEmail)) ||
+        (selectedMessage?.receiverEmail && isBlockedContact(selectedMessage.receiverEmail)) ||
+        rawMsg === "You cannot send messages to this user." ||
+        rawMsg === "You cannot send messages to this user because you have blocked them." ||
+        /cannot send messages to this user/i.test(rawMsg) ||
+        /blocked/i.test(rawMsg);
+
+      const errMsg = isBlockedError ? "This user is blocked." : (rawMsg || "Failed to send message.");
       toast.error(errMsg);
     } finally {
       setSendingChat(false);
@@ -4143,7 +4158,14 @@ const Casbox = () => {
         }
       } catch (err) {
         console.error(`Failed to forward message to ${receiverEmail}:`, err);
-        const errReason = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to send";
+        const rawReason = err?.response?.data?.message || err?.response?.data?.error || err?.message || "";
+        const isBlocked =
+          isBlockedContact(receiverEmail) ||
+          rawReason === "You cannot send messages to this user." ||
+          rawReason === "You cannot send messages to this user because you have blocked them." ||
+          /cannot send messages to this user/i.test(rawReason) ||
+          /blocked/i.test(rawReason);
+        const errReason = isBlocked ? "This user is blocked." : (rawReason || "Failed to send");
         errorDetails.push({ recipient: recipientName, reason: errReason });
       }
     }

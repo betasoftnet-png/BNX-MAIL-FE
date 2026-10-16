@@ -677,7 +677,13 @@ const FloatingCompose = () => {
                 detail: { receiverEmail: formData.to.trim(), message: res.data } 
             }));
         } catch(err) {
-            const errMsg = err.response?.data?.message || "Failed to send message";
+            const rawMsg = err.response?.data?.message || err.response?.data?.error || "";
+            const isBlocked =
+              rawMsg === "You cannot send messages to this user." ||
+              rawMsg === "You cannot send messages to this user because you have blocked them." ||
+              /cannot send messages to this user/i.test(rawMsg) ||
+              /blocked/i.test(rawMsg);
+            const errMsg = isBlocked ? "This user is blocked." : (rawMsg || "Failed to send message");
             setError(errMsg);
             toast.error(errMsg);
         } finally {
