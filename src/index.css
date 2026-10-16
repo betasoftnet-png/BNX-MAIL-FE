@@ -453,14 +453,88 @@ aside.sidebar-collapsed hr {
 .template-editor .ql-editor {
   min-height: 160px !important;
   max-height: 250px !important;
-  font-family: Arial, Helvetica, sans-serif !important;
-  font-size: 14px !important;
-  line-height: 1.5 !important;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .template-editor .ql-editor p {
   margin-bottom: 0.5rem;
 }
+
+/* Explicit font-family overrides for Quill editor content */
+.ql-editor [style*="font-family: Montserrat"],
+.ql-editor [style*="font-family: 'Montserrat'"],
+.ql-editor [style*="font-family: montserrat"],
+.ql-font-montserrat {
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+.ql-editor [style*="font-family: Roboto"],
+.ql-editor [style*="font-family: 'Roboto'"],
+.ql-editor [style*="font-family: roboto"],
+.ql-font-roboto {
+  font-family: 'Roboto', sans-serif !important;
+}
+
+.ql-editor [style*="font-family: Lato"],
+.ql-editor [style*="font-family: 'Lato'"],
+.ql-editor [style*="font-family: lato"],
+.ql-font-lato {
+  font-family: 'Lato', sans-serif !important;
+}
+
+.ql-editor [style*="font-family: Inter"],
+.ql-editor [style*="font-family: 'Inter'"],
+.ql-editor [style*="font-family: inter"],
+.ql-font-inter {
+  font-family: 'Inter', sans-serif !important;
+}
+
+.ql-editor [style*="font-family: Playfair Display"],
+.ql-editor [style*="font-family: 'Playfair Display'"],
+.ql-editor [style*="font-family: playfair-display"],
+.ql-font-playfair-display {
+  font-family: 'Playfair Display', serif !important;
+}
+
+.ql-editor [style*="font-family: Arial"],
+.ql-editor [style*="font-family: 'Arial'"],
+.ql-editor [style*="font-family: arial"],
+.ql-font-arial {
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.ql-editor [style*="font-family: Courier New"],
+.ql-editor [style*="font-family: 'Courier New'"],
+.ql-editor [style*="font-family: courier-new"],
+.ql-font-courier-new {
+  font-family: 'Courier New', monospace !important;
+}
+
+.ql-editor [style*="font-family: Georgia"],
+.ql-editor [style*="font-family: 'Georgia'"],
+.ql-editor [style*="font-family: georgia"],
+.ql-font-georgia {
+  font-family: Georgia, serif !important;
+}
+
+.ql-editor [style*="font-family: Times New Roman"],
+.ql-editor [style*="font-family: 'Times New Roman'"],
+.ql-editor [style*="font-family: times-new-roman"],
+.ql-font-times-new-roman {
+  font-family: 'Times New Roman', serif !important;
+}
+
+/* Explicit font-size rules for Quill editor content */
+.ql-editor [style*="font-size: 10px"], .ql-size-10px { font-size: 10px !important; }
+.ql-editor [style*="font-size: 12px"], .ql-size-12px { font-size: 12px !important; }
+.ql-editor [style*="font-size: 14px"], .ql-size-14px { font-size: 14px !important; }
+.ql-editor [style*="font-size: 16px"], .ql-size-16px { font-size: 16px !important; }
+.ql-editor [style*="font-size: 18px"], .ql-size-18px { font-size: 18px !important; }
+.ql-editor [style*="font-size: 20px"], .ql-size-20px { font-size: 20px !important; }
+.ql-editor [style*="font-size: 24px"], .ql-size-24px { font-size: 24px !important; }
+.ql-editor [style*="font-size: 32px"], .ql-size-32px { font-size: 32px !important; }
 
 /* Custom styling for contenteditable placeholder in Colab Broadcast modal */
 .custom-broadcast-editable:empty::before {

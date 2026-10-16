@@ -108,6 +108,8 @@ const sizeList = [
   '32px'
 ];
 
+let activeSelection = null;
+
 const quillModules = {
   toolbar: {
     container: [
@@ -121,25 +123,43 @@ const quillModules = {
     ],
     handlers: {
       font: function(value) {
-        this.quill.focus();
-        const range = this.quill.getSelection(true);
-        if (range) {
-          if (range.length > 0) {
-            this.quill.formatText(range.index, range.length, 'font', value || 'Arial', 'user');
-          } else {
-            this.quill.format('font', value || 'Arial', 'user');
-          }
+        let range = this.quill.getSelection();
+        if ((!range || range.length === 0) && activeSelection && activeSelection.length > 0) {
+          range = activeSelection;
+        }
+        if (!range) {
+          this.quill.focus();
+          range = this.quill.getSelection() || { index: 0, length: 0 };
+        }
+        const fontVal = value || 'Arial';
+        if (range.length > 0) {
+          this.quill.formatText(range.index, range.length, 'font', fontVal, 'user');
+          this.quill.setSelection(range.index, range.length, 'silent');
+          activeSelection = { index: range.index, length: range.length };
+        } else {
+          this.quill.setSelection(range.index, 0, 'silent');
+          this.quill.format('font', fontVal, 'user');
+          activeSelection = { index: range.index, length: 0 };
         }
       },
       size: function(value) {
-        this.quill.focus();
-        const range = this.quill.getSelection(true);
-        if (range) {
-          if (range.length > 0) {
-            this.quill.formatText(range.index, range.length, 'size', value || '14px', 'user');
-          } else {
-            this.quill.format('size', value || '14px', 'user');
-          }
+        let range = this.quill.getSelection();
+        if ((!range || range.length === 0) && activeSelection && activeSelection.length > 0) {
+          range = activeSelection;
+        }
+        if (!range) {
+          this.quill.focus();
+          range = this.quill.getSelection() || { index: 0, length: 0 };
+        }
+        const sizeVal = value || '14px';
+        if (range.length > 0) {
+          this.quill.formatText(range.index, range.length, 'size', sizeVal, 'user');
+          this.quill.setSelection(range.index, range.length, 'silent');
+          activeSelection = { index: range.index, length: range.length };
+        } else {
+          this.quill.setSelection(range.index, 0, 'silent');
+          this.quill.format('size', sizeVal, 'user');
+          activeSelection = { index: range.index, length: 0 };
         }
       }
     }
@@ -159,9 +179,23 @@ const migrateOldFontClasses = (html) => {
     'times-new-roman': 'Times New Roman',
     'comic-sans': 'Comic Sans MS',
   };
+  const sizeMap = {
+    '10px': '10px',
+    '12px': '12px',
+    '14px': '14px',
+    '16px': '16px',
+    '18px': '18px',
+    '20px': '20px',
+    '24px': '24px',
+    '32px': '32px',
+    'small': '12px',
+    'large': '18px',
+    'huge': '24px',
+  };
   return html.replace(/class="([^"]*)"/g, (match, classList) => {
     const classes = classList.split(/\s+/);
     let matchedFont = null;
+    let matchedSize = null;
     const remainingClasses = [];
     for (const cls of classes) {
       if (cls.startsWith('ql-font-')) {
@@ -169,13 +203,21 @@ const migrateOldFontClasses = (html) => {
         if (fontMap[fontKey]) {
           matchedFont = fontMap[fontKey];
         }
+      } else if (cls.startsWith('ql-size-')) {
+        const sizeKey = cls.replace('ql-size-', '');
+        if (sizeMap[sizeKey]) {
+          matchedSize = sizeMap[sizeKey];
+        }
       } else {
         remainingClasses.push(cls);
       }
     }
-    if (matchedFont) {
+    const styles = [];
+    if (matchedFont) styles.push(`font-family: ${matchedFont};`);
+    if (matchedSize) styles.push(`font-size: ${matchedSize};`);
+    if (styles.length > 0) {
       const classAttr = remainingClasses.length > 0 ? `class="${remainingClasses.join(' ')}" ` : '';
-      return `${classAttr}style="font-family: ${matchedFont};"`;
+      return `${classAttr}style="${styles.join(' ')}"`;
     }
     return match;
   });
@@ -222,19 +264,30 @@ const Templates = () => {
   const [formCategory, setFormCategory] = useState("");
   const quillRef = useRef(null);
 
-  // Set default Arial 14px font on new template editor mount
+  // Set default Arial 14px font on new template editor mount and track activeSelection
   useEffect(() => {
-    if (isModalOpen && !editingTemplate) {
+    if (isModalOpen) {
       const timer = setTimeout(() => {
         if (quillRef.current) {
           const editor = quillRef.current.getEditor();
           if (editor) {
-            editor.format('font', 'Arial');
-            editor.format('size', '14px');
+            if (!editingTemplate) {
+              editor.format('font', 'Arial');
+              editor.format('size', '14px');
+            }
+            const handleSel = (range) => {
+              if (range) {
+                activeSelection = { index: range.index, length: range.length };
+              }
+            };
+            editor.on('selection-change', handleSel);
+            return () => editor.off('selection-change', handleSel);
           }
         }
       }, 50);
       return () => clearTimeout(timer);
+    } else {
+      activeSelection = null;
     }
   }, [isModalOpen, editingTemplate]);
 
@@ -767,7 +820,16 @@ const Templates = () => {
                 >
                   Template Content
                 </label>
-                <div className="rounded-xl border bg-white relative overflow-hidden" style={{ borderColor: theme.border }}>
+                <div 
+                  className="rounded-xl border bg-white relative overflow-hidden" 
+                  style={{ borderColor: theme.border }}
+                  onMouseDown={(e) => {
+                    // Prevent blur on toolbar interactions so editor selection is preserved
+                    if (e.target.closest('.ql-toolbar')) {
+                      e.preventDefault();
+                    }
+                  }}
+                >
                   <ReactQuill
                     ref={quillRef}
                     theme="snow"
