@@ -217,6 +217,38 @@ const POPULAR_EMOJIS = [
 
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
+// Helper to sanitize reactions map so each user has at most one reaction per message
+const sanitizeReactionsMap = (rawMap) => {
+  if (!rawMap || typeof rawMap !== 'object') return {};
+  const cleaned = {};
+  for (const [msgId, emojiMap] of Object.entries(rawMap)) {
+    if (!emojiMap || typeof emojiMap !== 'object') continue;
+    const userToEmoji = new Map();
+    const cleanedEmojiMap = {};
+
+    for (const [emoji, users] of Object.entries(emojiMap)) {
+      if (!Array.isArray(users)) continue;
+      users.forEach(u => {
+        if (typeof u === 'string' && u.trim()) {
+          userToEmoji.set(u.trim(), emoji);
+        }
+      });
+    }
+
+    userToEmoji.forEach((emoji, user) => {
+      if (!cleanedEmojiMap[emoji]) {
+        cleanedEmojiMap[emoji] = [];
+      }
+      cleanedEmojiMap[emoji].push(user);
+    });
+
+    if (Object.keys(cleanedEmojiMap).length > 0) {
+      cleaned[msgId] = cleanedEmojiMap;
+    }
+  }
+  return cleaned;
+};
+
 const EMOJI_CATEGORIES = [
   {
     id: 'smileys',
@@ -925,11 +957,34 @@ const Casbox = () => {
   const [reactionsMap, setReactionsMap] = useState(() => {
     try {
       const saved = localStorage.getItem('bnx_casbox_reactions');
-      return saved ? JSON.parse(saved) : {};
+      return saved ? sanitizeReactionsMap(JSON.parse(saved)) : {};
     } catch (e) {
       return {};
     }
   });
+
+  // Cross-tab/window real-time synchronization for reactions
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'bnx_casbox_reactions') {
+        try {
+          const updated = e.newValue ? JSON.parse(e.newValue) : {};
+          setReactionsMap(sanitizeReactionsMap(updated));
+        } catch {}
+      }
+    };
+    const handleCustomEvent = (e) => {
+      if (e.detail) {
+        setReactionsMap(sanitizeReactionsMap(e.detail));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('bnx_casbox_reactions_updated', handleCustomEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('bnx_casbox_reactions_updated', handleCustomEvent);
+    };
+  }, []);
 
   const chatInputRef = React.useRef(null);
   const messageMenuRef = React.useRef(null);
@@ -2384,36 +2439,53 @@ const Casbox = () => {
     );
   }, []);
 
-  // Emoji Reaction Toggle Handler
+  // Emoji Reaction Toggle Handler: Enforces strictly ONE reaction per user per message
   const handleToggleReaction = useCallback((msgId, emoji) => {
     if (!msgId || !emoji) return;
-    const currentUserId = user?.email || user?.username || 'me';
+    const currentUserId = (user?.email || user?.username || 'me').trim();
 
     setReactionsMap(prev => {
       const msgReactions = prev[msgId] || {};
-      const existingReactors = msgReactions[emoji] || [];
-      const hasReacted = existingReactors.includes(currentUserId);
 
-      let updatedReactors;
-      if (hasReacted) {
-        // Toggle off if same user clicks again
-        updatedReactors = existingReactors.filter(u => u !== currentUserId);
+      // Check if user has already reacted with the EXACT same emoji
+      const existingSameEmojiReactors = Array.isArray(msgReactions[emoji]) ? msgReactions[emoji] : [];
+      const hasReactedWithSameEmoji = existingSameEmojiReactors.some(u => typeof u === 'string' && u.trim() === currentUserId);
+
+      // Create a clean copy of reactions for this message,
+      // stripping current user from ALL emojis on this message
+      const nextMsgReactions = {};
+
+      Object.entries(msgReactions).forEach(([em, reactors]) => {
+        const filteredReactors = (Array.isArray(reactors) ? reactors : [])
+          .filter(u => typeof u === 'string' && u.trim() && u.trim() !== currentUserId);
+        const uniqueReactors = Array.from(new Set(filteredReactors));
+        if (uniqueReactors.length > 0) {
+          nextMsgReactions[em] = uniqueReactors;
+        }
+      });
+
+      if (!hasReactedWithSameEmoji) {
+        // User is selecting a new or different emoji -> add user reaction
+        const currentReactors = nextMsgReactions[emoji] || [];
+        nextMsgReactions[emoji] = Array.from(new Set([...currentReactors, currentUserId]));
+      }
+      // If hasReactedWithSameEmoji was true, the user is removed completely (toggle off)
+
+      const nextMap = { ...prev };
+      if (Object.keys(nextMsgReactions).length === 0) {
+        delete nextMap[msgId];
       } else {
-        // Add user reaction
-        updatedReactors = [...existingReactors, currentUserId];
+        nextMap[msgId] = nextMsgReactions;
       }
 
-      const nextMsgReactions = { ...msgReactions };
-      if (updatedReactors.length === 0) {
-        delete nextMsgReactions[emoji];
-      } else {
-        nextMsgReactions[emoji] = updatedReactors;
-      }
-
-      const nextMap = { ...prev, [msgId]: nextMsgReactions };
       try {
         localStorage.setItem('bnx_casbox_reactions', JSON.stringify(nextMap));
       } catch (e) {}
+
+      try {
+        window.dispatchEvent(new CustomEvent('bnx_casbox_reactions_updated', { detail: nextMap }));
+      } catch (e) {}
+
       return nextMap;
     });
 
@@ -6876,6 +6948,7 @@ const Casbox = () => {
               const senderLabel = isMe ? (user?.username || senderEmail.split("@")[0]) : getDisplayName(senderEmail, msg);
               const senderInitial = isMe ? (user?.username || senderEmail).charAt(0).toUpperCase() : getContactInitial(senderEmail, msg);
               const msgUniqueId = getMessageKey(msg) || String(msg.id !== undefined && msg.id !== null ? msg.id : (msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`));
+              const currentUserId = (user?.email || user?.username || 'me').trim();
 
               const currentDateKey = getMessageDateKey(msg.timestamp);
               const prevDateKey = index > 0 ? getMessageDateKey(sortedThread[index - 1]?.timestamp) : null;
@@ -6990,14 +7063,13 @@ const Casbox = () => {
                         {(() => {
                           const msgReactions = reactionsMap[msgUniqueId];
                           if (!msgReactions || Object.keys(msgReactions).length === 0) return null;
-                          const currentUserId = user?.email || user?.username || 'me';
 
                           return (
                             <div className="flex items-center gap-1 shrink-0 select-none">
                               {Object.entries(msgReactions).map(([emoji, reactors]) => {
                                 if (!reactors || reactors.length === 0) return null;
-                                const hasReacted = reactors.includes(currentUserId);
-                                const tooltipText = reactors.map(r => r === currentUserId ? 'You' : (r.includes('@') ? r.split('@')[0] : r)).join(', ');
+                                const hasReacted = reactors.some(u => typeof u === 'string' && u.trim() === currentUserId);
+                                const tooltipText = reactors.map(r => (typeof r === 'string' && r.trim() === currentUserId) ? 'You' : (r.includes('@') ? r.split('@')[0] : r)).join(', ');
 
                                 return (
                                   <button
@@ -7074,17 +7146,22 @@ const Casbox = () => {
                               >
                                 {/* Quick Reactions Pill */}
                                 <div className="bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-full shadow-lg px-2.5 py-1 flex items-center gap-1.5 select-none animate-in fade-in zoom-in-95 duration-150">
-                                  {QUICK_REACTIONS.map((emoji) => (
-                                    <button
-                                      key={emoji}
-                                      type="button"
-                                      onClick={() => handleToggleReaction(msgUniqueId, emoji)}
-                                      className="w-7 h-7 flex items-center justify-center text-lg hover:scale-130 active:scale-95 transition-transform cursor-pointer rounded-full hover:bg-black/5 dark:hover:bg-white/10"
-                                      title={emoji}
-                                    >
-                                      {emoji}
-                                    </button>
-                                  ))}
+                                  {QUICK_REACTIONS.map((emoji) => {
+                                    const isSelected = (reactionsMap[msgUniqueId]?.[emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
+                                    return (
+                                      <button
+                                        key={emoji}
+                                        type="button"
+                                        onClick={() => handleToggleReaction(msgUniqueId, emoji)}
+                                        className={`w-7 h-7 flex items-center justify-center text-lg hover:scale-130 active:scale-95 transition-all cursor-pointer rounded-full ${
+                                          isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
+                                        }`}
+                                        title={isSelected ? `${emoji} (Click to remove)` : emoji}
+                                      >
+                                        {emoji}
+                                      </button>
+                                    );
+                                  })}
                                   <button
                                     type="button"
                                     onClick={() => setShowFullEmojiPicker(prev => !prev)}
@@ -7165,17 +7242,22 @@ const Casbox = () => {
                                           );
                                         }
 
-                                        return list.map(item => (
-                                          <button
-                                            key={item.emoji + item.name}
-                                            type="button"
-                                            onClick={() => handleToggleReaction(msgUniqueId, item.emoji)}
-                                            className="w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:scale-125 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer select-none"
-                                            title={item.name}
-                                          >
-                                            {item.emoji}
-                                          </button>
-                                        ));
+                                        return list.map(item => {
+                                          const isSelected = (reactionsMap[msgUniqueId]?.[item.emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
+                                          return (
+                                            <button
+                                              key={item.emoji + item.name}
+                                              type="button"
+                                              onClick={() => handleToggleReaction(msgUniqueId, item.emoji)}
+                                              className={`w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:scale-125 transition-all cursor-pointer select-none ${
+                                                isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
+                                              }`}
+                                              title={isSelected ? `${item.name} (Click to remove)` : item.name}
+                                            >
+                                              {item.emoji}
+                                            </button>
+                                          );
+                                        });
                                       })()}
                                     </div>
                                   </div>
