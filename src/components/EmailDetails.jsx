@@ -419,119 +419,7 @@ const EmailDetails = ({
     }
   };
 
-  // Conversation Thread states and fetchers
-  const localSentRepliesRef = React.useRef([]);
-  const lastEmailUidRef = React.useRef(null);
-  const [threadEmails, setThreadEmails] = useState([]);
-  const [loadingThread, setLoadingThread] = useState(false);
-  const [expandedMessages, setExpandedMessages] = useState({});
 
-  const cleanSubject = (subj) => {
-    if (!subj) return "";
-    return subj
-      .replace(/^(re|fwd|fw|aw|reply):\s*/i, "")
-      .replace(/^\[[^\]]+\]\s*/i, "")
-      .trim()
-      .toLowerCase();
-  };
-
-  const fetchThreadEmails = async () => {
-    if (!email) return;
-    setLoadingThread(true);
-    try {
-      const cleanSubj = cleanSubject(email.subject);
-      
-      const [inboxRes, sentRes] = await Promise.all([
-        mailAPI.getInbox(1, 100),
-        mailAPI.getSent(1, 100)
-      ]);
-
-      let allRelated = [];
-      if (inboxRes.data?.success) {
-        const inboxMails = inboxRes.data.data.emails || inboxRes.data.data || [];
-        allRelated = [...allRelated, ...inboxMails];
-      }
-      if (sentRes.data?.success) {
-        const sentMails = sentRes.data.data.emails || sentRes.data.data || [];
-        allRelated = [...allRelated, ...sentMails];
-      }
-
-      // Merge session local sent replies matching the clean subject
-      const matchingLocal = localSentRepliesRef.current.filter(m => cleanSubject(m.subject) === cleanSubj);
-      allRelated = [...allRelated, ...matchingLocal];
-
-      // Filter by clean subject match
-      let filtered = allRelated.filter(m => cleanSubject(m.subject) === cleanSubj);
-      
-      // Deduplicate identical messages (e.g. from self-sends in Inbox and Sent)
-      const seenMessages = new Set();
-      filtered = filtered.filter(m => {
-        const cleanBody = (m.body || m.textPlain || "")
-          .replace(/<[^>]+>/g, '')
-          .replace(/\s+/g, '')
-          .trim();
-        const dateStr = m.date || m.receivedDate || m.sentDate || "";
-        const dateEpoch = dateStr ? new Date(dateStr).getTime() : 0;
-        const timeBucket = Math.round(dateEpoch / 10000); 
-        const sender = (m.from || "").trim().toLowerCase();
-        
-        const signature = `${sender}|${cleanBody.substring(0, 100)}|${timeBucket}`;
-        if (seenMessages.has(signature)) {
-          return false;
-        }
-        seenMessages.add(signature);
-        return true;
-      });
-
-      if (!filtered.some(f => (f.uid || f.id) === (email.uid || email.id))) {
-        filtered.push(email);
-      }
-
-      // Sort chronologically
-      filtered.sort((a, b) => {
-        const dateA = new Date(a.date || a.receivedDate || a.sentDate || 0);
-        const dateB = new Date(b.date || b.receivedDate || b.sentDate || 0);
-        return dateA - dateB;
-      });
-
-      setThreadEmails(filtered);
-      setExpandedMessages(prev => {
-        if (Object.keys(prev).length === 0 && filtered.length > 0) {
-          const lastIdx = filtered.length - 1;
-          const lastUid = filtered[lastIdx].uid || filtered[lastIdx].id;
-          return { [lastUid]: true };
-        }
-        return prev;
-      });
-    } catch (err) {
-      console.error("Failed to fetch thread emails:", err);
-      const matchingLocal = localSentRepliesRef.current.filter(m => cleanSubject(m.subject) === cleanSubject(email.subject));
-      const fallbackList = [...matchingLocal, email].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
-      setThreadEmails(fallbackList);
-      setExpandedMessages(prev => {
-        if (Object.keys(prev).length === 0 && fallbackList.length > 0) {
-          const lastIdx = fallbackList.length - 1;
-          const lastUid = fallbackList[lastIdx].uid || fallbackList[lastIdx].id;
-          return { [lastUid]: true };
-        }
-        return prev;
-      });
-    } finally {
-      setLoadingThread(false);
-    }
-  };
-
-  useEffect(() => {
-    if (email) {
-      const currentUid = email.uid || email.id;
-      if (lastEmailUidRef.current !== currentUid) {
-        lastEmailUidRef.current = currentUid;
-        setExpandedMessages({});
-        setThreadEmails([]); // Clear old thread so it doesn't show old thread emails while loading new thread
-      }
-      fetchThreadEmails();
-    }
-  }, [email]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -650,19 +538,7 @@ const EmailDetails = ({
       if (res.data?.success) {
         toast.success(replyMode === 'forward' ? "Forwarded successfully" : "Reply sent successfully", { id: toastId });
         
-        // Append sent reply to thread locally
-        const newReplyMail = {
-          uid: `sent-${Date.now()}`,
-          from: user.email,
-          to: recipient,
-          subject: payload.subject,
-          body: payload.body,
-          date: new Date().toISOString(),
-          sentDate: new Date().toISOString(),
-          attachments: attachments.map(a => a.fileName)
-        };
-        localSentRepliesRef.current.push(newReplyMail);
-        setThreadEmails(prev => [...prev, newReplyMail]);
+
 
         setShowReply(false);
         setReplyBody("");
@@ -1210,150 +1086,7 @@ const EmailDetails = ({
           </div>
         </div>
 
-        {threadEmails.length > 0 ? (
-          <div className="flex flex-col gap-3 mb-6">
-            {threadEmails.map((m) => {
-              const isExpanded = expandedMessages[m.uid || m.id];
-              if (isExpanded) {
-                return (
-                  <div key={m.uid || m.id} className="border rounded-2xl p-4 bg-white dark:bg-neutral-900 shadow-sm flex flex-col text-left" style={{ borderColor: theme.border }}>
-                    <div 
-                      onClick={() => setExpandedMessages(prev => ({ ...prev, [m.uid || m.id]: false }))}
-                      className="flex items-center justify-between pb-3 border-b cursor-pointer select-none"
-                      style={{ borderColor: theme.border }}
-                    >
-                      {/* SENDER INFO */}
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className="h-9 w-9 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm shrink-0"
-                          style={{ backgroundColor: theme.accent || "#135bec" }}
-                        >
-                          {m.from?.split("@")[0]?.[0]?.toUpperCase() || "U"}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-sm flex flex-wrap items-center gap-x-2" style={{ color: theme.text }}>
-                            {m.from?.includes("<") ? (
-                              <>
-                                <span>{m.from.split("<")[0].replace(/^["']/g, "").replace(/["']$/g, "").trim()}</span>
-                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">&lt;{m.from.split("<")[1].split(">")[0]}&gt;</span>
-                              </>
-                            ) : (
-                              <span>{m.from}</span>
-                            )}
-                            {blockedContacts.includes(normalizeEmail(m.from)) && (
-                              <span className="text-[10px] font-semibold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded transition-all select-none border border-red-200 dark:border-red-800/40">
-                                Blocked
-                              </span>
-                            )}
-                            {(() => {
-                              const mCleanSender = m.from?.includes("<")
-                                ? m.from.split("<")[1].split(">")[0].trim()
-                                : (m.from || "").trim();
-                              const isMsgSystem = mCleanSender.toLowerCase().includes("mailer-daemon") || 
-                                                  mCleanSender.toLowerCase().includes("postmaster") || 
-                                                  mCleanSender.toLowerCase().includes("noreply") ||
-                                                  mCleanSender.toLowerCase().includes("no-reply");
-                              return mCleanSender && !isMsgSystem ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUnsubscribeClick(mCleanSender);
-                                  }}
-                                  className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none"
-                                  title={t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
-                                >
-                                  {t("bulk_actions.unsubscribe", "Unsubscribe")}
-                                </button>
-                              ) : null;
-                            })()}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
-                            to <span className="font-medium text-gray-700 dark:text-gray-300">{m.to || "me"}</span>
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <span className="text-xs font-medium text-gray-400 dark:text-gray-500 shrink-0">
-                        {m.sentDate ? formatDate(m.sentDate) : m.receivedDate ? formatDate(m.receivedDate) : m.date ? formatDate(m.date) : m.createdAt ? formatDate(m.createdAt) : ""}
-                      </span>
-                    </div>
 
-                    {/* BODY */}
-                    <div className="max-w-none prose prose-slate dark:prose-invert prose-p:leading-relaxed text-[14px] sm:text-[15px] leading-relaxed pt-4 overflow-x-auto break-words [&_img]:max-w-full [&_img]:h-auto">
-                      {m.htmlBody || (m.isHtml && m.body) || (m.body && (
-                        m.body.trim().startsWith('<!DOCTYPE html') ||
-                        m.body.trim().startsWith('<html') ||
-                        m.body.includes('</html>') ||
-                        m.body.includes('</p>') ||
-                        m.body.includes('</div>') ||
-                        m.body.includes('</td>')
-                      )) ? (
-                        <div dangerouslySetInnerHTML={{ __html: m.htmlBody || m.body }} style={{ color: theme.text }} />
-                      ) : (
-                        <p className="whitespace-pre-wrap text-gray-800 dark:text-gray-200" style={{ color: theme.text }}>
-                          {m.body || m.textPlain || "(No content available)"}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* ATTACHMENTS */}
-                    {m.attachments && m.attachments.length > 0 && (
-                      <div className="mt-4 pt-4 border-t" style={{ borderColor: theme.border }}>
-                        <p className="text-xs font-bold mb-2 text-gray-500 dark:text-gray-400 uppercase tracking-wider text-left">
-                          {t("email_details.attachments", "Attachments")} ({m.attachments.length})
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {m.attachments.map((file, idx) => (
-                            <div key={idx} className="flex items-center gap-2 border px-2 py-1 rounded-lg text-xs" style={{ borderColor: theme.border }}>
-                              <span className="truncate max-w-[120px]" style={{ color: theme.text }}>{file}</span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handlePreviewAttachment(file); }}
-                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
-                              >
-                                👁️
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDownloadAttachment(file); }}
-                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
-                              >
-                                📥
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              } else {
-                return (
-                  <div 
-                    key={m.uid || m.id}
-                    onClick={() => setExpandedMessages(prev => ({ ...prev, [m.uid || m.id]: true }))}
-                    className="flex items-center justify-between p-3 border hover:bg-black/[0.02] dark:hover:bg-white/[0.02] cursor-pointer select-none rounded-xl mb-2 bg-white dark:bg-neutral-900"
-                    style={{ borderColor: theme.border }}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-7 w-7 rounded-full flex items-center justify-center text-white font-semibold text-xs shrink-0" style={{ backgroundColor: theme.accent || "#135bec" }}>
-                        {m.from?.split("@")[0]?.[0]?.toUpperCase() || "U"}
-                      </div>
-                      <span className="font-semibold text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate max-w-[120px] sm:max-w-[200px]">
-                        {m.from?.includes("<") ? m.from.split("<")[0].replace(/^["']/g, "").replace(/["']$/g, "").trim() : m.from}
-                      </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-[150px] sm:max-w-[300px]">
-                        {m.body ? m.body.replace(/<[^>]+>/g, '').substring(0, 60) + '...' : ''}
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {m.sentDate ? formatDate(m.sentDate) : m.receivedDate ? formatDate(m.receivedDate) : m.date ? formatDate(m.date) : m.createdAt ? formatDate(m.createdAt) : ""}
-                    </span>
-                  </div>
-                );
-              }
-            })}
-          </div>
-        ) : (
-          <>
             {/* Fallback original presentation */}
             {/* SENDER INFO */}
             <div
@@ -1438,8 +1171,7 @@ const EmailDetails = ({
                 </div>
               )}
             </div>
-          </>
-        )}
+
 
         {/* ATTACHMENTS */}
         {(() => {

@@ -141,7 +141,6 @@ const Settings = () => {
   const [autoCorrect, setAutoCorrect] = useState(true);
   const [writingSuggestions, setWritingSuggestions] = useState(() => localStorage.getItem("bnx_setting_writingSuggestions") !== "false");
   const [desktopNotifications, setDesktopNotifications] = useState(() => localStorage.getItem("bnx_setting_desktopNotifications") !== "false");
-  const [conversationView, setConversationView] = useState(() => localStorage.getItem("bnx_setting_conversationView") !== "false");
   const [defaultFontFamily, setDefaultFontFamily] = useState(() => localStorage.getItem("bnx_setting_fontFamily") || "Arial");
   const [defaultFontSize, setDefaultFontSize] = useState(() => localStorage.getItem("bnx_setting_fontSizeText") || "Normal");
   const [defaultTextColor, setDefaultTextColor] = useState(() => localStorage.getItem("bnx_setting_textColor") || "#000000");
@@ -401,9 +400,7 @@ const Settings = () => {
         if (d.desktopNotifications !== undefined || localStorage.getItem("bnx_setting_desktopNotifications") !== null) {
           setDesktopNotifications(d.desktopNotifications ?? (localStorage.getItem("bnx_setting_desktopNotifications") !== "false"));
         }
-        if (d.conversationView !== undefined || localStorage.getItem("bnx_setting_conversationView") !== null) {
-          setConversationView(d.conversationView ?? (localStorage.getItem("bnx_setting_conversationView") !== "false"));
-        }
+        localStorage.setItem("bnx_setting_conversationView", "false");
         if (d.defaultFontFamily || localStorage.getItem("bnx_setting_fontFamily")) {
           setDefaultFontFamily(d.defaultFontFamily || localStorage.getItem("bnx_setting_fontFamily"));
         }
@@ -874,7 +871,7 @@ const Settings = () => {
         localStorage.setItem("bnx_setting_language", targetLang);
         localStorage.setItem("bnx_setting_writingSuggestions", writingSuggestions ? "true" : "false");
         localStorage.setItem("bnx_setting_desktopNotifications", desktopNotifications ? "true" : "false");
-        localStorage.setItem("bnx_setting_conversationView", conversationView ? "true" : "false");
+        localStorage.setItem("bnx_setting_conversationView", "false");
         localStorage.setItem("bnx_setting_fontFamily", defaultFontFamily);
         localStorage.setItem("bnx_setting_fontSizeText", defaultFontSize);
         localStorage.setItem("bnx_setting_textColor", defaultTextColor);
@@ -1503,7 +1500,6 @@ const Settings = () => {
                   <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t("settings.mail_view_notifications", "MAIL VIEW & NOTIFICATIONS")}</h4>
                   <div className="flex flex-col space-y-1">
                     <ToggleRow label={t("settings.desktop_notifications", "Desktop Notifications for New Emails")} checked={desktopNotifications} onChange={setDesktopNotifications} theme={theme} />
-                    <ToggleRow label={t("settings.conversation_view", "Conversation View (Group emails by thread)")} checked={conversationView} onChange={setConversationView} theme={theme} />
                   </div>
 
                   {/* Undo Send */}
