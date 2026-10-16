@@ -291,7 +291,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                 })}
 
               {/* MORE DROPDOWN ITEM */}
-              {moreNavItems.length > 0 && (
+              {moreNavItems.some(name => sidebarPreferences?.[name] !== false) && (
                 <div>
                   <button
                     onClick={() => setIsMoreOpen(!isMoreOpen)}

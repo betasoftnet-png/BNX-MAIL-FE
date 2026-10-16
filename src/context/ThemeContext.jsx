@@ -85,6 +85,25 @@ export const PRESET_BACKGROUNDS = [
   { label: "Autumn Leaves", url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1920&q=80" },
 ];
 
+export const DEFAULT_SIDEBAR_PREFS = {
+  Inbox: true,
+  Starred: true,
+  Snoozed: true,
+  Sent: true,
+  Draft: true,
+  Trash: true,
+  Notification: true,
+  Archive: true,
+  Scheduled: true,
+  Spam: true,
+  "All Mail": true,
+  Unread: true,
+  Templates: true,
+  Analytics: true,
+  Subscriptions: true,
+  "Mail Backup": true,
+};
+
 export const ThemeProvider = ({ children }) => {
   const [currentThemeName, setCurrentThemeName] = useState("Classic");
   const [backgroundImage, setBackgroundImageState] = useState(null);
@@ -95,10 +114,7 @@ export const ThemeProvider = ({ children }) => {
   const [customAccentColor, setCustomAccentColor] = useState(null);
   const [customFontSize, setCustomFontSize] = useState(1.0);
   
-  const defaultSidebarPrefs = {
-    Inbox: true, Starred: true, Snoozed: true, Sent: true, Draft: true, Trash: true, "Notification": true, "Archive": true
-  };
-  const [sidebarPreferences, setSidebarPreferencesState] = useState(defaultSidebarPrefs);
+  const [sidebarPreferences, setSidebarPreferencesState] = useState(DEFAULT_SIDEBAR_PREFS);
 
   // Load theme + background on first mount
   useEffect(() => {
@@ -125,7 +141,10 @@ export const ThemeProvider = ({ children }) => {
         delete parsed["Bulk Mail"];
         delete parsed["bulk mail"];
         delete parsed["bulk"];
-        setSidebarPreferencesState(parsed);
+        setSidebarPreferencesState({
+          ...DEFAULT_SIDEBAR_PREFS,
+          ...parsed,
+        });
       } catch (e) {}
     }
     const savedAccent = localStorage.getItem("bnx_accent_color");
@@ -301,7 +320,7 @@ export const useTheme = () => {
       currentThemeName: 'Classic Light',
       readingPaneMode: 'no_split',
       emailsPerPage: 50,
-      sidebarPreferences: {},
+      sidebarPreferences: DEFAULT_SIDEBAR_PREFS,
       backgroundImage: '',
       changeTheme: () => {},
       setBackgroundImage: () => {},

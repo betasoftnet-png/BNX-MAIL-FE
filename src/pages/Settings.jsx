@@ -28,7 +28,7 @@ import {
 } from "react-icons/md";
 import { emailAPI, authAPI, userAPI, signatureAPI, settingsAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { useTheme, PRESET_BACKGROUNDS, themes } from "../context/ThemeContext";
+import { useTheme, PRESET_BACKGROUNDS, themes, DEFAULT_SIDEBAR_PREFS } from "../context/ThemeContext";
 import { useTranslation, normalizeLang } from "../context/LanguageContext";
 import toast from "react-hot-toast";
 import ReactQuill, { Quill } from "react-quill";
@@ -1698,7 +1698,7 @@ const Settings = () => {
             <Section title={t("settings.labels_sidebar", "Sidebar Labels")} theme={theme}>
               <p className="text-sm text-gray-500 mb-6">{t("settings.folder_label_desc", "Choose which labels are visible in the main sidebar.")}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-                {Object.keys(sidebarPreferences || {})
+                {Object.keys({ ...DEFAULT_SIDEBAR_PREFS, ...(sidebarPreferences || {}) })
                   .filter((itemName) => itemName !== "Bulk Mail" && itemName.toLowerCase() !== "bulk mail" && itemName.toLowerCase() !== "bulk")
                   .map((itemName) => (
                   <div key={itemName} className="flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-transparent" style={{ borderColor: theme.border }}>
@@ -1707,9 +1707,9 @@ const Settings = () => {
                       <input
                         type="checkbox"
                         className="sr-only peer"
-                        checked={sidebarPreferences[itemName]}
+                        checked={sidebarPreferences?.[itemName] !== false}
                         onChange={(e) => {
-                          const newPrefs = { ...sidebarPreferences, [itemName]: e.target.checked };
+                          const newPrefs = { ...DEFAULT_SIDEBAR_PREFS, ...sidebarPreferences, [itemName]: e.target.checked };
                           if (setSidebarPreferences) {
                             setSidebarPreferences(newPrefs);
                           }
