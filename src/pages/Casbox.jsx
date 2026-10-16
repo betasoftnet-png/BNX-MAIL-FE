@@ -2399,13 +2399,6 @@ const Casbox = () => {
         }`}
         title="Click to jump to original message"
       >
-        {quotedSender && (
-          <div className={`font-bold text-[10px] leading-tight mb-0.5 truncate ${
-            isMe ? 'text-white/95' : 'text-blue-600 dark:text-blue-400'
-          }`}>
-            {quotedSender}
-          </div>
-        )}
         <div className="line-clamp-2 leading-relaxed opacity-90 text-[11px] break-words">
           {quotedSnippet}
         </div>
