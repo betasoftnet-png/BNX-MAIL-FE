@@ -6831,13 +6831,8 @@ const Casbox = () => {
                             </button>
                           </div>
 
-                          {/* Star Message Indicator & Label below the bubble */}
+                          {/* Open in chat action below the bubble */}
                           <div className="flex items-center gap-2 text-[10px] text-blue-600 dark:text-blue-400 font-medium select-none mt-0.5 ml-1 leading-none">
-                            <span className="flex items-center gap-1">
-                              <MdStar size={11} className="shrink-0" />
-                              <span>Star Message</span>
-                            </span>
-                            <span className="text-gray-300 dark:text-gray-600">•</span>
                             <button
                               type="button"
                               onClick={() => handleOpenOriginalConversation(msg)}
@@ -7282,14 +7277,6 @@ const Casbox = () => {
                           </div>
                         )}
                       </div>
-
-                      {/* Star Message Indicator & Label below the bubble */}
-                      {isMessageStarred(msg) && (
-                        <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium select-none mt-0.5 ml-1 leading-none">
-                          <MdStar size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                          <span>Star Message</span>
-                        </div>
-                      )}
 
                       {/* Edited Label */}
                       {(msg?.isEdited || msg?.edited) && (
