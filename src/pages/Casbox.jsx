@@ -2117,14 +2117,13 @@ const Casbox = () => {
 
     const match = body.match(/^\[Forwarded(?: from ([^\]]+))?\]\n/);
     if (!match) return null;
-    const origSender = match[1];
 
     return (
       <div className={`flex items-center gap-1 text-[11px] select-none mb-1 font-medium ${
         isMe ? 'text-white/85' : 'text-gray-500 dark:text-gray-400'
       }`}>
         <MdForward size={13} className="shrink-0" />
-        <span className="italic">Forwarded{origSender ? ` • ${origSender}` : ''}</span>
+        <span className="italic">Forwarded</span>
       </div>
     );
   }, []);
