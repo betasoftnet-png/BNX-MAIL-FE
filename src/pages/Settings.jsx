@@ -73,6 +73,7 @@ const Settings = () => {
   const bgFileRef = useRef(null);
   const savingRef = useRef(false);
   const mainContentRef = useRef(null);
+  const [activeTab, setActiveTab] = useState("accounts");
   const [customBgUrl, setCustomBgUrl] = useState("");
   const [selectedWallpaper, setSelectedWallpaper] = useState(backgroundImage);
   const [selectedTheme, setSelectedTheme] = useState(() => currentThemeName || localStorage.getItem("theme") || "Classic");
@@ -84,8 +85,6 @@ const Settings = () => {
   useEffect(() => {
     setSelectedTheme(currentThemeName || "Classic");
   }, [currentThemeName, activeTab]);
-
-  const [activeTab, setActiveTab] = useState("accounts");
 
   const scrollToTop = useCallback(() => {
     if (mainContentRef.current) {
