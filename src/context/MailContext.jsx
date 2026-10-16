@@ -1264,13 +1264,27 @@ export const MailProvider = ({ children }) => {
 
     const handleUnsubscribe = async (senderEmail, silent = false) => {
         try {
-            await Promise.allSettled([
-                mailAPI.unsubscribe ? mailAPI.unsubscribe(senderEmail) : Promise.resolve(),
-                blockedContactsAPI.blockSender(senderEmail)
-            ]);
+            const promises = [];
+            if (mailAPI.unsubscribe) promises.push(mailAPI.unsubscribe(senderEmail));
+            if (blockedContactsAPI?.blockSender) promises.push(blockedContactsAPI.blockSender(senderEmail));
+
+            const results = await Promise.allSettled(promises);
+            const hasSuccess = results.some(r => r.status === 'fulfilled' && (
+                (typeof r.value?.status === 'number' && r.value.status >= 200 && r.value.status < 300 && r.value?.data?.success !== false) ||
+                (r.value?.success !== false && !r.value?.error)
+            ));
+
+            if (!hasSuccess) {
+                const err = results.find(r => r.status === 'rejected')?.reason;
+                throw err || new Error('Failed to unsubscribe');
+            }
+
             if (!silent) toast.success('Unsubscribed from ' + senderEmail);
+            return true;
         } catch (error) {
+            console.error('Failed to unsubscribe:', error);
             if (!silent) toast.error('Failed to unsubscribe');
+            return false;
         }
     };
 

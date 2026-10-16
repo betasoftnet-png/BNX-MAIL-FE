@@ -40,9 +40,34 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
     return { name: str.split("@")[0] || str, email: str };
   };
 
-  const fetchSubscriptionsData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const getEmailString = (item) => {
+    if (!item) return "";
+    if (typeof item === "string") return item.trim().toLowerCase();
+    return (item.email || item.senderEmail || item.blockedEmail || item.address || "").trim().toLowerCase();
+  };
+
+  const isFulfilledAndSuccessful = (res) => {
+    if (res.status !== "fulfilled") return false;
+    const val = res.value;
+    if (!val) return true;
+    if (typeof val.status === "number") {
+      if (val.status >= 200 && val.status < 300) {
+        if (val.data && typeof val.data === "object" && val.data.success === false) {
+          return false;
+        }
+        return true;
+      }
+      return false;
+    }
+    if (val.success === false || val.error) return false;
+    return true;
+  };
+
+  const fetchSubscriptionsData = useCallback(async (isSilent = false) => {
+    if (!isSilent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       // Fetch data from available sources concurrently
       const [subscriptionsResult, inboxResult, blockedResult] = await Promise.allSettled([
@@ -53,45 +78,88 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
 
       // 1. Process Blocked / Unsubscribed Contacts
       const blockedSet = new Set();
-      if (blockedResult.status === "fulfilled" && blockedResult.value?.data) {
-        const rawBlocked = blockedResult.value.data.data || blockedResult.value.data || [];
-        const blockedArr = Array.isArray(rawBlocked) ? rawBlocked : [];
-        blockedArr.forEach((item) => {
-          const email = typeof item === "string" ? item : (item?.email || item?.senderEmail || "");
-          if (email) {
-            blockedSet.add(email.trim().toLowerCase());
-          }
-        });
+      let rawBlocked = [];
+      if (blockedResult.status === "fulfilled" && blockedResult.value) {
+        const val = blockedResult.value;
+        if (Array.isArray(val)) {
+          rawBlocked = val;
+        } else if (Array.isArray(val.data)) {
+          rawBlocked = val.data;
+        } else if (Array.isArray(val.data?.data)) {
+          rawBlocked = val.data.data;
+        } else if (Array.isArray(val.blockedContacts)) {
+          rawBlocked = val.blockedContacts;
+        } else if (Array.isArray(val.contacts)) {
+          rawBlocked = val.contacts;
+        }
       }
+
+      rawBlocked.forEach((item) => {
+        const email = getEmailString(item);
+        if (email) {
+          blockedSet.add(email);
+        }
+      });
 
       const sendersMap = new Map();
 
       // 2. Process Dedicated Subscriptions API (if backend provides it)
-      if (subscriptionsResult.status === "fulfilled" && subscriptionsResult.value?.data) {
-        const subData = subscriptionsResult.value.data.data || subscriptionsResult.value.data || [];
-        const subList = Array.isArray(subData) ? subData : (subData.subscriptions || subData.senders || []);
-        if (Array.isArray(subList)) {
-          subList.forEach((sub) => {
-            const parsed = parseSender(sub.from || sub.email || sub.senderEmail || sub);
-            if (!parsed.email) return;
-            const lowerEmail = parsed.email.toLowerCase();
-            const isSubBlocked = sub.isBlocked === true || sub.unsubscribed === true || sub.status === "unsubscribed";
-            if (isSubBlocked) {
-              blockedSet.add(lowerEmail);
-            }
-            sendersMap.set(lowerEmail, {
-              name: parsed.name || (parsed.email ? parsed.email.split("@")[0] : "Unknown"),
-              email: parsed.email,
-              count: typeof sub.count === "number" ? sub.count : 0
-            });
-          });
+      let subList = [];
+      if (subscriptionsResult.status === "fulfilled" && subscriptionsResult.value) {
+        const val = subscriptionsResult.value.data !== undefined ? subscriptionsResult.value.data : subscriptionsResult.value;
+        if (Array.isArray(val)) {
+          subList = val;
+        } else if (Array.isArray(val?.data)) {
+          subList = val.data;
+        } else if (Array.isArray(val?.subscriptions)) {
+          subList = val.subscriptions;
+        } else if (Array.isArray(val?.senders)) {
+          subList = val.senders;
         }
+      }
+
+      if (Array.isArray(subList)) {
+        subList.forEach((sub) => {
+          const parsed = parseSender(sub.from || sub.email || sub.senderEmail || sub.address || sub);
+          if (!parsed.email) return;
+          const lowerEmail = parsed.email.toLowerCase();
+
+          const isExplicitlyUnsubscribed =
+            sub.unsubscribed === true ||
+            sub.isUnsubscribed === true ||
+            sub.subscribed === false ||
+            sub.isSubscribed === false ||
+            sub.isBlocked === true ||
+            sub.blocked === true ||
+            ["unsubscribed", "inactive", "cancelled", "blocked"].includes(String(sub.status || "").toLowerCase());
+
+          const isExplicitlySubscribed =
+            sub.unsubscribed === false ||
+            sub.isUnsubscribed === false ||
+            sub.subscribed === true ||
+            sub.isSubscribed === true ||
+            ["subscribed", "active"].includes(String(sub.status || "").toLowerCase());
+
+          if (isExplicitlyUnsubscribed) {
+            blockedSet.add(lowerEmail);
+          } else if (isExplicitlySubscribed) {
+            blockedSet.delete(lowerEmail);
+          }
+
+          const count = typeof sub.count === "number" ? sub.count : (typeof sub.emailCount === "number" ? sub.emailCount : (typeof sub.totalEmails === "number" ? sub.totalEmails : 0));
+
+          sendersMap.set(lowerEmail, {
+            name: parsed.name || (parsed.email ? parsed.email.split("@")[0] : "Unknown"),
+            email: parsed.email,
+            count: count
+          });
+        });
       }
 
       // 3. Process Inbox Emails to extract all sender contacts
       if (inboxResult.status === "fulfilled" && inboxResult.value?.data) {
-        const rawInbox = inboxResult.value.data.data || inboxResult.value.data || {};
-        const emailsList = Array.isArray(rawInbox) ? rawInbox : (rawInbox.emails || []);
+        const rawInbox = inboxResult.value.data.data !== undefined ? inboxResult.value.data.data : inboxResult.value.data;
+        const emailsList = Array.isArray(rawInbox) ? rawInbox : (rawInbox?.emails || rawInbox?.messages || []);
         emailsList.forEach((email) => {
           const senderInfo = email.from || email.senderEmail || email.sender;
           if (!senderInfo) return;
@@ -131,20 +199,24 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
       setSenders(Array.from(sendersMap.values()));
     } catch (err) {
       console.error("Error loading subscriptions:", err);
-      setError("Failed to load subscription data");
-      toast.error("Failed to load subscription data");
+      if (!isSilent) {
+        setError("Failed to load subscription data");
+        toast.error("Failed to load subscription data");
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchSubscriptionsData();
+    fetchSubscriptionsData(false);
   }, [fetchSubscriptionsData]);
 
   const handleToggleBlock = async (senderEmail, isBlocked) => {
     if (!senderEmail) return;
-    const lowerEmail = senderEmail.toLowerCase();
+    const lowerEmail = senderEmail.trim().toLowerCase();
     setActionLoading(prev => ({ ...prev, [lowerEmail]: true }));
 
     const toastMessage = isBlocked
@@ -152,25 +224,49 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
       : t("subscriptions.unsubscribed", "Unsubscribed successfully");
 
     try {
+      let results = [];
       if (isBlocked) {
         // Subscribe / Unblock sender
-        await Promise.allSettled([
-          mailAPI.subscribe ? mailAPI.subscribe(senderEmail) : Promise.resolve(),
-          blockedContactsAPI.unblockSender(senderEmail)
-        ]);
-        setBlockedSenders(prev => prev.filter(e => (typeof e === "string" ? e : e?.email || "").toLowerCase() !== lowerEmail));
+        const promises = [];
+        if (mailAPI.subscribe) {
+          promises.push(mailAPI.subscribe(senderEmail));
+        }
+        if (blockedContactsAPI?.unblockSender) {
+          promises.push(blockedContactsAPI.unblockSender(senderEmail));
+        }
+        results = await Promise.allSettled(promises);
       } else {
         // Unsubscribe / Block sender
-        await Promise.allSettled([
-          mailAPI.unsubscribe ? mailAPI.unsubscribe(senderEmail) : Promise.resolve(),
-          blockedContactsAPI.blockSender(senderEmail)
-        ]);
+        const promises = [];
+        if (mailAPI.unsubscribe) {
+          promises.push(mailAPI.unsubscribe(senderEmail));
+        }
+        if (blockedContactsAPI?.blockSender) {
+          promises.push(blockedContactsAPI.blockSender(senderEmail));
+        }
+        results = await Promise.allSettled(promises);
+      }
+
+      const hasSuccess = results.some(r => isFulfilledAndSuccessful(r));
+      if (!hasSuccess) {
+        const errorReason = results.find(r => r.status === "rejected")?.reason;
+        throw errorReason || new Error("Failed to update subscription status");
+      }
+
+      // Update state only after successful confirmation
+      if (isBlocked) {
+        setBlockedSenders(prev => prev.filter(e => getEmailString(e) !== lowerEmail));
+      } else {
         setBlockedSenders(prev => {
-          const exists = prev.some(e => (typeof e === "string" ? e : e?.email || "").toLowerCase() === lowerEmail);
+          const exists = prev.some(e => getEmailString(e) === lowerEmail);
           return exists ? prev : [...prev, senderEmail];
         });
       }
+
       toast.success(toastMessage);
+
+      // Refresh subscription list without requiring page reload
+      await fetchSubscriptionsData(true);
     } catch (error) {
       console.error("Error toggling subscription:", error);
       toast.error(t("subscriptions.update_failed", "Failed to update status"));
@@ -181,13 +277,16 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
 
   const effectiveSearch = (localSearchQuery || propSearchQuery || "").trim().toLowerCase();
 
+  const isSenderBlocked = (email) => {
+    if (!email) return false;
+    const lower = email.trim().toLowerCase();
+    return blockedSenders.some(b => getEmailString(b) === lower);
+  };
+
   const filteredSenders = senders.filter((sender) => {
     if (!sender || !sender.email) return false;
-    const senderEmailLower = sender.email.toLowerCase();
-    const isBlocked = blockedSenders.some(b => {
-      const email = typeof b === "string" ? b : (b?.email || "");
-      return email.toLowerCase() === senderEmailLower;
-    });
+    const senderEmailLower = sender.email.trim().toLowerCase();
+    const isBlocked = isSenderBlocked(senderEmailLower);
 
     // Tab filter
     if (activeFilter === "subscribed" && isBlocked) return false;
@@ -217,7 +316,7 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
             </span>
 
             <button
-              onClick={fetchSubscriptionsData}
+              onClick={() => fetchSubscriptionsData(false)}
               disabled={loading}
               className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer"
               title={t("common.refresh", "Refresh subscriptions")}
@@ -292,7 +391,7 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
             <MdErrorOutline size={48} className="opacity-40 text-red-500 mb-3" />
             <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{error}</p>
             <button
-              onClick={fetchSubscriptionsData}
+              onClick={() => fetchSubscriptionsData(false)}
               className="mt-3 px-4 py-1.5 rounded-lg text-xs font-semibold bg-primary text-white hover:opacity-90 transition-opacity cursor-pointer"
               style={{ background: theme.accent || "#135bec" }}
             >
@@ -322,11 +421,8 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
         ) : (
           <div className="grid gap-3 max-w-4xl mx-auto">
             {filteredSenders.map((sender) => {
-              const senderEmailLower = (sender.email || "").toLowerCase();
-              const isBlocked = blockedSenders.some(b => {
-                const email = typeof b === "string" ? b : (b?.email || "");
-                return email.toLowerCase() === senderEmailLower;
-              });
+              const senderEmailLower = (sender.email || "").trim().toLowerCase();
+              const isBlocked = isSenderBlocked(senderEmailLower);
               const isItemLoading = Boolean(actionLoading[senderEmailLower]);
               const displayName = sender.name || (sender.email ? sender.email.split("@")[0] : "Unknown");
               const initialLetter = (displayName || "U").charAt(0).toUpperCase();

@@ -271,8 +271,20 @@ export const mailAPI = {
     restoreSpam: (uid) => api.post(`/api/mail/restore-spam/${uid}`),
     clearSpam: () => api.post('/api/mail/spam/clear'),
 
-    unsubscribe: (senderEmail) => api.post(`${API_ENDPOINTS.MAIL.UNSUBSCRIBE}?senderEmail=${encodeURIComponent(senderEmail)}`),
-    subscribe: (senderEmail) => api.post(`${API_ENDPOINTS.MAIL.SUBSCRIBE}?senderEmail=${encodeURIComponent(senderEmail)}`),
+    unsubscribe: (senderEmail) => {
+        const email = (senderEmail || '').trim();
+        return api.post(
+            `${API_ENDPOINTS.MAIL.UNSUBSCRIBE}?senderEmail=${encodeURIComponent(email)}&email=${encodeURIComponent(email)}`,
+            { senderEmail: email, email: email }
+        );
+    },
+    subscribe: (senderEmail) => {
+        const email = (senderEmail || '').trim();
+        return api.post(
+            `${API_ENDPOINTS.MAIL.SUBSCRIBE}?senderEmail=${encodeURIComponent(email)}&email=${encodeURIComponent(email)}`,
+            { senderEmail: email, email: email }
+        );
+    },
     getSubscriptions: () => api.get(API_ENDPOINTS.MAIL.SUBSCRIPTIONS),
 
     // Labels
