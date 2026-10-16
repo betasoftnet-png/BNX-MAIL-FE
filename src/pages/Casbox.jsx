@@ -1598,9 +1598,9 @@ const Casbox = () => {
   const cleanMessageBody = useCallback((body) => {
     if (typeof body !== 'string') return body || '';
     let text = body;
-    const replyMatch = text.match(/^\[Replying to [^:]+:\s*"[^"]*"\]\n([\s\S]*)$/);
+    const replyMatch = text.match(/^\[Replying to [^:]+:\s*"([\s\S]*?)"\]\n([\s\S]*)$/);
     if (replyMatch) {
-      text = replyMatch[1];
+      text = replyMatch[2];
     }
     const forwardMatch = text.match(/^\[Forwarded(?: from ([^\]]+))?\]\n([\s\S]*)$/);
     if (forwardMatch) {
@@ -1748,6 +1748,164 @@ const Casbox = () => {
       toast("Message is in earlier history", { icon: "ℹ️" });
     }
   }, []);
+
+  const parseReplyHeader = useCallback((body) => {
+    if (!body || typeof body !== 'string') return null;
+    const match = body.match(/^\[Replying to ([^:]+?)(?:\s+(?:id=|id:|#|\(id:)([^\s:)]+)\)?)?:\s*"([\s\S]*?)"\]\n/);
+    if (!match) return null;
+    return {
+      quotedSender: (match[1] || "").trim(),
+      originalMsgId: match[2] ? match[2].trim() : null,
+      quotedSnippet: match[3] || ""
+    };
+  }, []);
+
+  const handleNavigateToOriginalMessage = useCallback(async (originalMsgId, quoteSnippet, quotedSender) => {
+    const cleanSnippet = (quoteSnippet || "").trim();
+
+    // Helper to smoothly scroll and temporarily highlight the target message for 2 seconds
+    const highlightElement = (el, idKey) => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMessageId(idKey);
+      setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 2000);
+    };
+
+    // 1. Direct search by ID in DOM
+    if (originalMsgId) {
+      const el = document.getElementById(`casbox-msg-${originalMsgId}`);
+      if (el) {
+        highlightElement(el, originalMsgId);
+        return;
+      }
+    }
+
+    // 2. Search in threadMessages state by ID or content
+    let targetMsg = null;
+    if (originalMsgId) {
+      targetMsg = threadMessages.find(m => {
+        const mKey = getMessageKey(m);
+        const mId = m.id !== undefined && m.id !== null ? String(m.id) : (m.uid ? String(m.uid) : null);
+        return mKey === originalMsgId || mId === originalMsgId;
+      });
+    }
+
+    if (!targetMsg && cleanSnippet) {
+      targetMsg = threadMessages.find(m => {
+        const mClean = cleanMessageBody(m.body || "").replace(/\n/g, ' ').trim();
+        return mClean === cleanSnippet || mClean.startsWith(cleanSnippet) || cleanSnippet.startsWith(mClean);
+      });
+    }
+
+    if (targetMsg) {
+      const targetKey = getMessageKey(targetMsg);
+      const el = document.getElementById(`casbox-msg-${targetKey}`);
+      if (el) {
+        highlightElement(el, targetKey);
+        return;
+      }
+    }
+
+    // Check if the original message was deleted
+    if (
+      originalMsgId &&
+      (deletedMessageIdsRef.current.has(originalMsgId) ||
+        deletedMessageIdsRef.current.has(Number(originalMsgId)) ||
+        deletedMessageIdsRef.current.has(String(originalMsgId)))
+    ) {
+      toast("Original message is unavailable.", { icon: "ℹ️" });
+      return;
+    }
+
+    // 3. Search in all loaded messages state (if outside current thread view)
+    let foundInAllMessages = null;
+    if (originalMsgId) {
+      foundInAllMessages = messages.find(m => {
+        const mKey = getMessageKey(m);
+        const mId = m.id !== undefined && m.id !== null ? String(m.id) : (m.uid ? String(m.uid) : null);
+        return mKey === originalMsgId || mId === originalMsgId;
+      });
+    }
+
+    if (!foundInAllMessages && cleanSnippet) {
+      foundInAllMessages = messages.find(m => {
+        const mClean = cleanMessageBody(m.body || "").replace(/\n/g, ' ').trim();
+        return mClean === cleanSnippet || mClean.startsWith(cleanSnippet) || cleanSnippet.startsWith(mClean);
+      });
+    }
+
+    if (foundInAllMessages) {
+      const targetKey = getMessageKey(foundInAllMessages);
+      setThreadMessages(prev => {
+        if (prev.some(m => getMessageKey(m) === targetKey)) return prev;
+        return [...prev, foundInAllMessages];
+      });
+
+      setTimeout(() => {
+        const el = document.getElementById(`casbox-msg-${targetKey}`);
+        if (el) {
+          highlightElement(el, targetKey);
+        } else {
+          toast("Original message is unavailable.", { icon: "ℹ️" });
+        }
+      }, 100);
+      return;
+    }
+
+    // 4. Fetch the full conversation thread from server if not loaded yet
+    const otherEmail = selectedMessage ? getOtherUserEmail(selectedMessage) : null;
+    if (otherEmail) {
+      try {
+        const res = await casboxAPI.getThread(otherEmail);
+        const data = res.data || [];
+        const serverFiltered = data.filter(m => {
+          const id = m.id !== undefined ? m.id : m.uid;
+          const strId = id !== undefined && id !== null ? String(id) : null;
+          const fallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+          return !(
+            deletedMessageIdsRef.current.has(id) ||
+            (strId && deletedMessageIdsRef.current.has(strId)) ||
+            deletedMessageIdsRef.current.has(fallbackId)
+          );
+        });
+
+        let serverMatch = null;
+        if (originalMsgId) {
+          serverMatch = serverFiltered.find(m => {
+            const mKey = getMessageKey(m);
+            const mId = m.id !== undefined && m.id !== null ? String(m.id) : (m.uid ? String(m.uid) : null);
+            return mKey === originalMsgId || mId === originalMsgId;
+          });
+        }
+        if (!serverMatch && cleanSnippet) {
+          serverMatch = serverFiltered.find(m => {
+            const mClean = cleanMessageBody(m.body || "").replace(/\n/g, ' ').trim();
+            return mClean === cleanSnippet || mClean.startsWith(cleanSnippet) || cleanSnippet.startsWith(mClean);
+          });
+        }
+
+        if (serverMatch) {
+          setThreadMessages(serverFiltered);
+          const targetKey = getMessageKey(serverMatch);
+          setTimeout(() => {
+            const el = document.getElementById(`casbox-msg-${targetKey}`);
+            if (el) {
+              highlightElement(el, targetKey);
+            } else {
+              toast("Original message is unavailable.", { icon: "ℹ️" });
+            }
+          }, 120);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to load thread for reply navigation", err);
+      }
+    }
+
+    // 5. If the original message cannot be found or has been deleted
+    toast("Original message is unavailable.", { icon: "ℹ️" });
+  }, [threadMessages, messages, getMessageKey, cleanMessageBody, selectedMessage, getOtherUserEmail]);
 
   const handleInitiateReply = useCallback((msg, senderLabel) => {
     setActiveMessageMenuId(null);
@@ -2065,7 +2223,7 @@ const Casbox = () => {
 
     let finalBody = trimmedText;
     if (typeof editingMessage.body === 'string') {
-      const match = editingMessage.body.match(/^(\[Replying to [^:]+:\s*"[^"]*"\]\n)/);
+      const match = editingMessage.body.match(/^(\[Replying to [^:]+:\s*"[\s\S]*?"\]\n)/);
       if (match) {
         finalBody = match[1] + trimmedText;
       }
@@ -2138,30 +2296,42 @@ const Casbox = () => {
 
   const renderReplyPreviewInBubble = useCallback((msg, isMe) => {
     if (!msg || typeof msg.body !== 'string') return null;
-    const match = msg.body.match(/^\[Replying to [^:]+:\s*"([\s\S]*?)"\]\n/);
-    if (!match) return null;
-    const quotedSnippet = match[1];
+    const parsed = parseReplyHeader(msg.body);
+    if (!parsed) return null;
+    const { quotedSender, originalMsgId, quotedSnippet } = parsed;
 
     return (
       <div
-        className={`mb-1.5 p-2 rounded-xl text-[11px] border-l-4 select-none ${
+        onClick={(e) => {
+          e.stopPropagation();
+          handleNavigateToOriginalMessage(originalMsgId, quotedSnippet, quotedSender);
+        }}
+        className={`mb-1.5 p-2 rounded-xl text-[11px] border-l-4 select-none cursor-pointer hover:opacity-90 active:scale-[0.99] transition-all ${
           isMe
-            ? 'bg-black/15 text-white border-white/70'
-            : 'bg-black/5 dark:bg-white/5 text-gray-700 dark:text-gray-200 border-blue-500 dark:border-blue-400'
+            ? 'bg-black/15 text-white border-white/70 hover:bg-black/25'
+            : 'bg-black/5 dark:bg-white/5 text-gray-700 dark:text-gray-200 border-blue-500 dark:border-blue-400 hover:bg-black/10 dark:hover:bg-white/10'
         }`}
+        title="Click to jump to original message"
       >
+        {quotedSender && (
+          <div className={`font-bold text-[10px] leading-tight mb-0.5 truncate ${
+            isMe ? 'text-white/95' : 'text-blue-600 dark:text-blue-400'
+          }`}>
+            {quotedSender}
+          </div>
+        )}
         <div className="line-clamp-2 leading-relaxed opacity-90 text-[11px] break-words">
           {quotedSnippet}
         </div>
       </div>
     );
-  }, []);
+  }, [parseReplyHeader, handleNavigateToOriginalMessage]);
 
   const renderForwardPreviewInBubble = useCallback((msg, isMe) => {
     if (!msg || typeof msg.body !== 'string') return null;
     let body = msg.body;
-    const replyMatch = body.match(/^\[Replying to [^:]+:\s*"[^"]*"\]\n([\s\S]*)$/);
-    if (replyMatch) body = replyMatch[1];
+    const replyMatch = body.match(/^\[Replying to [^:]+:\s*"[\s\S]*?"\]\n([\s\S]*)$/);
+    if (replyMatch) body = replyMatch[2];
 
     const match = body.match(/^\[Forwarded(?: from ([^\]]+))?\]\n/);
     if (!match) return null;
@@ -3954,7 +4124,9 @@ const Casbox = () => {
       let messageBody = newChatText.trim();
       if (replyingToMessage) {
         const quoteSnippet = (cleanMessageBody(replyingToMessage.body) || "").replace(/\n/g, ' ').slice(0, 100);
-        messageBody = `[Replying to ${replyingToMessage.senderLabel}: "${quoteSnippet}"]\n${messageBody}`;
+        const originalMsgId = getMessageKey(replyingToMessage) || (replyingToMessage.id !== undefined && replyingToMessage.id !== null ? String(replyingToMessage.id) : (replyingToMessage.uid || `${replyingToMessage.timestamp}-${replyingToMessage.senderEmail || replyingToMessage.sender}-${replyingToMessage.body}`));
+        const sLabel = replyingToMessage.senderLabel || (isCurrentUser(replyingToMessage.senderEmail || replyingToMessage.sender) ? (user?.username || 'You') : getDisplayName(replyingToMessage.senderEmail || replyingToMessage.sender, replyingToMessage));
+        messageBody = `[Replying to ${sLabel} id=${originalMsgId}: "${quoteSnippet}"]\n${messageBody}`;
       }
 
       const payload = {
@@ -6722,8 +6894,8 @@ const Casbox = () => {
                   <div className="flex-1 flex flex-col items-start min-w-0">
                     <div 
                       id={`casbox-msg-${msgUniqueId}`}
-                      className={`max-w-[92%] sm:max-w-[85%] flex flex-col items-start min-w-0 rounded-2xl transition-all duration-300 ${
-                        highlightedMessageId === msgUniqueId ? 'ring-2 ring-blue-500/80 bg-blue-50/30 dark:bg-blue-900/20 p-1 -m-1' : ''
+                      className={`max-w-[92%] sm:max-w-[85%] flex flex-col items-start min-w-0 rounded-2xl transition-all duration-500 ${
+                        highlightedMessageId === msgUniqueId ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-[#121212] bg-blue-100/60 dark:bg-blue-900/40 p-1 -m-1 shadow-md scale-[1.01]' : ''
                       }`}
                     >
                       {/* Bubble + Three Dot Action Container */}
