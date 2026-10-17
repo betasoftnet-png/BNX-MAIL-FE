@@ -6,6 +6,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { DEFAULT_TEMPLATES } from "./Templates";
 import { handleStandardInputAutoCorrect } from "../utils/autoCorrect";
+import { extractPlainTextFromHtml } from "../utils/htmlUtils";
 
 
 const getFontFamilyCss = (font) => {
@@ -421,7 +422,7 @@ const ComposePage = () => {
             cc: formData.cc || "",
             bcc: formData.bcc || "",
             body: formData.body || "",
-            textPlain: formData.body || "",
+            textPlain: extractPlainTextFromHtml(formData.body || ""),
             htmlBody: formData.body || "",
           });
         }

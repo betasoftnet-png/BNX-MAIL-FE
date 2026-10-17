@@ -24,6 +24,7 @@ import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import ImageResize from 'quill-image-resize-module-react';
 import { attachQuillAutoCorrect, handleStandardInputAutoCorrect } from "../utils/autoCorrect";
+import { extractPlainTextFromHtml } from "../utils/htmlUtils";
 
 // For quill-image-resize-module-react
 window.Quill = Quill;
@@ -1012,7 +1013,7 @@ const FloatingCompose = () => {
           cc: formData.cc || "",
           bcc: formData.bcc || "",
           body: formData.body || "",
-          textPlain: formData.body || "",
+          textPlain: extractPlainTextFromHtml(formData.body || ""),
           htmlBody: formData.body || "",
         });
       }
@@ -1098,7 +1099,7 @@ const FloatingCompose = () => {
             cc: formData.cc || "",
             bcc: formData.bcc || "",
             body: formData.body || "",
-            textPlain: formData.body || "",
+            textPlain: extractPlainTextFromHtml(formData.body || ""),
             htmlBody: formData.body || "",
           });
         }

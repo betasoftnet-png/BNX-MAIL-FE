@@ -4,6 +4,7 @@ import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, M
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
+import { getEmailPreviewSnippet } from "../utils/htmlUtils";
 
 const EmailList = ({
   emails,
@@ -334,22 +335,15 @@ const EmailList = ({
                     >
                       {email.subject || "(No Subject)"}
                     </span>
-                    <span className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 truncate font-normal hidden sm:inline">
-                      — {(() => {
-                        if (email.textPlain && email.textPlain.trim().length > 0) {
-                          return email.textPlain.replace(/\s+/g, " ");
-                        }
-                        if (email.body) {
-                          // Strip <style> tags and all other HTML tags
-                          const noStyle = email.body.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-                          const noTags = noStyle.replace(/<[^>]+>/g, ' ');
-                          // Decode basic HTML entities to avoid &nbsp; etc.
-                          const decoded = noTags.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>');
-                          return decoded.replace(/\s+/g, " ").trim();
-                        }
-                        return "";
-                      })()}
-                    </span>
+                    {(() => {
+                      const snippet = getEmailPreviewSnippet(email);
+                      if (!snippet) return null;
+                      return (
+                        <span className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 truncate font-normal hidden sm:inline">
+                          — {snippet}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   {/* Labels */}

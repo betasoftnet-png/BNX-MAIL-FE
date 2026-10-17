@@ -19,6 +19,7 @@ import { useTheme } from "../context/ThemeContext";
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import toast from "react-hot-toast";
+import { getEmailPreviewSnippet } from "../utils/htmlUtils";
 
 const getSourceGroup = (email) => {
   const { t } = useTranslation();
@@ -467,11 +468,7 @@ const Notification = ({ searchQuery }) => {
                     {group.emails.map(email => {
                       const isUnread = !email.isRead;
                       const isSelected = String(email.uid) === String(selectedEmailUid);
-                      const snippet = email.textPlain 
-                        ? email.textPlain.substring(0, 100) 
-                        : email.body 
-                          ? email.body.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').substring(0, 100).trim()
-                          : "";
+                      const snippet = getEmailPreviewSnippet(email);
                       
                       return (
                         <div
