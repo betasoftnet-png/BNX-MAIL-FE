@@ -280,6 +280,8 @@ const ComposePage = () => {
 
       if (response.data?.success) {
         setSuccess("Email scheduled successfully");
+        if (invalidateCache) invalidateCache('scheduled');
+        window.dispatchEvent(new CustomEvent('bnx_scheduled_changed'));
         setTimeout(() => navigate("/scheduled"), 1200);
       }
     } catch (err) {

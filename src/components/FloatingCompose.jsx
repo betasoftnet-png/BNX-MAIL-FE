@@ -891,6 +891,8 @@ const FloatingCompose = () => {
       if (response.data?.success) {
         setSuccess("Email scheduled successfully");
         toast.success("Email scheduled successfully");
+        if (invalidateCache) invalidateCache('scheduled');
+        window.dispatchEvent(new CustomEvent('bnx_scheduled_changed'));
         setTimeout(() => {
           closeCompose();
         }, 1000);

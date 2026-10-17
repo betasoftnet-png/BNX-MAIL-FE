@@ -165,6 +165,7 @@ export const MailProvider = ({ children }) => {
                 case 'spam': res = await mailAPI.getSpam(targetPage, limit); break;
                 case 'snoozed': res = await mailAPI.getSnoozed(targetPage, limit); break;
                 case 'archive': res = await mailAPI.getArchive(targetPage, limit); break;
+                case 'scheduled': res = await mailAPI.getScheduled(); break;
                 case 'unread': {
                     try {
                         res = await mailAPI.getUnread(targetPage, limit);
@@ -305,11 +306,12 @@ export const MailProvider = ({ children }) => {
         
         if (!user) return;
 
-        // Check in-memory cache if available and silent
-        if (silent && pagesCache.current[folderKey] && pagesCache.current[folderKey][targetPage]) {
+        // Instant render: if in-memory cache has data for this folder & page, display it immediately!
+        if (pagesCache.current[folderKey] && pagesCache.current[folderKey][targetPage]) {
             setEmails(pagesCache.current[folderKey][targetPage]);
             setCurrentFolder(folder);
             currentFolderRef.current = folder;
+            setLoading(false);
             fetchEmailsSilently(folder, targetPage);
             return;
         }
@@ -335,6 +337,7 @@ export const MailProvider = ({ children }) => {
                 case 'spam': res = await mailAPI.getSpam(targetPage, limit); break;
                 case 'snoozed': res = await mailAPI.getSnoozed(targetPage, limit); break;
                 case 'archive': res = await mailAPI.getArchive(targetPage, limit); break;
+                case 'scheduled': res = await mailAPI.getScheduled(); break;
                 case 'unread': {
                     try {
                         res = await mailAPI.getUnread(targetPage, limit);
@@ -552,7 +555,7 @@ export const MailProvider = ({ children }) => {
                 const countKey = folderKey.replace('-', '').replace(' ', '');
                 const unread = folderKey === 'spam'
                     ? normalizedEmails.filter(e => !e.isRead).length
-                    : (data.unreadCount !== undefined ? data.unreadCount : normalizedEmails.filter(e => !e.isRead).length);
+                    : (folderKey === 'scheduled' ? normalizedEmails.length : (data.unreadCount !== undefined ? data.unreadCount : normalizedEmails.filter(e => !e.isRead).length));
 
                 setUnreadCounts(prev => {
                     const next = { ...prev, [countKey]: unread };
