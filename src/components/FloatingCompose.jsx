@@ -11,8 +11,7 @@ import {
   MdCloseFullscreen,
   MdEditDocument,
   MdReply,
-  MdArrowDropDown,
-  MdSave
+  MdArrowDropDown
 } from "react-icons/md";
 import { mailAPI, api, userAPI, signatureAPI, casboxAPI, settingsAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
@@ -1852,16 +1851,6 @@ const FloatingCompose = () => {
                     </div>
                   )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => saveCurrentDraft(true)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors cursor-pointer"
-                  title="Save draft"
-                >
-                  <MdSave size={18} />
-                  <span className="hidden sm:inline">{t('compose.saveDraft', 'Save draft')}</span>
-                </button>
 
                 <button
                   type="button"

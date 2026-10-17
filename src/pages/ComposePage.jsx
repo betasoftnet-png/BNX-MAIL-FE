@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MdSend, MdAttachFile, MdDeleteOutline, MdClose, MdAssignment, MdSave } from "react-icons/md";
+import { MdSend, MdAttachFile, MdDeleteOutline, MdClose, MdAssignment } from "react-icons/md";
 import { mailAPI, userAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
@@ -701,16 +701,6 @@ const ComposePage = () => {
                   )}
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={saveCurrentDraft}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 font-medium transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700 cursor-pointer"
-                title="Save draft"
-              >
-                <MdSave size={20} />
-                <span>Save draft</span>
-              </button>
 
               <button
                 type="button"
