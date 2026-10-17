@@ -1023,40 +1023,9 @@ const FloatingCompose = () => {
     }
   };
 
-  const handleClose = async () => {
-    if (!isFormDirty()) {
-      closeCompose();
-      return;
-    }
-
-    const isExistingDraft = Boolean(imapDraftUidRef.current || draftId || composeData?.draft);
-
-    if (isExistingDraft) {
-      const confirmSave = window.confirm(
-        "You have unsaved changes to this draft.\n\n" +
-        "Click 'OK' to save your changes to the draft.\n" +
-        "Click 'Cancel' to keep the original saved draft without overwriting it."
-      );
-      if (confirmSave) {
-        await saveCurrentDraft(false);
-      }
-      closeCompose();
-      return;
-    }
-
-    const hasContent = Boolean(
-      formData.to?.trim() ||
-      formData.subject?.trim() ||
-      formData.body?.trim() ||
-      formData.cc?.trim() ||
-      formData.bcc?.trim()
-    );
-    if (hasContent && (composeMode === "mail" || composeMode === "email")) {
-      const confirmSaveNew = window.confirm("Save this message as a draft before closing?");
-      if (confirmSaveNew) {
-        await saveCurrentDraft(false);
-      }
-    }
+  const handleClose = () => {
+    // Immediately close composer without browser alert.
+    // Discards only in-memory unsaved edits, preserving the original saved draft untouched.
     closeCompose();
   };
 

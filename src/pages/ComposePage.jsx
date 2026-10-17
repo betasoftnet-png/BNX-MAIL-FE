@@ -388,40 +388,9 @@ const ComposePage = () => {
     }
   };
 
-  const handleClose = async () => {
-    if (!isFormDirty()) {
-      navigate("/inbox");
-      return;
-    }
-
-    const isExistingDraft = Boolean(draftUidRef.current || location.state?.draft);
-
-    if (isExistingDraft) {
-      const confirmSave = window.confirm(
-        "You have unsaved changes to this draft.\n\n" +
-        "Click 'OK' to save your changes to the draft.\n" +
-        "Click 'Cancel' to keep the original saved draft without overwriting it."
-      );
-      if (confirmSave) {
-        await saveCurrentDraft();
-      }
-      navigate("/inbox");
-      return;
-    }
-
-    const hasContent = Boolean(
-      formData.to?.trim() ||
-      formData.subject?.trim() ||
-      formData.body?.trim() ||
-      formData.cc?.trim() ||
-      formData.bcc?.trim()
-    );
-    if (hasContent) {
-      const confirmSaveNew = window.confirm("Save this message as a draft before closing?");
-      if (confirmSaveNew) {
-        await saveCurrentDraft();
-      }
-    }
+  const handleClose = () => {
+    // Immediately close composer and navigate back without browser alert.
+    // Discards only in-memory unsaved edits, preserving the original saved draft untouched.
     navigate("/inbox");
   };
 
