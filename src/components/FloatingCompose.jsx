@@ -582,8 +582,6 @@ const FloatingCompose = () => {
     }
   }, [composeData, isComposeOpen, signatures]);
 
-  if (!isComposeOpen) return null;
-
   const handleApplyTemplate = (template) => {
     const confirmApply =
       !formData.subject.trim() && !formData.body.trim()
@@ -985,7 +983,7 @@ const FloatingCompose = () => {
   };
 
   const saveCurrentDraft = async (showToast = true) => {
-    if (isSavingDraftRef.current) return;
+    if (!isComposeOpen || isSavingDraftRef.current) return;
     const hasContent = Boolean(
       formData.to?.trim() ||
       formData.subject?.trim() ||
@@ -1939,6 +1937,8 @@ const FloatingCompose = () => {
       </>
     );
   };
+
+  if (!isComposeOpen) return null;
 
   if (isMobile) {
     return (
