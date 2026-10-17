@@ -11,7 +11,8 @@ import {
   MdCloseFullscreen,
   MdEditDocument,
   MdReply,
-  MdArrowDropDown
+  MdArrowDropDown,
+  MdSave
 } from "react-icons/md";
 import { mailAPI, api, userAPI, signatureAPI, casboxAPI, settingsAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
@@ -243,6 +244,8 @@ const FloatingCompose = () => {
 
   const [draftId, setDraftId] = useState(null);
   const imapDraftUidRef = useRef(null);
+  const initialFormDataRef = useRef(null);
+  const isSavingDraftRef = useRef(false);
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
@@ -484,6 +487,7 @@ const FloatingCompose = () => {
       if (!signatureInjectedRef.current && signatures.length === 0) {
         setDraftId(null);
         imapDraftUidRef.current = null;
+        initialFormDataRef.current = null;
         setAttachments([]);
         setUploading(false);
       }
@@ -491,7 +495,7 @@ const FloatingCompose = () => {
       if (composeData) {
         if (!signatureInjectedRef.current) {
           if (composeData.replyTo || composeData.forward) {
-            setFormData({
+            const replyForm = {
               to: composeData.forward ? "" : composeData.replyTo,
               cc: "",
               bcc: "",
@@ -501,28 +505,34 @@ const FloatingCompose = () => {
                 : (composeData.originalBody && composeData.mode !== 'casbox' && composeData.mode !== 'chat'
                     ? `<br/><br/><div>--- Original Message ---<br/>${composeData.originalBody.replace(/\n/g, '<br/>')}</div>`
                     : ""),
-            });
+            };
+            setFormData(replyForm);
+            initialFormDataRef.current = { ...replyForm };
           } else if (composeData.draft) {
             const d = composeData.draft;
             imapDraftUidRef.current = d.uid;
             if (d.id) setDraftId(d.id);
-            setFormData({
+            const draftForm = {
               to: d.to || d.recipientEmail || "",
               cc: d.cc || "",
               bcc: d.bcc || "",
               subject: d.subject || "",
               body: d.body || d.textPlain || d.htmlBody || "",
-            });
+            };
+            setFormData(draftForm);
+            initialFormDataRef.current = { ...draftForm };
             if (d.cc) setShowCc(true);
             if (d.bcc) setShowBcc(true);
           } else {
-            setFormData({
+            const initialForm = {
               to: composeData.to || "",
               cc: composeData.cc || "",
               bcc: composeData.bcc || "",
               subject: composeData.subject || "",
               body: composeData.body || "",
-            });
+            };
+            setFormData(initialForm);
+            initialFormDataRef.current = { ...initialForm };
             if (composeData.cc) setShowCc(true);
             if (composeData.bcc) setShowBcc(true);
           }
@@ -927,10 +937,45 @@ const FloatingCompose = () => {
     ];
   };
 
-  const handleClose = () => {
-    const hasContent = formData.to.trim() || formData.subject.trim() || formData.body.trim() || formData.cc.trim() || formData.bcc.trim();
-    if (hasContent && (composeMode === "mail" || composeMode === "email")) {
+  const isFormDirty = () => {
+    if (!initialFormDataRef.current) {
+      return Boolean(
+        formData.to?.trim() ||
+        formData.subject?.trim() ||
+        formData.body?.trim() ||
+        formData.cc?.trim() ||
+        formData.bcc?.trim()
+      );
+    }
+    const init = initialFormDataRef.current;
+    return (
+      (formData.to || '').trim() !== (init.to || '').trim() ||
+      (formData.cc || '').trim() !== (init.cc || '').trim() ||
+      (formData.bcc || '').trim() !== (init.bcc || '').trim() ||
+      (formData.subject || '').trim() !== (init.subject || '').trim() ||
+      (formData.body || '').trim() !== (init.body || '').trim()
+    );
+  };
+
+  const saveCurrentDraft = async (showToast = true) => {
+    if (isSavingDraftRef.current) return;
+    const hasContent = Boolean(
+      formData.to?.trim() ||
+      formData.subject?.trim() ||
+      formData.body?.trim() ||
+      formData.cc?.trim() ||
+      formData.bcc?.trim()
+    );
+    if (!hasContent) return;
+
+    try {
+      isSavingDraftRef.current = true;
+      const targetUid = imapDraftUidRef.current ? String(imapDraftUidRef.current) : (composeData?.draft?.uid ? String(composeData.draft.uid) : null);
+      const targetId = draftId || composeData?.draft?.id || null;
+
       const payload = {
+        uid: targetUid,
+        id: targetId,
         to: formData.to,
         subject: formData.subject || "(No Subject)",
         body: getFinalBody(formData.body),
@@ -939,26 +984,76 @@ const FloatingCompose = () => {
       if (formData.cc) payload.cc = formData.cc;
       if (formData.bcc) payload.bcc = formData.bcc;
 
-      // Save draft in the background silently
-      mailAPI.saveDraft(payload)
-        .then(() => {
-          if (imapDraftUidRef.current) {
-            mailAPI.trash(imapDraftUidRef.current, "Drafts").catch(console.error);
-            imapDraftUidRef.current = null;
-          }
-          if (invalidateCache) {
-            invalidateCache('draft');
-            invalidateCache('drafts');
-          }
-          if (currentFolder?.toLowerCase() === 'draft' || currentFolder?.toLowerCase() === 'drafts') {
-            fetchEmails('draft', true);
-          } else if (fetchEmailsSilently) {
-            fetchEmailsSilently('drafts');
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to auto-save draft in the background:", err);
-        });
+      const res = await mailAPI.saveDraft(payload);
+      const savedData = res.data?.data;
+      if (savedData && savedData.uid) {
+        imapDraftUidRef.current = savedData.uid;
+      }
+
+      initialFormDataRef.current = {
+        to: formData.to,
+        cc: formData.cc,
+        bcc: formData.bcc,
+        subject: formData.subject,
+        body: formData.body,
+      };
+
+      if (invalidateCache) {
+        invalidateCache('draft');
+        invalidateCache('drafts');
+      }
+      if (currentFolder?.toLowerCase() === 'draft' || currentFolder?.toLowerCase() === 'drafts') {
+        fetchEmails('draft', true);
+      } else if (fetchEmailsSilently) {
+        fetchEmailsSilently('drafts');
+      }
+
+      if (showToast) {
+        toast.success("Draft saved");
+      }
+    } catch (err) {
+      console.error("Failed to save draft:", err);
+      if (showToast) {
+        toast.error("Failed to save draft");
+      }
+    } finally {
+      isSavingDraftRef.current = false;
+    }
+  };
+
+  const handleClose = async () => {
+    if (!isFormDirty()) {
+      closeCompose();
+      return;
+    }
+
+    const isExistingDraft = Boolean(imapDraftUidRef.current || draftId || composeData?.draft);
+
+    if (isExistingDraft) {
+      const confirmSave = window.confirm(
+        "You have unsaved changes to this draft.\n\n" +
+        "Click 'OK' to save your changes to the draft.\n" +
+        "Click 'Cancel' to keep the original saved draft without overwriting it."
+      );
+      if (confirmSave) {
+        await saveCurrentDraft(false);
+      }
+      closeCompose();
+      return;
+    }
+
+    const hasContent = Boolean(
+      formData.to?.trim() ||
+      formData.subject?.trim() ||
+      formData.body?.trim() ||
+      formData.cc?.trim() ||
+      formData.bcc?.trim()
+    );
+    if (hasContent && (composeMode === "mail" || composeMode === "email")) {
+      const confirmSaveNew = window.confirm("Save this message as a draft before closing?");
+      if (confirmSaveNew) {
+        await saveCurrentDraft(false);
+      }
     }
     closeCompose();
   };
@@ -1786,6 +1881,16 @@ const FloatingCompose = () => {
                     </div>
                   )}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => saveCurrentDraft(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors cursor-pointer"
+                  title="Save draft"
+                >
+                  <MdSave size={18} />
+                  <span className="hidden sm:inline">{t('compose.saveDraft', 'Save draft')}</span>
+                </button>
 
                 <button
                   type="button"

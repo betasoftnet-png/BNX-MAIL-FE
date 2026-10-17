@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MdSend, MdAttachFile, MdDeleteOutline, MdClose, MdAssignment } from "react-icons/md";
+import { MdSend, MdAttachFile, MdDeleteOutline, MdClose, MdAssignment, MdSave } from "react-icons/md";
 import { mailAPI, userAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
@@ -107,6 +107,10 @@ const ComposePage = () => {
   const [showCustomSchedule, setShowCustomSchedule] = useState(false);
   const [customScheduleDateTime, setCustomScheduleDateTime] = useState("");
 
+  const draftUidRef = useRef(null);
+  const initialFormDataRef = useRef(null);
+  const isSavingDraftRef = useRef(false);
+
   const [formData, setFormData] = useState({
     to: "",
     cc: "",
@@ -141,26 +145,31 @@ const ComposePage = () => {
         }));
       } else if (location.state.draft) {
         const d = location.state.draft;
-        setFormData({
+        draftUidRef.current = d.uid;
+        const draftForm = {
           to: d.to || "",
           cc: d.cc || "",
           bcc: d.bcc || "",
           subject: d.subject || "",
           body: d.body || "",
-        });
+        };
+        setFormData(draftForm);
+        initialFormDataRef.current = { ...draftForm };
         if (d.cc) setShowCc(true);
         if (d.bcc) setShowBcc(true);
       } else {
         const newTo = location.state.to !== undefined ? location.state.to : "";
         const newCc = location.state.cc !== undefined ? location.state.cc : "";
         const newBcc = location.state.bcc !== undefined ? location.state.bcc : "";
-        setFormData({
+        const initialForm = {
           to: newTo,
           cc: newCc,
           bcc: newBcc,
           subject: location.state.subject || "",
           body: location.state.body || "",
-        });
+        };
+        setFormData(initialForm);
+        initialFormDataRef.current = { ...initialForm };
         if (newCc) setShowCc(true);
         if (newBcc) setShowBcc(true);
       }
@@ -314,31 +323,102 @@ const ComposePage = () => {
     ];
   };
 
-  const handleClose = () => {
-    const hasContent = formData.to.trim() || formData.subject.trim() || formData.body.trim() || formData.cc.trim() || formData.bcc.trim();
-    if (hasContent) {
+  const isFormDirty = () => {
+    if (!initialFormDataRef.current) {
+      return Boolean(
+        formData.to?.trim() ||
+        formData.subject?.trim() ||
+        formData.body?.trim() ||
+        formData.cc?.trim() ||
+        formData.bcc?.trim()
+      );
+    }
+    const init = initialFormDataRef.current;
+    return (
+      (formData.to || '').trim() !== (init.to || '').trim() ||
+      (formData.cc || '').trim() !== (init.cc || '').trim() ||
+      (formData.bcc || '').trim() !== (init.bcc || '').trim() ||
+      (formData.subject || '').trim() !== (init.subject || '').trim() ||
+      (formData.body || '').trim() !== (init.body || '').trim()
+    );
+  };
+
+  const saveCurrentDraft = async () => {
+    if (isSavingDraftRef.current) return;
+    const hasContent = Boolean(
+      formData.to?.trim() ||
+      formData.subject?.trim() ||
+      formData.body?.trim() ||
+      formData.cc?.trim() ||
+      formData.bcc?.trim()
+    );
+    if (!hasContent) return;
+
+    try {
+      isSavingDraftRef.current = true;
       const payload = {
+        uid: draftUidRef.current ? String(draftUidRef.current) : null,
         to: formData.to,
         subject: formData.subject || "(No Subject)",
         body: formData.body,
+        isHtml: true,
       };
       if (formData.cc) payload.cc = formData.cc;
       if (formData.bcc) payload.bcc = formData.bcc;
 
-      // Save draft in the background
-      mailAPI.saveDraft(payload)
-        .then(() => {
-          if (invalidateCache) {
-            invalidateCache('draft');
-            invalidateCache('drafts');
-          }
-          if (fetchEmailsSilently) {
-            fetchEmailsSilently('drafts');
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to auto-save draft in the background:", err);
-        });
+      const res = await mailAPI.saveDraft(payload);
+      if (res.data?.data?.uid) {
+        draftUidRef.current = res.data.data.uid;
+      }
+      initialFormDataRef.current = { ...formData };
+
+      if (invalidateCache) {
+        invalidateCache('draft');
+        invalidateCache('drafts');
+      }
+      if (fetchEmailsSilently) {
+        fetchEmailsSilently('drafts');
+      }
+    } catch (err) {
+      console.error("Failed to save draft:", err);
+    } finally {
+      isSavingDraftRef.current = false;
+    }
+  };
+
+  const handleClose = async () => {
+    if (!isFormDirty()) {
+      navigate("/inbox");
+      return;
+    }
+
+    const isExistingDraft = Boolean(draftUidRef.current || location.state?.draft);
+
+    if (isExistingDraft) {
+      const confirmSave = window.confirm(
+        "You have unsaved changes to this draft.\n\n" +
+        "Click 'OK' to save your changes to the draft.\n" +
+        "Click 'Cancel' to keep the original saved draft without overwriting it."
+      );
+      if (confirmSave) {
+        await saveCurrentDraft();
+      }
+      navigate("/inbox");
+      return;
+    }
+
+    const hasContent = Boolean(
+      formData.to?.trim() ||
+      formData.subject?.trim() ||
+      formData.body?.trim() ||
+      formData.cc?.trim() ||
+      formData.bcc?.trim()
+    );
+    if (hasContent) {
+      const confirmSaveNew = window.confirm("Save this message as a draft before closing?");
+      if (confirmSaveNew) {
+        await saveCurrentDraft();
+      }
     }
     navigate("/inbox");
   };
@@ -653,9 +733,18 @@ const ComposePage = () => {
 
               <button
                 type="button"
+                onClick={saveCurrentDraft}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 font-medium transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700 cursor-pointer"
+                title="Save draft"
+              >
+                <MdSave size={20} />
+                <span>Save draft</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleDiscard}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium transition-colors border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
-
               >
                 <MdDeleteOutline size={20} />
                 <span>Discard</span>
