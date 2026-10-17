@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -300,7 +300,7 @@ const EmailDetails = ({
         const uploadRes = await mailAPI.uploadDraftAttachment(activeDraftId, fileForm);
         if (uploadRes.data?.success) {
           const info = uploadRes.data.data;
-          setAttachments((prev) => [...prev, info]);
+          setAttachments((prev) => [...prev, { ...info, rawFile: file }]);
           toast.success(`${file.name} uploaded`, { id: "upload-attachment" });
         } else {
           throw new Error(`Failed to upload ${file.name}`);
@@ -819,19 +819,32 @@ const EmailDetails = ({
         return {};
       });
     };
-  }, [email]);
+  }, [email?.uid, email?.attachments?.length]);
 
   const [previewFile, setPreviewFile] = useState(null);
   const [bounceDetails, setBounceDetails] = useState("");
 
+  const currentEmailUidRef = useRef(email?.uid);
+  React.useEffect(() => {
+    // Only close/reset preview if user navigated to a different email (different uid)
+    if (email?.uid && currentEmailUidRef.current && String(currentEmailUidRef.current) !== String(email.uid)) {
+      setPreviewFile((prev) => {
+        if (prev?.blobUrl) URL.revokeObjectURL(prev.blobUrl);
+        return null;
+      });
+    }
+    currentEmailUidRef.current = email?.uid;
+  }, [email?.uid]);
+
+  // Clean up object URL when EmailDetails unmounts
   React.useEffect(() => {
     return () => {
       setPreviewFile((prev) => {
-        if (prev) URL.revokeObjectURL(prev.blobUrl);
+        if (prev?.blobUrl) URL.revokeObjectURL(prev.blobUrl);
         return null;
       });
     };
-  }, [email]);
+  }, []);
 
   React.useEffect(() => {
     if (!email || !email.attachments) {
@@ -861,17 +874,26 @@ const EmailDetails = ({
         }
       }
     });
-  }, [email]);
+  }, [email?.uid, email?.attachments?.length]);
 
   const closePreview = () => {
     setPreviewFile((prev) => {
-      if (prev) URL.revokeObjectURL(prev.blobUrl);
+      if (prev?.blobUrl) URL.revokeObjectURL(prev.blobUrl);
       return null;
     });
   };
 
   const handleDownloadAttachment = async (fileName) => {
     try {
+      if (previewFile?.rawFile instanceof Blob && previewFile.fileName === fileName) {
+        const link = document.createElement("a");
+        link.href = previewFile.blobUrl;
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        return;
+      }
       toast.loading(`Downloading ${fileName}...`, { id: "download-attachment" });
       const res = await mailAPI.downloadAttachment(email.uid, fileName, getFolder());
       const url = window.URL.createObjectURL(new Blob([res.data]));
@@ -888,27 +910,39 @@ const EmailDetails = ({
     }
   };
 
-  const handlePreviewAttachment = async (fileName) => {
+  const handlePreviewAttachment = async (fileItem) => {
     try {
+      const fileName = typeof fileItem === 'string' ? fileItem : (fileItem.fileName || fileItem.name);
       toast.loading(`Loading preview...`, { id: "preview-attachment" });
-      const res = await mailAPI.downloadAttachment(email.uid, fileName, getFolder());
       const mime = getMimeType(fileName);
       
+      let url = "";
       let textContent = "";
-      if (mime === "text/plain") {
-        const reader = new FileReader();
-        textContent = await new Promise((resolve) => {
-          reader.onload = () => resolve(reader.result);
-          reader.readAsText(new Blob([res.data]));
-        });
+
+      if (fileItem?.rawFile instanceof Blob) {
+        url = window.URL.createObjectURL(fileItem.rawFile);
+        if (mime === "text/plain") {
+          textContent = await fileItem.rawFile.text();
+        }
+      } else {
+        const res = await mailAPI.downloadAttachment(email.uid, fileName, getFolder());
+        const blob = new Blob([res.data], { type: mime });
+        url = window.URL.createObjectURL(blob);
+        if (mime === "text/plain") {
+          const reader = new FileReader();
+          textContent = await new Promise((resolve) => {
+            reader.onload = () => resolve(reader.result);
+            reader.readAsText(blob);
+          });
+        }
       }
 
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: mime }));
       setPreviewFile({
         fileName,
         blobUrl: url,
         mimeType: mime,
-        textContent
+        textContent,
+        rawFile: fileItem?.rawFile
       });
       toast.success("Loaded preview", { id: "preview-attachment" });
     } catch (err) {
@@ -1351,12 +1385,26 @@ const EmailDetails = ({
             <div className="flex flex-wrap gap-2 py-2 mt-2 border-t" style={{ borderColor: theme.border }}>
               {attachments.map((file, i) => (
                 <div 
-                  key={i}
+                  key={file.fileName || i}
                   className="flex items-center gap-2 bg-black/[0.03] dark:bg-white/[0.04] border px-2.5 py-1 rounded-xl text-xs"
                   style={{ borderColor: theme.border, color: theme.text }}
                 >
-                  <span className="truncate max-w-[150px]">{file.fileName}</span>
-                  <span className="opacity-55 font-medium">({Math.round(file.size / 1024)} KB)</span>
+                  <span 
+                    onClick={() => handlePreviewAttachment(file)}
+                    className="truncate max-w-[150px] cursor-pointer hover:underline text-blue-600 dark:text-blue-400"
+                    title="Click to preview"
+                  >
+                    {file.fileName}
+                  </span>
+                  <span className="opacity-55 font-medium">({Math.round((file.size || 0) / 1024)} KB)</span>
+                  <button 
+                    type="button" 
+                    onClick={() => handlePreviewAttachment(file)}
+                    className="text-gray-500 hover:text-blue-600 transition-colors p-0.5 rounded cursor-pointer"
+                    title="Preview attachment"
+                  >
+                    <MdRemoveRedEye size={14} />
+                  </button>
                   <button 
                     type="button" 
                     onClick={() => handleRemoveAttachment(file.fileName)}

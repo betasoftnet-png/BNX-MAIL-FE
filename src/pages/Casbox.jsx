@@ -2872,14 +2872,26 @@ const Casbox = () => {
     acceptedSetRef.current = acceptedSet;
   }, [acceptedSet]);
 
+  const currentMsgIdRef = useRef(selectedMessage?.id !== undefined ? selectedMessage.id : selectedMessage?.uid);
+  React.useEffect(() => {
+    const nextId = selectedMessage?.id !== undefined ? selectedMessage.id : selectedMessage?.uid;
+    if (nextId && currentMsgIdRef.current && String(currentMsgIdRef.current) !== String(nextId)) {
+      setPreviewFile((prev) => {
+        if (prev?.blobUrl) URL.revokeObjectURL(prev.blobUrl);
+        return null;
+      });
+    }
+    currentMsgIdRef.current = nextId;
+  }, [selectedMessage?.id, selectedMessage?.uid]);
+
   React.useEffect(() => {
     return () => {
       setPreviewFile((prev) => {
-        if (prev) URL.revokeObjectURL(prev.blobUrl);
+        if (prev?.blobUrl) URL.revokeObjectURL(prev.blobUrl);
         return null;
       });
     };
-  }, [selectedMessage]);
+  }, []);
 
   const fetchThread = async (contactEmail) => {
     try {

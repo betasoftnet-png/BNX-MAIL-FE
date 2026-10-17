@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Rnd } from "react-rnd";
 import { 
   MdSend, 
@@ -11,7 +12,9 @@ import {
   MdCloseFullscreen,
   MdEditDocument,
   MdReply,
-  MdArrowDropDown
+  MdArrowDropDown,
+  MdFileDownload,
+  MdRemoveRedEye
 } from "react-icons/md";
 import { mailAPI, api, userAPI, signatureAPI, casboxAPI, settingsAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
@@ -57,6 +60,23 @@ Quill.register(Size, true);
 if (!Quill.imports['modules/imageResize']) {
   Quill.register('modules/imageResize', ImageResize, true);
 }
+
+const getMimeType = (fileName) => {
+  if (!fileName || typeof fileName !== "string") return "application/octet-stream";
+  const ext = fileName.split('.').pop().toLowerCase();
+  switch (ext) {
+    case 'pdf': return 'application/pdf';
+    case 'png': return 'image/png';
+    case 'jpg':
+    case 'jpeg': return 'image/jpeg';
+    case 'gif': return 'image/gif';
+    case 'webp': return 'image/webp';
+    case 'svg': return 'image/svg+xml';
+    case 'txt': return 'text/plain';
+    case 'html': return 'text/html';
+    default: return 'application/octet-stream';
+  }
+};
 
 const handleQuillLink = function(value) {
   if (value) {
@@ -253,9 +273,130 @@ const FloatingCompose = () => {
   const selectedDraftIdRef = useRef(null);
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const [showCustomSchedule, setShowCustomSchedule] = useState(false);
   const [customScheduleDateTime, setCustomScheduleDateTime] = useState("");
+
+  const closePreview = () => {
+    setPreviewFile((prev) => {
+      if (prev?.blobUrl) URL.revokeObjectURL(prev.blobUrl);
+      return null;
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      setPreviewFile((prev) => {
+        if (prev?.blobUrl) URL.revokeObjectURL(prev.blobUrl);
+        return null;
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isComposeOpen) {
+      closePreview();
+    }
+  }, [isComposeOpen]);
+
+  const handlePreviewAttachment = async (fileItem) => {
+    try {
+      const fileName = typeof fileItem === 'string' ? fileItem : (fileItem.fileName || fileItem.name);
+      toast.loading(`Loading preview...`, { id: "preview-attachment" });
+      const mime = getMimeType(fileName);
+
+      let url = "";
+      let textContent = "";
+
+      if (fileItem?.rawFile instanceof Blob) {
+        url = window.URL.createObjectURL(fileItem.rawFile);
+        if (mime === "text/plain") {
+          textContent = await fileItem.rawFile.text();
+        }
+      } else {
+        const draftUid = imapDraftUidRef.current || composeData?.draft?.uid;
+        if (draftUid) {
+          const res = await mailAPI.downloadAttachment(draftUid, fileName, "Drafts");
+          const blob = new Blob([res.data], { type: mime });
+          url = window.URL.createObjectURL(blob);
+          if (mime === "text/plain") {
+            const reader = new FileReader();
+            textContent = await new Promise((resolve) => {
+              reader.onload = () => resolve(reader.result);
+              reader.readAsText(blob);
+            });
+          }
+        } else if (fileItem?.url) {
+          const res = await api.get(fileItem.url, { responseType: 'blob' });
+          const blob = new Blob([res.data], { type: mime });
+          url = window.URL.createObjectURL(blob);
+          if (mime === "text/plain") {
+            textContent = await blob.text();
+          }
+        } else {
+          setPreviewFile({
+            fileName,
+            blobUrl: "",
+            mimeType: mime,
+            textContent: "",
+            unavailable: true
+          });
+          toast.dismiss("preview-attachment");
+          return;
+        }
+      }
+
+      setPreviewFile({
+        fileName,
+        blobUrl: url,
+        mimeType: mime,
+        textContent,
+        rawFile: fileItem?.rawFile
+      });
+      toast.success("Loaded preview", { id: "preview-attachment" });
+    } catch (err) {
+      console.error("Failed to preview attachment:", err);
+      toast.error("Failed to preview attachment", { id: "preview-attachment" });
+    }
+  };
+
+  const handleDownloadAttachment = async (fileName) => {
+    try {
+      if (previewFile?.rawFile instanceof Blob && previewFile.fileName === fileName) {
+        const link = document.createElement("a");
+        link.href = previewFile.blobUrl;
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        return;
+      }
+      const draftUid = imapDraftUidRef.current || composeData?.draft?.uid;
+      if (draftUid) {
+        toast.loading(`Downloading ${fileName}...`, { id: "download-attachment" });
+        const res = await mailAPI.downloadAttachment(draftUid, fileName, "Drafts");
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        toast.success(`${fileName} downloaded successfully`, { id: "download-attachment" });
+      } else if (previewFile?.blobUrl) {
+        const link = document.createElement("a");
+        link.href = previewFile.blobUrl;
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+    } catch (err) {
+      console.error("Failed to download attachment:", err);
+      toast.error("Failed to download attachment", { id: "download-attachment" });
+    }
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -552,6 +693,17 @@ const FloatingCompose = () => {
             initialFormDataRef.current = { ...draftForm };
             if (d.cc) setShowCc(true);
             if (d.bcc) setShowBcc(true);
+            let loadedAttachments = [];
+            if (Array.isArray(d.attachments) && d.attachments.length > 0) {
+              loadedAttachments = d.attachments.map(att => typeof att === 'string' ? { fileName: att, size: 0 } : att);
+            } else if (d.attachmentsJson) {
+              try {
+                loadedAttachments = JSON.parse(d.attachmentsJson);
+              } catch (e) {}
+            }
+            if (loadedAttachments.length > 0) {
+              setAttachments(loadedAttachments);
+            }
           } else {
             isEditingExistingDraftRef.current = false;
             originalDraftSnapshotRef.current = null;
@@ -651,7 +803,7 @@ const FloatingCompose = () => {
         const uploadRes = await mailAPI.uploadDraftAttachment(activeDraftId, fileForm);
         if (uploadRes.data?.success) {
           const info = uploadRes.data.data;
-          setAttachments((prev) => [...prev, info]);
+          setAttachments((prev) => [...prev, { ...info, rawFile: file }]);
           toast.success(`${file.name} uploaded`, { id: "upload-attachment" });
         } else {
           throw new Error(`Failed to upload ${file.name}`);
@@ -1509,12 +1661,26 @@ const FloatingCompose = () => {
                 <div className="flex flex-wrap gap-2 py-2 mt-2 border-t" style={{ borderColor: theme.border }}>
                   {attachments.map((file, i) => (
                     <div 
-                      key={i}
+                      key={file.fileName || i}
                       className="flex items-center gap-2 bg-black/[0.03] dark:bg-white/[0.04] border px-2.5 py-1 rounded-xl text-xs"
                       style={{ borderColor: theme.border, color: theme.text }}
                     >
-                      <span className="truncate max-w-[150px]">{file.fileName}</span>
-                      <span className="opacity-55 font-medium">({Math.round(file.size / 1024)} KB)</span>
+                      <span 
+                        onClick={() => handlePreviewAttachment(file)}
+                        className="truncate max-w-[150px] cursor-pointer hover:underline text-blue-600 dark:text-blue-400"
+                        title="Click to preview"
+                      >
+                        {file.fileName}
+                      </span>
+                      <span className="opacity-55 font-medium">({Math.round((file.size || 0) / 1024)} KB)</span>
+                      <button 
+                        type="button" 
+                        onClick={() => handlePreviewAttachment(file)}
+                        className="text-gray-500 hover:text-blue-600 transition-colors p-0.5 rounded cursor-pointer"
+                        title="Preview attachment"
+                      >
+                        <MdRemoveRedEye size={14} />
+                      </button>
                       <button 
                         type="button" 
                         onClick={() => handleRemoveAttachment(file.fileName)}
@@ -2011,20 +2177,145 @@ const FloatingCompose = () => {
 
   if (!isComposeOpen) return null;
 
+  const renderPreviewModal = () => {
+    if (!previewFile) return null;
+    return createPortal(
+      <div className="fixed inset-0 bg-black/90 z-[1000] flex flex-col animate-fade-in">
+        {/* HEADER */}
+        <div className="flex items-center justify-between px-6 py-4 bg-black/30 border-b border-white/5 text-white select-none">
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold truncate max-w-[60vw]">
+              {previewFile.fileName}
+            </span>
+            <span className="text-[10px] opacity-60">
+              {previewFile.mimeType}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => handleDownloadAttachment(previewFile.fileName)}
+              className="p-2 rounded-full hover:bg-white/10 text-gray-300 hover:text-white transition-colors cursor-pointer"
+              title="Download file"
+            >
+              <MdFileDownload size={20} />
+            </button>
+            <button
+              type="button"
+              onClick={closePreview}
+              className="p-2 rounded-full hover:bg-white/10 text-gray-300 hover:text-white transition-colors cursor-pointer"
+              title="Close preview"
+            >
+              <MdClose size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* CONTENT AREA */}
+        <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
+          {previewFile.mimeType?.startsWith("image/") ? (
+            <img
+              src={previewFile.blobUrl}
+              alt={previewFile.fileName}
+              className="max-w-full max-h-[82vh] object-contain rounded shadow-2xl select-none"
+            />
+          ) : previewFile.mimeType === "application/pdf" ? (
+            <object
+              data={previewFile.blobUrl}
+              type="application/pdf"
+              className="w-[90vw] h-[80vh] rounded-lg shadow-2xl bg-white border-none"
+            >
+              <embed
+                src={previewFile.blobUrl}
+                type="application/pdf"
+                className="w-full h-full border-none rounded-lg"
+              />
+            </object>
+          ) : previewFile.mimeType === "text/plain" ? (
+            <pre className="bg-zinc-950 text-zinc-100 p-6 rounded-xl shadow-2xl overflow-auto max-w-[90vw] max-h-[80vh] text-left font-mono text-xs sm:text-sm leading-relaxed border border-zinc-800 hidden-scrollbar">
+              {previewFile.textContent}
+            </pre>
+          ) : (
+            <div className="flex flex-col items-center justify-center bg-zinc-900/60 text-white p-8 rounded-2xl border border-zinc-800 max-w-sm text-center shadow-xl">
+              <span className="text-5xl mb-4 select-none">📎</span>
+              <p className="font-semibold text-sm mb-1 truncate max-w-[280px]">{previewFile.fileName}</p>
+              <p className="text-[11px] text-gray-400 mb-6">No inline preview available for this file type</p>
+              {previewFile.blobUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadAttachment(previewFile.fileName)}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <MdFileDownload size={15} /> Download Attachment
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   if (isMobile) {
     return (
-      <div
+      <>
+        <div
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            top: isComposeMinimized ? "auto" : 0,
+            height: isComposeMinimized ? "45px" : "100%",
+            zIndex: previewFile ? 1100 : 100,
+            display: "flex",
+            flexDirection: "column",
+            borderRadius: isReply ? "16px 16px 0 0" : (isComposeMinimized ? "12px 12px 0 0" : "0"),
+            boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
+            border: `1px solid ${theme.border}`,
+            backgroundColor: isReply ? (theme.name === 'dark' ? theme.cardBg : '#ffffff') : theme.cardBg,
+            overflow: "hidden"
+          }}
+        >
+          {renderContent()}
+        </div>
+        {renderPreviewModal()}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Rnd
+        size={{ 
+          width: size.width, 
+          height: isComposeMinimized ? 45 : size.height 
+        }}
+        position={position}
+        onDragStop={(e, d) => {
+          setPosition({ x: d.x, y: d.y });
+        }}
+        onResizeStop={(e, direction, ref, delta, pos) => {
+          setSize({
+            width: parseInt(ref.style.width, 10),
+            height: parseInt(ref.style.height, 10)
+          });
+          setPosition(pos);
+        }}
+        minWidth={350}
+        minHeight={isComposeMinimized ? 45 : 300}
+        maxWidth={window.innerWidth}
+        maxHeight={window.innerHeight}
+        enableResizing={!isComposeMinimized}
+        disableDragging={isComposeMaximized}
+        dragHandleClassName="compose-drag-handle"
+        bounds="window"
         style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          top: isComposeMinimized ? "auto" : 0,
-          height: isComposeMinimized ? "45px" : "100%",
-          zIndex: 100,
+          zIndex: previewFile ? 1100 : 100,
           display: "flex",
           flexDirection: "column",
-          borderRadius: isReply ? "16px 16px 0 0" : (isComposeMinimized ? "12px 12px 0 0" : "0"),
+          borderRadius: isReply ? "16px" : "12px 12px 0 0",
           boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
           border: `1px solid ${theme.border}`,
           backgroundColor: isReply ? (theme.name === 'dark' ? theme.cardBg : '#ffffff') : theme.cardBg,
@@ -2032,48 +2323,9 @@ const FloatingCompose = () => {
         }}
       >
         {renderContent()}
-      </div>
-    );
-  }
-
-  return (
-    <Rnd
-      size={{ 
-        width: size.width, 
-        height: isComposeMinimized ? 45 : size.height 
-      }}
-      position={position}
-      onDragStop={(e, d) => {
-        setPosition({ x: d.x, y: d.y });
-      }}
-      onResizeStop={(e, direction, ref, delta, pos) => {
-        setSize({
-          width: parseInt(ref.style.width, 10),
-          height: parseInt(ref.style.height, 10)
-        });
-        setPosition(pos);
-      }}
-      minWidth={350}
-      minHeight={isComposeMinimized ? 45 : 300}
-      maxWidth={window.innerWidth}
-      maxHeight={window.innerHeight}
-      enableResizing={!isComposeMinimized}
-      disableDragging={isComposeMaximized}
-      dragHandleClassName="compose-drag-handle"
-      bounds="window"
-      style={{
-        zIndex: 100,
-        display: "flex",
-        flexDirection: "column",
-        borderRadius: isReply ? "16px" : "12px 12px 0 0",
-        boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
-        border: `1px solid ${theme.border}`,
-        backgroundColor: isReply ? (theme.name === 'dark' ? theme.cardBg : '#ffffff') : theme.cardBg,
-        overflow: "hidden"
-      }}
-    >
-      {renderContent()}
-    </Rnd>
+      </Rnd>
+      {renderPreviewModal()}
+    </>
   );
 };
 
