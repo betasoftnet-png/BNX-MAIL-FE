@@ -343,6 +343,139 @@ export const MailProvider = ({ children }) => {
         };
     }, [user, limit]);
 
+    const fetchAllMailEmails = useCallback(async (targetPage = 1, pageLimit = limit) => {
+        const [inboxRes, sentRes, draftRes, archiveRes, snoozedRes] = await Promise.all([
+            mailAPI.getInbox(1, 100).catch(() => ({ data: { success: false } })),
+            mailAPI.getSent(1, 100).catch(() => ({ data: { success: false } })),
+            mailAPI.getDrafts(1, 100).catch(() => ({ data: { success: false } })),
+            mailAPI.getArchive(1, 100).catch(() => ({ data: { success: false } })),
+            mailAPI.getSnoozed(1, 100).catch(() => ({ data: { success: false } }))
+        ]);
+
+        let mergedEmails = [];
+
+        // 1. Inbox
+        if (inboxRes.data?.success) {
+            const raw = inboxRes.data.data?.emails || (Array.isArray(inboxRes.data.data) ? inboxRes.data.data : []);
+            mergedEmails.push(...raw.map(e => ({
+                ...e,
+                folderName: e.folderName || 'INBOX'
+            })));
+        }
+
+        // 2. Sent
+        if (sentRes.data?.success) {
+            const raw = sentRes.data.data?.emails || (Array.isArray(sentRes.data.data) ? sentRes.data.data : []);
+            mergedEmails.push(...raw.map(e => ({
+                ...e,
+                folderName: e.folderName || 'Sent',
+                isSent: true
+            })));
+        }
+
+        // 3. Drafts
+        let starOverrides = {};
+        try {
+            const stored = localStorage.getItem('bnx_draft_star_overrides');
+            if (stored) starOverrides = JSON.parse(stored);
+        } catch (e) {}
+
+        const rawDrafts = draftRes.data?.success
+            ? (draftRes.data.data?.emails || (Array.isArray(draftRes.data.data) ? draftRes.data.data : []))
+            : [];
+        
+        const allDraftsMap = new Map();
+        const registerDraft = (d) => {
+            if (!d) return;
+            const uidStr = String(d.uid ?? d.id ?? '');
+            if (!uidStr) return;
+            allDraftsMap.set(uidStr, {
+                ...d,
+                folderName: d.folderName || 'Drafts',
+                isDraft: true,
+                draft: true,
+                starred: starOverrides[uidStr] !== undefined ? starOverrides[uidStr] : (d.starred ?? d.isStarred ?? false)
+            });
+        };
+        rawDrafts.forEach(registerDraft);
+        ['draft', 'drafts'].forEach(f => {
+            if (pagesCache.current[f]) {
+                Object.values(pagesCache.current[f]).forEach(pageList => {
+                    if (Array.isArray(pageList)) pageList.forEach(registerDraft);
+                });
+            }
+        });
+        allDraftsMap.forEach(d => mergedEmails.push(d));
+
+        // 4. Archive
+        if (archiveRes.data?.success) {
+            const raw = archiveRes.data.data?.emails || (Array.isArray(archiveRes.data.data) ? archiveRes.data.data : []);
+            mergedEmails.push(...raw.map(e => ({
+                ...e,
+                folderName: e.folderName || 'Archive'
+            })));
+        }
+
+        // 5. Snoozed
+        if (snoozedRes.data?.success) {
+            const raw = snoozedRes.data.data?.emails || (Array.isArray(snoozedRes.data.data) ? snoozedRes.data.data : []);
+            mergedEmails.push(...raw.map(e => ({
+                ...e,
+                folderName: e.folderName || 'Snoozed'
+            })));
+        }
+
+        // 6. Filter out trash and spam from All Mail
+        mergedEmails = mergedEmails.filter(e => {
+            const isTrash = e.folderName?.toLowerCase() === 'trash' || e.folderName?.toLowerCase() === 'deleted' || e.isTrash === true || e.isDeleted === true || e.deleted === true;
+            const isSpam = e.folderName?.toLowerCase() === 'spam' || e.isSpam === true || e.spam === true;
+            return !isTrash && !isSpam;
+        });
+
+        // 7. Deduplicate:
+        // Prioritize deduplication by messageId for identical messages (e.g. self-sends in Inbox & Sent)
+        // For items without messageId (e.g. drafts or folder-specific items), deduplicate by folderName + uid/id
+        const seenMessageIds = new Set();
+        const seenFolderUids = new Set();
+        const uniqueEmails = [];
+
+        for (const email of mergedEmails) {
+            const mid = (email.messageId || email.msgId || '').trim().toLowerCase();
+            const uidStr = String(email.uid ?? email.id ?? '');
+            const folder = (email.folderName || '').toLowerCase();
+
+            if (mid) {
+                if (seenMessageIds.has(mid)) continue;
+                seenMessageIds.add(mid);
+            } else if (uidStr) {
+                const key = `${folder}_${uidStr}`;
+                if (seenFolderUids.has(key)) continue;
+                seenFolderUids.add(key);
+            }
+            uniqueEmails.push(email);
+        }
+
+        // 8. Sort descending by date
+        uniqueEmails.sort((a, b) => {
+            const dateA = new Date(a.date || a.sentDate || a.receivedDate || a.createdAt || a.updatedAt || 0);
+            const dateB = new Date(b.date || b.sentDate || b.receivedDate || b.createdAt || b.updatedAt || 0);
+            return dateB - dateA;
+        });
+
+        const unreadCount = uniqueEmails.filter(e => !e.isRead && !e.read && !e.isDraft).length;
+
+        return {
+            data: {
+                success: true,
+                data: {
+                    emails: uniqueEmails,
+                    totalCount: uniqueEmails.length,
+                    unreadCount: unreadCount
+                }
+            }
+        };
+    }, [limit]);
+
     const fetchEmailsSilently = useCallback(async (folder, page = null) => {
         if (!user) return;
         const folderKey = folder.toLowerCase();
@@ -361,6 +494,8 @@ export const MailProvider = ({ children }) => {
                 case 'inbox': res = await mailAPI.getInbox(targetPage, limit); break;
                 case 'all-inbox':
                 case 'allinbox': res = await fetchAllInboxEmails(targetPage, limit); break;
+                case 'all-mail':
+                case 'allmail': res = await fetchAllMailEmails(targetPage, limit); break;
                 case 'sent': res = await mailAPI.getSent(targetPage, limit); break;
                 case 'draft':
                 case 'drafts': res = await mailAPI.getDrafts(targetPage, limit); break;
@@ -513,6 +648,12 @@ export const MailProvider = ({ children }) => {
                         ...prev,
                         allinbox: unread
                     }));
+                } else if (countKey === 'allmail') {
+                    const unread = normalizedEmails.filter(e => !e.isRead && !e.isDraft).length;
+                    setUnreadCounts(prev => ({
+                        ...prev,
+                        allmail: unread
+                    }));
                 }
 
                 // Only update active screen if it matches the current folder
@@ -530,7 +671,7 @@ export const MailProvider = ({ children }) => {
         } finally {
             silentFetchInFlight.current.delete(reqKey);
         }
-    }, [user, limit, getStarredWithDrafts, fetchAllInboxEmails]);
+    }, [user, limit, getStarredWithDrafts, fetchAllInboxEmails, fetchAllMailEmails]);
 
     const fetchEmails = useCallback(async (folder = currentFolderRef.current, silent = false, page = null) => {
         const folderKey = (folder || currentFolderRef.current).toLowerCase();
@@ -623,61 +764,7 @@ export const MailProvider = ({ children }) => {
                 }
                 case 'all-mail':
                 case 'allmail': {
-                    const [inboxRes, sentRes, draftRes, archiveRes] = await Promise.all([
-                        mailAPI.getInbox().catch(() => ({ data: { success: false } })),
-                        mailAPI.getSent().catch(() => ({ data: { success: false } })),
-                        mailAPI.getDrafts().catch(() => ({ data: { success: false } })),
-                        mailAPI.getArchive().catch(() => ({ data: { success: false } }))
-                    ]);
-
-                    let mergedEmails = [];
-                    if (inboxRes.data?.success && inboxRes.data.data?.emails) {
-                        mergedEmails = [...mergedEmails, ...inboxRes.data.data.emails];
-                    }
-                    if (sentRes.data?.success && sentRes.data.data?.emails) {
-                        mergedEmails = [...mergedEmails, ...sentRes.data.data.emails];
-                    }
-                    if (draftRes.data?.success && draftRes.data.data?.emails) {
-                        mergedEmails = [...mergedEmails, ...draftRes.data.data.emails];
-                    }
-                    if (archiveRes.data?.success && archiveRes.data.data?.emails) {
-                        mergedEmails = [...mergedEmails, ...archiveRes.data.data.emails];
-                    }
-
-                    console.log('📬 [All Mail] Inbox count:', inboxRes.data?.data?.emails?.length);
-                    console.log('📬 [All Mail] Sent count:', sentRes.data?.data?.emails?.length);
-                    console.log('📬 [All Mail] Draft count:', draftRes.data?.data?.emails?.length);
-                    console.log('📬 [All Mail] Archive count:', archiveRes.data?.data?.emails?.length);
-                    console.log('📬 [All Mail] Merged count:', mergedEmails.length);
-
-                    // Sort descending by date
-                    mergedEmails.sort((a, b) => {
-                        const dateA = new Date(a.date || a.sentDate || a.receivedDate || 0);
-                        const dateB = new Date(b.date || b.sentDate || b.receivedDate || 0);
-                        return dateB - dateA;
-                    });
-
-                    // Deduplicate identical messages (e.g. from self-sends in Inbox and Sent)
-                    const seenUids = new Set();
-                    mergedEmails = mergedEmails.filter(e => {
-                        const uidStr = String(e.uid || e.id || '');
-                        if (!uidStr) return true;
-                        if (seenUids.has(uidStr)) {
-                            return false;
-                        }
-                        seenUids.add(uidStr);
-                        return true;
-                    });
-
-                    res = {
-                        data: {
-                            success: true,
-                            data: {
-                                emails: mergedEmails,
-                                unreadCount: (inboxRes.data?.success && inboxRes.data.data?.unreadCount) ? inboxRes.data.data.unreadCount : 0
-                            }
-                        }
-                    };
+                    res = await fetchAllMailEmails(targetPage, limit);
                     break;
                 }
                 default: res = await mailAPI.getInbox(page, limit);
@@ -783,6 +870,8 @@ export const MailProvider = ({ children }) => {
                         next.inbox = unread;
                     } else if (countKey === 'allinbox') {
                         next.allinbox = unread;
+                    } else if (countKey === 'allmail') {
+                        next.allmail = unread;
                     }
                     return next;
                 });
@@ -810,7 +899,7 @@ export const MailProvider = ({ children }) => {
         } finally {
             if (!silent && currentFolderRef.current.toLowerCase() === folderKey) setLoading(false);
         }
-    }, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts, fetchAllInboxEmails]);
+    }, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts, fetchAllInboxEmails, fetchAllMailEmails]);
 
     const fetchLabels = useCallback(async () => {
         if (!user) return;
