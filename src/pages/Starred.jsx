@@ -76,14 +76,32 @@ const Starred = ({ searchQuery }) => {
 
   const selectedEmail = sortedEmails.find((e) => String(e.uid) === String(selectedEmailUid));
 
+  const isDraftEmail = (email) => {
+    if (!email) return false;
+    const folder = email.folderName?.toLowerCase();
+    return folder === 'draft' || folder === 'drafts' || email.isDraft === true || email.draft === true;
+  };
+
   const handleSelectEmail = (email) => {
+    if (isDraftEmail(email)) {
+      openCompose({ draft: { ...email } });
+      return;
+    }
     setSelectedEmailUid(email.uid);
   };
 
-  const handleUnstar = async (uid) => {
-    await handleToggleStar(uid, 'starred');
+  const handleUnstar = async (uid, folder) => {
+    const email = sortedEmails.find((e) => String(e.uid) === String(uid));
+    const targetFolder = isDraftEmail(email) ? 'draft' : (folder || 'starred');
+    await handleToggleStar(uid, targetFolder);
   };
 
+  const handleDelete = (uid, folder) => {
+    const email = sortedEmails.find((e) => String(e.uid) === String(uid));
+    const targetFolder = isDraftEmail(email) ? 'draft' : (folder || 'starred');
+    handleMoveToTrash(uid, targetFolder);
+    setSelectedEmailUid(null);
+  };
   
   const handleForward = (email) => {
     openCompose({
@@ -110,8 +128,7 @@ const handleReply = (email) => {
       onBack={() => setSelectedEmailUid(null)}
       onClose={() => setSelectedEmailUid(null)}
       onDelete={(uid) => {
-        handleMoveToTrash(uid, "starred");
-        setSelectedEmailUid(null);
+        handleDelete(uid, selectedEmail?.folderName);
       }}
       onStar={handleUnstar}
       onArchive={(uid) => {
@@ -151,7 +168,7 @@ const handleReply = (email) => {
           className="ml-2 text-xs font-normal"
           style={{ color: theme.subText }}
         >
-          ({emails.length})
+          ({sortedEmails.length})
         </span>
       </h2>
     </div>
@@ -159,7 +176,7 @@ const handleReply = (email) => {
 
   const listComponent = (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {emails.length === 0 ? (
+      {sortedEmails.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
           <MdStarBorder className="text-5xl mb-4 text-gray-300 dark:text-gray-600 opacity-55" />
           <p className="text-base font-semibold" style={{ color: theme.text }}>{t("starred.empty", "No starred messages")}</p>
@@ -171,7 +188,7 @@ const handleReply = (email) => {
           selectedEmailId={selectedEmailUid}
           onSelectEmail={handleSelectEmail}
           onStar={handleUnstar}
-          onDelete={(uid) => handleMoveToTrash(uid, "starred")}
+          onDelete={handleDelete}
           onArchive={(uid) => handleArchive(uid, "starred")}
           onSnooze={handleSnooze}
           selectedIds={selectedIds}

@@ -141,6 +141,120 @@ export const MailProvider = ({ children }) => {
         }
     }, [user, limit, updateCurrentPage]);
 
+    const getStarredWithDrafts = useCallback(async (targetPage = 1, pageLimit = limit) => {
+        const [starredRes, draftsRes] = await Promise.all([
+            mailAPI.getStarred(targetPage, pageLimit).catch(err => {
+                console.warn('[Starred] Failed to fetch starred emails:', err);
+                return { data: { success: false, data: { emails: [] } } };
+            }),
+            mailAPI.getDrafts(1, 100).catch(err => {
+                console.warn('[Starred] Failed to fetch drafts for starred:', err);
+                return { data: { success: false, data: { emails: [] } } };
+            })
+        ]);
+
+        const rawStarred = starredRes?.data?.data?.emails || 
+            (Array.isArray(starredRes?.data?.data) ? starredRes.data.data : (starredRes?.data?.data?.unreadEmails || []));
+
+        let starredEmails = rawStarred.map(m => ({
+            ...m,
+            isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
+            starred: true
+        }));
+
+        const rawDrafts = draftsRes?.data?.data?.emails || 
+            (Array.isArray(draftsRes?.data?.data) ? draftsRes.data.data : []);
+
+        // Also prime pagesCache['draft'][1] if empty
+        if (rawDrafts.length > 0) {
+            if (!pagesCache.current['draft']) pagesCache.current['draft'] = {};
+            if (!pagesCache.current['draft'][1]) {
+                pagesCache.current['draft'][1] = rawDrafts.map(d => ({
+                    ...d,
+                    folderName: d.folderName || 'Drafts',
+                    isDraft: true,
+                    starred: d.starred ?? d.isStarred ?? false
+                }));
+            }
+        }
+
+        // Collect all drafts from API and memory cache
+        const allDraftsMap = new Map();
+        const registerDraft = (d) => {
+            if (!d) return;
+            const uidStr = String(d.uid ?? d.id ?? '');
+            if (!uidStr) return;
+            if (!allDraftsMap.has(uidStr)) {
+                allDraftsMap.set(uidStr, d);
+            } else {
+                allDraftsMap.set(uidStr, { ...allDraftsMap.get(uidStr), ...d });
+            }
+        };
+
+        rawDrafts.forEach(registerDraft);
+
+        ['draft', 'drafts'].forEach(f => {
+            if (pagesCache.current[f]) {
+                Object.values(pagesCache.current[f]).forEach(pageList => {
+                    if (Array.isArray(pageList)) {
+                        pageList.forEach(registerDraft);
+                    }
+                });
+            }
+        });
+
+        // Read local star overrides
+        let starOverrides = {};
+        try {
+            const stored = localStorage.getItem('bnx_draft_star_overrides');
+            if (stored) starOverrides = JSON.parse(stored);
+        } catch (e) {}
+
+        // Filter only drafts that are starred
+        const starredDrafts = [];
+        allDraftsMap.forEach((draft, uidStr) => {
+            const override = starOverrides[uidStr];
+            const isStarred = override !== undefined ? override : (draft.starred === true || draft.isStarred === true);
+            if (isStarred) {
+                starredDrafts.push({
+                    ...draft,
+                    folderName: draft.folderName || 'Drafts',
+                    isDraft: true,
+                    starred: true
+                });
+            }
+        });
+
+        // Avoid duplicate drafts if already returned by starred API
+        const seenDraftUids = new Set();
+        starredEmails.forEach(e => {
+            const isDraft = e.folderName?.toLowerCase() === 'draft' || e.folderName?.toLowerCase() === 'drafts' || e.isDraft || e.draft;
+            if (isDraft) {
+                seenDraftUids.add(String(e.uid ?? e.id));
+            }
+        });
+
+        starredDrafts.forEach(draft => {
+            const uidStr = String(draft.uid ?? draft.id);
+            if (!seenDraftUids.has(uidStr)) {
+                starredEmails.push(draft);
+                seenDraftUids.add(uidStr);
+            }
+        });
+
+        sortEmailsByDateDesc(starredEmails);
+
+        return {
+            data: {
+                success: true,
+                data: {
+                    emails: starredEmails,
+                    totalCount: (starredRes?.data?.data?.totalCount || 0) + starredDrafts.filter(d => !seenDraftUids.has(String(d.uid ?? d.id))).length
+                }
+            }
+        };
+    }, [limit]);
+
     const fetchEmailsSilently = useCallback(async (folder, page = null) => {
         if (!user) return;
         const folderKey = folder.toLowerCase();
@@ -160,7 +274,7 @@ export const MailProvider = ({ children }) => {
                 case 'sent': res = await mailAPI.getSent(targetPage, limit); break;
                 case 'draft':
                 case 'drafts': res = await mailAPI.getDrafts(targetPage, limit); break;
-                case 'starred': res = await mailAPI.getStarred(targetPage, limit); break;
+                case 'starred': res = await getStarredWithDrafts(targetPage, limit); break;
                 case 'trash': res = await mailAPI.getTrash(targetPage, limit); break;
                 case 'spam': res = await mailAPI.getSpam(targetPage, limit); break;
                 case 'snoozed': res = await mailAPI.getSnoozed(targetPage, limit); break;
@@ -212,6 +326,22 @@ export const MailProvider = ({ children }) => {
                     isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
                     starred: m.starred ?? m.isStarred ?? false
                 }));
+
+                if (folderKey === 'draft' || folderKey === 'drafts') {
+                    let starOverrides = {};
+                    try {
+                        const stored = localStorage.getItem('bnx_draft_star_overrides');
+                        if (stored) starOverrides = JSON.parse(stored);
+                    } catch (e) {}
+                    normalizedEmails = normalizedEmails.map(m => {
+                        const uidStr = String(m.uid ?? m.id ?? '');
+                        if (uidStr && starOverrides[uidStr] !== undefined) {
+                            return { ...m, starred: starOverrides[uidStr] };
+                        }
+                        return m;
+                    });
+                }
+
                 if (folderKey !== 'trash') {
                     normalizedEmails = normalizedEmails.filter(m => {
                         const isTrash = m.folderName?.toLowerCase() === 'trash' || m.folderName?.toLowerCase() === 'deleted' || m.isTrash === true || m.isDeleted === true || m.deleted === true;
@@ -293,7 +423,7 @@ export const MailProvider = ({ children }) => {
         } finally {
             silentFetchInFlight.current.delete(reqKey);
         }
-    }, [user, limit]);
+    }, [user, limit, getStarredWithDrafts]);
 
     const fetchEmails = useCallback(async (folder = currentFolderRef.current, silent = false, page = null) => {
         const folderKey = (folder || currentFolderRef.current).toLowerCase();
@@ -332,7 +462,7 @@ export const MailProvider = ({ children }) => {
                 case 'sent': res = await mailAPI.getSent(targetPage, limit); break;
                 case 'draft':
                 case 'drafts': res = await mailAPI.getDrafts(targetPage, limit); break;
-                case 'starred': res = await mailAPI.getStarred(targetPage, limit); break;
+                case 'starred': res = await getStarredWithDrafts(targetPage, limit); break;
                 case 'trash': res = await mailAPI.getTrash(targetPage, limit); break;
                 case 'spam': res = await mailAPI.getSpam(targetPage, limit); break;
                 case 'snoozed': res = await mailAPI.getSnoozed(targetPage, limit); break;
@@ -500,6 +630,22 @@ export const MailProvider = ({ children }) => {
                     isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
                     starred: m.starred ?? m.isStarred ?? false
                 }));
+
+                if (folderKey === 'draft' || folderKey === 'drafts') {
+                    let starOverrides = {};
+                    try {
+                        const stored = localStorage.getItem('bnx_draft_star_overrides');
+                        if (stored) starOverrides = JSON.parse(stored);
+                    } catch (e) {}
+                    normalizedEmails = normalizedEmails.map(m => {
+                        const uidStr = String(m.uid ?? m.id ?? '');
+                        if (uidStr && starOverrides[uidStr] !== undefined) {
+                            return { ...m, starred: starOverrides[uidStr] };
+                        }
+                        return m;
+                    });
+                }
+
                 if (folderKey !== 'trash') {
                     normalizedEmails = normalizedEmails.filter(m => {
                         const isTrash = m.folderName?.toLowerCase() === 'trash' || m.folderName?.toLowerCase() === 'deleted' || m.isTrash === true || m.isDeleted === true || m.deleted === true;
@@ -591,7 +737,7 @@ export const MailProvider = ({ children }) => {
         } finally {
             if (!silent && currentFolderRef.current.toLowerCase() === folderKey) setLoading(false);
         }
-    }, [user, limit, updateCurrentPage, fetchEmailsSilently]);
+    }, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts]);
 
     const fetchLabels = useCallback(async () => {
         if (!user) return;
@@ -655,34 +801,145 @@ export const MailProvider = ({ children }) => {
     }, [user, fetchEmails, fetchEmailsSilently, fetchLabelEmails]);
 
     const handleToggleStar = async (uid, folder) => {
-        // Optimistic update
-        setEmails(prev => {
-            if (currentFolder?.toLowerCase() === 'starred') {
-                return prev.filter(m => String(m.uid) !== String(uid));
+        const strUid = String(uid);
+        const folderLower = (folder || currentFolderRef.current || '').toLowerCase();
+
+        // 1. Determine if this email is a draft
+        let targetEmail = emails.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+        if (!targetEmail && pagesCache.current) {
+            for (const f of ['draft', 'drafts', 'starred', 'inbox', 'sent']) {
+                if (pagesCache.current[f]) {
+                    for (const p of Object.values(pagesCache.current[f])) {
+                        if (Array.isArray(p)) {
+                            const found = p.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+                            if (found) { targetEmail = found; break; }
+                        }
+                    }
+                }
+                if (targetEmail) break;
             }
-            return prev.map(m => String(m.uid) === String(uid) ? { ...m, starred: !m.starred } : m);
+        }
+
+        const isDraft = folderLower === 'draft' || folderLower === 'drafts' || 
+                        targetEmail?.folderName?.toLowerCase() === 'draft' || 
+                        targetEmail?.folderName?.toLowerCase() === 'drafts' || 
+                        targetEmail?.isDraft === true || 
+                        targetEmail?.draft === true;
+
+        const isCurrentlyStarred = currentFolderRef.current?.toLowerCase() === 'starred'
+            ? true
+            : (targetEmail ? (targetEmail.starred ?? targetEmail.isStarred ?? false) : false);
+
+        const nextStarred = !isCurrentlyStarred;
+
+        // 2. Persist local override if it's a draft
+        if (isDraft) {
+            try {
+                const stored = localStorage.getItem('bnx_draft_star_overrides');
+                const overrides = stored ? JSON.parse(stored) : {};
+                overrides[strUid] = nextStarred;
+                localStorage.setItem('bnx_draft_star_overrides', JSON.stringify(overrides));
+            } catch (e) {
+                console.warn('Failed to update bnx_draft_star_overrides in localStorage:', e);
+            }
+        }
+
+        // 3. Optimistic update of active emails state
+        setEmails(prev => {
+            if (currentFolderRef.current?.toLowerCase() === 'starred') {
+                if (!nextStarred) {
+                    return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
+                }
+                return prev;
+            }
+            return prev.map(m => (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, starred: nextStarred } : m);
         });
 
-        invalidateCache('starred');
+        if (currentFolderRef.current?.toLowerCase() === 'starred' && !nextStarred) {
+            setTotalEmails(prev => Math.max(0, prev - 1));
+        }
 
+        // 4. Update memory caches across folders
+        if (pagesCache.current) {
+            // Update draft caches: KEEP the draft in drafts list, only toggle starred flag
+            ['draft', 'drafts'].forEach(f => {
+                if (pagesCache.current[f]) {
+                    Object.keys(pagesCache.current[f]).forEach(p => {
+                        if (Array.isArray(pagesCache.current[f][p])) {
+                            pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
+                                (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, starred: nextStarred } : m
+                            );
+                        }
+                    });
+                }
+            });
+
+            // Update starred cache
+            if (pagesCache.current['starred']) {
+                if (nextStarred) {
+                    // Add to starred cache page 1 if not present
+                    const p1 = pagesCache.current['starred'][1];
+                    if (Array.isArray(p1)) {
+                        const exists = p1.some(m => String(m.uid) === strUid || String(m.id) === strUid);
+                        if (!exists && targetEmail) {
+                            pagesCache.current['starred'][1] = [
+                                {
+                                    ...targetEmail,
+                                    uid: targetEmail.uid ?? uid,
+                                    folderName: targetEmail.folderName || (isDraft ? 'Drafts' : 'INBOX'),
+                                    isDraft: isDraft ? true : targetEmail.isDraft,
+                                    starred: true
+                                },
+                                ...p1
+                            ];
+                        }
+                    }
+                } else {
+                    // Remove from starred cache
+                    Object.keys(pagesCache.current['starred']).forEach(p => {
+                        if (Array.isArray(pagesCache.current['starred'][p])) {
+                            pagesCache.current['starred'][p] = pagesCache.current['starred'][p].filter(m =>
+                                String(m.uid) !== strUid && String(m.id) !== strUid
+                            );
+                        }
+                    });
+                }
+            }
+
+            // Also update any other folder caches (inbox, sent, etc.)
+            ['inbox', 'sent', 'archive', 'all-mail', 'allmail'].forEach(f => {
+                if (pagesCache.current[f]) {
+                    Object.keys(pagesCache.current[f]).forEach(p => {
+                        if (Array.isArray(pagesCache.current[f][p])) {
+                            pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
+                                (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, starred: nextStarred } : m
+                            );
+                        }
+                    });
+                }
+            });
+        }
+
+        // 5. Backend API call
+        const apiFolder = isDraft ? 'draft' : (folder || (currentFolderRef.current === 'starred' ? 'INBOX' : currentFolderRef.current));
         try {
-            const res = await mailAPI.toggleStar(uid, folder);
+            const res = await mailAPI.toggleStar(uid, apiFolder);
             if (!res.data?.success) {
                 // Rollback if failed
-                if (currentFolder.startsWith('label-')) {
-                    const labelId = currentFolder.replace('label-', '');
+                if (currentFolderRef.current.startsWith('label-')) {
+                    const labelId = currentFolderRef.current.replace('label-', '');
                     fetchLabelEmails(labelId, false, currentPageRef.current);
                 } else {
-                    fetchEmails(currentFolder, false, currentPageRef.current);
+                    fetchEmails(currentFolderRef.current, false, currentPageRef.current);
                 }
                 toast.error('Failed to update star');
             }
         } catch (error) {
-            if (currentFolder.startsWith('label-')) {
-                const labelId = currentFolder.replace('label-', '');
+            if (currentFolderRef.current.startsWith('label-')) {
+                const labelId = currentFolderRef.current.replace('label-', '');
                 fetchLabelEmails(labelId, false, currentPageRef.current);
             } else {
-                fetchEmails(currentFolder, false, currentPageRef.current);
+                fetchEmails(currentFolderRef.current, false, currentPageRef.current);
             }
             toast.error('Failed to update star');
         }
@@ -1361,12 +1618,25 @@ export const MailProvider = ({ children }) => {
         // 2. Invalidate caches for all affected folders
         invalidateCache('draft');
         invalidateCache('drafts');
+        invalidateCache('starred');
         invalidateCache('sent');
         invalidateCache('inbox');
         invalidateCache('all-inbox');
         invalidateCache('allinbox');
         invalidateCache('all-mail');
         invalidateCache('allmail');
+
+        // Also purge any matching draft from star overrides
+        if (targetDraftUids.length > 0) {
+            try {
+                const stored = localStorage.getItem('bnx_draft_star_overrides');
+                if (stored) {
+                    const overrides = JSON.parse(stored);
+                    targetDraftUids.forEach(uid => { delete overrides[String(uid)]; });
+                    localStorage.setItem('bnx_draft_star_overrides', JSON.stringify(overrides));
+                }
+            } catch (e) {}
+        }
 
         // Also purge any matching draft from all cached pages
         if (targetDraftUids.length > 0) {
@@ -1407,6 +1677,7 @@ export const MailProvider = ({ children }) => {
 
         // 5. Silently update drafts and sent caches in the background
         fetchEmailsSilently('drafts');
+        fetchEmailsSilently('starred');
         fetchEmailsSilently('sent');
     }, [fetchEmails, fetchEmailsSilently, fetchLabelEmails, invalidateCache]);
 
@@ -1435,8 +1706,8 @@ export const MailProvider = ({ children }) => {
             });
         });
 
-        // 2. Immutably update cached pages across draft folders
-        ['draft', 'drafts'].forEach(folderKey => {
+        // 2. Immutably update cached pages across draft and starred folders
+        ['draft', 'drafts', 'starred'].forEach(folderKey => {
             const folderCache = pagesCache.current[folderKey];
             if (folderCache) {
                 Object.keys(folderCache).forEach(pageKey => {
@@ -1474,7 +1745,20 @@ export const MailProvider = ({ children }) => {
             }
             return m;
         }));
-        ['draft', 'drafts'].forEach(folderKey => {
+
+        try {
+            const stored = localStorage.getItem('bnx_draft_star_overrides');
+            if (stored) {
+                const overrides = JSON.parse(stored);
+                if (overrides[strOld] !== undefined) {
+                    overrides[String(newUid)] = overrides[strOld];
+                    delete overrides[strOld];
+                    localStorage.setItem('bnx_draft_star_overrides', JSON.stringify(overrides));
+                }
+            }
+        } catch (e) {}
+
+        ['draft', 'drafts', 'starred'].forEach(folderKey => {
             const folderCache = pagesCache.current[folderKey];
             if (folderCache) {
                 Object.keys(folderCache).forEach(pageKey => {
