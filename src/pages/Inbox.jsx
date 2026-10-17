@@ -37,17 +37,16 @@ const Inbox = ({ searchQuery }) => {
     });
   };
 
+  const isAllInbox = location.pathname === '/all-inbox';
   const isCategoryTab = ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(activeTab);
 
+  const currentFolder = isAllInbox
+    ? 'all-inbox'
+    : (availableTabs.find(t => t.id === activeTab)?.category ? 'inbox' : activeTab.toLowerCase());
+
   useEffect(() => {
-    if (location.pathname === '/all-inbox') {
-      fetchEmails('all-inbox');
-    } else if (isCategoryTab) {
-      fetchEmails('inbox');
-    } else {
-      fetchEmails(activeTab.toLowerCase());
-    }
-  }, [activeTab, fetchEmails, location.pathname, isCategoryTab]);
+    fetchEmails(currentFolder);
+  }, [fetchEmails, currentFolder]);
 
   const getTabCategory = (e) => {
     if (user?.email && e.cc) {
@@ -145,9 +144,9 @@ const Inbox = ({ searchQuery }) => {
         emails={visibleEmails}
         selectedEmailId={selectedEmailUid}
         onSelectEmail={handleSelectEmail}
-        onDelete={(uid) => handleMoveToTrash(uid, "inbox")}
-        onStar={(uid) => handleToggleStar(uid, "inbox")}
-        onArchive={(uid) => handleArchive(uid, "inbox")}
+        onDelete={(uid) => handleMoveToTrash(uid, currentFolder)}
+        onStar={(uid) => handleToggleStar(uid, currentFolder)}
+        onArchive={(uid) => handleArchive(uid, currentFolder)}
         onSnooze={handleSnooze}
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
@@ -179,7 +178,7 @@ const Inbox = ({ searchQuery }) => {
       selectedIds={selectedIds}
       setSelectedIds={setSelectedIds}
       visibleEmails={visibleEmails}
-      folder={availableTabs.find(t => t.id === activeTab)?.category ? 'inbox' : activeTab.toLowerCase()}
+      folder={currentFolder}
     />
   ) : (
     <div className="flex flex-col border-b border-gray-100 dark:border-gray-800 bg-transparent shrink-0">
@@ -226,7 +225,7 @@ const Inbox = ({ searchQuery }) => {
 
         {/* Refresh Button */}
         <button
-          onClick={() => fetchEmails(availableTabs.find(t => t.id === activeTab)?.category ? "inbox" : activeTab.toLowerCase())}
+          onClick={() => fetchEmails(currentFolder, false, 1)}
           disabled={loading}
           className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
           title={t("common.refresh", "Refresh mail")}
@@ -249,12 +248,12 @@ const Inbox = ({ searchQuery }) => {
       email={selectedEmail}
       onBack={() => setSelectedEmailUid(null)}
       onDelete={(uid) => {
-        handleMoveToTrash(uid, "inbox");
+        handleMoveToTrash(uid, currentFolder);
         setSelectedEmailUid(null);
       }}
-      onStar={(uid) => handleToggleStar(uid, "inbox")}
+      onStar={(uid) => handleToggleStar(uid, currentFolder)}
       onArchive={(uid) => {
-        handleArchive(uid, "inbox");
+        handleArchive(uid, currentFolder);
         setSelectedEmailUid(null);
       }}
       onSnooze={handleSnooze}

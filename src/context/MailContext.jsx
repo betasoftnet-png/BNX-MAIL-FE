@@ -67,6 +67,7 @@ export const MailProvider = ({ children }) => {
         if (!folder) return;
         const folderKey = folder.toLowerCase();
         delete pagesCache.current[folderKey];
+        delete pagesCache.current[`${folderKey}_total`];
     }, []);
     const [loading, setLoading] = useState(false);
     const [unreadCounts, setUnreadCounts] = useState({ inbox: 0, unread: 0, spam: 0, trash: 0 });
@@ -255,6 +256,93 @@ export const MailProvider = ({ children }) => {
         };
     }, [limit]);
 
+    const fetchAllInboxEmails = useCallback(async (targetPage = 1, pageLimit = limit) => {
+        const sessionsStr = localStorage.getItem('bnx_sessions');
+        let sessions = {};
+        try {
+            sessions = sessionsStr ? JSON.parse(sessionsStr) : {};
+        } catch (e) { }
+
+        const sessionKeys = Object.keys(sessions);
+        let allEmails = [];
+
+        if (sessionKeys.length > 0) {
+            const fetchPromises = sessionKeys.map(async (email) => {
+                const sessionObj = sessions[email];
+                const token = sessionObj?.accessToken;
+                if (!token) return [];
+                try {
+                    const inboxRes = await api.get(API_ENDPOINTS.MAIL.INBOX, {
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    });
+                    if (inboxRes.data?.success) {
+                        const dataObj = inboxRes.data.data;
+                        const emailsList = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
+                        return emailsList.map(e => ({
+                            ...e,
+                            accountEmail: email
+                        }));
+                    }
+                } catch (err) {
+                    console.error(`Failed to fetch all-inbox for ${email}:`, err);
+                }
+                return [];
+            });
+
+            const results = await Promise.all(fetchPromises);
+            allEmails = results.flat();
+        }
+
+        if (allEmails.length === 0) {
+            try {
+                const fallbackRes = await mailAPI.getInbox(targetPage, pageLimit);
+                if (fallbackRes?.data?.success) {
+                    const dataObj = fallbackRes.data.data;
+                    const emailsList = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
+                    allEmails = emailsList.map(e => ({
+                        ...e,
+                        accountEmail: user?.email || ''
+                    }));
+                }
+            } catch (err) {
+                console.error("Failed to fetch fallback inbox for all-inbox:", err);
+            }
+        }
+
+        const seen = new Set();
+        const uniqueEmails = [];
+        for (const item of allEmails) {
+            const uidStr = String(item.uid ?? item.id ?? item.messageId ?? '');
+            const acc = item.accountEmail ? item.accountEmail.toLowerCase() : '';
+            const key = uidStr ? `${acc}_${uidStr}` : null;
+            if (!key || !seen.has(key)) {
+                if (key) seen.add(key);
+                uniqueEmails.push(item);
+            }
+        }
+
+        uniqueEmails.sort((a, b) => {
+            const dateA = new Date(a.date || a.receivedDate || a.sentDate || 0);
+            const dateB = new Date(b.date || b.receivedDate || b.sentDate || 0);
+            return dateB - dateA;
+        });
+
+        const totalUnreadCount = uniqueEmails.filter(e => !e.isRead && !e.read).length;
+
+        return {
+            data: {
+                success: true,
+                data: {
+                    emails: uniqueEmails,
+                    totalCount: uniqueEmails.length,
+                    unreadCount: totalUnreadCount
+                }
+            }
+        };
+    }, [user, limit]);
+
     const fetchEmailsSilently = useCallback(async (folder, page = null) => {
         if (!user) return;
         const folderKey = folder.toLowerCase();
@@ -271,6 +359,8 @@ export const MailProvider = ({ children }) => {
             let res;
             switch (folderKey) {
                 case 'inbox': res = await mailAPI.getInbox(targetPage, limit); break;
+                case 'all-inbox':
+                case 'allinbox': res = await fetchAllInboxEmails(targetPage, limit); break;
                 case 'sent': res = await mailAPI.getSent(targetPage, limit); break;
                 case 'draft':
                 case 'drafts': res = await mailAPI.getDrafts(targetPage, limit); break;
@@ -385,9 +475,20 @@ export const MailProvider = ({ children }) => {
                     }
                 }
 
+                // Calculate dynamic total count reflecting actual filtered unique emails
+                let calculatedTotal = normalizedEmails.length;
+                if (['all-inbox', 'allinbox', 'spam', 'all-mail', 'allmail'].includes(folderKey)) {
+                    calculatedTotal = normalizedEmails.length;
+                } else if (data.totalCount !== undefined && data.totalCount !== null) {
+                    const rawCount = rawEmails.length;
+                    const filteredDiff = Math.max(0, rawCount - normalizedEmails.length);
+                    calculatedTotal = Math.max(normalizedEmails.length, data.totalCount - filteredDiff);
+                }
+
                 // Update caches
                 if (!pagesCache.current[folderKey]) pagesCache.current[folderKey] = {};
                 pagesCache.current[folderKey][targetPage] = normalizedEmails;
+                pagesCache.current[`${folderKey}_total`] = calculatedTotal;
 
                 // Sync unread counts in real-time across all tabs and folders
                 const countKey = folderKey.replace('-', '').replace(' ', '');
@@ -406,11 +507,17 @@ export const MailProvider = ({ children }) => {
                         ...prev,
                         spam: unread
                     }));
+                } else if (countKey === 'allinbox') {
+                    const unread = normalizedEmails.filter(e => !e.isRead).length;
+                    setUnreadCounts(prev => ({
+                        ...prev,
+                        allinbox: unread
+                    }));
                 }
 
                 // Only update active screen if it matches the current folder
                 if (currentFolderRef.current.toLowerCase() === folderKey) {
-                    setTotalEmails(folderKey === 'spam' ? normalizedEmails.length : (data.totalCount || normalizedEmails.length));
+                    setTotalEmails(calculatedTotal);
                     setEmails(normalizedEmails);
                 }
             }
@@ -423,7 +530,7 @@ export const MailProvider = ({ children }) => {
         } finally {
             silentFetchInFlight.current.delete(reqKey);
         }
-    }, [user, limit, getStarredWithDrafts]);
+    }, [user, limit, getStarredWithDrafts, fetchAllInboxEmails]);
 
     const fetchEmails = useCallback(async (folder = currentFolderRef.current, silent = false, page = null) => {
         const folderKey = (folder || currentFolderRef.current).toLowerCase();
@@ -438,7 +545,10 @@ export const MailProvider = ({ children }) => {
 
         // Instant render: if in-memory cache has data for this folder & page, display it immediately!
         if (pagesCache.current[folderKey] && pagesCache.current[folderKey][targetPage]) {
-            setEmails(pagesCache.current[folderKey][targetPage]);
+            const cachedList = pagesCache.current[folderKey][targetPage];
+            const cachedTotal = pagesCache.current[`${folderKey}_total`] ?? cachedList.length;
+            setEmails(cachedList);
+            setTotalEmails(cachedTotal);
             setCurrentFolder(folder);
             currentFolderRef.current = folder;
             setLoading(false);
@@ -450,8 +560,11 @@ export const MailProvider = ({ children }) => {
             setLoading(true);
         }
         
-        // Clear emails if switching folders to avoid flashing stale content
-        setEmails(prev => (currentFolderRef.current.toLowerCase() === folderKey ? prev : []));
+        // Clear emails & reset total count if switching folders to avoid flashing stale content
+        if (isFolderChange) {
+            setEmails([]);
+            setTotalEmails(0);
+        }
         setCurrentFolder(folder);
         currentFolderRef.current = folder;
 
@@ -505,59 +618,7 @@ export const MailProvider = ({ children }) => {
                 }
                 case 'all-inbox':
                 case 'allinbox': {
-                    const sessionsStr = localStorage.getItem('bnx_sessions');
-                    let sessions = {};
-                    try {
-                        sessions = sessionsStr ? JSON.parse(sessionsStr) : {};
-                    } catch (e) { }
-
-                    const sessionKeys = Object.keys(sessions);
-                    if (sessionKeys.length === 0) {
-                        res = await mailAPI.getInbox(page, limit);
-                        break;
-                    }
-
-                    const fetchPromises = sessionKeys.map(async (email) => {
-                        const token = sessions[email].accessToken;
-                        try {
-                            const inboxRes = await api.get(API_ENDPOINTS.MAIL.INBOX, {
-                                headers: {
-                                    Authorization: `Bearer ${token}`
-                                }
-                            });
-                            if (inboxRes.data?.success) {
-                                const emailsList = inboxRes.data.data?.emails || [];
-                                return emailsList.map(e => ({
-                                    ...e,
-                                    accountEmail: email
-                                }));
-                            }
-                        } catch (err) {
-                            console.error(`Failed to fetch all-inbox for ${email}:`, err);
-                        }
-                        return [];
-                    });
-
-                    const results = await Promise.all(fetchPromises);
-                    const mergedEmails = results.flat();
-
-                    mergedEmails.sort((a, b) => {
-                        const dateA = new Date(a.date || a.receivedDate || a.sentDate || 0);
-                        const dateB = new Date(b.date || b.receivedDate || b.sentDate || 0);
-                        return dateB - dateA;
-                    });
-
-                    const totalUnreadCount = mergedEmails.filter(e => !e.isRead).length;
-
-                    res = {
-                        data: {
-                            success: true,
-                            data: {
-                                emails: mergedEmails,
-                                unreadCount: totalUnreadCount
-                            }
-                        }
-                    };
+                    res = await fetchAllInboxEmails(targetPage, limit);
                     break;
                 }
                 case 'all-mail':
@@ -693,9 +754,20 @@ export const MailProvider = ({ children }) => {
                     }
                 }
                 
+                // Calculate dynamic total count reflecting actual filtered unique emails
+                let calculatedTotal = normalizedEmails.length;
+                if (['all-inbox', 'allinbox', 'spam', 'all-mail', 'allmail'].includes(folderKey)) {
+                    calculatedTotal = normalizedEmails.length;
+                } else if (data.totalCount !== undefined && data.totalCount !== null) {
+                    const rawCount = rawEmails.length;
+                    const filteredDiff = Math.max(0, rawCount - normalizedEmails.length);
+                    calculatedTotal = Math.max(normalizedEmails.length, data.totalCount - filteredDiff);
+                }
+
                 // Update Cache
                 if (!pagesCache.current[folderKey]) pagesCache.current[folderKey] = {};
                 pagesCache.current[folderKey][targetPage] = normalizedEmails;
+                pagesCache.current[`${folderKey}_total`] = calculatedTotal;
                 
                 // Sync unread counts in real-time across all tabs and folders
                 const countKey = folderKey.replace('-', '').replace(' ', '');
@@ -709,16 +781,17 @@ export const MailProvider = ({ children }) => {
                         next.unread = unread;
                     } else if (countKey === 'unread') {
                         next.inbox = unread;
+                    } else if (countKey === 'allinbox') {
+                        next.allinbox = unread;
                     }
                     return next;
                 });
 
                 // Only update active screen if it matches the current folder
                 if (currentFolderRef.current.toLowerCase() === folderKey) {
-                    const totalCount = folderKey === 'spam' ? normalizedEmails.length : (data.totalCount || normalizedEmails.length);
-                    setTotalEmails(totalCount);
+                    setTotalEmails(calculatedTotal);
 
-                    const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+                    const totalPages = Math.max(1, Math.ceil(calculatedTotal / limit));
                     if (targetPage > totalPages) {
                         const validPage = totalPages;
                         updateCurrentPage(validPage);
@@ -737,7 +810,7 @@ export const MailProvider = ({ children }) => {
         } finally {
             if (!silent && currentFolderRef.current.toLowerCase() === folderKey) setLoading(false);
         }
-    }, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts]);
+    }, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts, fetchAllInboxEmails]);
 
     const fetchLabels = useCallback(async () => {
         if (!user) return;

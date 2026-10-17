@@ -32,7 +32,8 @@ const EmailList = ({
   const [snoozeCoords, setSnoozeCoords] = useState({ top: 0, right: 0 });
 
   // Pagination logic
-  const totalPages = Math.ceil(totalEmails / emailsPerPage) || 1;
+  const effectiveTotal = Math.max(totalEmails || 0, emails.length);
+  const totalPages = Math.ceil(effectiveTotal / emailsPerPage) || 1;
   const startIndex = (currentPage - 1) * emailsPerPage;
   const displayedEmails = emails;
 
@@ -95,8 +96,8 @@ const EmailList = ({
         <span className="font-medium text-gray-700 dark:text-gray-300">{startIndex + 1}</span>
         <span className="hidden sm:inline"> to </span>
         <span className="sm:hidden">-</span>
-        <span className="font-medium text-gray-700 dark:text-gray-300">{Math.min(startIndex + emailsPerPage, totalEmails)}</span>
-        {' '}of <span className="font-medium text-gray-700 dark:text-gray-300">{totalEmails}</span>
+        <span className="font-medium text-gray-700 dark:text-gray-300">{Math.min(startIndex + emailsPerPage, effectiveTotal)}</span>
+        {' '}of <span className="font-medium text-gray-700 dark:text-gray-300">{effectiveTotal}</span>
         <span className="hidden sm:inline"> emails</span>
       </div>
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
