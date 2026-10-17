@@ -1,5 +1,6 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile } from "react-icons/md";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -22,8 +23,10 @@ const EmailList = ({
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const location = useLocation();
   const { theme, emailsPerPage, backgroundImage } = useTheme();
-  const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter } = useMail();
+  const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter, currentFolder } = useMail();
+  const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
   const snoozeAction = onSnooze || contextHandleSnooze;
 
   const [snoozeOpenUid, setSnoozeOpenUid] = useState(null);
@@ -323,7 +326,7 @@ const EmailList = ({
 
                   {/* Subject & Snippet */}
                   <div className="flex-1 min-w-0 flex items-baseline gap-1 sm:gap-2 truncate pr-1 sm:pr-4">
-                    {email.accountEmail && (
+                    {!isAllInbox && email.accountEmail && (
                       <span className="shrink-0 text-[9px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 px-1.5 py-0.5 rounded-md select-none hidden md:inline" title={`Account: ${email.accountEmail}`}>
                         {email.accountEmail.split('@')[0].toUpperCase()}
                       </span>
