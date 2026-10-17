@@ -18,6 +18,29 @@ try {
     }
 } catch (e) {}
 
+const sortEmailsByDateDesc = (list) => {
+    if (!Array.isArray(list)) return list;
+    return list.sort((a, b) => {
+        const getTimestamp = (m) => {
+            if (!m) return 0;
+            const d = m.receivedDate || m.sentDate || m.date || m.createdAt || m.timestamp;
+            if (!d) return 0;
+            const t = new Date(d).getTime();
+            return isNaN(t) ? 0 : t;
+        };
+        const timeA = getTimestamp(a);
+        const timeB = getTimestamp(b);
+        if (timeA === 0 && timeB === 0) return 0;
+        if (timeA === 0) return 1;
+        if (timeB === 0) return -1;
+        if (timeB !== timeA) return timeB - timeA;
+        const uidA = Number(a.uid);
+        const uidB = Number(b.uid);
+        if (!isNaN(uidA) && !isNaN(uidB)) return uidB - uidA;
+        return 0;
+    });
+};
+
 const MailContext = createContext();
 
 export const MailProvider = ({ children }) => {
@@ -197,6 +220,10 @@ export const MailProvider = ({ children }) => {
 
                 if (folderKey === 'spam') {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
+                }
+
+                if (folderKey === 'starred') {
+                    sortEmailsByDateDesc(normalizedEmails);
                 }
 
                 if (user?.email) {
@@ -481,6 +508,10 @@ export const MailProvider = ({ children }) => {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
                 }
 
+                if (folderKey === 'starred') {
+                    sortEmailsByDateDesc(normalizedEmails);
+                }
+
                 // Filter logic for Inbox and Sent folders based on currently logged-in user's email ID
                 const lowerFolder = folder.toLowerCase();
                 if (user?.email) {
@@ -628,6 +659,8 @@ export const MailProvider = ({ children }) => {
             }
             return prev.map(m => String(m.uid) === String(uid) ? { ...m, starred: !m.starred } : m);
         });
+
+        invalidateCache('starred');
 
         try {
             const res = await mailAPI.toggleStar(uid, folder);

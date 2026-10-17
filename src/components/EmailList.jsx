@@ -387,12 +387,15 @@ const EmailList = ({
                       className={`text-xs whitespace-nowrap transition-opacity duration-100 group-hover:opacity-0 ${isUnread ? "font-bold text-primary" : "text-gray-400 dark:text-gray-500"
                         }`}
                     >
-                      {email.receivedDate
-                        ? new Date(email.receivedDate).toLocaleDateString(undefined, {
+                      {(() => {
+                        const raw = email.receivedDate || email.sentDate || email.date || email.createdAt || email.timestamp;
+                        if (!raw) return "";
+                        const parsed = new Date(raw);
+                        return isNaN(parsed.getTime()) ? "" : parsed.toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
-                        })
-                        : ""}
+                        });
+                      })()}
                     </span>
 
                     {/* Quick actions that fade-in on row hover */}

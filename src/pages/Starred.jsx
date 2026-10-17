@@ -1,5 +1,5 @@
 import { useTranslation } from "../context/LanguageContext";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { MdStar, MdStarBorder } from "react-icons/md";
@@ -17,7 +17,6 @@ const Starred = ({ searchQuery }) => {
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
-  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -52,6 +51,31 @@ const Starred = ({ searchQuery }) => {
         e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  const sortedEmails = useMemo(() => {
+    const getTimestamp = (item) => {
+      if (!item) return 0;
+      const raw = item.receivedDate || item.sentDate || item.date || item.createdAt || item.timestamp;
+      if (!raw) return 0;
+      const t = new Date(raw).getTime();
+      return isNaN(t) ? 0 : t;
+    };
+
+    return [...visibleEmails].sort((a, b) => {
+      const timeA = getTimestamp(a);
+      const timeB = getTimestamp(b);
+      if (timeA === 0 && timeB === 0) return 0;
+      if (timeA === 0) return 1;
+      if (timeB === 0) return -1;
+      if (timeB !== timeA) return timeB - timeA;
+      const uidA = Number(a.uid);
+      const uidB = Number(b.uid);
+      if (!isNaN(uidA) && !isNaN(uidB)) return uidB - uidA;
+      return 0;
+    });
+  }, [visibleEmails]);
+
+  const selectedEmail = sortedEmails.find((e) => String(e.uid) === String(selectedEmailUid));
+
   const handleSelectEmail = (email) => {
     setSelectedEmailUid(email.uid);
   };
@@ -80,7 +104,7 @@ const handleReply = (email) => {
   /* ---------------- MAIN UI ---------------- */
   const detailsComponent = selectedEmail ? (
     <EmailDetails
-      emailList={visibleEmails}
+      emailList={sortedEmails}
       onNavigate={(email) => setSelectedEmailUid(email.uid)}
       email={selectedEmail}
       onBack={() => setSelectedEmailUid(null)}
@@ -109,7 +133,7 @@ const handleReply = (email) => {
     <BulkActionsToolbar
       selectedIds={selectedIds}
       setSelectedIds={setSelectedIds}
-      visibleEmails={visibleEmails}
+      visibleEmails={sortedEmails}
       folder="starred"
     />
   ) : (
@@ -143,7 +167,7 @@ const handleReply = (email) => {
         </div>
       ) : (
         <EmailList
-          emails={visibleEmails}
+          emails={sortedEmails}
           selectedEmailId={selectedEmailUid}
           onSelectEmail={handleSelectEmail}
           onStar={handleUnstar}
