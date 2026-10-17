@@ -388,9 +388,48 @@ const ComposePage = () => {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        saveCurrentDraft();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [formData]);
+
   const handleClose = () => {
-    // Immediately close composer and navigate back without browser alert.
-    // Discards only in-memory unsaved edits, preserving the original saved draft untouched.
+    const isExistingDraft = Boolean(draftUidRef.current || location.state?.draft);
+    if (!isExistingDraft) {
+      // Normal new-compose behavior: save as draft if user typed content
+      const hasContent = Boolean(
+        formData.to?.trim() ||
+        formData.subject?.trim() ||
+        formData.body?.trim() ||
+        formData.cc?.trim() ||
+        formData.bcc?.trim()
+      );
+      if (hasContent) {
+        const payload = {
+          to: formData.to,
+          subject: formData.subject || "(No Subject)",
+          body: formData.body,
+          isHtml: true,
+        };
+        if (formData.cc) payload.cc = formData.cc;
+        if (formData.bcc) payload.bcc = formData.bcc;
+        mailAPI.saveDraft(payload).then(() => {
+          if (invalidateCache) {
+            invalidateCache('draft');
+            invalidateCache('drafts');
+          }
+          if (fetchEmailsSilently) {
+            fetchEmailsSilently('drafts');
+          }
+        }).catch(console.error);
+      }
+    }
     navigate("/inbox");
   };
 

@@ -245,6 +245,8 @@ const FloatingCompose = () => {
   const imapDraftUidRef = useRef(null);
   const initialFormDataRef = useRef(null);
   const isSavingDraftRef = useRef(false);
+  const originalDraftSnapshotRef = useRef(null);
+  const isEditingExistingDraftRef = useRef(false);
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
@@ -402,6 +404,18 @@ const FloatingCompose = () => {
   useEffect(() => {
     if (!isComposeOpen) {
       signatureInjectedRef.current = false;
+      originalDraftSnapshotRef.current = null;
+      isEditingExistingDraftRef.current = false;
+      imapDraftUidRef.current = null;
+      setDraftId(null);
+      initialFormDataRef.current = null;
+      setFormData({
+        to: "",
+        cc: "",
+        bcc: "",
+        subject: "",
+        body: "",
+      });
       return;
     }
     const fetchSettings = async () => {
@@ -509,20 +523,32 @@ const FloatingCompose = () => {
             initialFormDataRef.current = { ...replyForm };
           } else if (composeData.draft) {
             const d = composeData.draft;
-            imapDraftUidRef.current = d.uid;
-            if (d.id) setDraftId(d.id);
-            const draftForm = {
+            isEditingExistingDraftRef.current = true;
+            originalDraftSnapshotRef.current = {
+              uid: d.uid,
+              id: d.id,
               to: d.to || d.recipientEmail || "",
               cc: d.cc || "",
               bcc: d.bcc || "",
               subject: d.subject || "",
               body: d.body || d.textPlain || d.htmlBody || "",
             };
+            imapDraftUidRef.current = d.uid;
+            if (d.id) setDraftId(d.id);
+            const draftForm = {
+              to: originalDraftSnapshotRef.current.to,
+              cc: originalDraftSnapshotRef.current.cc,
+              bcc: originalDraftSnapshotRef.current.bcc,
+              subject: originalDraftSnapshotRef.current.subject,
+              body: originalDraftSnapshotRef.current.body,
+            };
             setFormData(draftForm);
             initialFormDataRef.current = { ...draftForm };
             if (d.cc) setShowCc(true);
             if (d.bcc) setShowBcc(true);
           } else {
+            isEditingExistingDraftRef.current = false;
+            originalDraftSnapshotRef.current = null;
             const initialForm = {
               to: composeData.to || "",
               cc: composeData.cc || "",
@@ -1022,9 +1048,55 @@ const FloatingCompose = () => {
     }
   };
 
+  // Explicit save shortcut: Ctrl+S or Cmd+S
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        saveCurrentDraft(true);
+      }
+    };
+    if (isComposeOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [isComposeOpen, formData]);
+
   const handleClose = () => {
-    // Immediately close composer without browser alert.
-    // Discards only in-memory unsaved edits, preserving the original saved draft untouched.
+    const isExistingDraft = Boolean(isEditingExistingDraftRef.current || originalDraftSnapshotRef.current || composeData?.draft);
+    if (!isExistingDraft) {
+      // Normal new-compose behavior: save as draft if user typed content
+      const hasContent = Boolean(
+        formData.to?.trim() ||
+        formData.subject?.trim() ||
+        formData.body?.trim() ||
+        formData.cc?.trim() ||
+        formData.bcc?.trim()
+      );
+      if (hasContent && (composeMode === "mail" || composeMode === "email")) {
+        const payload = {
+          to: formData.to,
+          subject: formData.subject || "(No Subject)",
+          body: getFinalBody(formData.body),
+          isHtml: true,
+        };
+        if (formData.cc) payload.cc = formData.cc;
+        if (formData.bcc) payload.bcc = formData.bcc;
+
+        mailAPI.saveDraft(payload).then(() => {
+          if (invalidateCache) {
+            invalidateCache('draft');
+            invalidateCache('drafts');
+          }
+          if (currentFolder?.toLowerCase() === 'draft' || currentFolder?.toLowerCase() === 'drafts') {
+            fetchEmails('draft', true);
+          } else if (fetchEmailsSilently) {
+            fetchEmailsSilently('drafts');
+          }
+        }).catch(console.error);
+      }
+    }
+    // For existing drafts, discard in-memory temporary changes and close immediately without alert
     closeCompose();
   };
 
@@ -1164,7 +1236,7 @@ const FloatingCompose = () => {
                 type="button"
                 onClick={handleClose}
                 className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500"
-                title="Save & Close"
+                title="Close"
               >
                 <MdClose size={16} />
               </button>
@@ -1232,7 +1304,7 @@ const FloatingCompose = () => {
                 type="button"
                 onClick={handleClose}
                 className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors"
-                title="Save & Close"
+                title="Close"
               >
                 <MdClose size={16} />
               </button>

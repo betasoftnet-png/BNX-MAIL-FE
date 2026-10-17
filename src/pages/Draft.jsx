@@ -53,7 +53,7 @@ const Draft = ({ searchQuery }) => {
   );
 
   const handleSelectEmail = (email) => {
-    openCompose({ draft: email });
+    openCompose({ draft: { ...email } });
   };
 
   
@@ -68,7 +68,7 @@ const Draft = ({ searchQuery }) => {
 const handleReply = (email) => {
     // Open draft in composer
     openCompose({
-      draft: email
+      draft: { ...email }
     });
     setSelectedEmailUid(null); // Close the detail view
   };
