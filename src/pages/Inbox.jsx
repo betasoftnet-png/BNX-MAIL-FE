@@ -37,6 +37,19 @@ const Inbox = ({ searchQuery }) => {
     });
   };
 
+  const availableTabs = [
+    { id: 'ALL', label: 'All', icon: MdInbox, color: theme.accent || '#135bec', category: true },
+    { id: 'IMPORTANT', label: 'Important', icon: MdLabelImportant, color: '#eab308', category: true },
+    { id: 'PROMOTIONS', label: 'Promotions', icon: MdLocalOffer, color: '#22c55e', category: true },
+    { id: 'SOCIAL', label: 'Social', icon: MdPeople, color: '#3b82f6', category: true },
+    { id: 'UPDATES', label: 'Updates', icon: MdInfo, color: '#f97316', category: true },
+    { id: 'JOB', label: 'Job', icon: MdWork, color: '#0d9488', category: true },
+    { id: 'SENT', label: 'Sent', icon: MdSend, color: '#8b5cf6', category: false },
+    { id: 'DRAFT', label: 'Drafts', icon: MdDrafts, color: '#64748b', category: false },
+    { id: 'STARRED', label: 'Starred', icon: MdStar, color: '#eab308', category: false },
+    { id: 'TRASH', label: 'Trash', icon: MdDelete, color: '#ef4444', category: false }
+  ];
+
   const isAllInbox = location.pathname === '/all-inbox';
   const isCategoryTab = ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(activeTab);
 
@@ -89,19 +102,6 @@ const Inbox = ({ searchQuery }) => {
       handleMarkRead(email.uid);
     }
   };
-
-  const availableTabs = [
-    { id: 'ALL', label: 'All', icon: MdInbox, color: theme.accent || '#135bec', category: true },
-    { id: 'IMPORTANT', label: 'Important', icon: MdLabelImportant, color: '#eab308', category: true },
-    { id: 'PROMOTIONS', label: 'Promotions', icon: MdLocalOffer, color: '#22c55e', category: true },
-    { id: 'SOCIAL', label: 'Social', icon: MdPeople, color: '#3b82f6', category: true },
-    { id: 'UPDATES', label: 'Updates', icon: MdInfo, color: '#f97316', category: true },
-    { id: 'JOB', label: 'Job', icon: MdWork, color: '#0d9488', category: true },
-    { id: 'SENT', label: 'Sent', icon: MdSend, color: '#8b5cf6', category: false },
-    { id: 'DRAFT', label: 'Drafts', icon: MdDrafts, color: '#64748b', category: false },
-    { id: 'STARRED', label: 'Starred', icon: MdStar, color: '#eab308', category: false },
-    { id: 'TRASH', label: 'Trash', icon: MdDelete, color: '#ef4444', category: false }
-  ];
 
   const [activeTabs, setActiveTabs] = useState(() => {
     const saved = localStorage.getItem('inbox_visible_tabs');
