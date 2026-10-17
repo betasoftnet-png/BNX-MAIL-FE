@@ -180,7 +180,9 @@ const FloatingCompose = () => {
     invalidateCache,
     handleEmailSent,
     currentFolder,
-    openCompose
+    openCompose,
+    updateDraftInState,
+    updateDraftUidInState
   } = useMail();
 
   const isReply = !!(composeData?.replyTo || composeData?.forward);
@@ -247,6 +249,7 @@ const FloatingCompose = () => {
   const isSavingDraftRef = useRef(false);
   const originalDraftSnapshotRef = useRef(null);
   const isEditingExistingDraftRef = useRef(false);
+  const selectedDraftIdRef = useRef(null);
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
@@ -406,6 +409,7 @@ const FloatingCompose = () => {
       signatureInjectedRef.current = false;
       originalDraftSnapshotRef.current = null;
       isEditingExistingDraftRef.current = false;
+      selectedDraftIdRef.current = null;
       imapDraftUidRef.current = null;
       setDraftId(null);
       initialFormDataRef.current = null;
@@ -524,6 +528,7 @@ const FloatingCompose = () => {
           } else if (composeData.draft) {
             const d = composeData.draft;
             isEditingExistingDraftRef.current = true;
+            selectedDraftIdRef.current = d.uid !== undefined && d.uid !== null ? String(d.uid) : (d.id !== undefined && d.id !== null ? String(d.id) : null);
             originalDraftSnapshotRef.current = {
               uid: d.uid,
               id: d.id,
@@ -995,8 +1000,22 @@ const FloatingCompose = () => {
 
     try {
       isSavingDraftRef.current = true;
+      const targetDraftId = selectedDraftIdRef.current || imapDraftUidRef.current || composeData?.draft?.uid || composeData?.draft?.id;
       const targetUid = imapDraftUidRef.current ? String(imapDraftUidRef.current) : (composeData?.draft?.uid ? String(composeData.draft.uid) : null);
       const targetId = draftId || composeData?.draft?.id || null;
+
+      if (targetDraftId && typeof updateDraftInState === 'function') {
+        updateDraftInState(targetDraftId, {
+          subject: formData.subject || "(No Subject)",
+          to: formData.to || "",
+          recipientEmail: formData.to || "",
+          cc: formData.cc || "",
+          bcc: formData.bcc || "",
+          body: formData.body || "",
+          textPlain: formData.body || "",
+          htmlBody: formData.body || "",
+        });
+      }
 
       const payload = {
         uid: targetUid,
@@ -1013,6 +1032,12 @@ const FloatingCompose = () => {
       const savedData = res.data?.data;
       if (savedData && savedData.uid) {
         imapDraftUidRef.current = savedData.uid;
+        if (targetDraftId && String(savedData.uid) !== String(targetDraftId)) {
+          if (typeof updateDraftUidInState === 'function') {
+            updateDraftUidInState(targetDraftId, savedData.uid);
+          }
+          selectedDraftIdRef.current = String(savedData.uid);
+        }
       }
 
       initialFormDataRef.current = {
@@ -1022,16 +1047,6 @@ const FloatingCompose = () => {
         subject: formData.subject,
         body: formData.body,
       };
-
-      if (invalidateCache) {
-        invalidateCache('draft');
-        invalidateCache('drafts');
-      }
-      if (currentFolder?.toLowerCase() === 'draft' || currentFolder?.toLowerCase() === 'drafts') {
-        fetchEmails('draft', true);
-      } else if (fetchEmailsSilently) {
-        fetchEmailsSilently('drafts');
-      }
 
       if (showToast) {
         toast.success("Draft saved");
@@ -1062,17 +1077,39 @@ const FloatingCompose = () => {
 
   const handleClose = () => {
     const isExistingDraft = Boolean(isEditingExistingDraftRef.current || originalDraftSnapshotRef.current || composeData?.draft);
-    if (!isExistingDraft) {
-      // Normal new-compose behavior: save as draft if user typed content
-      const hasContent = Boolean(
-        formData.to?.trim() ||
-        formData.subject?.trim() ||
-        formData.body?.trim() ||
-        formData.cc?.trim() ||
-        formData.bcc?.trim()
+    if (isExistingDraft) {
+      const targetDraftId = selectedDraftIdRef.current || imapDraftUidRef.current || composeData?.draft?.uid || composeData?.draft?.id;
+      const init = initialFormDataRef.current || {};
+      const hasChanged = Boolean(
+        (formData.to || '').trim() !== (init.to || '').trim() ||
+        (formData.cc || '').trim() !== (init.cc || '').trim() ||
+        (formData.bcc || '').trim() !== (init.bcc || '').trim() ||
+        (formData.subject || '').trim() !== (init.subject || '').trim() ||
+        (formData.body || '').trim() !== (init.body || '').trim()
       );
-      if (hasContent && (composeMode === "mail" || composeMode === "email")) {
+
+      if (hasChanged && targetDraftId) {
+        // 1. Immediately update only that selected draft in the Drafts list and cache using its unique ID
+        if (typeof updateDraftInState === 'function') {
+          updateDraftInState(targetDraftId, {
+            subject: formData.subject || "(No Subject)",
+            to: formData.to || "",
+            recipientEmail: formData.to || "",
+            cc: formData.cc || "",
+            bcc: formData.bcc || "",
+            body: formData.body || "",
+            textPlain: formData.body || "",
+            htmlBody: formData.body || "",
+          });
+        }
+
+        // 2. Persist to backend without blocking or showing alerts
+        const targetUid = imapDraftUidRef.current ? String(imapDraftUidRef.current) : (composeData?.draft?.uid ? String(composeData.draft.uid) : null);
+        const targetId = draftId || composeData?.draft?.id || null;
+
         const payload = {
+          uid: targetUid,
+          id: targetId,
           to: formData.to,
           subject: formData.subject || "(No Subject)",
           body: getFinalBody(formData.body),
@@ -1081,20 +1118,53 @@ const FloatingCompose = () => {
         if (formData.cc) payload.cc = formData.cc;
         if (formData.bcc) payload.bcc = formData.bcc;
 
-        mailAPI.saveDraft(payload).then(() => {
-          if (invalidateCache) {
-            invalidateCache('draft');
-            invalidateCache('drafts');
+        mailAPI.saveDraft(payload).then((res) => {
+          const savedData = res.data?.data;
+          if (savedData?.uid && String(savedData.uid) !== String(targetDraftId)) {
+            if (typeof updateDraftUidInState === 'function') {
+              updateDraftUidInState(targetDraftId, savedData.uid);
+            }
           }
-          if (currentFolder?.toLowerCase() === 'draft' || currentFolder?.toLowerCase() === 'drafts') {
-            fetchEmails('draft', true);
-          } else if (fetchEmailsSilently) {
-            fetchEmailsSilently('drafts');
-          }
-        }).catch(console.error);
+        }).catch((err) => {
+          console.error("Failed to persist draft on close:", err);
+        });
       }
+
+      // Close the composer immediately without any alert or confirmation popup
+      closeCompose();
+      return;
     }
-    // For existing drafts, discard in-memory temporary changes and close immediately without alert
+
+    // Normal new-compose behavior: save as draft if user typed content
+    const hasContent = Boolean(
+      formData.to?.trim() ||
+      formData.subject?.trim() ||
+      formData.body?.trim() ||
+      formData.cc?.trim() ||
+      formData.bcc?.trim()
+    );
+    if (hasContent && (composeMode === "mail" || composeMode === "email")) {
+      const payload = {
+        to: formData.to,
+        subject: formData.subject || "(No Subject)",
+        body: getFinalBody(formData.body),
+        isHtml: true,
+      };
+      if (formData.cc) payload.cc = formData.cc;
+      if (formData.bcc) payload.bcc = formData.bcc;
+
+      mailAPI.saveDraft(payload).then(() => {
+        if (invalidateCache) {
+          invalidateCache('draft');
+          invalidateCache('drafts');
+        }
+        if (currentFolder?.toLowerCase() === 'draft' || currentFolder?.toLowerCase() === 'drafts') {
+          fetchEmails('draft', true);
+        } else if (fetchEmailsSilently) {
+          fetchEmailsSilently('drafts');
+        }
+      }).catch(console.error);
+    }
     closeCompose();
   };
 

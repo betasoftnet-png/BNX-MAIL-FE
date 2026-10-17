@@ -1410,6 +1410,89 @@ export const MailProvider = ({ children }) => {
         fetchEmailsSilently('sent');
     }, [fetchEmails, fetchEmailsSilently, fetchLabelEmails, invalidateCache]);
 
+    const updateDraftInState = useCallback((targetId, updatedFields) => {
+        if (!targetId) return;
+        const strTargetId = String(targetId);
+
+        // 1. Immutably update the active emails array for matching draft ID only
+        setEmails(prevEmails => {
+            if (!Array.isArray(prevEmails)) return prevEmails;
+            return prevEmails.map(email => {
+                const emailUid = email.uid !== undefined && email.uid !== null ? String(email.uid) : null;
+                const emailId = email.id !== undefined && email.id !== null ? String(email.id) : null;
+                if (emailUid === strTargetId || emailId === strTargetId) {
+                    return {
+                        ...email,
+                        ...updatedFields,
+                        uid: email.uid,
+                        id: email.id,
+                        starred: email.starred,
+                        labels: email.labels,
+                        folderName: email.folderName,
+                    };
+                }
+                return email;
+            });
+        });
+
+        // 2. Immutably update cached pages across draft folders
+        ['draft', 'drafts'].forEach(folderKey => {
+            const folderCache = pagesCache.current[folderKey];
+            if (folderCache) {
+                Object.keys(folderCache).forEach(pageKey => {
+                    if (Array.isArray(folderCache[pageKey])) {
+                        folderCache[pageKey] = folderCache[pageKey].map(email => {
+                            const emailUid = email.uid !== undefined && email.uid !== null ? String(email.uid) : null;
+                            const emailId = email.id !== undefined && email.id !== null ? String(email.id) : null;
+                            if (emailUid === strTargetId || emailId === strTargetId) {
+                                return {
+                                    ...email,
+                                    ...updatedFields,
+                                    uid: email.uid,
+                                    id: email.id,
+                                    starred: email.starred,
+                                    labels: email.labels,
+                                    folderName: email.folderName,
+                                };
+                            }
+                            return email;
+                        });
+                    }
+                });
+            }
+        });
+    }, []);
+
+    const updateDraftUidInState = useCallback((oldTargetId, newUid) => {
+        if (!oldTargetId || !newUid) return;
+        const strOld = String(oldTargetId);
+        setEmails(prev => prev.map(m => {
+            const mUid = m.uid !== undefined && m.uid !== null ? String(m.uid) : null;
+            const mId = m.id !== undefined && m.id !== null ? String(m.id) : null;
+            if (mUid === strOld || mId === strOld) {
+                return { ...m, uid: newUid };
+            }
+            return m;
+        }));
+        ['draft', 'drafts'].forEach(folderKey => {
+            const folderCache = pagesCache.current[folderKey];
+            if (folderCache) {
+                Object.keys(folderCache).forEach(pageKey => {
+                    if (Array.isArray(folderCache[pageKey])) {
+                        folderCache[pageKey] = folderCache[pageKey].map(m => {
+                            const mUid = m.uid !== undefined && m.uid !== null ? String(m.uid) : null;
+                            const mId = m.id !== undefined && m.id !== null ? String(m.id) : null;
+                            if (mUid === strOld || mId === strOld) {
+                                return { ...m, uid: newUid };
+                            }
+                            return m;
+                        });
+                    }
+                });
+            }
+        });
+    }, []);
+
     return (
         <MailContext.Provider value={{
             emails,
@@ -1458,7 +1541,9 @@ export const MailProvider = ({ children }) => {
             customDateRange,
             setCustomDateRange,
             resetDateFilter,
-            matchesDateFilter
+            matchesDateFilter,
+            updateDraftInState,
+            updateDraftUidInState
         }}>
             {children}
         </MailContext.Provider>
@@ -1508,6 +1593,8 @@ export const useMail = () => {
             setCustomDateRange: () => {},
             resetDateFilter: () => {},
             matchesDateFilter: () => true,
+            updateDraftInState: () => {},
+            updateDraftUidInState: () => {},
         };
     }
     return context;

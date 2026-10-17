@@ -92,7 +92,7 @@ const ComposePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme } = useTheme();
-  const { handleEmailSent, invalidateCache, fetchEmailsSilently } = useMail();
+  const { handleEmailSent, invalidateCache, fetchEmailsSilently, updateDraftInState, updateDraftUidInState } = useMail();
 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -401,17 +401,32 @@ const ComposePage = () => {
 
   const handleClose = () => {
     const isExistingDraft = Boolean(draftUidRef.current || location.state?.draft);
-    if (!isExistingDraft) {
-      // Normal new-compose behavior: save as draft if user typed content
-      const hasContent = Boolean(
-        formData.to?.trim() ||
-        formData.subject?.trim() ||
-        formData.body?.trim() ||
-        formData.cc?.trim() ||
-        formData.bcc?.trim()
+    if (isExistingDraft) {
+      const targetDraftId = draftUidRef.current || location.state?.draft?.uid || location.state?.draft?.id;
+      const init = initialFormDataRef.current || {};
+      const hasChanged = Boolean(
+        (formData.to || '').trim() !== (init.to || '').trim() ||
+        (formData.cc || '').trim() !== (init.cc || '').trim() ||
+        (formData.bcc || '').trim() !== (init.bcc || '').trim() ||
+        (formData.subject || '').trim() !== (init.subject || '').trim() ||
+        (formData.body || '').trim() !== (init.body || '').trim()
       );
-      if (hasContent) {
+
+      if (hasChanged && targetDraftId) {
+        if (typeof updateDraftInState === 'function') {
+          updateDraftInState(targetDraftId, {
+            subject: formData.subject || "(No Subject)",
+            to: formData.to || "",
+            recipientEmail: formData.to || "",
+            cc: formData.cc || "",
+            bcc: formData.bcc || "",
+            body: formData.body || "",
+            textPlain: formData.body || "",
+            htmlBody: formData.body || "",
+          });
+        }
         const payload = {
+          uid: targetDraftId,
           to: formData.to,
           subject: formData.subject || "(No Subject)",
           body: formData.body,
@@ -419,16 +434,46 @@ const ComposePage = () => {
         };
         if (formData.cc) payload.cc = formData.cc;
         if (formData.bcc) payload.bcc = formData.bcc;
-        mailAPI.saveDraft(payload).then(() => {
-          if (invalidateCache) {
-            invalidateCache('draft');
-            invalidateCache('drafts');
-          }
-          if (fetchEmailsSilently) {
-            fetchEmailsSilently('drafts');
+
+        mailAPI.saveDraft(payload).then((res) => {
+          const savedData = res.data?.data;
+          if (savedData?.uid && String(savedData.uid) !== String(targetDraftId)) {
+            if (typeof updateDraftUidInState === 'function') {
+              updateDraftUidInState(targetDraftId, savedData.uid);
+            }
           }
         }).catch(console.error);
       }
+      navigate("/inbox");
+      return;
+    }
+
+    // Normal new-compose behavior: save as draft if user typed content
+    const hasContent = Boolean(
+      formData.to?.trim() ||
+      formData.subject?.trim() ||
+      formData.body?.trim() ||
+      formData.cc?.trim() ||
+      formData.bcc?.trim()
+    );
+    if (hasContent) {
+      const payload = {
+        to: formData.to,
+        subject: formData.subject || "(No Subject)",
+        body: formData.body,
+        isHtml: true,
+      };
+      if (formData.cc) payload.cc = formData.cc;
+      if (formData.bcc) payload.bcc = formData.bcc;
+      mailAPI.saveDraft(payload).then(() => {
+        if (invalidateCache) {
+          invalidateCache('draft');
+          invalidateCache('drafts');
+        }
+        if (fetchEmailsSilently) {
+          fetchEmailsSilently('drafts');
+        }
+      }).catch(console.error);
     }
     navigate("/inbox");
   };
