@@ -53,6 +53,7 @@ const StorageManagement = lazyRetry(() => import("./pages/StorageManagement"), "
 const MailBackup = lazyRetry(() => import("./pages/MailBackup"), "MailBackup");
 const MailBackupViewer = lazyRetry(() => import("./pages/MailBackupViewer"), "MailBackupViewer");
 const AnalyticsApp = lazyRetry(() => import("./components/AnalyticsApp"), "AnalyticsApp");
+const RemoteConnectedApp = lazyRetry(() => import("./pages/RemoteConnectedApp"), "RemoteConnectedApp");
 
 /* Signup Pages */
 const SignupLayout = lazyRetry(() => import("./pages/signup/SignupLayout"), "SignupLayout");
@@ -401,6 +402,10 @@ const App = () => (
                         </ProtectedRoute>
                       } 
                     />
+
+                    {/* Remote Connected Application Demonstrations */}
+                    <Route path="/apps/beta-website" element={<RemoteConnectedApp appType="beta-website" />} />
+                    <Route path="/apps/beta-storage" element={<RemoteConnectedApp appType="beta-storage" />} />
 
                     <Route
                       path="/*"
