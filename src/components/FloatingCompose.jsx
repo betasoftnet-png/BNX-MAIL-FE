@@ -472,6 +472,32 @@ const FloatingCompose = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [size, setSize] = useState({ width: 540, height: 500 });
   const [position, setPosition] = useState({ x: window.innerWidth - 570, y: window.innerHeight - 520 });
+  const lastNormalSizeRef = useRef({ width: 540, height: 500 });
+  const lastNormalPosRef = useRef(null);
+
+  const handleMinimizeToggle = (e) => {
+    if (e && typeof e.stopPropagation === "function") {
+      e.stopPropagation();
+    }
+    if (isComposeMinimized) {
+      setIsComposeMinimized(false);
+    } else {
+      setIsComposeMinimized(true);
+    }
+  };
+
+  const handleMaximizeToggle = (e) => {
+    if (e && typeof e.stopPropagation === "function") {
+      e.stopPropagation();
+    }
+    if (isComposeMinimized) {
+      // If currently minimized, clicking maximize un-minimizes AND maximizes into full view
+      setIsComposeMinimized(false);
+      setIsComposeMaximized(true);
+    } else {
+      setIsComposeMaximized((prev) => !prev);
+    }
+  };
 
   // Listen for window resize to check mobile view and clamp desktop boundaries
   useEffect(() => {
@@ -506,20 +532,38 @@ const FloatingCompose = () => {
   useEffect(() => {
     if (!isComposeOpen || isMobile) return;
 
-    if (isComposeMaximized) {
-      const w = Math.min(1000, window.innerWidth * 0.85);
-      const h = Math.min(700, window.innerHeight * 0.85);
-      setSize({ width: w, height: h });
-      setPosition({ x: (window.innerWidth - w) / 2, y: (window.innerHeight - h) / 2 });
-    } else if (isComposeMinimized) {
+    if (isComposeMinimized) {
+      // Minimized state: docked compact header bar at bottom-right
       const w = Math.min(500, window.innerWidth - 40);
       setSize({ width: w, height: 45 });
       setPosition({ x: window.innerWidth - w - 20, y: window.innerHeight - 45 });
-    } else {
-      const w = Math.min(540, window.innerWidth - 40);
-      const h = Math.min(500, window.innerHeight - 60);
+    } else if (isComposeMaximized) {
+      // Maximized state: full screen / viewport view
+      const w = Math.max(350, Math.min(1200, window.innerWidth - 40));
+      const h = Math.max(400, window.innerHeight - 60);
       setSize({ width: w, height: h });
-      setPosition({ x: window.innerWidth - w - 20, y: window.innerHeight - h - 20 });
+      setPosition({
+        x: Math.max(10, Math.round((window.innerWidth - w) / 2)),
+        y: Math.max(10, Math.round((window.innerHeight - h) / 2)),
+      });
+    } else {
+      // Normal state: restore user's preferred normal size & position
+      const defaultW = Math.min(540, window.innerWidth - 40);
+      const defaultH = Math.min(500, window.innerHeight - 60);
+      const savedW = lastNormalSizeRef.current?.width || defaultW;
+      const savedH = lastNormalSizeRef.current?.height || defaultH;
+      const w = Math.min(savedW, window.innerWidth - 40);
+      const h = Math.min(savedH, window.innerHeight - 60);
+
+      const defaultX = window.innerWidth - w - 20;
+      const defaultY = window.innerHeight - h - 20;
+      const savedX = lastNormalPosRef.current?.x !== undefined ? lastNormalPosRef.current.x : defaultX;
+      const savedY = lastNormalPosRef.current?.y !== undefined ? lastNormalPosRef.current.y : defaultY;
+      const x = Math.max(10, Math.min(savedX, window.innerWidth - w - 10));
+      const y = Math.max(10, Math.min(savedY, window.innerHeight - h - 10));
+
+      setSize({ width: w, height: h });
+      setPosition({ x, y });
     }
   }, [isComposeMaximized, isComposeMinimized, isComposeOpen, isMobile]);
 
@@ -1479,31 +1523,43 @@ const FloatingCompose = () => {
               borderColor: theme.border || "rgba(0,0,0,0.1)"
             }}
             onClick={() => {
-              if (isMobile && isComposeMinimized) {
+              if (isComposeMinimized) {
                 setIsComposeMinimized(false);
               }
             }}
           >
-            <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
               <MdReply size={20} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer" />
               <MdArrowDropDown size={16} className="text-gray-400 -ml-1 shrink-0 cursor-pointer" />
               <span className="font-semibold text-sm truncate max-w-[200px] sm:max-w-[300px]" style={{ color: theme.text }}>
                 {formData.to || composeData?.replyTo || "Recipient"}
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsComposeMinimized(!isComposeMinimized)}
-                className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500"
-                title={isComposeMinimized ? "Expand" : "Minimize"}
-              >
-                <MdRemove size={16} />
-              </button>
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {!isMobile && (
+                <button
+                  type="button"
+                  onClick={handleMinimizeToggle}
+                  className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 cursor-pointer"
+                  title={isComposeMinimized ? "Expand" : "Minimize"}
+                >
+                  <MdRemove size={16} />
+                </button>
+              )}
+              {!isMobile && (
+                <button
+                  type="button"
+                  onClick={handleMaximizeToggle}
+                  className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 cursor-pointer"
+                  title={(!isComposeMinimized && isComposeMaximized) ? "Restore" : "Maximize"}
+                >
+                  {(!isComposeMinimized && isComposeMaximized) ? <MdCloseFullscreen size={16} /> : <MdOpenInFull size={16} />}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleClose}
-                className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500"
+                className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 cursor-pointer"
                 title="Close"
               >
                 <MdClose size={16} />
@@ -1514,7 +1570,7 @@ const FloatingCompose = () => {
           <div
             className={`${isMobile ? "" : "compose-drag-handle"} flex items-center justify-between px-4 py-2.5 cursor-move shrink-0 border-b select-none bg-gray-100 dark:bg-neutral-800 dark:border-gray-800`}
             onClick={() => {
-              if (isMobile && isComposeMinimized) {
+              if (isComposeMinimized) {
                 setIsComposeMinimized(false);
               }
             }}
@@ -1547,12 +1603,12 @@ const FloatingCompose = () => {
                 Casbox
               </button>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
               {!isMobile && (
                 <button
                   type="button"
-                  onClick={() => setIsComposeMinimized(!isComposeMinimized)}
-                  className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors"
+                  onClick={handleMinimizeToggle}
+                  className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors cursor-pointer"
                   title={isComposeMinimized ? "Expand" : "Minimize"}
                 >
                   <MdRemove size={16} />
@@ -1561,17 +1617,17 @@ const FloatingCompose = () => {
               {!isMobile && (
                 <button
                   type="button"
-                  onClick={() => setIsComposeMaximized(!isComposeMaximized)}
-                  className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors"
-                  title={isComposeMaximized ? "Restore" : "Maximize"}
+                  onClick={handleMaximizeToggle}
+                  className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors cursor-pointer"
+                  title={(!isComposeMinimized && isComposeMaximized) ? "Restore" : "Maximize"}
                 >
-                  {isComposeMaximized ? <MdCloseFullscreen size={16} /> : <MdOpenInFull size={16} />}
+                  {(!isComposeMinimized && isComposeMaximized) ? <MdCloseFullscreen size={16} /> : <MdOpenInFull size={16} />}
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleClose}
-                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors"
+                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors cursor-pointer"
                 title="Close"
               >
                 <MdClose size={16} />
@@ -1580,9 +1636,12 @@ const FloatingCompose = () => {
           </div>
         )}
 
-        {/* BODY CONTENT (HIDDEN WHEN MINIMIZED) */}
-        {!isComposeMinimized && (
-          <form onSubmit={handleSend} className="flex-1 flex flex-col p-4 overflow-hidden min-h-0 bg-transparent">
+        {/* BODY CONTENT (HIDDEN WHEN MINIMIZED, PRESERVES ALL INPUT STATE & REFS) */}
+        <form
+          onSubmit={handleSend}
+          className={`flex-1 flex flex-col p-4 overflow-hidden min-h-0 bg-transparent ${isComposeMinimized ? '!hidden' : ''}`}
+          style={{ display: isComposeMinimized ? 'none' : 'flex' }}
+        >
           {/* ALERTS */}
           {error && (
             <div className="mb-3 p-2 rounded bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-900/30 text-xs font-medium shrink-0">
@@ -2217,7 +2276,6 @@ const FloatingCompose = () => {
               </div>
             )}
           </form>
-        )}
       </>
     );
   };
@@ -2342,19 +2400,25 @@ const FloatingCompose = () => {
         position={position}
         onDragStop={(e, d) => {
           setPosition({ x: d.x, y: d.y });
+          if (!isComposeMinimized && !isComposeMaximized) {
+            lastNormalPosRef.current = { x: d.x, y: d.y };
+          }
         }}
         onResizeStop={(e, direction, ref, delta, pos) => {
-          setSize({
-            width: parseInt(ref.style.width, 10),
-            height: parseInt(ref.style.height, 10)
-          });
+          const newW = parseInt(ref.style.width, 10);
+          const newH = parseInt(ref.style.height, 10);
+          setSize({ width: newW, height: newH });
           setPosition(pos);
+          if (!isComposeMinimized && !isComposeMaximized) {
+            lastNormalSizeRef.current = { width: newW, height: newH };
+            lastNormalPosRef.current = pos;
+          }
         }}
         minWidth={350}
         minHeight={isComposeMinimized ? 45 : 300}
         maxWidth={window.innerWidth}
         maxHeight={window.innerHeight}
-        enableResizing={!isComposeMinimized}
+        enableResizing={!isComposeMinimized && !isComposeMaximized}
         disableDragging={isComposeMaximized}
         dragHandleClassName="compose-drag-handle"
         bounds="window"
