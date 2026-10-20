@@ -450,6 +450,48 @@ aside.sidebar-collapsed hr {
   border: none !important;
 }
 
+/* Compose Email Editor Layout - Fixed Toolbar & Header, Scrollable Body */
+.compose-quill {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.compose-quill .quill {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.compose-quill .ql-toolbar.ql-snow {
+  flex-shrink: 0 !important;
+  background-color: #ffffff;
+}
+
+.compose-quill .ql-container.ql-snow {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+.compose-quill .ql-editor {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+}
+
 .template-editor .ql-editor {
   min-height: 160px !important;
   max-height: 250px !important;

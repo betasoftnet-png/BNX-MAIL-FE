@@ -109,6 +109,9 @@ const handleQuillLink = function(value) {
           if (containerRect && left + tooltip.root.offsetWidth > containerRect.width - 12) {
             left = Math.max(12, containerRect.width - tooltip.root.offsetWidth - 12);
           }
+          if (containerRect && top + tooltip.root.offsetHeight > containerRect.height - 8) {
+            top = Math.max(8, (bounds ? bounds.top : 0) - tooltip.root.offsetHeight - 8);
+          }
         }
         tooltip.root.style.left = `${left}px`;
         tooltip.root.style.top = `${top}px`;
@@ -1383,20 +1386,69 @@ const FloatingCompose = () => {
             }
             .reply-composer-style .ql-container {
               border: none !important;
+              display: flex !important;
+              flex-direction: column !important;
+              flex: 1 1 0% !important;
+              min-height: 0 !important;
+              height: 100% !important;
+              overflow: hidden !important;
             }
             .reply-composer-style .ql-editor {
               padding: 12px 0 !important;
               font-size: 14px !important;
               line-height: 1.6 !important;
-              min-height: 150px !important;
+              flex: 1 1 0% !important;
+              min-height: 0 !important;
+              height: 100% !important;
+              overflow-y: auto !important;
+              overscroll-behavior-y: contain;
             }
           `}</style>
         )}
 
         <style>{`
+          .compose-quill {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 0% !important;
+            min-height: 0 !important;
+            height: 100% !important;
+            overflow: hidden !important;
+          }
+          .compose-quill .quill {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 0% !important;
+            min-height: 0 !important;
+            height: 100% !important;
+            overflow: hidden !important;
+          }
+          .compose-quill .ql-toolbar.ql-snow {
+            flex-shrink: 0 !important;
+            border: none !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            background-color: #ffffff;
+          }
+          .compose-quill .ql-container.ql-snow,
           .compose-quill .ql-container {
-            overflow: visible !important;
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 0% !important;
+            min-height: 0 !important;
+            height: 100% !important;
+            overflow: hidden !important;
             position: relative !important;
+            border: none !important;
+          }
+          .compose-quill .ql-editor {
+            flex: 1 1 0% !important;
+            min-height: 0 !important;
+            height: 100% !important;
+            overflow-y: auto !important;
+            overscroll-behavior-y: contain;
+            font-family: ${getFontFamilyCss(defaultFontFamily)};
+            font-size: ${getFontSizeCss(defaultFontSize)};
+            color: ${getTextColorCss(defaultTextColor)};
           }
           .compose-quill .ql-snow .ql-tooltip,
           .reply-composer-style .ql-snow .ql-tooltip {
@@ -1405,11 +1457,6 @@ const FloatingCompose = () => {
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
             border-radius: 8px !important;
             position: absolute !important;
-          }
-          .compose-quill .ql-editor {
-            font-family: ${getFontFamilyCss(defaultFontFamily)};
-            font-size: ${getFontSizeCss(defaultFontSize)};
-            color: ${getTextColorCss(defaultTextColor)};
           }
           .compose-quill .ql-editor p,
           .compose-quill .ql-editor div,
@@ -1548,8 +1595,8 @@ const FloatingCompose = () => {
             </div>
           )}
 
-          {/* FIELDS */}
-          <div className="flex-1 flex flex-col gap-0.5 overflow-y-auto hidden-scrollbar min-h-0 pr-1">
+          {/* HEADER FIELDS (RECIPIENT & SUBJECT) - FIXED / NON-SHRINKING */}
+          <div className="shrink-0 flex flex-col gap-0.5">
             {/* Cc & Bcc toggles */}
             {!isReply && (composeMode === "mail" || composeMode === "email") && (
               <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
@@ -1624,76 +1671,76 @@ const FloatingCompose = () => {
               </div>
             )}
 
-              {/* SUBJECT */}
-              {!isReply && (
-                <div className="flex items-center gap-2 border-b py-1.5 shrink-0" style={{ borderColor: theme.border }}>
-                  <span className="text-xs font-semibold w-10 text-gray-500">{t('compose.subject', 'Subject')}:</span>
-                  <input
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleChange}
-                    onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
-                    className="flex-1 bg-transparent text-sm outline-none border-none"
-                    style={{ color: theme.text }}
-                    placeholder={t('compose.subject_placeholder', 'Enter subject...')}
-                    spellCheck={spellingCheck ? "true" : "false"}
-                    autoCorrect={autoCorrect ? "on" : "off"}
-                  />
-                </div>
-              )}
-
-              {/* BODY */}
-              <div className={`flex-1 mt-2 overflow-y-auto w-full compose-quill rounded-md ${isReply ? 'reply-composer-style' : ''}`} style={{ minHeight: "150px" }}>
-                <ReactQuill
-                  ref={quillRef}
-                  theme="snow"
-                  modules={dynamicQuillModules}
-                  bounds="self"
-                  value={formData.body}
-                  onChange={(content) => setFormData((prev) => ({ ...prev, body: content }))}
-                  placeholder={composeData?.forward ? "Type your forwarded message here..." : "Type your message here..."}
-                  className="h-full bg-white text-black"
+            {/* SUBJECT */}
+            {!isReply && (
+              <div className="flex items-center gap-2 border-b py-1.5 shrink-0" style={{ borderColor: theme.border }}>
+                <span className="text-xs font-semibold w-10 text-gray-500">{t('compose.subject', 'Subject')}:</span>
+                <input
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleChange}
+                  onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
+                  className="flex-1 bg-transparent text-sm outline-none border-none"
+                  style={{ color: theme.text }}
+                  placeholder={t('compose.subject_placeholder', 'Enter subject...')}
+                  spellCheck={spellingCheck ? "true" : "false"}
+                  autoCorrect={autoCorrect ? "on" : "off"}
                 />
               </div>
+            )}
+          </div>
 
-              {/* ATTACHMENT CHIPS RENDERING */}
-              {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 py-2 mt-2 border-t" style={{ borderColor: theme.border }}>
-                  {attachments.map((file, i) => (
-                    <div 
-                      key={file.fileName || i}
-                      className="flex items-center gap-2 bg-black/[0.03] dark:bg-white/[0.04] border px-2.5 py-1 rounded-xl text-xs"
-                      style={{ borderColor: theme.border, color: theme.text }}
-                    >
-                      <span 
-                        onClick={() => handlePreviewAttachment(file)}
-                        className="truncate max-w-[150px] cursor-pointer hover:underline text-blue-600 dark:text-blue-400"
-                        title="Click to preview"
-                      >
-                        {file.fileName}
-                      </span>
-                      <span className="opacity-55 font-medium">({Math.round((file.size || 0) / 1024)} KB)</span>
-                      <button 
-                        type="button" 
-                        onClick={() => handlePreviewAttachment(file)}
-                        className="text-gray-500 hover:text-blue-600 transition-colors p-0.5 rounded cursor-pointer"
-                        title="Preview attachment"
-                      >
-                        <MdRemoveRedEye size={14} />
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveAttachment(file.fileName)}
-                        className="text-red-500 hover:text-red-700 font-bold text-sm leading-none cursor-pointer"
-                        title="Remove attachment"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+          {/* BODY - TOOLBAR REMAINS STATIONARY AT TOP, ONLY EDITOR SCROLLS */}
+          <div className={`flex-1 min-h-0 flex flex-col mt-2 w-full compose-quill rounded-md overflow-hidden ${isReply ? 'reply-composer-style' : ''}`}>
+            <ReactQuill
+              ref={quillRef}
+              theme="snow"
+              modules={dynamicQuillModules}
+              bounds="self"
+              value={formData.body}
+              onChange={(content) => setFormData((prev) => ({ ...prev, body: content }))}
+              placeholder={composeData?.forward ? "Type your forwarded message here..." : "Type your message here..."}
+              className="flex-1 min-h-0 flex flex-col h-full bg-white text-black"
+            />
+          </div>
+
+          {/* ATTACHMENT CHIPS RENDERING - FIXED / NON-SHRINKING */}
+          {attachments.length > 0 && (
+            <div className="shrink-0 flex flex-wrap gap-2 py-2 mt-2 border-t max-h-24 overflow-y-auto" style={{ borderColor: theme.border }}>
+              {attachments.map((file, i) => (
+                <div 
+                  key={file.fileName || i}
+                  className="flex items-center gap-2 bg-black/[0.03] dark:bg-white/[0.04] border px-2.5 py-1 rounded-xl text-xs"
+                  style={{ borderColor: theme.border, color: theme.text }}
+                >
+                  <span 
+                    onClick={() => handlePreviewAttachment(file)}
+                    className="truncate max-w-[150px] cursor-pointer hover:underline text-blue-600 dark:text-blue-400"
+                    title="Click to preview"
+                  >
+                    {file.fileName}
+                  </span>
+                  <span className="opacity-55 font-medium">({Math.round((file.size || 0) / 1024)} KB)</span>
+                  <button 
+                    type="button" 
+                    onClick={() => handlePreviewAttachment(file)}
+                    className="text-gray-500 hover:text-blue-600 transition-colors p-0.5 rounded cursor-pointer"
+                    title="Preview attachment"
+                  >
+                    <MdRemoveRedEye size={14} />
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleRemoveAttachment(file.fileName)}
+                    className="text-red-500 hover:text-red-700 font-bold text-sm leading-none cursor-pointer"
+                    title="Remove attachment"
+                  >
+                    ×
+                  </button>
                 </div>
-              )}
+              ))}
             </div>
+          )}
 
             {/* FILE UPLOAD INPUT */}
             <input
