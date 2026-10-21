@@ -28,6 +28,8 @@ import "react-quill/dist/quill.snow.css";
 import ImageResize from 'quill-image-resize-module-react';
 import { attachQuillAutoCorrect, handleStandardInputAutoCorrect } from "../utils/autoCorrect";
 import { extractPlainTextFromHtml } from "../utils/htmlUtils";
+import { attachLinkValidation } from "../utils/quillPatch";
+import { validateAndNormalizeUrl } from "../utils/urlValidator";
 
 // For quill-image-resize-module-react
 window.Quill = Quill;
@@ -91,11 +93,19 @@ const handleQuillLink = function(value) {
         const text = this.quill.getText(range);
         if (/^\S+@\S+\.\S+$/.test(text) && !text.startsWith('mailto:')) {
           preview = 'mailto:' + text;
+        } else {
+          const valRes = validateAndNormalizeUrl(text);
+          if (valRes.isValid) {
+            preview = valRes.normalizedUrl;
+          }
         }
       }
     }
     const { tooltip } = this.quill.theme;
-    tooltip.edit('link', preview);
+    if (tooltip) {
+      attachLinkValidation(tooltip);
+      tooltip.edit('link', preview);
+    }
     requestAnimationFrame(() => {
       if (tooltip && tooltip.root) {
         const container = tooltip.quill.root.parentElement;
