@@ -143,6 +143,29 @@ const EmailDetails = ({
     setLocalLabels(email?.labels || []);
   }, [email?.labels, email?.uid]);
 
+  useEffect(() => {
+    const handleShortcutAction = (e) => {
+      const action = e.detail?.action;
+      if (!action || !email) return;
+
+      if (action === "reply") {
+        if (onReply) onReply(email);
+      } else if (action === "forward") {
+        if (onForward) onForward(email);
+      } else if (action === "archive") {
+        if (onArchive) onArchive(email.uid);
+      } else if (action === "delete") {
+        if (onDelete) onDelete(email.uid);
+      } else if (action === "back") {
+        if (onBack) onBack();
+        else if (onClose) onClose();
+      }
+    };
+
+    window.addEventListener("bnx-shortcut-action", handleShortcutAction);
+    return () => window.removeEventListener("bnx-shortcut-action", handleShortcutAction);
+  }, [email, onReply, onForward, onArchive, onDelete, onBack, onClose]);
+
   const snoozeRef = React.useRef(null);
   const labelsRef = React.useRef(null);
 

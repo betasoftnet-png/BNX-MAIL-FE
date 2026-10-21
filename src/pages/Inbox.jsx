@@ -96,6 +96,34 @@ const Inbox = ({ searchQuery }) => {
     setSelectedIds(new Set());
   }, [location.pathname, activeTab]);
 
+  useEffect(() => {
+    const handleShortcutAction = (e) => {
+      const action = e.detail?.action;
+      if (!action) return;
+
+      if (action === "back") {
+        if (selectedEmailUid) {
+          setSelectedEmailUid(null);
+        } else if (selectedIds.size > 0) {
+          setSelectedIds(new Set());
+        }
+      } else if (action === "delete") {
+        if (!selectedEmailUid && selectedIds.size > 0) {
+          selectedIds.forEach((uid) => handleMoveToTrash(uid, currentFolder));
+          setSelectedIds(new Set());
+        }
+      } else if (action === "archive") {
+        if (!selectedEmailUid && selectedIds.size > 0) {
+          selectedIds.forEach((uid) => handleArchive(uid, currentFolder));
+          setSelectedIds(new Set());
+        }
+      }
+    };
+
+    window.addEventListener("bnx-shortcut-action", handleShortcutAction);
+    return () => window.removeEventListener("bnx-shortcut-action", handleShortcutAction);
+  }, [selectedEmailUid, selectedIds, currentFolder, handleMoveToTrash, handleArchive]);
+
   const handleSelectEmail = (email) => {
     setSelectedEmailUid(email.uid);
     if (!email.isRead) {

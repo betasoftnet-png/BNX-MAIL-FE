@@ -251,6 +251,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <form onSubmit={handleSearch} className="flex shrink items-center min-w-[80px] w-20 sm:w-28 md:w-32 lg:w-40 focus-within:w-28 sm:focus-within:w-36 md:focus-within:w-40 lg:focus-within:w-48 transition-all duration-200" ref={searchContainerRef}>
             <div className="relative group w-full">
               <input
+                id="mail-search-input"
                 type="text"
                 value={searchQuery}
                 onFocus={() => setShowSearchResults(true)}

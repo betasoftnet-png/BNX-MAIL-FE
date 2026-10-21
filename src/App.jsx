@@ -17,6 +17,7 @@ import BitToolSidebar from "./components/BitToolSidebar";
 import { StickyNote, NotesManager } from "./components/StickyNotes";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { lazyRetry } from "./utils/lazyRetry";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
 /* Pages - Lazy Loaded with auto-retry and chunk reload recovery */
 const Login = lazyRetry(() => import("./pages/Login"), "Login");
@@ -130,6 +131,7 @@ const getFriendlyMessage = (msg) => {
 
 /* ---------------- APP CONTENT (MAIN LAYOUT) ---------------- */
 const AppContent = () => {
+  useKeyboardShortcuts();
   const [searchQuery, setSearchQuery] = useState("");
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);

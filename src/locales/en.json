@@ -206,6 +206,8 @@
     "active_sessions": "Active Sessions & Logs",
     "invite_friends": "Invite Friends",
     "invite_friends_subtitle": "Invite your friends to join B2Auth and explore BNXmail.",
+    "keyboard_shortcuts": "Keyboard Shortcuts",
+    "keyboard_shortcuts_subtitle": "Navigate BNXmail faster with keyboard shortcuts.",
     "invitation_copied": "Invitation link copied successfully!",
     "invitation_copy_failed": "Failed to copy link to clipboard",
     "email_accounts_switching": "Email Accounts & Switching",

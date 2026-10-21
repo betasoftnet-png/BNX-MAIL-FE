@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   MdSettings,
   MdColorLens,
@@ -33,7 +33,19 @@ import {
   MdInfoOutline,
   MdGroup,
   MdFlashOn,
-  MdCardGiftcard
+  MdCardGiftcard,
+  MdKeyboard,
+  MdInbox,
+  MdSend,
+  MdDrafts,
+  MdStar,
+  MdSearch,
+  MdReply,
+  MdForward,
+  MdArchive,
+  MdTune,
+  MdHelpOutline,
+  MdLightbulb
 } from "react-icons/md";
 import { motion } from "framer-motion";
 import inviteFriendsIllustration from "../assets/invite-friends-illustration.jpg";
@@ -69,6 +81,7 @@ const quillModules = {
 const Settings = () => {
   const { t, applyLanguage, currentLanguage } = useTranslation();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const { user, getSessions, switchAccount } = useAuth();
   const {
     theme, changeTheme, currentThemeName,
@@ -84,7 +97,16 @@ const Settings = () => {
   const bgFileRef = useRef(null);
   const savingRef = useRef(false);
   const mainContentRef = useRef(null);
-  const [activeTab, setActiveTab] = useState("accounts");
+  const [activeTab, setActiveTab] = useState(() => {
+    return routerLocation.state?.tab || "accounts";
+  });
+
+  useEffect(() => {
+    if (routerLocation.state?.tab) {
+      setActiveTab(routerLocation.state.tab);
+    }
+  }, [routerLocation.state?.tab]);
+  const [shortcutFilter, setShortcutFilter] = useState("");
   const [customBgUrl, setCustomBgUrl] = useState("");
   const [selectedWallpaper, setSelectedWallpaper] = useState(backgroundImage);
   const [selectedTheme, setSelectedTheme] = useState(() => currentThemeName || localStorage.getItem("theme") || "Classic");
@@ -1177,6 +1199,7 @@ const Settings = () => {
     { id: "labels", label: t("settings.labels_sidebar", "Labels & Sidebar"), icon: <MdFormatPaint size={20} /> },
     { id: "sessions", label: t("settings.active_sessions", "Active Sessions & Logs"), icon: <MdDevices size={20} /> },
     { id: "invite", label: t("settings.invite_friends", "Invite Friends"), icon: <MdPersonAdd size={20} /> },
+    { id: "shortcuts", label: t("settings.keyboard_shortcuts", "Keyboard Shortcuts"), icon: <MdKeyboard size={20} /> },
   ];
 
   return (
@@ -2682,6 +2705,316 @@ const Settings = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Keyboard Shortcuts Tab */}
+          {activeTab === "shortcuts" && (
+            <motion.div
+              key="shortcuts"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col gap-6 w-full max-w-5xl"
+            >
+              {/* 1. Top Banner Card */}
+              <div
+                className="w-full p-6 sm:p-7 md:p-8 rounded-2xl md:rounded-3xl border shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 overflow-hidden relative"
+                style={{
+                  background: theme.cardBg,
+                  borderColor: theme.border,
+                }}
+              >
+                <div className="flex-1 z-10">
+                  <div className="flex items-start gap-4 mb-2">
+                    <div className="w-12 h-12 rounded-full bg-[#2563eb] text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
+                      <MdKeyboard size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: theme.text }}>
+                        Keyboard Shortcuts
+                      </h2>
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-0.5">
+                        Navigate BNXmail faster with keyboard shortcuts.
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-3 max-w-xl leading-relaxed">
+                    Perform actions, jump across folders, and manage your emails efficiently without using your mouse.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto shrink-0 z-10">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-sm">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Shortcuts Active
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/inbox")}
+                    className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition shadow-sm hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer flex items-center gap-1.5"
+                    style={{ borderColor: theme.border, color: theme.text }}
+                  >
+                    ← {t("common.back_to_inbox", "Back to Inbox")}
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Shortcuts Search / Filter Bar */}
+              <div
+                className="w-full px-4 py-3 rounded-2xl border flex items-center gap-3 shadow-sm"
+                style={{ background: theme.cardBg, borderColor: theme.border }}
+              >
+                <MdSearch size={20} className="text-gray-400 shrink-0" />
+                <input
+                  type="text"
+                  value={shortcutFilter}
+                  onChange={(e) => setShortcutFilter(e.target.value)}
+                  placeholder="Filter shortcuts (e.g. compose, reply, inbox, delete)..."
+                  className="w-full bg-transparent border-none outline-none text-sm placeholder:text-gray-400"
+                  style={{ color: theme.text }}
+                />
+                {shortcutFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setShortcutFilter("")}
+                    className="text-xs font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* 3. Sections Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Section 1: Mail Navigation */}
+                {(!shortcutFilter || [
+                  "go to inbox", "go to sent", "go to drafts", "go to starred", "go to trash", "navigation", "inbox", "sent", "drafts", "starred", "trash"
+                ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
+                  <div
+                    className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
+                    style={{ background: theme.cardBg, borderColor: theme.border }}
+                  >
+                    <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                        <MdInbox size={22} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-base" style={{ color: theme.text }}>
+                          Mail Navigation
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Jump between folders
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 flex-1">
+                      {[
+                        { action: "Go to Inbox", desc: "Open your Inbox folder", keys: ["G", "then", "I"] },
+                        { action: "Go to Sent", desc: "Open sent messages", keys: ["G", "then", "S"] },
+                        { action: "Go to Drafts", desc: "Open saved drafts", keys: ["G", "then", "D"] },
+                        { action: "Go to Starred", desc: "Open starred messages", keys: ["G", "then", "T"] },
+                        { action: "Go to Trash", desc: "Open deleted messages", keys: ["G", "then", "TR"] },
+                      ]
+                        .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
+                        .map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition"
+                          >
+                            <div>
+                              <div className="text-sm font-medium" style={{ color: theme.text }}>
+                                {item.action}
+                              </div>
+                              <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                                {item.desc}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                              {item.keys.map((k, kIdx) =>
+                                k === "then" ? (
+                                  <span key={kIdx} className="text-[11px] text-gray-400 font-medium">then</span>
+                                ) : (
+                                  <kbd
+                                    key={kIdx}
+                                    className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700"
+                                  >
+                                    {k}
+                                  </kbd>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Section 2: Email Actions */}
+                {(!shortcutFilter || [
+                  "compose a new email", "reply to an email", "forward an email", "search emails", "archive selected email", "delete selected email", "actions", "compose", "reply", "forward", "search", "archive", "delete"
+                ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
+                  <div
+                    className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
+                    style={{ background: theme.cardBg, borderColor: theme.border }}
+                  >
+                    <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <MdFlashOn size={22} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-base" style={{ color: theme.text }}>
+                          Email Actions
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Create, reply & manage mail
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 flex-1">
+                      {[
+                        { action: "Compose a new email", desc: "Open message composer", keys: ["C"] },
+                        { action: "Reply to an email", desc: "Reply to active message", keys: ["R"] },
+                        { action: "Forward an email", desc: "Forward active message", keys: ["F"] },
+                        { action: "Search emails", desc: "Focus search input field", keys: ["/"] },
+                        { action: "Archive selected email", desc: "Move active message to archive", keys: ["E"] },
+                        { action: "Delete selected email", desc: "Move active message to trash", keys: ["Del", "or", "#"] },
+                      ]
+                        .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
+                        .map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition"
+                          >
+                            <div>
+                              <div className="text-sm font-medium" style={{ color: theme.text }}>
+                                {item.action}
+                              </div>
+                              <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                                {item.desc}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                              {item.keys.map((k, kIdx) =>
+                                k === "or" ? (
+                                  <span key={kIdx} className="text-[11px] text-gray-400 font-medium">or</span>
+                                ) : (
+                                  <kbd
+                                    key={kIdx}
+                                    className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700"
+                                  >
+                                    {k}
+                                  </kbd>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Section 3: General */}
+                {(!shortcutFilter || [
+                  "close the current popup", "return to the previous view", "open keyboard shortcuts help", "general", "close", "escape", "esc", "help", "back"
+                ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
+                  <div
+                    className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
+                    style={{ background: theme.cardBg, borderColor: theme.border }}
+                  >
+                    <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                        <MdTune size={22} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-base" style={{ color: theme.text }}>
+                          General
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Global controls & dialogs
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 flex-1">
+                      {[
+                        { action: "Close the current popup", desc: "Dismiss compose or modal", keys: ["Esc"] },
+                        { action: "Return to the previous view", desc: "Go back to message list", keys: ["Esc"] },
+                        { action: "Open Keyboard Shortcuts help", desc: "Show this help panel", keys: ["?"] },
+                      ]
+                        .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
+                        .map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition"
+                          >
+                            <div>
+                              <div className="text-sm font-medium" style={{ color: theme.text }}>
+                                {item.action}
+                              </div>
+                              <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                                {item.desc}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                              {item.keys.map((k, kIdx) => (
+                                <kbd
+                                  key={kIdx}
+                                  className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700"
+                                >
+                                  {k}
+                                </kbd>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Smart Input Protection & Navigation Card */}
+              <div
+                className="w-full p-5 sm:p-6 rounded-2xl md:rounded-3xl border shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                style={{
+                  background: theme.mode === "dark" ? "rgba(59, 130, 246, 0.08)" : "#eff6ff",
+                  borderColor: theme.mode === "dark" ? "rgba(59, 130, 246, 0.2)" : "#bfdbfe",
+                }}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <MdLightbulb size={22} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-blue-900 dark:text-blue-200">
+                      Smart Input Protection & Sequential Keys
+                    </h4>
+                    <p className="text-xs text-blue-800/80 dark:text-blue-300/80 mt-1 max-w-2xl leading-relaxed">
+                      Shortcuts are automatically paused while typing in any text input, search box, or email compose editor to prevent conflicts. For navigation shortcuts like <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 font-mono text-[10px] font-bold">G</kbd> then <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 font-mono text-[10px] font-bold">I</kbd>, press each key in sequence.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("accounts")}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-gray-700 transition shadow-sm cursor-pointer"
+                  >
+                    Go to Accounts
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/inbox")}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm cursor-pointer"
+                  >
+                    Back to Inbox
+                  </button>
                 </div>
               </div>
             </motion.div>
