@@ -495,6 +495,8 @@ export const casboxAPI = {
     archiveMessage: (id, archived = true) => api.patch(`/api/casbox/${id}/archive?archived=${archived}`),
     updateArchiveStatus: (messageIds, archived = true) => api.patch('/api/casbox/archive', { messageIds, archived }),
     deleteConversation: (contactEmailOrId) => api.delete(`/api/casbox/conversation/${encodeURIComponent(contactEmailOrId)}`),
+    deleteMessage: (id) => api.delete(`/api/casbox/message/${encodeURIComponent(id)}`),
+    deleteMessages: (messageIds) => api.delete('/api/casbox/messages', { data: messageIds }),
     // Contact alias endpoints
     getAllAliases: () => api.get('/api/contact-aliases'),
     getAlias: (contactUserId) => api.get(`/api/contact-aliases/${encodeURIComponent(contactUserId)}`),
