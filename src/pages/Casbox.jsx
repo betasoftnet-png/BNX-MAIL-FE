@@ -3585,7 +3585,7 @@ const Casbox = () => {
       }
     }
 
-    if (selectedMessage) {
+    if (selectedMessage && !threadMessages.length) {
       const sId = selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid;
       const sFallback = `${selectedMessage.timestamp}-${selectedMessage.senderEmail || selectedMessage.sender}-${selectedMessage.receiverEmail || selectedMessage.receiver}-${selectedMessage.body}`;
       if ((sId !== undefined && (targetIdsSet.has(sId) || targetIdsSet.has(String(sId)))) || fallbackIdsSet.has(sFallback)) {
@@ -3673,6 +3673,92 @@ const Casbox = () => {
     setOpenMenuId(null);
     setOpenCombineMenuId(null);
     stageMessagesDeletion([msg]);
+  };
+
+  const renderUndoToast = (isInsideChatPanel = false) => {
+    if (!undoToastState) return null;
+
+    return (
+      <div
+        role="alert"
+        aria-live="polite"
+        className={`${
+          isInsideChatPanel
+            ? "absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] max-w-[92%] sm:max-w-none"
+            : "fixed bottom-6 left-1/2 -translate-x-1/2 z-[2500] max-w-[95vw] sm:max-w-none"
+        } animate-in fade-in slide-in-from-bottom-5 duration-200 pointer-events-auto select-none`}
+      >
+        <div className="flex items-center gap-3 sm:gap-4 bg-white dark:bg-white text-gray-900 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-[0_12px_36px_-6px_rgba(0,0,0,0.16),0_4px_12px_-2px_rgba(0,0,0,0.08)] border border-blue-100/90 dark:border-gray-200">
+          {/* Green Success / Check Icon */}
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 shrink-0">
+            <MdCheck size={18} className="stroke-[1.5]" />
+          </div>
+
+          {/* Message text in dark navy */}
+          <span className="text-sm font-semibold text-[#0B192C] tracking-tight whitespace-nowrap">
+            {undoToastState.label || "Message deleted"}
+          </span>
+
+          {/* Prominent Royal Blue Undo Button */}
+          <button
+            type="button"
+            onClick={handleUndoDeletion}
+            className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-[#0D47A1] hover:bg-[#1565C0] active:scale-95 text-white text-xs font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <MdUndo size={16} />
+            <span>Undo</span>
+          </button>
+
+          {/* Circular Blue Progress Indicator with Countdown */}
+          <div
+            className="relative flex items-center justify-center w-8 h-8 shrink-0"
+            title={`${undoToastState.countdown} seconds remaining`}
+          >
+            <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+              {/* Track circle */}
+              <circle
+                cx="16"
+                cy="16"
+                r="13"
+                fill="none"
+                stroke="#E3F2FD"
+                strokeWidth="2.5"
+              />
+              {/* Progress circle */}
+              <circle
+                cx="16"
+                cy="16"
+                r="13"
+                fill="none"
+                stroke="#0D47A1"
+                strokeWidth="2.5"
+                strokeDasharray={81.68}
+                strokeDashoffset={81.68 * (1 - (undoToastState.countdown / 5))}
+                strokeLinecap="round"
+                className="transition-[stroke-dashoffset] duration-1000 ease-linear"
+              />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold font-mono text-[#0D47A1] select-none">
+              {undoToastState.countdown}s
+            </span>
+          </div>
+
+          {/* Subtle Gray Close Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (pendingDeletionRef.current) {
+                commitPendingDeletion(pendingDeletionRef.current);
+              }
+            }}
+            title="Dismiss and delete immediately"
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ml-0.5"
+          >
+            <MdClose size={18} />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const handleToggleStarChat = async () => {
@@ -7497,6 +7583,19 @@ const Casbox = () => {
 
                                 <button
                                   type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMessageMenuId(null);
+                                    stageMessagesDeletion([msg]);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <MdDeleteOutline size={16} className="text-red-600 shrink-0" />
+                                  <span>Delete</span>
+                                </button>
+
+                                <button
+                                  type="button"
                                   onClick={() => handleEnterMessageSelectionMode(msgUniqueId)}
                                   className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
                                 >
@@ -7731,6 +7830,9 @@ const Casbox = () => {
               </form>
             </div>
           )}
+
+          {/* 5-Second Undo Message Delete Toast inside personal chat panel */}
+          {renderUndoToast(true)}
         </div>
       </div>
     );
@@ -8382,84 +8484,8 @@ const Casbox = () => {
           </div>
         )}
 
-        {/* 5-Second Undo Message Delete Toast */}
-        {undoToastState && (
-          <div
-            role="alert"
-            aria-live="polite"
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2500] animate-in fade-in slide-in-from-bottom-5 duration-200 pointer-events-auto max-w-[95vw] sm:max-w-none"
-          >
-            <div className="flex items-center gap-3 sm:gap-4 bg-white dark:bg-white text-gray-900 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-[0_12px_36px_-6px_rgba(0,0,0,0.16),0_4px_12px_-2px_rgba(0,0,0,0.08)] border border-blue-100/90 dark:border-gray-200">
-              {/* Green Success / Check Icon */}
-              <div className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 shrink-0">
-                <MdCheck size={18} className="stroke-[1.5]" />
-              </div>
-
-              {/* Message text in dark navy */}
-              <span className="text-sm font-semibold text-[#0B192C] tracking-tight whitespace-nowrap">
-                {undoToastState.label || "Message deleted"}
-              </span>
-
-              {/* Prominent Royal Blue Undo Button */}
-              <button
-                type="button"
-                onClick={handleUndoDeletion}
-                className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-[#0D47A1] hover:bg-[#1565C0] active:scale-95 text-white text-xs font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer shrink-0"
-              >
-                <MdUndo size={16} />
-                <span>Undo</span>
-              </button>
-
-              {/* Circular Blue Progress Indicator with Countdown */}
-              <div
-                className="relative flex items-center justify-center w-8 h-8 shrink-0"
-                title={`${undoToastState.countdown} seconds remaining`}
-              >
-                <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
-                  {/* Track circle */}
-                  <circle
-                    cx="16"
-                    cy="16"
-                    r="13"
-                    fill="none"
-                    stroke="#E3F2FD"
-                    strokeWidth="2.5"
-                  />
-                  {/* Progress circle */}
-                  <circle
-                    cx="16"
-                    cy="16"
-                    r="13"
-                    fill="none"
-                    stroke="#0D47A1"
-                    strokeWidth="2.5"
-                    strokeDasharray={81.68}
-                    strokeDashoffset={81.68 * (1 - (undoToastState.countdown / 5))}
-                    strokeLinecap="round"
-                    className="transition-[stroke-dashoffset] duration-1000 ease-linear"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold font-mono text-[#0D47A1] select-none">
-                  {undoToastState.countdown}
-                </span>
-              </div>
-
-              {/* Subtle Gray Close Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (pendingDeletionRef.current) {
-                    commitPendingDeletion(pendingDeletionRef.current);
-                  }
-                }}
-                title="Dismiss and delete immediately"
-                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ml-0.5"
-              >
-                <MdClose size={18} />
-              </button>
-            </div>
-          </div>
-        )}
+        {/* 5-Second Undo Message Delete Toast for list view (when personal chat is not open) */}
+        {!selectedMessage && renderUndoToast(false)}
       </div>
     </>
   );
