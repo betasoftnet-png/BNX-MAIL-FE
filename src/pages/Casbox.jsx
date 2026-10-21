@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useMail } from "../context/MailContext";
 import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI, blockedContactsAPI } from "../services/api";
-import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore, MdOutlineEmojiEmotions, MdAdd, MdCheckBox } from "react-icons/md";
+import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore, MdUndo, MdOutlineEmojiEmotions, MdAdd, MdCheckBox } from "react-icons/md";
 import { SiAdobeacrobatreader } from "react-icons/si";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
@@ -8387,33 +8387,64 @@ const Casbox = () => {
           <div
             role="alert"
             aria-live="polite"
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2500] animate-in fade-in slide-in-from-bottom-5 duration-200"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2500] animate-in fade-in slide-in-from-bottom-5 duration-200 pointer-events-auto max-w-[95vw] sm:max-w-none"
           >
-            <div className="flex items-center gap-3 bg-[#0f172a] text-white px-5 py-3 rounded-2xl shadow-2xl border border-blue-500/30 backdrop-blur-md">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-                <span className="text-sm font-semibold tracking-wide text-gray-100">
-                  {undoToastState.label || "Message deleted"}
-                </span>
+            <div className="flex items-center gap-3 sm:gap-4 bg-white dark:bg-white text-gray-900 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-[0_12px_36px_-6px_rgba(0,0,0,0.16),0_4px_12px_-2px_rgba(0,0,0,0.08)] border border-blue-100/90 dark:border-gray-200">
+              {/* Green Success / Check Icon */}
+              <div className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 shrink-0">
+                <MdCheck size={18} className="stroke-[1.5]" />
               </div>
 
-              <span className="text-gray-500 select-none">|</span>
+              {/* Message text in dark navy */}
+              <span className="text-sm font-semibold text-[#0B192C] tracking-tight whitespace-nowrap">
+                {undoToastState.label || "Message deleted"}
+              </span>
 
+              {/* Prominent Royal Blue Undo Button */}
               <button
                 type="button"
                 onClick={handleUndoDeletion}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md hover:shadow-blue-500/25 transition-all duration-150 flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-[#0D47A1] hover:bg-[#1565C0] active:scale-95 text-white text-xs font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer shrink-0"
               >
-                <MdRestore size={16} />
+                <MdUndo size={16} />
                 <span>Undo</span>
               </button>
 
-              <span className="text-gray-500 select-none">|</span>
-
-              <div className="flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-blue-500/20 text-blue-400 font-mono text-xs font-bold border border-blue-500/40 shadow-inner">
-                <span>{undoToastState.countdown}s</span>
+              {/* Circular Blue Progress Indicator with Countdown */}
+              <div
+                className="relative flex items-center justify-center w-8 h-8 shrink-0"
+                title={`${undoToastState.countdown} seconds remaining`}
+              >
+                <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+                  {/* Track circle */}
+                  <circle
+                    cx="16"
+                    cy="16"
+                    r="13"
+                    fill="none"
+                    stroke="#E3F2FD"
+                    strokeWidth="2.5"
+                  />
+                  {/* Progress circle */}
+                  <circle
+                    cx="16"
+                    cy="16"
+                    r="13"
+                    fill="none"
+                    stroke="#0D47A1"
+                    strokeWidth="2.5"
+                    strokeDasharray={81.68}
+                    strokeDashoffset={81.68 * (1 - (undoToastState.countdown / 5))}
+                    strokeLinecap="round"
+                    className="transition-[stroke-dashoffset] duration-1000 ease-linear"
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold font-mono text-[#0D47A1] select-none">
+                  {undoToastState.countdown}
+                </span>
               </div>
 
+              {/* Subtle Gray Close Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -8422,9 +8453,9 @@ const Casbox = () => {
                   }
                 }}
                 title="Dismiss and delete immediately"
-                className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors ml-1 cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ml-0.5"
               >
-                <MdClose size={16} />
+                <MdClose size={18} />
               </button>
             </div>
           </div>
