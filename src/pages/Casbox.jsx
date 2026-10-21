@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import { useMail } from "../context/MailContext";
 import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI, blockedContactsAPI } from "../services/api";
-import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore, MdUndo, MdOutlineEmojiEmotions, MdAdd, MdCheckBox } from "react-icons/md";
+import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore, MdOutlineEmojiEmotions, MdAdd, MdCheckBox } from "react-icons/md";
 import { SiAdobeacrobatreader } from "react-icons/si";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
@@ -770,8 +770,6 @@ const Casbox = () => {
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [isDeletingMessage, setIsDeletingMessage] = useState(false);
-  const [undoToastState, setUndoToastState] = useState(null);
-  const pendingDeletionRef = React.useRef(null);
 
   const [deletedMessageIds, setDeletedMessageIds] = useState(() => {
     try {
@@ -1373,10 +1371,6 @@ const Casbox = () => {
 
 
   const [threadMessages, setThreadMessages] = useState([]);
-  const threadMessagesRef = React.useRef(threadMessages);
-  useEffect(() => {
-    threadMessagesRef.current = threadMessages;
-  }, [threadMessages]);
   const [loadingThread, setLoadingThread] = useState(false);
   const [newChatText, setNewChatText] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
@@ -3359,61 +3353,22 @@ const Casbox = () => {
     }
   };
 
-  const commitPendingDeletion = useCallback(async (pending) => {
-    if (!pending || pending.committed) return;
-    pending.committed = true;
-
-    if (pending.timerId) clearTimeout(pending.timerId);
-    if (pending.intervalId) clearInterval(pending.intervalId);
-
-    setUndoToastState(curr => (curr && curr.opId === pending.opId ? null : curr));
-
-    if (pendingDeletionRef.current && pendingDeletionRef.current.opId === pending.opId) {
-      pendingDeletionRef.current = null;
+  const handleDeleteSelectedMessages = () => {
+    if (selectedRowIds.size === 0) {
+      setShowDeleteConfirmModal(false);
+      return;
     }
 
-    // 1. Persist in deletedMessageIds
-    setDeletedMessageIds(prev => {
-      const updated = new Set(prev);
-      pending.items.forEach(({ targetId, strId, fallbackId, altFallbackId }) => {
-        if (targetId !== undefined && targetId !== null) {
-          updated.add(targetId);
-          updated.add(strId);
-        }
-        if (fallbackId) updated.add(fallbackId);
-        if (altFallbackId) updated.add(altFallbackId);
-      });
-      try {
-        const json = JSON.stringify(Array.from(updated));
-        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
-        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
-      } catch (e) {}
-      return updated;
-    });
-
-    // 2. Call backend API for database persistence
     try {
-      const numericIds = pending.items
-        .map(item => item.targetId)
-        .filter(id => id !== undefined && id !== null && typeof id === 'number' && !isNaN(id));
+      setIsDeletingSelected(true);
+      const toDeleteSet = new Set(selectedRowIds);
 
-      if (numericIds.length === 1) {
-        await casboxAPI.deleteMessage(numericIds[0]);
-      } else if (numericIds.length > 1) {
-        await casboxAPI.deleteMessages(numericIds);
-      }
-    } catch (err) {
-      console.error("Backend deletion failed:", err);
-      // Rollback on failure
+      // Persist deleted message IDs
       setDeletedMessageIds(prev => {
         const updated = new Set(prev);
-        pending.items.forEach(({ targetId, strId, fallbackId, altFallbackId }) => {
-          if (targetId !== undefined && targetId !== null) {
-            updated.delete(targetId);
-            updated.delete(strId);
-          }
-          if (fallbackId) updated.delete(fallbackId);
-          if (altFallbackId) updated.delete(altFallbackId);
+        toDeleteSet.forEach(id => {
+          updated.add(id);
+          updated.add(String(id));
         });
         try {
           const json = JSON.stringify(Array.from(updated));
@@ -3423,342 +3378,118 @@ const Casbox = () => {
         return updated;
       });
 
-      // Restore messages in both messages and threadMessages
-      pending.items.forEach(({ message, originalIndex, originalThreadIndex, targetId, strId, fallbackId }) => {
-        setMessages(prev => {
-          const exists = prev.some(m => {
-            const mId = m.id !== undefined ? m.id : m.uid;
-            if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return true;
-            const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-            return mFallback === fallbackId;
-          });
-          if (exists) return prev;
-          const next = [...prev];
-          const idx = (typeof originalIndex === 'number' && originalIndex >= 0 && originalIndex <= next.length) ? originalIndex : 0;
-          next.splice(idx, 0, message);
-          return next;
-        });
+      // Filter out deleted messages ONLY from messages state
+      setMessages(prev => prev.filter(m => {
+        const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return !toDeleteSet.has(id) && !toDeleteSet.has(String(id));
+      }));
 
-        setThreadMessages(prev => {
-          const exists = prev.some(m => {
-            const mId = m.id !== undefined ? m.id : m.uid;
-            if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return true;
-            const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-            return mFallback === fallbackId;
-          });
-          if (exists) return prev;
-          const next = [...prev];
-          const idx = (typeof originalThreadIndex === 'number' && originalThreadIndex >= 0 && originalThreadIndex <= next.length) ? originalThreadIndex : 0;
-          next.splice(idx, 0, message);
-          return next;
-        });
-      });
+      // Also filter threadMessages if active
+      setThreadMessages(prev => prev.filter(m => {
+        const id = m.id || m.uid || `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return !toDeleteSet.has(id) && !toDeleteSet.has(String(id));
+      }));
 
-      toast.error("Failed to delete message. Message restored.");
-    }
-  }, []);
-
-  const handleUndoDeletion = useCallback(() => {
-    const pending = pendingDeletionRef.current;
-    if (!pending || pending.committed) return;
-    pending.committed = true;
-
-    if (pending.timerId) clearTimeout(pending.timerId);
-    if (pending.intervalId) clearInterval(pending.intervalId);
-
-    setUndoToastState(null);
-    pendingDeletionRef.current = null;
-
-    // Restore messages at their exact original positions
-    pending.items.forEach(({ message, originalIndex, originalThreadIndex, targetId, strId, fallbackId }) => {
-      setMessages(prev => {
-        const exists = prev.some(m => {
-          const mId = m.id !== undefined ? m.id : m.uid;
-          if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return true;
-          const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-          return mFallback === fallbackId;
-        });
-        if (exists) return prev;
-        const next = [...prev];
-        const idx = (typeof originalIndex === 'number' && originalIndex >= 0 && originalIndex <= next.length) ? originalIndex : 0;
-        next.splice(idx, 0, message);
-        return next;
-      });
-
-      setThreadMessages(prev => {
-        const exists = prev.some(m => {
-          const mId = m.id !== undefined ? m.id : m.uid;
-          if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return true;
-          const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-          return mFallback === fallbackId;
-        });
-        if (exists) return prev;
-        const next = [...prev];
-        const idx = (typeof originalThreadIndex === 'number' && originalThreadIndex >= 0 && originalThreadIndex <= next.length) ? originalThreadIndex : 0;
-        next.splice(idx, 0, message);
-        return next;
-      });
-    });
-
-    const count = pending.items.length;
-    toast.success(count === 1 ? "Message restored" : `${count} messages restored`);
-  }, []);
-
-  const stageMessagesDeletion = useCallback((msgsArray) => {
-    if (!msgsArray || msgsArray.length === 0) return;
-
-    // If another deletion is currently pending, commit it immediately
-    if (pendingDeletionRef.current && !pendingDeletionRef.current.committed) {
-      commitPendingDeletion(pendingDeletionRef.current);
-    }
-
-    const opId = Date.now() + "_" + Math.random().toString(36).substring(2, 9);
-    const currentMsgs = messagesRef.current || messages;
-    const currentThreadMsgs = threadMessagesRef.current || threadMessages;
-
-    const items = msgsArray.map(m => {
-      const targetId = m.id !== undefined ? m.id : m.uid;
-      const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
-      const fallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-      const altFallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.body}`;
-
-      const originalIndex = currentMsgs.findIndex(x => {
-        const xId = x.id !== undefined ? x.id : x.uid;
-        if (targetId !== undefined && targetId !== null && (xId === targetId || String(xId) === strId)) return true;
-        const xFallback = `${x.timestamp}-${x.senderEmail || x.sender}-${x.receiverEmail || x.receiver}-${x.body}`;
-        return xFallback === fallbackId;
-      });
-
-      const originalThreadIndex = currentThreadMsgs.findIndex(x => {
-        const xId = x.id !== undefined ? x.id : x.uid;
-        if (targetId !== undefined && targetId !== null && (xId === targetId || String(xId) === strId)) return true;
-        const xFallback = `${x.timestamp}-${x.senderEmail || x.sender}-${x.receiverEmail || x.receiver}-${x.body}`;
-        return xFallback === fallbackId;
-      });
-
-      return {
-        message: m,
-        targetId,
-        strId,
-        fallbackId,
-        altFallbackId,
-        originalIndex,
-        originalThreadIndex,
-      };
-    });
-
-    const targetIdsSet = new Set();
-    const fallbackIdsSet = new Set();
-    items.forEach(it => {
-      if (it.targetId !== undefined && it.targetId !== null) {
-        targetIdsSet.add(it.targetId);
-        targetIdsSet.add(it.strId);
-      }
-      fallbackIdsSet.add(it.fallbackId);
-      fallbackIdsSet.add(it.altFallbackId);
-    });
-
-    // Immediately remove from messages
-    setMessages(prev => prev.filter(m => {
-      const mId = m.id !== undefined ? m.id : m.uid;
-      if (mId !== undefined && mId !== null && (targetIdsSet.has(mId) || targetIdsSet.has(String(mId)))) return false;
-      const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-      const mAlt = `${m.timestamp}-${m.senderEmail || m.sender}-${m.body}`;
-      return !fallbackIdsSet.has(mFallback) && !fallbackIdsSet.has(mAlt);
-    }));
-
-    // Immediately remove from threadMessages
-    setThreadMessages(prev => prev.filter(m => {
-      const mId = m.id !== undefined ? m.id : m.uid;
-      if (mId !== undefined && mId !== null && (targetIdsSet.has(mId) || targetIdsSet.has(String(mId)))) return false;
-      const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-      const mAlt = `${m.timestamp}-${m.senderEmail || m.sender}-${m.body}`;
-      return !fallbackIdsSet.has(mFallback) && !fallbackIdsSet.has(mAlt);
-    }));
-
-    // Clear detail panes if affected
-    if (selectedSentDetail) {
-      const sId = selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid;
-      const sFallback = `${selectedSentDetail.timestamp}-${selectedSentDetail.senderEmail || selectedSentDetail.sender}-${selectedSentDetail.receiverEmail || selectedSentDetail.receiver}-${selectedSentDetail.body}`;
-      if ((sId !== undefined && (targetIdsSet.has(sId) || targetIdsSet.has(String(sId)))) || fallbackIdsSet.has(sFallback)) {
-        setSelectedSentDetail(null);
-      }
-    }
-
-    if (selectedMessage && !threadMessages.length) {
-      const sId = selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid;
-      const sFallback = `${selectedMessage.timestamp}-${selectedMessage.senderEmail || selectedMessage.sender}-${selectedMessage.receiverEmail || selectedMessage.receiver}-${selectedMessage.body}`;
-      if ((sId !== undefined && (targetIdsSet.has(sId) || targetIdsSet.has(String(sId)))) || fallbackIdsSet.has(sFallback)) {
-        setSelectedMessage(null);
-      }
-    }
-
-    // Clear row selection for deleted items
-    setSelectedRowIds(prev => {
-      let changed = false;
-      const next = new Set(prev);
-      targetIdsSet.forEach(id => {
-        if (next.has(id)) {
-          next.delete(id);
-          changed = true;
+      if (selectedSentDetail) {
+        const detailId = selectedSentDetail.id || selectedSentDetail.uid || `${selectedSentDetail.timestamp}-${selectedSentDetail.senderEmail || selectedSentDetail.sender}-${selectedSentDetail.receiverEmail || selectedSentDetail.receiver}-${selectedSentDetail.body}`;
+        if (toDeleteSet.has(detailId) || toDeleteSet.has(String(detailId))) {
+          setSelectedSentDetail(null);
         }
-      });
-      return changed ? next : prev;
-    });
-
-    const pending = {
-      opId,
-      items,
-      committed: false,
-      timerId: null,
-      intervalId: null,
-    };
-
-    let remainingSeconds = 5;
-    setUndoToastState({
-      opId,
-      countdown: 5,
-      count: items.length,
-      label: items.length === 1 ? "Message deleted" : `${items.length} messages deleted`,
-    });
-
-    const intervalId = setInterval(() => {
-      remainingSeconds -= 1;
-      if (remainingSeconds >= 1) {
-        setUndoToastState(curr => (curr && curr.opId === opId ? { ...curr, countdown: remainingSeconds } : curr));
       }
-    }, 1000);
 
-    const timerId = setTimeout(() => {
-      clearInterval(intervalId);
-      commitPendingDeletion(pending);
-    }, 5000);
-
-    pending.timerId = timerId;
-    pending.intervalId = intervalId;
-    pendingDeletionRef.current = pending;
-  }, [messages, threadMessages, selectedSentDetail, selectedMessage, commitPendingDeletion]);
-
-  // Clean up timers on component unmount and commit any pending deletion
-  useEffect(() => {
-    return () => {
-      if (pendingDeletionRef.current && !pendingDeletionRef.current.committed) {
-        commitPendingDeletion(pendingDeletionRef.current);
-      }
-    };
-  }, [commitPendingDeletion]);
-
-  const handleDeleteSelectedMessages = () => {
-    if (selectedRowIds.size === 0) {
+      setSelectedRowIds(new Set());
       setShowDeleteConfirmModal(false);
-      return;
-    }
-    const toDeleteSet = new Set(selectedRowIds);
-    const msgsToDelete = messages.filter(m => {
-      const id = m.id !== undefined ? m.id : m.uid;
-      const strId = id !== undefined && id !== null ? String(id) : null;
-      const fallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-      return toDeleteSet.has(id) || toDeleteSet.has(strId) || toDeleteSet.has(fallbackId);
-    });
-    setShowDeleteConfirmModal(false);
-    if (msgsToDelete.length > 0) {
-      stageMessagesDeletion(msgsToDelete);
+      toast.success(toDeleteSet.size === 1 ? "Message deleted" : `${toDeleteSet.size} messages deleted`);
+    } catch (err) {
+      console.error("Failed to delete selected messages", err);
+      toast.error("Failed to delete selected messages");
+    } finally {
+      setIsDeletingSelected(false);
     }
   };
 
   const handleConfirmDeleteMessage = () => {
     if (!messageToDelete) return;
-    const msg = messageToDelete;
-    setMessageToDelete(null);
-    setOpenMenuId(null);
-    setOpenCombineMenuId(null);
-    stageMessagesDeletion([msg]);
-  };
 
-  const renderUndoToast = (isInsideChatPanel = false) => {
-    if (!undoToastState) return null;
+    try {
+      setIsDeletingMessage(true);
+      const targetId = messageToDelete.id !== undefined ? messageToDelete.id : messageToDelete.uid;
+      const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
+      const fallbackId = `${messageToDelete.timestamp}-${messageToDelete.senderEmail || messageToDelete.sender}-${messageToDelete.receiverEmail || messageToDelete.receiver}-${messageToDelete.body}`;
 
-    return (
-      <div
-        role="alert"
-        aria-live="polite"
-        className={`${
-          isInsideChatPanel
-            ? "absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] max-w-[92%] sm:max-w-none"
-            : "fixed bottom-6 left-1/2 -translate-x-1/2 z-[2500] max-w-[95vw] sm:max-w-none"
-        } animate-in fade-in slide-in-from-bottom-5 duration-200 pointer-events-auto select-none`}
-      >
-        <div className="flex items-center gap-3 sm:gap-4 bg-white dark:bg-white text-gray-900 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-[0_12px_36px_-6px_rgba(0,0,0,0.16),0_4px_12px_-2px_rgba(0,0,0,0.08)] border border-blue-100/90 dark:border-gray-200">
-          {/* Green Success / Check Icon */}
-          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 shrink-0">
-            <MdCheck size={18} className="stroke-[1.5]" />
-          </div>
+      // Persist in deletedMessageIds
+      setDeletedMessageIds(prev => {
+        const updated = new Set(prev);
+        if (targetId !== undefined && targetId !== null) {
+          updated.add(targetId);
+          updated.add(strId);
+        }
+        updated.add(fallbackId);
+        try {
+          const json = JSON.stringify(Array.from(updated));
+          sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+          localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        } catch (e) {}
+        return updated;
+      });
 
-          {/* Message text in dark navy */}
-          <span className="text-sm font-semibold text-[#0B192C] tracking-tight whitespace-nowrap">
-            {undoToastState.label || "Message deleted"}
-          </span>
+      // Remove ONLY from messages
+      setMessages(prev => prev.filter(m => {
+        const mId = m.id !== undefined ? m.id : m.uid;
+        if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) return false;
+        const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return mFallback !== fallbackId;
+      }));
 
-          {/* Prominent Royal Blue Undo Button */}
-          <button
-            type="button"
-            onClick={handleUndoDeletion}
-            className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-[#0D47A1] hover:bg-[#1565C0] active:scale-95 text-white text-xs font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer shrink-0"
-          >
-            <MdUndo size={16} />
-            <span>Undo</span>
-          </button>
+      // Also filter from threadMessages if active
+      setThreadMessages(prev => prev.filter(m => {
+        const mId = m.id !== undefined ? m.id : m.uid;
+        if (targetId !== undefined && targetId !== null && (mId === targetId || String(mId) === strId)) {
+          return false;
+        }
+        const mFallback = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+        return mFallback !== fallbackId;
+      }));
 
-          {/* Circular Blue Progress Indicator with Countdown */}
-          <div
-            className="relative flex items-center justify-center w-8 h-8 shrink-0"
-            title={`${undoToastState.countdown} seconds remaining`}
-          >
-            <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
-              {/* Track circle */}
-              <circle
-                cx="16"
-                cy="16"
-                r="13"
-                fill="none"
-                stroke="#E3F2FD"
-                strokeWidth="2.5"
-              />
-              {/* Progress circle */}
-              <circle
-                cx="16"
-                cy="16"
-                r="13"
-                fill="none"
-                stroke="#0D47A1"
-                strokeWidth="2.5"
-                strokeDasharray={81.68}
-                strokeDashoffset={81.68 * (1 - (undoToastState.countdown / 5))}
-                strokeLinecap="round"
-                className="transition-[stroke-dashoffset] duration-1000 ease-linear"
-              />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold font-mono text-[#0D47A1] select-none">
-              {undoToastState.countdown}s
-            </span>
-          </div>
+      // If this message was open in selectedSentDetail, clear it
+      if (selectedSentDetail) {
+        const sId = selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid;
+        const sFallback = `${selectedSentDetail.timestamp}-${selectedSentDetail.senderEmail || selectedSentDetail.sender}-${selectedSentDetail.receiverEmail || selectedSentDetail.receiver}-${selectedSentDetail.body}`;
+        if ((targetId !== undefined && targetId !== null && (sId === targetId || String(sId) === strId)) || sFallback === fallbackId) {
+          setSelectedSentDetail(null);
+        }
+      }
 
-          {/* Subtle Gray Close Button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (pendingDeletionRef.current) {
-                commitPendingDeletion(pendingDeletionRef.current);
-              }
-            }}
-            title="Dismiss and delete immediately"
-            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ml-0.5"
-          >
-            <MdClose size={18} />
-          </button>
-        </div>
-      </div>
-    );
+      // If this message was open in selectedMessage, clear it
+      if (selectedMessage) {
+        const sId = selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid;
+        const sFallback = `${selectedMessage.timestamp}-${selectedMessage.senderEmail || selectedMessage.sender}-${selectedMessage.receiverEmail || selectedMessage.receiver}-${selectedMessage.body}`;
+        if ((targetId !== undefined && targetId !== null && (sId === targetId || String(sId) === strId)) || sFallback === fallbackId) {
+          setSelectedMessage(null);
+        }
+      }
+
+      // Remove from selectedRowIds if checked
+      setSelectedRowIds(prev => {
+        if (targetId !== undefined && targetId !== null && (prev.has(targetId) || prev.has(strId))) {
+          const next = new Set(prev);
+          next.delete(targetId);
+          next.delete(strId);
+          return next;
+        }
+        return prev;
+      });
+
+      setMessageToDelete(null);
+      setOpenMenuId(null);
+      setOpenCombineMenuId(null);
+      toast.success("Message deleted");
+    } catch (err) {
+      console.error("Failed to delete message", err);
+      toast.error("Failed to delete message");
+    } finally {
+      setIsDeletingMessage(false);
+    }
   };
 
   const handleToggleStarChat = async () => {
@@ -6621,8 +6352,32 @@ const Casbox = () => {
         return changed ? next : prev;
       });
 
+      // Persist in deletedMessageIds
+      setDeletedMessageIds(prev => {
+        const updated = new Set(prev);
+        msgsToDelete.forEach(m => {
+          const targetId = m.id !== undefined ? m.id : m.uid;
+          const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
+          const fallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
+          if (targetId !== undefined && targetId !== null) {
+            updated.add(targetId);
+            updated.add(strId);
+          }
+          if (fallbackId) updated.add(fallbackId);
+        });
+        try {
+          const json = JSON.stringify(Array.from(updated));
+          sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+          localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        } catch (e) {}
+        return updated;
+      });
+
+      const toDeleteKeys = new Set(msgsToDelete.map(m => getMessageKey(m)));
+      setMessages(prev => prev.filter(m => !toDeleteKeys.has(getMessageKey(m))));
+      setThreadMessages(prev => prev.filter(m => !toDeleteKeys.has(getMessageKey(m))));
       handleExitMessageSelectionMode();
-      stageMessagesDeletion(msgsToDelete);
+      toast.success(msgsToDelete.length === 1 ? "Message deleted" : `${msgsToDelete.length} messages deleted`);
     };
 
     const handleBulkForwardMessages = () => {
@@ -7583,19 +7338,6 @@ const Casbox = () => {
 
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveMessageMenuId(null);
-                                    stageMessagesDeletion([msg]);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <MdDeleteOutline size={16} className="text-red-600 shrink-0" />
-                                  <span>Delete</span>
-                                </button>
-
-                                <button
-                                  type="button"
                                   onClick={() => handleEnterMessageSelectionMode(msgUniqueId)}
                                   className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
                                 >
@@ -7830,9 +7572,6 @@ const Casbox = () => {
               </form>
             </div>
           )}
-
-          {/* 5-Second Undo Message Delete Toast inside personal chat panel */}
-          {renderUndoToast(true)}
         </div>
       </div>
     );
@@ -8483,9 +8222,6 @@ const Casbox = () => {
             </div>
           </div>
         )}
-
-        {/* 5-Second Undo Message Delete Toast for list view (when personal chat is not open) */}
-        {!selectedMessage && renderUndoToast(false)}
       </div>
     </>
   );
