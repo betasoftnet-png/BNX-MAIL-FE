@@ -10,6 +10,7 @@ import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, M
 import { SiAdobeacrobatreader } from "react-icons/si";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
+import MessageUndoToast from "../components/MessageUndoToast";
 import logo from "../assets/bnx-remove.png";
 
 const normalizeEmail = (val) => {
@@ -871,6 +872,8 @@ const Casbox = () => {
   const [nowTime, setNowTime] = useState(Date.now());
   const [unsendMessageTarget, setUnsendMessageTarget] = useState(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+  const [activePersonalUndoToast, setActivePersonalUndoToast] = useState(null);
+  const pendingPersonalDeletionsRef = useRef({});
   const [isMessageSelectionMode, setIsMessageSelectionMode] = useState(false);
   const [selectedMessageItemIds, setSelectedMessageItemIds] = useState(new Set());
   const [pinnedMessagesMap, setPinnedMessagesMap] = useState(() => {
@@ -1738,7 +1741,7 @@ const Casbox = () => {
     if (mId !== undefined && mId !== null) {
       return String(mId);
     }
-    return `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`;
+    return `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver || ''}-${msg.body}`;
   }, []);
 
   const isMessageStarred = useCallback((msg) => {
@@ -2122,6 +2125,144 @@ const Casbox = () => {
     setActiveMessageMenuId(null);
     toast.success("Message unsent");
   }, [unsendMessageTarget, selectedMessage, pinnedMessagesMap, handleUnpinMessage, replyingToMessage, getOtherUserEmail]);
+
+  // 5-Second Undo Message Deletion handlers for Personal Chat
+  const commitPersonalDelete = useCallback(async (opId) => {
+    const op = pendingPersonalDeletionsRef.current[opId];
+    if (!op || op.committed) return;
+    op.committed = true;
+    if (op.timerId) clearTimeout(op.timerId);
+    if (op.intervalId) clearInterval(op.intervalId);
+
+    setActivePersonalUndoToast(prev => (prev?.opId === opId ? null : prev));
+
+    const targetId = op.targetId;
+    delete pendingPersonalDeletionsRef.current[opId];
+
+    const strId = targetId !== undefined && targetId !== null ? String(targetId) : null;
+    const fallbackId = `${op.msg.timestamp}-${op.msg.senderEmail || op.msg.sender}-${op.msg.receiverEmail || op.msg.receiver || ''}-${op.msg.body}`;
+
+    setDeletedMessageIds(prev => {
+      const next = new Set(prev);
+      if (targetId !== undefined && targetId !== null) {
+        next.add(targetId);
+        next.add(strId);
+      }
+      if (fallbackId) next.add(fallbackId);
+      try {
+        const json = JSON.stringify(Array.from(next));
+        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+      } catch (e) {}
+      return next;
+    });
+
+    const numId = Number(targetId);
+    if (!isNaN(numId) && numId > 0) {
+      try {
+        await casboxAPI.deleteMessage(numId);
+      } catch (err) {
+        console.error("Failed to delete personal chat message on backend", err);
+      }
+    }
+  }, []);
+
+  const handleUndoPersonalDelete = useCallback((opId) => {
+    const op = pendingPersonalDeletionsRef.current[opId];
+    if (!op || op.committed) return;
+    if (op.timerId) clearTimeout(op.timerId);
+    if (op.intervalId) clearInterval(op.intervalId);
+
+    delete pendingPersonalDeletionsRef.current[opId];
+    setActivePersonalUndoToast(prev => (prev?.opId === opId ? null : prev));
+
+    setThreadMessages(prev => {
+      const key = op.msgKey;
+      if (prev.some(m => getMessageKey(m) === key)) return prev;
+      const next = [...prev];
+      const insertIdx = (typeof op.origThreadIdx === 'number' && op.origThreadIdx >= 0 && op.origThreadIdx <= next.length)
+        ? op.origThreadIdx
+        : next.length;
+      next.splice(insertIdx, 0, op.msg);
+      return next;
+    });
+
+    setMessages(prev => {
+      const key = op.msgKey;
+      if (prev.some(m => getMessageKey(m) === key)) return prev;
+      const next = [...prev];
+      const insertIdx = (typeof op.origMessagesIdx === 'number' && op.origMessagesIdx >= 0 && op.origMessagesIdx <= next.length)
+        ? op.origMessagesIdx
+        : next.length;
+      next.splice(insertIdx, 0, op.msg);
+      return next;
+    });
+
+    toast.success("Message restored");
+  }, [getMessageKey]);
+
+  const handleDismissPersonalToast = useCallback((opId) => {
+    setActivePersonalUndoToast(prev => (prev?.opId === opId ? null : prev));
+  }, []);
+
+  const handleDeletePersonalChatMessage = useCallback((msg) => {
+    if (!msg) return;
+    setActiveMessageMenuId(null);
+
+    const msgKey = getMessageKey(msg);
+    if (!msgKey) return;
+
+    const targetId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
+    const opId = `del_casbox_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const origThreadIdx = threadMessages.findIndex(m => getMessageKey(m) === msgKey);
+    const origMessagesIdx = messages.findIndex(m => getMessageKey(m) === msgKey);
+
+    // Immediately hide only that selected message from current view
+    setThreadMessages(prev => prev.filter(m => getMessageKey(m) !== msgKey));
+    setMessages(prev => prev.filter(m => getMessageKey(m) !== msgKey));
+
+    let countdown = 5;
+    const intervalId = setInterval(() => {
+      countdown -= 1;
+      if (countdown >= 1) {
+        setActivePersonalUndoToast(prev => (prev?.opId === opId ? { ...prev, countdown } : prev));
+      }
+    }, 1000);
+
+    const timerId = setTimeout(() => {
+      commitPersonalDelete(opId);
+    }, 5000);
+
+    pendingPersonalDeletionsRef.current[opId] = {
+      opId,
+      msg,
+      msgKey,
+      targetId,
+      origThreadIdx,
+      origMessagesIdx,
+      timerId,
+      intervalId,
+      countdown: 5,
+      committed: false
+    };
+
+    setActivePersonalUndoToast({
+      opId,
+      countdown: 5,
+      label: "Message deleted"
+    });
+  }, [getMessageKey, threadMessages, messages, commitPersonalDelete]);
+
+  // Clean up pending personal deletions on unmount or chat switch
+  useEffect(() => {
+    return () => {
+      const pendingMap = pendingPersonalDeletionsRef.current;
+      Object.keys(pendingMap).forEach(opId => {
+        commitPersonalDelete(opId);
+      });
+    };
+  }, [selectedMessage?.id, selectedMessage?.contact, selectedMessage?.senderEmail, selectedMessage?.receiverEmail, commitPersonalDelete]);
 
   // Message Selection Mode (WhatsApp-style)
   const handleEnterMessageSelectionMode = useCallback((initialMsgId) => {
@@ -6489,7 +6630,7 @@ const Casbox = () => {
     };
 
     return (
-      <div className="flex flex-col h-full bg-white dark:bg-[#121212] border-l border-gray-100 dark:border-gray-800 overflow-hidden">
+      <div className="flex flex-col h-full bg-white dark:bg-[#121212] border-l border-gray-100 dark:border-gray-800 overflow-hidden relative">
         {/* WhatsApp-Style Message Selection Mode Bulk Action Toolbar */}
         {isMessageSelectionMode ? (
           <div
@@ -7344,6 +7485,15 @@ const Casbox = () => {
                                   <MdCheckBox size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
                                   <span>Select</span>
                                 </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePersonalChatMessage(msg)}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <MdDeleteOutline size={16} className="text-red-600 shrink-0" />
+                                  <span>Delete</span>
+                                </button>
                               </div>
                             )}
                           </div>
@@ -7573,6 +7723,14 @@ const Casbox = () => {
             </div>
           )}
         </div>
+
+        {/* 5-Second Undo Toast Notification for Personal Chat */}
+        <MessageUndoToast
+          pending={activePersonalUndoToast}
+          onUndo={handleUndoPersonalDelete}
+          onDismiss={handleDismissPersonalToast}
+          positionClass="bottom-20 left-1/2 -translate-x-1/2"
+        />
       </div>
     );
   })() : (

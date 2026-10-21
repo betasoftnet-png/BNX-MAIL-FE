@@ -34,6 +34,7 @@ import {
   MdDeleteOutline
 } from "react-icons/md";
 import { chatAPI, mailAPI, templateAPI } from "../services/api";
+import MessageUndoToast from "../components/MessageUndoToast";
 import chatCache from "../services/chatCache";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
@@ -609,6 +610,8 @@ const getCommentSenderName = (msg, isMe, currentUser) => {
 const CommentMessageItem = React.memo(({
   msg,
   isMe,
+  canDelete,
+  onDelete,
   senderName,
   theme,
   onOpenImage,
@@ -630,32 +633,49 @@ const CommentMessageItem = React.memo(({
           {senderName}
         </span>
         <div className="flex flex-col w-fit print:w-full">
-          <div 
-            className={`px-4 py-2.5 rounded-2xl shadow-sm relative print:rounded-xl print:border print:border-gray-300 print:bg-white print:text-black print:shadow-none ${
-              isMe 
-                ? 'bg-primary text-white rounded-tr-sm' 
-                : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-700 rounded-tl-sm'
-            }`}
-          >
-            {hasText ? (
-              <p className={`text-[14px] leading-relaxed whitespace-pre-wrap print:text-black ${atts.length > 0 ? 'mb-2.5' : ''}`}>
-                {msgContent}
-              </p>
-            ) : null}
-            
-            {/* Attachments Rendering */}
-            {atts.length > 0 && (
-              <div className="mt-1 flex flex-col gap-2">
-                {atts.map((att, i) => (
-                  <CommentAttachmentItem
-                    key={i}
-                    att={att}
-                    isMe={isMe}
-                    onOpenImage={onOpenImage}
-                    handleDownload={handleDownload}
-                    handleView={handleView}
-                  />
-                ))}
+          <div className="flex items-center gap-1.5 group/comment">
+            <div 
+              className={`px-4 py-2.5 rounded-2xl shadow-sm relative print:rounded-xl print:border print:border-gray-300 print:bg-white print:text-black print:shadow-none ${
+                isMe 
+                  ? 'bg-primary text-white rounded-tr-sm' 
+                  : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-700 rounded-tl-sm'
+              }`}
+            >
+              {hasText ? (
+                <p className={`text-[14px] leading-relaxed whitespace-pre-wrap print:text-black ${atts.length > 0 ? 'mb-2.5' : ''}`}>
+                  {msgContent}
+                </p>
+              ) : null}
+              
+              {/* Attachments Rendering */}
+              {atts.length > 0 && (
+                <div className="mt-1 flex flex-col gap-2">
+                  {atts.map((att, i) => (
+                    <CommentAttachmentItem
+                      key={i}
+                      att={att}
+                      isMe={isMe}
+                      onOpenImage={onOpenImage}
+                      handleDownload={handleDownload}
+                      handleView={handleView}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Action buttons (Delete) for sender or admin */}
+            {canDelete && (
+              <div className="opacity-0 group-hover/comment:opacity-100 focus-within:opacity-100 transition-opacity flex items-center shrink-0 printable-conversation-no-print">
+                <button
+                  type="button"
+                  onClick={() => onDelete && onDelete(msg)}
+                  title="Delete message"
+                  aria-label="Delete message"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <MdDeleteOutline size={16} />
+                </button>
               </div>
             )}
           </div>
@@ -680,6 +700,8 @@ const CommentMessageItem = React.memo(({
     prev.msg.timestamp === next.msg.timestamp &&
     prev.msg.attachmentsJson === next.msg.attachmentsJson &&
     prev.isMe === next.isMe &&
+    prev.canDelete === next.canDelete &&
+    prev.onDelete === next.onDelete &&
     prev.senderName === next.senderName &&
     prev.theme?.accent === next.theme?.accent &&
     prev.theme?.text === next.theme?.text &&
@@ -796,6 +818,130 @@ const ChatRoom = () => {
       toast.error("Failed to update star");
     }
   };
+
+  // 5-Second Undo Message Deletion state & handlers for Colab Chat
+  const [activeColabUndoToast, setActiveColabUndoToast] = useState(null);
+  const pendingColabDeletionsRef = useRef({});
+
+  const isChatAdmin = useMemo(() => {
+    if (!chat || !user?.email) return false;
+    const myEmail = user.email.toLowerCase().trim();
+    const myUsername = (user.username || "").toLowerCase().trim();
+    const admins = Array.isArray(chat.adminEmails) ? chat.adminEmails.map(e => (e || '').toLowerCase().trim()) : [];
+    const creator = (chat.createdByUserEmail || chat.createdBy || '').toLowerCase().trim();
+    return admins.includes(myEmail) || (myUsername && admins.includes(myUsername)) || creator === myEmail || (myUsername && creator === myUsername);
+  }, [chat, user?.email, user?.username]);
+
+  const commitColabDelete = useCallback(async (opId) => {
+    const op = pendingColabDeletionsRef.current[opId];
+    if (!op || op.committed) return;
+    op.committed = true;
+    if (op.timerId) clearTimeout(op.timerId);
+    if (op.intervalId) clearInterval(op.intervalId);
+
+    setActiveColabUndoToast(prev => (prev?.opId === opId ? null : prev));
+
+    const msgId = op.msgId;
+    delete pendingColabDeletionsRef.current[opId];
+
+    if (msgId) {
+      try {
+        await chatAPI.deleteMessage(msgId);
+      } catch (err) {
+        console.error("Failed to delete colab message on backend", err);
+      }
+    }
+  }, []);
+
+  const handleUndoColabDelete = useCallback((opId) => {
+    const op = pendingColabDeletionsRef.current[opId];
+    if (!op || op.committed) return;
+    if (op.timerId) clearTimeout(op.timerId);
+    if (op.intervalId) clearInterval(op.intervalId);
+
+    delete pendingColabDeletionsRef.current[opId];
+    setActiveColabUndoToast(prev => (prev?.opId === opId ? null : prev));
+
+    // Restore message to exact original position in messages
+    setMessages(prev => {
+      const targetId = String(op.msgId || '');
+      if (prev.some(m => String(m.id || m.uid || '') === targetId)) return prev;
+      const next = [...prev];
+      const insertIdx = (typeof op.origIndex === 'number' && op.origIndex >= 0 && op.origIndex <= next.length)
+        ? op.origIndex
+        : next.length;
+      next.splice(insertIdx, 0, op.msg);
+      chatCache.setMessages(chatId, next);
+      return next;
+    });
+
+    toast.success("Message restored");
+  }, [chatId]);
+
+  const handleDismissColabToast = useCallback((opId) => {
+    setActiveColabUndoToast(prev => (prev?.opId === opId ? null : prev));
+  }, []);
+
+  const handleDeleteColabMessage = useCallback((msg) => {
+    if (!msg) return;
+    const msgId = msg.id !== undefined && msg.id !== null ? msg.id : msg.uid;
+    const opId = `del_colab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const origIndex = messages.findIndex(m => {
+      if (msgId && (m.id === msgId || m.uid === msgId)) return true;
+      return m.timestamp === msg.timestamp && (m.senderEmail === msg.senderEmail || m.sender === msg.sender);
+    });
+
+    // Immediately hide only the selected message from view
+    setMessages(prev => {
+      const next = prev.filter(m => {
+        if (msgId && (m.id === msgId || m.uid === msgId)) return false;
+        if (!msgId && m.timestamp === msg.timestamp && (m.senderEmail === msg.senderEmail || m.sender === msg.sender)) return false;
+        return true;
+      });
+      chatCache.setMessages(chatId, next);
+      return next;
+    });
+
+    let countdown = 5;
+    const intervalId = setInterval(() => {
+      countdown -= 1;
+      if (countdown >= 1) {
+        setActiveColabUndoToast(prev => (prev?.opId === opId ? { ...prev, countdown } : prev));
+      }
+    }, 1000);
+
+    const timerId = setTimeout(() => {
+      commitColabDelete(opId);
+    }, 5000);
+
+    pendingColabDeletionsRef.current[opId] = {
+      opId,
+      msg,
+      msgId,
+      origIndex,
+      timerId,
+      intervalId,
+      countdown: 5,
+      committed: false
+    };
+
+    setActiveColabUndoToast({
+      opId,
+      countdown: 5,
+      label: "Message deleted"
+    });
+  }, [messages, chatId, commitColabDelete]);
+
+  // Clean up pending colab deletions on unmount or chat switch
+  useEffect(() => {
+    return () => {
+      const pendingMap = pendingColabDeletionsRef.current;
+      Object.keys(pendingMap).forEach(opId => {
+        commitColabDelete(opId);
+      });
+    };
+  }, [chatId, commitColabDelete]);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef(null);
@@ -2298,11 +2444,14 @@ const ChatRoom = () => {
                 messages.map((msg, idx) => {
                   const isMe = isMessageFromMe(msg, user);
                   const senderName = getCommentSenderName(msg, isMe, user);
+                  const canDelete = isMe || isChatAdmin;
                   return (
                     <CommentMessageItem
                       key={msg.id || idx}
                       msg={msg}
                       isMe={isMe}
+                      canDelete={canDelete}
+                      onDelete={handleDeleteColabMessage}
                       senderName={senderName}
                       theme={theme}
                       onOpenImage={setPreviewMedia}
@@ -2315,6 +2464,14 @@ const ChatRoom = () => {
               )}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* 5-Second Undo Toast Notification for Colab Chat */}
+            <MessageUndoToast
+              pending={activeColabUndoToast}
+              onUndo={handleUndoColabDelete}
+              onDismiss={handleDismissColabToast}
+              positionClass="bottom-4 left-1/2 -translate-x-1/2"
+            />
 
             {hasNewMessagesBelow && (
               <button
