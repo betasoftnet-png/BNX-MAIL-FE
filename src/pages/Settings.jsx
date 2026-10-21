@@ -24,8 +24,15 @@ import {
   MdCheckCircle,
   MdError,
   MdAdd,
-  MdClose
+  MdClose,
+  MdPersonAdd,
+  MdContentCopy,
+  MdCheck,
+  MdShare,
+  MdLink,
+  MdInfoOutline
 } from "react-icons/md";
+import { motion } from "framer-motion";
 import { emailAPI, authAPI, userAPI, signatureAPI, settingsAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useTheme, PRESET_BACKGROUNDS, themes, DEFAULT_SIDEBAR_PREFS } from "../context/ThemeContext";
@@ -195,6 +202,89 @@ const Settings = () => {
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
   const otpInputRefs = useRef([]);
+
+  // Invite Friends interactive states
+  const defaultInvitationText = "Hey! I'm using B2Auth and BNXmail for secure email, decentralized identity, and privacy. Join me and create your account here:";
+  const [invitationMessage, setInvitationMessage] = useState(defaultInvitationText);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+  const [shareFallbackNotice, setShareFallbackNotice] = useState(false);
+
+  const getInvitationUrl = () => {
+    if (typeof window !== "undefined" && window.location) {
+      return `${window.location.origin}/register`;
+    }
+    return "https://www.b2auth.com/register";
+  };
+
+  const handleCopyLink = async () => {
+    const url = getInvitationUrl();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = url;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        if (!successful) throw new Error("Clipboard copy failed");
+      }
+      setCopiedLink(true);
+      setCopyFeedback(true);
+      toast.success(t("settings.invitation_copied", "Invitation link copied successfully"), {
+        id: "invite-copy-toast",
+        duration: 3000
+      });
+      setTimeout(() => setCopiedLink(false), 2500);
+      setTimeout(() => setCopyFeedback(false), 5000);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+      toast.error(t("settings.invitation_copy_failed", "Failed to copy link to clipboard"), {
+        id: "invite-copy-toast",
+        duration: 3000
+      });
+    }
+  };
+
+  const handleShareEmail = () => {
+    const url = getInvitationUrl();
+    try {
+      const subject = encodeURIComponent("Invitation to join B2Auth & BNXmail");
+      const fullBody = `${invitationMessage.trim()}\n\n${url}`;
+      const body = encodeURIComponent(fullBody);
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    } catch (err) {
+      console.error("Failed to open email client:", err);
+      toast.error("Could not open default email application");
+    }
+  };
+
+  const handleNativeShare = async () => {
+    const url = getInvitationUrl();
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: "Join B2Auth & BNXmail",
+          text: invitationMessage.trim(),
+          url: url
+        });
+        toast.success("Shared successfully", { id: "invite-share-toast" });
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("Web Share failed:", err);
+          toast.error("Unable to share via system dialog");
+        }
+      }
+    } else {
+      setShareFallbackNotice(true);
+      await handleCopyLink();
+    }
+  };
 
   const getMaskedContact = (val, type) => {
     if (!val) return "";
@@ -1103,13 +1193,14 @@ const Settings = () => {
     { id: "security", label: t("settings.security_recovery", "Security & Recovery"), icon: <MdSecurity size={20} /> },
     { id: "labels", label: t("settings.labels_sidebar", "Labels & Sidebar"), icon: <MdFormatPaint size={20} /> },
     { id: "sessions", label: t("settings.active_sessions", "Active Sessions & Logs"), icon: <MdDevices size={20} /> },
+    { id: "invite", label: t("settings.invite_friends", "Invite Friends"), icon: <MdPersonAdd size={20} /> },
   ];
 
   return (
     <div className="flex h-full overflow-hidden" style={{ background: theme.cardBg }}>
       {/* Side Tabs Bar */}
       <aside
-        className="w-64 lg:w-72 border-r p-4 md:p-5 flex flex-col gap-1.5 shrink-0"
+        className="w-64 lg:w-72 border-r p-4 md:p-5 flex flex-col gap-1.5 shrink-0 overflow-y-auto"
         style={{ background: theme.cardBg, borderColor: theme.border }}
       >
         <button
@@ -1138,7 +1229,13 @@ const Settings = () => {
 
       {/* Settings Options Pane */}
       <main ref={mainContentRef} className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto hidden-scrollbar flex justify-start" style={{ background: theme.cardBg }}>
-        <div className="w-full">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="w-full"
+        >
           {/* accounts Tab */}
           {activeTab === "accounts" && (
             <div className="flex flex-col gap-5 md:gap-6">
@@ -2394,7 +2491,234 @@ const Settings = () => {
               </Section>
             </div>
           )}
-        </div>
+
+          {/* Invite Friends Tab */}
+          {activeTab === "invite" && (
+            <motion.div
+              key="invite"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col gap-5 md:gap-6 max-w-4xl"
+            >
+              {/* Header */}
+              <div className="pb-1">
+                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight" style={{ color: theme.text }}>
+                  {t("settings.invite_friends", "Invite Friends")}
+                </h1>
+                <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-1">
+                  {t("settings.invite_friends_subtitle", "Invite your friends to join B2Auth and explore BNXmail.")}
+                </p>
+              </div>
+
+              {/* Main Invitation Card */}
+              <div
+                className="w-full p-6 md:p-8 rounded-2xl md:rounded-3xl border shadow-sm transition-all"
+                style={{
+                  background: theme.cardBg,
+                  borderColor: theme.border,
+                  color: theme.text
+                }}
+              >
+                {/* Hero Badge Banner */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl mb-6 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-500/20">
+                  <div className="flex items-start sm:items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/20">
+                      <MdPersonAdd size={24} />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                        Community & Collaboration
+                      </span>
+                      <h4 className="text-base md:text-lg font-bold mt-1" style={{ color: theme.text }}>
+                        Share B2Auth & BNXmail
+                      </h4>
+                      <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                        Give your network access to privacy-first email, decentralized identity, and seamless security.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Invitation Message Block */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-semibold flex items-center gap-2" style={{ color: theme.text }}>
+                      <span>Invitation Message</span>
+                      <span className="text-[11px] font-normal text-gray-400">(Editable)</span>
+                    </label>
+                    {invitationMessage !== defaultInvitationText && (
+                      <button
+                        type="button"
+                        onClick={() => setInvitationMessage(defaultInvitationText)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer transition-colors"
+                      >
+                        Reset to default
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={invitationMessage}
+                    onChange={(e) => setInvitationMessage(e.target.value)}
+                    placeholder="Write your invitation message..."
+                    className="w-full p-3.5 rounded-xl border text-sm leading-relaxed resize-none outline-none transition-all focus:ring-2 focus:ring-indigo-500/30"
+                    style={{
+                      borderColor: theme.border,
+                      background: theme.mode === 'dark' ? 'rgba(0,0,0,0.2)' : '#f9fafb',
+                      color: theme.text
+                    }}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    This message will be prefilled when sharing via email or native messaging apps.
+                  </p>
+                </div>
+
+                {/* Shareable Link Input & Inline Copy */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold mb-2" style={{ color: theme.text }}>
+                    Shareable B2Auth Registration URL
+                  </label>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                    <div
+                      className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border overflow-hidden"
+                      style={{
+                        borderColor: theme.border,
+                        background: theme.mode === 'dark' ? 'rgba(0,0,0,0.25)' : '#f8fafc',
+                      }}
+                    >
+                      <MdLink size={20} className="text-gray-400 shrink-0" />
+                      <input
+                        type="text"
+                        readOnly
+                        value={getInvitationUrl()}
+                        onClick={(e) => e.target.select()}
+                        className="w-full bg-transparent border-none outline-none text-xs sm:text-sm font-mono truncate select-all"
+                        style={{ color: theme.text }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 active:scale-95 shrink-0 shadow-sm"
+                      style={{
+                        background: copiedLink ? '#10b981' : theme.accent,
+                      }}
+                    >
+                      {copiedLink ? <MdCheck size={18} /> : <MdContentCopy size={18} />}
+                      <span>{copiedLink ? "Copied!" : "Copy Link"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Action Buttons Row */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border flex items-center justify-center gap-2 cursor-pointer transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-95"
+                    style={{ borderColor: theme.border, color: theme.text }}
+                  >
+                    {copiedLink ? <MdCheck size={18} className="text-emerald-500" /> : <MdContentCopy size={18} />}
+                    <span>Copy Link</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleShareEmail}
+                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 shadow-sm shadow-blue-500/20"
+                  >
+                    <MdEmail size={18} />
+                    <span>Share via Email</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleNativeShare}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 shadow-sm shadow-purple-500/20"
+                  >
+                    <MdShare size={18} />
+                    <span>Share</span>
+                  </button>
+                </div>
+
+                {/* Copy Feedback Success Banner */}
+                {copyFeedback && (
+                  <div className="mt-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center gap-2.5 text-xs sm:text-sm font-medium text-emerald-800 dark:text-emerald-300 transition-all">
+                    <MdCheck size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>Invitation link copied successfully to your clipboard!</span>
+                  </div>
+                )}
+
+                {/* Native Share Fallback Notice */}
+                {shareFallbackNotice && (
+                  <div className="mt-4 p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 flex items-start gap-2.5 text-xs sm:text-sm text-blue-800 dark:text-blue-300 transition-all">
+                    <MdInfoOutline size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-semibold">Native sharing is not supported on this browser.</p>
+                      <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+                        We've automatically copied the invitation link to your clipboard so you can paste and send it anywhere, or you can use "Share via Email" above.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShareFallbackNotice(false)}
+                      className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-300 font-bold ml-2 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* How It Works / Steps Section */}
+              <div
+                className="w-full p-6 rounded-2xl md:rounded-3xl border shadow-sm"
+                style={{
+                  background: theme.cardBg,
+                  borderColor: theme.border,
+                  color: theme.text
+                }}
+              >
+                <h3 className="text-base font-bold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                  How Inviting Friends Works
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-white/[0.02] flex flex-col gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 font-bold text-xs flex items-center justify-center">
+                      1
+                    </div>
+                    <h5 className="font-bold text-sm" style={{ color: theme.text }}>Send an Invite</h5>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                      Share your personal invitation URL via email, chat, or social media with colleagues and friends.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-white/[0.02] flex flex-col gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-bold text-xs flex items-center justify-center">
+                      2
+                    </div>
+                    <h5 className="font-bold text-sm" style={{ color: theme.text }}>Easy Onboarding</h5>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                      Your friends open the registration link, pick their account type (Personal or Business), and set up their mailbox.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-white/[0.02] flex flex-col gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 font-bold text-xs flex items-center justify-center">
+                      3
+                    </div>
+                    <h5 className="font-bold text-sm" style={{ color: theme.text }}>Stay Connected</h5>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                      Collaborate in real-time, send secure emails, and chat effortlessly across the B2Auth & BNX ecosystem.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
       </main>
     </div>
   );
