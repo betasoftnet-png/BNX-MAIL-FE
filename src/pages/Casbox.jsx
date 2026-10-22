@@ -729,6 +729,32 @@ const CASBOX_MESSAGE_FILTERS = [
   { id: '1month', label: 'Last 1 Month', number: '31' },
 ];
 
+export const getCasboxDraftStorageKey = (currentUserEmail) => {
+  const normUser = normalizeEmail(currentUserEmail || 'default_user');
+  return `bnx_casbox_drafts_${normUser}`;
+};
+
+export const loadCasboxDraftsFromStorage = (currentUserEmail) => {
+  try {
+    const key = getCasboxDraftStorageKey(currentUserEmail);
+    const s = sessionStorage.getItem(key) || localStorage.getItem(key);
+    return s ? JSON.parse(s) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+export const saveCasboxDraftsToStorage = (currentUserEmail, drafts) => {
+  try {
+    const key = getCasboxDraftStorageKey(currentUserEmail);
+    const serialized = JSON.stringify(drafts || {});
+    sessionStorage.setItem(key, serialized);
+    localStorage.setItem(key, serialized);
+  } catch (e) {
+    // ignore storage exceptions
+  }
+};
+
 const Casbox = () => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
@@ -868,6 +894,10 @@ const Casbox = () => {
   const [selectedForwardContactEmails, setSelectedForwardContactEmails] = useState(new Set());
   const [isSendingForward, setIsSendingForward] = useState(false);
   const [editingMessage, setEditingMessage] = useState(null);
+  const editingMessageRef = useRef(editingMessage);
+  useEffect(() => {
+    editingMessageRef.current = editingMessage;
+  }, [editingMessage]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [nowTime, setNowTime] = useState(Date.now());
   const [unsendMessageTarget, setUnsendMessageTarget] = useState(null);
@@ -1393,6 +1423,45 @@ const Casbox = () => {
   }, [threadMessages]);
   const [loadingThread, setLoadingThread] = useState(false);
   const [newChatText, setNewChatText] = useState("");
+  const newChatTextRef = useRef(newChatText);
+  useEffect(() => {
+    newChatTextRef.current = newChatText;
+  }, [newChatText]);
+
+  const [chatDrafts, setChatDrafts] = useState(() => loadCasboxDraftsFromStorage(user?.email));
+  const chatDraftsRef = useRef(chatDrafts);
+  useEffect(() => {
+    chatDraftsRef.current = chatDrafts;
+  }, [chatDrafts]);
+
+  // Sync drafts when user identity loads or changes
+  useEffect(() => {
+    if (user?.email) {
+      const loaded = loadCasboxDraftsFromStorage(user.email);
+      chatDraftsRef.current = loaded;
+      setChatDrafts(loaded);
+    }
+  }, [user?.email]);
+
+  const activeDraftContactKeyRef = useRef(null);
+
+  const handleChatInputChange = useCallback((e) => {
+    const val = e.target.value;
+    setNewChatText(val);
+    newChatTextRef.current = val;
+
+    if (!editingMessageRef.current) {
+      const currentContact = activeDraftContactKeyRef.current;
+      if (currentContact) {
+        if (val && val.trim()) {
+          chatDraftsRef.current[currentContact] = val;
+        } else {
+          delete chatDraftsRef.current[currentContact];
+        }
+        saveCasboxDraftsToStorage(user?.email, chatDraftsRef.current);
+      }
+    }
+  }, [user?.email]);
   const [sendingChat, setSendingChat] = useState(false);
   const [isChatStarred, setIsChatStarred] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -1402,7 +1471,22 @@ const Casbox = () => {
   const emojiPickerRef = React.useRef(null);
 
   const handleEmojiSelect = (emoji) => {
-    setNewChatText(prev => prev + emoji);
+    setNewChatText(prev => {
+      const nextText = prev + emoji;
+      newChatTextRef.current = nextText;
+      if (!editingMessageRef.current) {
+        const currentContact = activeDraftContactKeyRef.current;
+        if (currentContact) {
+          if (nextText.trim()) {
+            chatDraftsRef.current[currentContact] = nextText;
+          } else {
+            delete chatDraftsRef.current[currentContact];
+          }
+          saveCasboxDraftsToStorage(user?.email, chatDraftsRef.current);
+        }
+      }
+      return nextText;
+    });
     chatInputRef.current?.focus();
   };
 
@@ -2765,7 +2849,10 @@ const Casbox = () => {
 
   const handleCancelEditMessage = useCallback(() => {
     setEditingMessage(null);
-    setNewChatText("");
+    const currentContact = activeDraftContactKeyRef.current;
+    const restoredDraft = (currentContact && chatDraftsRef.current[currentContact]) || "";
+    setNewChatText(restoredDraft);
+    newChatTextRef.current = restoredDraft;
     chatInputRef.current?.focus();
   }, []);
 
@@ -2856,7 +2943,10 @@ const Casbox = () => {
       });
 
       setEditingMessage(null);
-      setNewChatText("");
+      const currentContact = activeDraftContactKeyRef.current;
+      const restoredDraft = (currentContact && chatDraftsRef.current[currentContact]) || "";
+      setNewChatText(restoredDraft);
+      newChatTextRef.current = restoredDraft;
       toast.success("Message edited");
     } catch (err) {
       console.error("Failed to edit message", err);
@@ -3433,12 +3523,36 @@ const Casbox = () => {
   };
 
   useEffect(() => {
+    const currentActiveContactKey = activeDraftContactKeyRef.current;
+    const currentText = newChatTextRef.current;
+
     if (selectedMessage) {
       const otherEmail = getOtherUserEmail(selectedMessage);
+      const contactKey = normalizeEmail(otherEmail);
       selectedContactRef.current = otherEmail;
 
-      const contactKey = normalizeEmail(otherEmail);
-      if (contactKey !== prevSelectedContactRef.current) {
+      if (contactKey !== currentActiveContactKey) {
+        // Save draft for previously open contact if user was actively typing a draft
+        if (currentActiveContactKey && !editingMessageRef.current) {
+          if (currentText && currentText.trim()) {
+            chatDraftsRef.current[currentActiveContactKey] = currentText;
+          } else {
+            delete chatDraftsRef.current[currentActiveContactKey];
+          }
+          saveCasboxDraftsToStorage(user?.email, chatDraftsRef.current);
+          setChatDrafts({ ...chatDraftsRef.current });
+        }
+
+        // Load draft for the new contact
+        const newContactDraft = (contactKey && chatDraftsRef.current[contactKey]) || "";
+        setNewChatText(newContactDraft);
+        newChatTextRef.current = newContactDraft;
+        activeDraftContactKeyRef.current = contactKey;
+
+        // Reset editing/replying states when switching conversations
+        setEditingMessage(null);
+        setReplyingToMessage(null);
+
         prevSelectedContactRef.current = contactKey;
         initialScrollDoneRef.current = false;
         isNearBottomRef.current = true;
@@ -3448,6 +3562,23 @@ const Casbox = () => {
       fetchThread(otherEmail);
       setIsChatStarred(Boolean(selectedMessage.starred || selectedMessage.isStarred));
     } else {
+      // Navigated Back / Chat closed
+      if (currentActiveContactKey && !editingMessageRef.current) {
+        if (currentText && currentText.trim()) {
+          chatDraftsRef.current[currentActiveContactKey] = currentText;
+        } else {
+          delete chatDraftsRef.current[currentActiveContactKey];
+        }
+        saveCasboxDraftsToStorage(user?.email, chatDraftsRef.current);
+        setChatDrafts({ ...chatDraftsRef.current });
+      }
+
+      activeDraftContactKeyRef.current = null;
+      setNewChatText("");
+      newChatTextRef.current = "";
+      setEditingMessage(null);
+      setReplyingToMessage(null);
+
       selectedContactRef.current = null;
       prevSelectedContactRef.current = null;
       initialScrollDoneRef.current = false;
@@ -3456,7 +3587,7 @@ const Casbox = () => {
       setThreadMessages([]);
       setIsChatStarred(false);
     }
-  }, [selectedMessage, user?.email]);
+  }, [selectedMessage, user?.email, getOtherUserEmail]);
 
   const handleArchiveChat = async () => {
     if (!selectedMessage) return;
@@ -4575,8 +4706,15 @@ const Casbox = () => {
       return;
     }
 
-    // Immediately clear input and reply preview so user can continue typing next message right away
+    // Immediately clear input, active contact's draft, and reply preview so user can continue typing next message right away
     setNewChatText("");
+    newChatTextRef.current = "";
+    const contactKey = normalizeEmail(otherEmail);
+    if (contactKey) {
+      delete chatDraftsRef.current[contactKey];
+      saveCasboxDraftsToStorage(user?.email, chatDraftsRef.current);
+      setChatDrafts({ ...chatDraftsRef.current });
+    }
     const replySnapshot = replyingToMessage;
     setReplyingToMessage(null);
     chatInputRef.current?.focus();
@@ -4663,8 +4801,14 @@ const Casbox = () => {
       setThreadMessages(prev => prev.filter(m => m.id !== tempId && m.tempId !== tempId));
       setMessages(prev => prev.filter(m => m.id !== tempId && m.tempId !== tempId));
 
-      // Restore unsent text if user hasn't started typing another message
-      setNewChatText(prev => prev ? prev : textToSend);
+      // Restore unsent text only to this contact's draft
+      if (activeDraftContactKeyRef.current === contactKey) {
+        setNewChatText(prev => prev ? prev : textToSend);
+        newChatTextRef.current = textToSend;
+      }
+      chatDraftsRef.current[contactKey] = textToSend;
+      saveCasboxDraftsToStorage(user?.email, chatDraftsRef.current);
+      setChatDrafts({ ...chatDraftsRef.current });
 
       const rawMsg = err.response?.data?.message || err.response?.data?.error || "";
       const isBlockedError =
@@ -7914,7 +8058,7 @@ const Casbox = () => {
                   data-bwignore="true"
                   placeholder={editingMessage ? "Edit message..." : "Type a message..."}
                   value={newChatText}
-                  onChange={(e) => setNewChatText(e.target.value)}
+                  onChange={handleChatInputChange}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
