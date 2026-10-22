@@ -5,25 +5,24 @@ import { useMail } from "../context/MailContext";
 /**
  * Global Keyboard Shortcuts for BNXmail.
  *
- * Supported Actions:
- * - Mail Navigation:
- *   G then I -> Go to Inbox
- *   G then S -> Go to Sent
- *   G then D -> Go to Drafts
- *   G then T -> Go to Starred
- *   G then TR (or G then X) -> Go to Trash
+ * 1. Mail Navigation (Sequential):
+ *   Ctrl + G, then I -> Navigate to Inbox (/inbox)
+ *   Ctrl + G, then S -> Navigate to Sent (/sent)
+ *   Ctrl + G, then D -> Navigate to Drafts (/draft)
+ *   Ctrl + G, then T -> Navigate to Starred (/starred)
+ *   Ctrl + G, then T, then R -> Navigate to Trash (/trash)
  *
- * - Email Actions:
- *   C -> Compose a new email
- *   R -> Reply to currently open email
- *   F -> Forward currently open email
- *   / -> Focus search input
- *   E -> Archive selected/open email
- *   Delete / # -> Delete selected/open email
+ * 2. Email Actions:
+ *   Ctrl + C -> Open Compose window
+ *   Ctrl + R -> Reply to currently selected/open email
+ *   Ctrl + F -> Forward currently selected/open email
+ *   Ctrl + / -> Focus main search input
+ *   Ctrl + E -> Archive selected/open email
+ *   Ctrl + Delete -> Move selected email to Trash
  *
- * - General:
+ * 3. General:
  *   Esc -> Close popup / compose / return to previous view
- *   ? -> Open Keyboard Shortcuts help in Settings
+ *   ? -> Open Keyboard Shortcuts help panel in Settings
  */
 export function useKeyboardShortcuts() {
   const navigate = useNavigate();
@@ -41,7 +40,8 @@ export function useKeyboardShortcuts() {
       if (
         target.isContentEditable ||
         target.closest?.(".ql-editor") ||
-        target.closest?.('[contenteditable="true"]')
+        target.closest?.('[contenteditable="true"]') ||
+        target.closest?.(".public-DraftEditor-content")
       ) {
         return true;
       }
@@ -49,27 +49,31 @@ export function useKeyboardShortcuts() {
     };
 
     const handleKeyDown = (event) => {
-      // Don't interfere if user is pressing Ctrl or Meta (Command on Mac)
-      if (event.ctrlKey || event.metaKey) return;
-
-      const key = event.key;
+      const isCtrlOrMeta = event.ctrlKey || event.metaKey;
       const isEditing = isEditingText(event);
+      const rawKey = event.key;
+      const lowerKey = rawKey?.toLowerCase();
 
-      // Handle Escape
-      if (key === "Escape") {
+      // 1. GENERAL SHORTCUT: ESCAPE
+      if (rawKey === "Escape") {
         if (isComposeOpen) {
           event.preventDefault();
           closeCompose();
           return;
         }
 
-        // If an input is focused, blur it
         if (isEditing) {
           event.target?.blur();
           return;
         }
 
-        // Return / back action
+        if (location.pathname === "/settings") {
+          event.preventDefault();
+          navigate("/inbox");
+          return;
+        }
+
+        // Return / back action (closes open email, clears selection, etc.)
         window.dispatchEvent(
           new CustomEvent("bnx-shortcut-action", {
             detail: { action: "back" }
@@ -78,69 +82,11 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // If typing in any input, textarea, or rich text editor, do NOT trigger mail shortcuts
-      if (isEditing) return;
-
-      // Handle chorded navigation ('G then ...')
-      if (chordRef.current === "g") {
-        clearTimeout(chordTimerRef.current);
-        const lowerKey = key.toLowerCase();
-
-        if (lowerKey === "i") {
-          event.preventDefault();
-          chordRef.current = null;
-          navigate("/inbox");
-          return;
-        } else if (lowerKey === "s") {
-          event.preventDefault();
-          chordRef.current = null;
-          navigate("/send");
-          return;
-        } else if (lowerKey === "d") {
-          event.preventDefault();
-          chordRef.current = null;
-          navigate("/draft");
-          return;
-        } else if (lowerKey === "t") {
-          event.preventDefault();
-          // Allow follow-up 'r' for 'tr' (trash), otherwise resolve to starred
-          chordRef.current = "gt";
-          chordTimerRef.current = setTimeout(() => {
-            chordRef.current = null;
-            navigate("/starred");
-          }, 350);
-          return;
-        } else if (lowerKey === "r" || lowerKey === "x") {
-          event.preventDefault();
-          chordRef.current = null;
-          navigate("/trash");
-          return;
-        }
-
-        chordRef.current = null;
-      } else if (chordRef.current === "gt") {
-        clearTimeout(chordTimerRef.current);
-        chordRef.current = null;
-        if (key.toLowerCase() === "r") {
-          event.preventDefault();
-          navigate("/trash");
-          return;
-        }
-      }
-
-      // Start of 'G' chord
-      if (key.toLowerCase() === "g" && !event.shiftKey && !event.altKey) {
-        event.preventDefault();
-        chordRef.current = "g";
-        clearTimeout(chordTimerRef.current);
-        chordTimerRef.current = setTimeout(() => {
-          chordRef.current = null;
-        }, 1200);
-        return;
-      }
-
-      // Search: '/'
-      if (key === "/" && !event.shiftKey && !event.altKey) {
+      // 2. SEARCH FOCUS: Ctrl + / (and / when not editing)
+      if (
+        (isCtrlOrMeta && (rawKey === "/" || event.code === "Slash")) ||
+        (!isCtrlOrMeta && !event.shiftKey && !event.altKey && rawKey === "/" && !isEditing)
+      ) {
         const searchInput = document.getElementById("mail-search-input");
         if (searchInput) {
           event.preventDefault();
@@ -150,22 +96,112 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Help: '?' (or Shift + '/')
-      if (key === "?" || (event.shiftKey && key === "/")) {
+      // 3. HELP: ? (or Shift + /) when not typing in an input
+      if (!isCtrlOrMeta && !event.altKey && (rawKey === "?" || (event.shiftKey && rawKey === "/"))) {
+        if (isEditing) return;
         event.preventDefault();
-        navigate("/settings", { state: { tab: "shortcuts" } });
+        if (location.pathname === "/settings") {
+          window.dispatchEvent(new CustomEvent("bnx-open-shortcuts-tab"));
+        } else {
+          navigate("/settings", { state: { tab: "shortcuts" } });
+        }
         return;
       }
 
-      // Compose: 'C'
-      if (key.toLowerCase() === "c" && !event.shiftKey && !event.altKey) {
+      // 4. SEQUENTIAL MAIL NAVIGATION: Ctrl + G, then ...
+      if (chordRef.current === "ctrl_g") {
+        clearTimeout(chordTimerRef.current);
+
+        if (lowerKey === "i") {
+          event.preventDefault();
+          chordRef.current = null;
+          navigate("/inbox");
+          return;
+        } else if (lowerKey === "s") {
+          event.preventDefault();
+          chordRef.current = null;
+          navigate("/sent");
+          return;
+        } else if (lowerKey === "d") {
+          event.preventDefault();
+          chordRef.current = null;
+          navigate("/draft");
+          return;
+        } else if (lowerKey === "t") {
+          event.preventDefault();
+          // User entered 'T'. Could be Starred OR Trash (T then R)
+          chordRef.current = "ctrl_g_t";
+          chordTimerRef.current = setTimeout(() => {
+            chordRef.current = null;
+            navigate("/starred");
+          }, 600);
+          return;
+        } else if (lowerKey === "r" || lowerKey === "x") {
+          event.preventDefault();
+          chordRef.current = null;
+          navigate("/trash");
+          return;
+        }
+
+        chordRef.current = null;
+      } else if (chordRef.current === "ctrl_g_t") {
+        clearTimeout(chordTimerRef.current);
+        chordRef.current = null;
+
+        if (lowerKey === "r") {
+          event.preventDefault();
+          navigate("/trash");
+          return;
+        } else {
+          // If another key is pressed after T, complete Starred navigation
+          navigate("/starred");
+        }
+      }
+
+      // Initiating sequential navigation: Ctrl + G (or G when not editing text)
+      if (
+        (isCtrlOrMeta && lowerKey === "g") ||
+        (!isCtrlOrMeta && !event.shiftKey && !event.altKey && lowerKey === "g" && !isEditing)
+      ) {
+        if (isEditing) return;
+        event.preventDefault();
+        clearTimeout(chordTimerRef.current);
+        chordRef.current = "ctrl_g";
+        chordTimerRef.current = setTimeout(() => {
+          chordRef.current = null;
+        }, 1500);
+        return;
+      }
+
+      // 5. EMAIL ACTIONS (Protected against typing in inputs/textareas)
+      // COMPOSE: Ctrl + C (or plain C when not editing)
+      if (
+        (isCtrlOrMeta && lowerKey === "c") ||
+        (!isCtrlOrMeta && !event.shiftKey && !event.altKey && lowerKey === "c" && !isEditing)
+      ) {
+        if (isEditing) return;
+
+        // If user highlighted text on screen, allow normal copy
+        if (isCtrlOrMeta) {
+          const selectedText = window.getSelection()?.toString();
+          if (selectedText && selectedText.trim().length > 0) {
+            return;
+          }
+        }
+
         event.preventDefault();
         openCompose({ mode: "mail" });
         return;
       }
 
-      // Reply: 'R'
-      if (key.toLowerCase() === "r" && !event.shiftKey && !event.altKey) {
+      // If user is editing text in any input, textarea, or rich editor, stop here
+      if (isEditing) return;
+
+      // REPLY: Ctrl + R (or plain R when not editing)
+      if (
+        (isCtrlOrMeta && lowerKey === "r") ||
+        (!isCtrlOrMeta && !event.shiftKey && !event.altKey && lowerKey === "r")
+      ) {
         event.preventDefault();
         window.dispatchEvent(
           new CustomEvent("bnx-shortcut-action", {
@@ -175,8 +211,11 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Forward: 'F'
-      if (key.toLowerCase() === "f" && !event.shiftKey && !event.altKey) {
+      // FORWARD: Ctrl + F (or plain F when not editing)
+      if (
+        (isCtrlOrMeta && lowerKey === "f") ||
+        (!isCtrlOrMeta && !event.shiftKey && !event.altKey && lowerKey === "f")
+      ) {
         event.preventDefault();
         window.dispatchEvent(
           new CustomEvent("bnx-shortcut-action", {
@@ -186,8 +225,11 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Archive: 'E'
-      if (key.toLowerCase() === "e" && !event.shiftKey && !event.altKey) {
+      // ARCHIVE: Ctrl + E (or plain E when not editing)
+      if (
+        (isCtrlOrMeta && lowerKey === "e") ||
+        (!isCtrlOrMeta && !event.shiftKey && !event.altKey && lowerKey === "e")
+      ) {
         event.preventDefault();
         window.dispatchEvent(
           new CustomEvent("bnx-shortcut-action", {
@@ -197,8 +239,11 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Delete: 'Delete' or '#'
-      if (key === "Delete" || key === "#" || (event.shiftKey && key === "3")) {
+      // DELETE: Ctrl + Delete (or plain Delete / # when not editing)
+      if (
+        (isCtrlOrMeta && (rawKey === "Delete" || event.code === "Delete")) ||
+        (!isCtrlOrMeta && (rawKey === "Delete" || rawKey === "#" || (event.shiftKey && rawKey === "3")))
+      ) {
         event.preventDefault();
         window.dispatchEvent(
           new CustomEvent("bnx-shortcut-action", {

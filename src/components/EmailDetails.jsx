@@ -145,20 +145,38 @@ const EmailDetails = ({
 
   useEffect(() => {
     const handleShortcutAction = (e) => {
+      if (e.detail?.handled) return;
       const action = e.detail?.action;
       if (!action || !email) return;
 
       if (action === "reply") {
-        if (onReply) onReply(email);
+        if (onReply) {
+          e.detail.handled = true;
+          onReply(email);
+        }
       } else if (action === "forward") {
-        if (onForward) onForward(email);
+        if (onForward) {
+          e.detail.handled = true;
+          onForward(email);
+        }
       } else if (action === "archive") {
-        if (onArchive) onArchive(email.uid);
+        if (onArchive) {
+          e.detail.handled = true;
+          onArchive(email.uid);
+        }
       } else if (action === "delete") {
-        if (onDelete) onDelete(email.uid);
+        if (onDelete) {
+          e.detail.handled = true;
+          onDelete(email.uid);
+        }
       } else if (action === "back") {
-        if (onBack) onBack();
-        else if (onClose) onClose();
+        if (onBack) {
+          e.detail.handled = true;
+          onBack();
+        } else if (onClose) {
+          e.detail.handled = true;
+          onClose();
+        }
       }
     };
 

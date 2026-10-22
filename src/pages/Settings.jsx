@@ -106,6 +106,12 @@ const Settings = () => {
       setActiveTab(routerLocation.state.tab);
     }
   }, [routerLocation.state?.tab]);
+
+  useEffect(() => {
+    const handleOpenShortcuts = () => setActiveTab("shortcuts");
+    window.addEventListener("bnx-open-shortcuts-tab", handleOpenShortcuts);
+    return () => window.removeEventListener("bnx-open-shortcuts-tab", handleOpenShortcuts);
+  }, []);
   const [shortcutFilter, setShortcutFilter] = useState("");
   const [customBgUrl, setCustomBgUrl] = useState("");
   const [selectedWallpaper, setSelectedWallpaper] = useState(backgroundImage);
@@ -2814,11 +2820,11 @@ const Settings = () => {
 
                     <div className="flex flex-col gap-1 flex-1">
                       {[
-                        { action: "Go to Inbox", desc: "Open your Inbox folder", keys: ["G", "then", "I"] },
-                        { action: "Go to Sent", desc: "Open sent messages", keys: ["G", "then", "S"] },
-                        { action: "Go to Drafts", desc: "Open saved drafts", keys: ["G", "then", "D"] },
-                        { action: "Go to Starred", desc: "Open starred messages", keys: ["G", "then", "T"] },
-                        { action: "Go to Trash", desc: "Open deleted messages", keys: ["G", "then", "TR"] },
+                        { action: "Go to Inbox", desc: "Open your Inbox folder", keys: ["Ctrl + G", "then", "I"] },
+                        { action: "Go to Sent", desc: "Open sent messages", keys: ["Ctrl + G", "then", "S"] },
+                        { action: "Go to Drafts", desc: "Open saved drafts", keys: ["Ctrl + G", "then", "D"] },
+                        { action: "Go to Starred", desc: "Open starred messages", keys: ["Ctrl + G", "then", "T"] },
+                        { action: "Go to Trash", desc: "Open deleted messages", keys: ["Ctrl + G", "then", "T", "then", "R"] },
                       ]
                         .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
                         .map((item, idx) => (
@@ -2878,12 +2884,12 @@ const Settings = () => {
 
                     <div className="flex flex-col gap-1 flex-1">
                       {[
-                        { action: "Compose a new email", desc: "Open message composer", keys: ["C"] },
-                        { action: "Reply to an email", desc: "Reply to active message", keys: ["R"] },
-                        { action: "Forward an email", desc: "Forward active message", keys: ["F"] },
-                        { action: "Search emails", desc: "Focus search input field", keys: ["/"] },
-                        { action: "Archive selected email", desc: "Move active message to archive", keys: ["E"] },
-                        { action: "Delete selected email", desc: "Move active message to trash", keys: ["Del", "or", "#"] },
+                        { action: "Compose a new email", desc: "Open message composer", keys: ["Ctrl + C"] },
+                        { action: "Reply to an email", desc: "Reply to active message", keys: ["Ctrl + R"] },
+                        { action: "Forward an email", desc: "Forward active message", keys: ["Ctrl + F"] },
+                        { action: "Search emails", desc: "Focus search input field", keys: ["Ctrl + /"] },
+                        { action: "Archive selected email", desc: "Move active message to archive", keys: ["Ctrl + E"] },
+                        { action: "Delete selected email", desc: "Move active message to trash", keys: ["Ctrl + Del"] },
                       ]
                         .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
                         .map((item, idx) => (
@@ -2995,7 +3001,7 @@ const Settings = () => {
                       Smart Input Protection & Sequential Keys
                     </h4>
                     <p className="text-xs text-blue-800/80 dark:text-blue-300/80 mt-1 max-w-2xl leading-relaxed">
-                      Shortcuts are automatically paused while typing in any text input, search box, or email compose editor to prevent conflicts. For navigation shortcuts like <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 font-mono text-[10px] font-bold">G</kbd> then <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 font-mono text-[10px] font-bold">I</kbd>, press each key in sequence.
+                      Shortcuts are automatically paused while typing in any text input, search box, or email compose editor to prevent conflicts. For navigation shortcuts like <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 font-mono text-[10px] font-bold">Ctrl + G</kbd> then <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 font-mono text-[10px] font-bold">I</kbd>, press each key in sequence.
                     </p>
                   </div>
                 </div>

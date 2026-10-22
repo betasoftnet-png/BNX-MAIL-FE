@@ -98,22 +98,27 @@ const Inbox = ({ searchQuery }) => {
 
   useEffect(() => {
     const handleShortcutAction = (e) => {
+      if (e.detail?.handled) return;
       const action = e.detail?.action;
       if (!action) return;
 
       if (action === "back") {
         if (selectedEmailUid) {
+          e.detail.handled = true;
           setSelectedEmailUid(null);
         } else if (selectedIds.size > 0) {
+          e.detail.handled = true;
           setSelectedIds(new Set());
         }
       } else if (action === "delete") {
         if (!selectedEmailUid && selectedIds.size > 0) {
+          e.detail.handled = true;
           selectedIds.forEach((uid) => handleMoveToTrash(uid, currentFolder));
           setSelectedIds(new Set());
         }
       } else if (action === "archive") {
         if (!selectedEmailUid && selectedIds.size > 0) {
+          e.detail.handled = true;
           selectedIds.forEach((uid) => handleArchive(uid, currentFolder));
           setSelectedIds(new Set());
         }

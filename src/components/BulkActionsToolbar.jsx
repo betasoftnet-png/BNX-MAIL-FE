@@ -1,5 +1,5 @@
 import { useTranslation } from "../context/LanguageContext";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMail } from "../context/MailContext";
 import { useTheme } from "../context/ThemeContext";
 import {
@@ -63,32 +63,20 @@ const BulkActionsToolbar = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (selectedIds.size === 0) return null;
-
   // Helper to check if an email is selected
-  const isEmailSelected = (e) =>
+  const isEmailSelected = useCallback((e) =>
     selectedIds.has(`${e.uid}__${e.folderName || ''}`) ||
     selectedIds.has(String(e.uid)) ||
-    selectedIds.has(Number(e.uid));
+    selectedIds.has(Number(e.uid)), [selectedIds]);
 
   // Find the selected email objects
-  const selectedEmails = visibleEmails.filter(isEmailSelected);
-
-  // Determine if any of the selected emails are unread
-  const hasUnread = selectedEmails.some((e) => !e.isRead);
-
-  // Select all toggle handler
-  const handleSelectAllToggle = () => {
-    const allSelected = visibleEmails.length > 0 && visibleEmails.every(isEmailSelected);
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(visibleEmails.map((e) => `${e.uid}__${e.folderName || ''}`)));
-    }
-  };
+  const selectedEmails = useMemo(() =>
+    visibleEmails ? visibleEmails.filter(isEmailSelected) : [],
+    [visibleEmails, isEmailSelected]);
 
   // Bulk Archive
-  const handleBulkArchive = async () => {
+  const handleBulkArchive = useCallback(async () => {
+    if (!selectedEmails.length) return;
     try {
       toast.loading("Archiving selected emails...", { id: "bulk-archive" });
       await Promise.all(selectedEmails.map((e) => handleArchive(e.uid, e.folderName || folder, true)));
@@ -97,26 +85,11 @@ const BulkActionsToolbar = ({
     } catch (err) {
       toast.error("Failed to archive some emails", { id: "bulk-archive" });
     }
-  };
-
-  // Bulk Unarchive / Restore
-  const handleBulkUnarchive = async () => {
-    try {
-      toast.loading("Restoring selected emails...", { id: "bulk-restore" });
-      if (folder === "spam") {
-        await Promise.all(selectedEmails.map((e) => handleRestoreSpam(e.uid, true)));
-      } else {
-        await Promise.all(selectedEmails.map((e) => handleUnarchive(e.uid, true)));
-      }
-      setSelectedIds(new Set());
-      toast.success("Emails restored", { id: "bulk-restore" });
-    } catch (err) {
-      toast.error("Failed to restore some emails", { id: "bulk-restore" });
-    }
-  };
+  }, [selectedEmails, handleArchive, folder, setSelectedIds]);
 
   // Bulk Trash or Permanent Delete
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = useCallback(async () => {
+    if (!selectedEmails.length) return;
     try {
       if (folder === "trash" && handleDeletePermanently) {
         toast.loading("Permanently deleting selected emails...", { id: "bulk-delete" });
@@ -143,6 +116,85 @@ const BulkActionsToolbar = ({
       }
     } catch (err) {
       toast.error("Failed to delete some emails", { id: "bulk-delete" });
+    }
+  }, [selectedEmails, folder, handleDeletePermanently, handleMoveToTrash, setSelectedIds]);
+
+  // Global Keyboard Shortcuts integration for selected emails in any folder
+  useEffect(() => {
+    const handleShortcutAction = (e) => {
+      if (e.detail?.handled) return;
+      const action = e.detail?.action;
+      if (!action || !selectedIds || selectedIds.size === 0) return;
+
+      if (action === "delete") {
+        e.detail.handled = true;
+        handleBulkDelete();
+      } else if (action === "archive") {
+        e.detail.handled = true;
+        handleBulkArchive();
+      } else if (action === "reply") {
+        if (selectedEmails.length === 1) {
+          const targetEmail = selectedEmails[0];
+          if (targetEmail) {
+            e.detail.handled = true;
+            openCompose({
+              replyTo: targetEmail.senderEmail || targetEmail.from,
+              subject: `Re: ${targetEmail.subject || ""}`,
+              originalBody: targetEmail.body,
+            });
+          }
+        }
+      } else if (action === "forward") {
+        if (selectedEmails.length === 1) {
+          const targetEmail = selectedEmails[0];
+          if (targetEmail) {
+            e.detail.handled = true;
+            openCompose({
+              forward: true,
+              subject: targetEmail.subject?.startsWith("Fwd:") ? targetEmail.subject : `Fwd: ${targetEmail.subject || ""}`,
+              originalBody: targetEmail.body,
+              originalEmail: targetEmail,
+            });
+          }
+        }
+      } else if (action === "back") {
+        e.detail.handled = true;
+        setSelectedIds(new Set());
+      }
+    };
+
+    window.addEventListener("bnx-shortcut-action", handleShortcutAction);
+    return () => window.removeEventListener("bnx-shortcut-action", handleShortcutAction);
+  }, [selectedIds, selectedEmails, handleBulkDelete, handleBulkArchive, openCompose, setSelectedIds]);
+
+  if (selectedIds.size === 0) return null;
+
+  // Determine if any of the selected emails are unread
+  const hasUnread = selectedEmails.some((e) => !e.isRead);
+
+  // Select all toggle handler
+  const handleSelectAllToggle = () => {
+    const allSelected = visibleEmails.length > 0 && visibleEmails.every(isEmailSelected);
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(visibleEmails.map((e) => `${e.uid}__${e.folderName || ''}`)));
+    }
+  };
+
+  // Bulk Unarchive / Restore
+  const handleBulkUnarchive = async () => {
+    try {
+      toast.loading("Restoring selected emails...", { id: "bulk-restore" });
+      if (folder === "spam") {
+        await Promise.all(selectedEmails.map((e) => handleRestoreSpam(e.uid, true)));
+      } else {
+        await Promise.all(selectedEmails.map((e) => handleUnarchive(e.uid, true)));
+      }
+      setSelectedIds(new Set());
+      toast.success("Emails restored", { id: "bulk-restore" });
+    } catch (err) {
+      toast.error("Failed to restore some emails", { id: "bulk-restore" });
     }
   };
 
