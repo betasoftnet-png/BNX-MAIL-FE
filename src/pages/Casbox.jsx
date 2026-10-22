@@ -1377,6 +1377,10 @@ const Casbox = () => {
 
 
   const [threadMessages, setThreadMessages] = useState([]);
+  const sortedThread = useMemo(() => {
+    if (!Array.isArray(threadMessages)) return [];
+    return [...threadMessages].sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
+  }, [threadMessages]);
   const [loadingThread, setLoadingThread] = useState(false);
   const [newChatText, setNewChatText] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
@@ -6561,7 +6565,6 @@ const Casbox = () => {
     const otherNorm = normalizeEmail(otherUserEmail);
     const isContactAccepted = isCashboxSenderAccepted(otherNorm, acceptedSet) || Boolean(selectedMessage?.isAccepted || selectedMessage?.accepted);
     const isContactRequest = Boolean(otherNorm && !isContactAccepted);
-    const sortedThread = [...threadMessages].sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
 
     // Bulk action handlers for message selection mode
     const handleSelectAllMessages = () => {
