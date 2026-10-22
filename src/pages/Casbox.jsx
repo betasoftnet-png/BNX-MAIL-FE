@@ -2133,6 +2133,41 @@ const Casbox = () => {
     toast.success("Message unsent");
   }, [unsendMessageTarget, selectedMessage, pinnedMessagesMap, handleUnpinMessage, replyingToMessage, getOtherUserEmail]);
 
+  // Message Selection Mode (WhatsApp-style)
+  const handleEnterMessageSelectionMode = useCallback((initialMsgId) => {
+    setActiveMessageMenuId(null);
+    setActiveReactionMsgId(null);
+    setIsMessageSelectionMode(true);
+    if (initialMsgId !== undefined && initialMsgId !== null) {
+      setSelectedMessageItemIds(new Set([String(initialMsgId)]));
+    } else {
+      setSelectedMessageItemIds(new Set());
+    }
+  }, []);
+
+  const handleExitMessageSelectionMode = useCallback(() => {
+    setIsMessageSelectionMode(false);
+    setSelectedMessageItemIds(new Set());
+  }, []);
+
+  const handleClearMessageSelection = useCallback(() => {
+    setSelectedMessageItemIds(new Set());
+  }, []);
+
+  const handleToggleSelectMessage = useCallback((msgId) => {
+    if (!msgId) return;
+    const strId = String(msgId);
+    setSelectedMessageItemIds(prev => {
+      const next = new Set(prev);
+      if (next.has(strId)) {
+        next.delete(strId);
+      } else {
+        next.add(strId);
+      }
+      return next;
+    });
+  }, []);
+
   // 5-Second Global Undo Message Deletion handlers for Casbox module
   const commitCasboxDelete = useCallback(async (opId) => {
     const op = pendingCasboxDeletionsRef.current[opId];
@@ -2597,41 +2632,6 @@ const Casbox = () => {
       });
     };
   }, [commitCasboxDelete]);
-
-  // Message Selection Mode (WhatsApp-style)
-  const handleEnterMessageSelectionMode = useCallback((initialMsgId) => {
-    setActiveMessageMenuId(null);
-    setActiveReactionMsgId(null);
-    setIsMessageSelectionMode(true);
-    if (initialMsgId !== undefined && initialMsgId !== null) {
-      setSelectedMessageItemIds(new Set([String(initialMsgId)]));
-    } else {
-      setSelectedMessageItemIds(new Set());
-    }
-  }, []);
-
-  const handleExitMessageSelectionMode = useCallback(() => {
-    setIsMessageSelectionMode(false);
-    setSelectedMessageItemIds(new Set());
-  }, []);
-
-  const handleClearMessageSelection = useCallback(() => {
-    setSelectedMessageItemIds(new Set());
-  }, []);
-
-  const handleToggleSelectMessage = useCallback((msgId) => {
-    if (!msgId) return;
-    const strId = String(msgId);
-    setSelectedMessageItemIds(prev => {
-      const next = new Set(prev);
-      if (next.has(strId)) {
-        next.delete(strId);
-      } else {
-        next.add(strId);
-      }
-      return next;
-    });
-  }, []);
 
   // Ensure selection state is handled correctly when switching conversations
   useEffect(() => {
