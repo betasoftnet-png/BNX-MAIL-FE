@@ -7162,7 +7162,7 @@ const Casbox = () => {
                             >
                               {renderForwardPreviewInBubble(msg, isMe)}
                               {renderReplyPreviewInBubble(msg, isMe)}
-                              <p className="whitespace-pre-wrap leading-relaxed break-words">{cleanMessageBody(msg.body)}</p>
+                              <p className="whitespace-pre-wrap leading-relaxed break-words text-black" style={{ color: '#000000' }}>{cleanMessageBody(msg.body)}</p>
                               {renderBubbleAttachments(msg)}
                             </div>
 
@@ -7330,7 +7330,7 @@ const Casbox = () => {
                         >
                           {renderForwardPreviewInBubble(msg, isMe)}
                           {renderReplyPreviewInBubble(msg, isMe)}
-                          <p className="whitespace-pre-wrap leading-relaxed break-words">{cleanMessageBody(msg.body)}</p>
+                          <p className="whitespace-pre-wrap leading-relaxed break-words text-black" style={{ color: '#000000' }}>{cleanMessageBody(msg.body)}</p>
                           {renderBubbleAttachments(msg)}
                         </div>
 
