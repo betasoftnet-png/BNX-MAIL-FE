@@ -7,7 +7,7 @@ import { useMail } from "../context/MailContext";
 import { MdSettings, MdEmail, MdLogout, MdLightMode, MdDarkMode, MdNotifications, MdCheckCircle, MdManageAccounts, MdPersonAdd, MdPhotoCamera, MdMenu, MdAdd, MdApps, MdOutlineNoteAlt } from "react-icons/md";
 import { userAPI, casboxAPI, chatAPI } from "../services/api";
 import toast from "react-hot-toast";
-import { SlidersHorizontal, Calendar, Check, ChevronRight } from "lucide-react";
+import { SlidersHorizontal, Calendar, Check, ChevronRight, Search, X } from "lucide-react";
 // import logo from "../assets/bnx.jpeg";
 
 import logo from "../assets/bnx-remove.png";
@@ -31,7 +31,6 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const allSessions = getSessions();
   const otherSessions = allSessions.filter(sess => sess.email !== user?.email);
 
-
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
   const [showAppLauncher, setShowAppLauncher] = useState(false);
@@ -43,6 +42,9 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const [allChatRooms, setAllChatRooms] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const searchContainerRef = useRef(null);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const mobileSearchContainerRef = useRef(null);
+  const mobileInputRef = useRef(null);
 
   useEffect(() => {
     if (user?.email && searchQuery.trim().length > 0) {
@@ -65,8 +67,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
         setShowSearchResults(false);
       }
+      if (mobileSearchContainerRef.current && !mobileSearchContainerRef.current.contains(event.target)) {
+        setIsMobileSearchOpen(false);
+      }
       if (dateFilterRef.current && !dateFilterRef.current.contains(event.target)) {
         setShowDateFilterDropdown(false);
+      }
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -174,81 +182,171 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     console.log("Searching:", searchQuery);
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const renderSearchResults = (onClose) => {
+    if (matchingEmails.length === 0 && matchingCasbox.length === 0 && matchingChats.length === 0) {
+      return (
+        <div className="text-xs text-gray-400 dark:text-gray-600 text-center py-4 select-none">
+          {t('navbar.no_matching_results', 'No matching results found')}
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {/* Matching Emails */}
+        {matchingEmails.length > 0 && (
+          <div className="mb-3">
+            <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none">
+              {t('navbar.emails_category', t('storage.emails', 'Emails'))}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {matchingEmails.map(e => (
+                <div
+                  key={e.uid}
+                  onClick={() => {
+                    setSearchQuery(e.subject);
+                    setShowSearchResults(false);
+                    onClose?.();
+                    navigate("/all-mail");
+                  }}
+                  className="flex flex-col p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left transition-colors"
+                >
+                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{e.subject}</span>
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{e.from}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Matching Casbox Messages */}
+        {matchingCasbox.length > 0 && (
+          <div className="mb-3">
+            <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none">
+              {t('navbar.casbox_chat', 'Casbox Chat')}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {matchingCasbox.map(m => {
+                const contactEmail = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
+                return (
+                  <div
+                    key={m.id}
+                    onClick={() => {
+                      setShowSearchResults(false);
+                      onClose?.();
+                      navigate("/casbox", { state: { preselectContact: contactEmail } });
+                    }}
+                    className="flex flex-col p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left transition-colors"
+                  >
+                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{contactEmail?.split('@')[0]}</span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-450 truncate italic">"{m.body}"</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Matching Colab Chats */}
+        {matchingChats.length > 0 && (
+          <div className="mb-1">
+            <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none">
+              {t('navbar.colab_rooms', 'Colab Rooms')}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {matchingChats.map(c => {
+                const chatPartner = c.memberEmails?.find(e => e !== user?.email) || "";
+                const chatName = c.type === 'DIRECT' ? chatPartner?.split('@')[0] : (c.name || `Chat #${c.id}`);
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      setShowSearchResults(false);
+                      onClose?.();
+                      navigate(`/chat/${c.id}`, { state: { chat: c } });
+                    }}
+                    className="flex flex-col p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left transition-colors"
+                  >
+                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{chatName}</span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest font-bold">{c.type}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
 
   return (
     <nav
-      className="sticky top-0 z-50 px-2 sm:px-5 py-2.5 transition-colors duration-300 shrink-0 shadow-md w-full relative"
+      className="sticky top-0 z-50 px-2 sm:px-4 lg:px-5 py-2 sm:py-2.5 transition-colors duration-300 shrink-0 shadow-md w-full relative"
       style={{ backgroundColor: backgroundImage ? "transparent" : "#195bac" }}
     >
-      <div className="flex items-center justify-between w-full relative gap-2 sm:gap-4">
+      <div className="flex items-center justify-between w-full relative gap-1.5 sm:gap-3">
         {/* LEFT */}
-        <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 shrink-0 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3 shrink-0">
           {/* Mobile Menu Toggle Button */}
           <button
             onClick={onOpenMenu}
-            className="p-1.5 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer shrink-0"
+            className="p-1 sm:p-1.5 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer shrink-0"
             title="Open Menu"
           >
-            <MdMenu size={24} />
+            <MdMenu size={22} />
           </button>
 
-          <div className="flex items-center gap-2 pl-1 sm:pl-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <img
               src={logo}
               alt="BNX Mail"
-              className="h-8 sm:h-10 cursor-pointer drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0"
+              className="h-7 sm:h-9 cursor-pointer drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0"
               onClick={() => onToggleDesktopSidebar()}
             />
             <span
               onClick={() => onToggleDesktopSidebar()}
-              className="text-lg sm:text-xl font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden sm:block select-none"
+              className="text-base sm:text-lg lg:text-xl font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden sm:block select-none"
             >
               BNX<span className="font-normal text-white/90">mail</span>
             </span>
           </div>
 
-          {/* COMPOSE (Hidden on mobile/tablet, shown as floating button instead) */}
+          {/* COMPOSE (Responsive sizing) */}
           <button
             onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 md:px-4 py-1.5 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 ml-1.5 sm:ml-3 md:ml-6 lg:ml-10 xl:ml-16 shrink-0 cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 md:px-3.5 lg:px-4 py-1.5 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 ml-1 sm:ml-2 md:ml-3 lg:ml-4 xl:ml-6 shrink-0 cursor-pointer"
+            title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent || "#135bec" }}>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
-            <span className="text-[13px]">{t('navbar.compose', t('common.compose', 'Compose'))}</span>
+            <span className="text-xs sm:text-[13px] hidden sm:inline">{t('navbar.compose', t('common.compose', 'Compose'))}</span>
           </button>
         </div>
 
         {/* CENTER: SEGMENTED CONTROL */}
-        <div className="flex items-center bg-white/10 backdrop-blur-sm shadow-sm rounded-full p-1 border border-white/10 shrink-0 mx-auto translate-x-2 sm:translate-x-6 md:translate-x-10 lg:translate-x-14">
-          <button
-            onClick={() => navigate('/inbox')}
-            className={`px-3 sm:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
-          >
-            {t('navbar.mail', 'Mail')}
-          </button>
-          <button
-            onClick={() => navigate('/casbox')}
-            className={`px-3 sm:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
-          >
-            {t('navbar.casbox', 'Casbox')}
-          </button>
+        <div className="flex items-center justify-center shrink-0">
+          <div className="flex items-center bg-white/10 backdrop-blur-sm shadow-sm rounded-full p-0.5 sm:p-1 border border-white/10 shrink-0">
+            <button
+              onClick={() => navigate('/inbox')}
+              className={`px-2.5 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+            >
+              {t('navbar.mail', 'Mail')}
+            </button>
+            <button
+              onClick={() => navigate('/casbox')}
+              className={`px-2.5 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+            >
+              {t('navbar.casbox', 'Casbox')}
+            </button>
+          </div>
         </div>
 
         {/* RIGHT */}
-        <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
+        <div className="flex items-center justify-end gap-1.5 sm:gap-2 md:gap-2.5 shrink-0">
 
-          {/* SEARCH */}
-          <form onSubmit={handleSearch} className="flex shrink items-center min-w-[80px] w-20 sm:w-28 md:w-32 lg:w-40 focus-within:w-28 sm:focus-within:w-36 md:focus-within:w-40 lg:focus-within:w-48 transition-all duration-200" ref={searchContainerRef}>
+          {/* DESKTOP SEARCH (md+ screens) */}
+          <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-28 lg:w-36 xl:w-44 focus-within:w-36 lg:focus-within:w-48 xl:focus-within:w-56 transition-all duration-200" ref={searchContainerRef}>
             <div className="relative group w-full">
               <input
                 id="mail-search-input"
@@ -276,95 +374,68 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   className="absolute right-0 mt-2 bg-white dark:bg-gray-800 border shadow-2xl rounded-2xl p-3 max-h-96 overflow-y-auto z-[999] w-[280px] sm:w-[320px] max-w-[90vw]"
                   style={{ borderColor: theme.border || '#e2e8f0' }}
                 >
-                  {/* Matching Emails */}
-                  {matchingEmails.length > 0 && (
-                    <div className="mb-3">
-                      <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none">
-                        {t('navbar.emails_category', t('storage.emails', 'Emails'))}
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        {matchingEmails.map(e => (
-                          <div
-                            key={e.uid}
-                            onClick={() => {
-                              setSearchQuery(e.subject);
-                              setShowSearchResults(false);
-                              navigate("/all-mail");
-                            }}
-                            className="flex flex-col p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left transition-colors"
-                          >
-                            <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{e.subject}</span>
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{e.from}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Matching Casbox Messages */}
-                  {matchingCasbox.length > 0 && (
-                    <div className="mb-3">
-                      <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none">
-                        {t('navbar.casbox_chat', 'Casbox Chat')}
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        {matchingCasbox.map(m => {
-                          const contactEmail = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
-                          return (
-                            <div
-                              key={m.id}
-                              onClick={() => {
-                                setShowSearchResults(false);
-                                navigate("/casbox", { state: { preselectContact: contactEmail } });
-                              }}
-                              className="flex flex-col p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left transition-colors"
-                            >
-                              <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{contactEmail.split('@')[0]}</span>
-                              <span className="text-[10px] text-gray-500 dark:text-gray-450 truncate italic">"{m.body}"</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Matching Colab Chats */}
-                  {matchingChats.length > 0 && (
-                    <div className="mb-1">
-                      <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none">
-                        {t('navbar.colab_rooms', 'Colab Rooms')}
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        {matchingChats.map(c => {
-                          const chatPartner = c.memberEmails?.find(e => e !== user?.email) || "";
-                          const chatName = c.type === 'DIRECT' ? chatPartner?.split('@')[0] : (c.name || `Chat #${c.id}`);
-                          return (
-                            <div
-                              key={c.id}
-                              onClick={() => {
-                                setShowSearchResults(false);
-                                navigate(`/chat/${c.id}`, { state: { chat: c } });
-                              }}
-                              className="flex flex-col p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left transition-colors"
-                            >
-                              <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{chatName}</span>
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest font-bold">{c.type}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {matchingEmails.length === 0 && matchingCasbox.length === 0 && matchingChats.length === 0 && (
-                    <div className="text-xs text-gray-400 dark:text-gray-600 text-center py-4 select-none">
-                      {t('navbar.no_matching_results', 'No matching results found')}
-                    </div>
-                  )}
+                  {renderSearchResults(() => setShowSearchResults(false))}
                 </div>
               )}
             </div>
           </form>
+
+          {/* MOBILE SEARCH ICON BUTTON & DROPDOWN (< md screens) */}
+          <div className="relative md:hidden shrink-0" ref={mobileSearchContainerRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileSearchOpen(prev => !prev);
+                if (!isMobileSearchOpen) {
+                  setTimeout(() => mobileInputRef.current?.focus(), 50);
+                }
+              }}
+              className={`p-1.5 sm:p-2 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                isMobileSearchOpen
+                  ? "bg-white/20 text-white shadow-sm border border-white/30"
+                  : "bg-white/10 hover:bg-white/20 text-white/90 hover:text-white border border-white/10"
+              }`}
+              title={t('navbar.search_mail', 'Search mail')}
+              aria-label="Search"
+              aria-expanded={isMobileSearchOpen}
+            >
+              <Search size={16} className="text-white" />
+            </button>
+
+            {isMobileSearchOpen && (
+              <div 
+                className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] sm:w-80 max-w-[340px] bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 z-[999] animate-fade-in"
+                style={{ borderColor: theme.border || '#e2e8f0' }}
+              >
+                <form onSubmit={handleSearch} className="relative flex items-center w-full">
+                  <input
+                    ref={mobileInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t('navbar.search_placeholder', 'Search mail...')}
+                    className="w-full pl-8 pr-7 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1.5 focus:ring-blue-500 border border-transparent"
+                  />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </form>
+
+                {searchQuery.trim().length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 max-h-72 overflow-y-auto">
+                    {renderSearchResults(() => setIsMobileSearchOpen(false))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* DATE FILTER (Mail section only) */}
           {currentTab === 'mail' && (
@@ -453,27 +524,27 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           )}
 
           {/* USER */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative shrink-0" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-2 p-1 pr-3 rounded-full bg-white/10 hover:bg-white/10 transition-all border border-transparent hover:border-white/20"
+              className="flex items-center gap-1.5 sm:gap-2 p-1 sm:pr-2.5 lg:pr-3 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-transparent hover:border-white/20 cursor-pointer"
             >
               {user?.profilePictureUrl ? (
                 <img
                   src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${user.profilePictureUrl}`}
                   alt="Profile"
-                  className="h-8 w-8 rounded-full object-cover shadow-sm border border-white/20 shrink-0"
+                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover shadow-sm border border-white/20 shrink-0"
                 />
               ) : (
                 <div
-                  className="h-8 w-8 rounded-full flex items-center justify-center text-white font-semibold shadow-sm shrink-0 text-sm bg-[#135bec]"
+                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center text-white font-semibold shadow-sm shrink-0 text-xs sm:text-sm bg-[#135bec]"
                 >
                   {user?.email?.[0]?.toUpperCase() || "U"}
                 </div>
               )}
-              <div className="hidden md:flex items-center gap-1.5">
+              <div className="hidden lg:flex items-center gap-1.5">
                 <span
-                  className="text-[13px] font-medium truncate max-w-[100px] text-white"
+                  className="text-[13px] font-medium truncate max-w-[80px] xl:max-w-[110px] text-white"
                 >
                   {user?.email?.split('@')[0] || "User"}
                 </span>
@@ -482,7 +553,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                 )}
               </div>
               <svg
-                className="h-3.5 w-3.5 hidden md:block opacity-80 text-white"
+                className="h-3.5 w-3.5 hidden lg:block opacity-80 text-white shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -493,7 +564,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
             {showDropdown && (
               <div
-                className="absolute -right-12 sm:right-0 mt-3 w-[300px] sm:w-[310px] max-w-[95vw] rounded-2xl shadow-xl dark:shadow-soft-dark border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900"
+                className="absolute right-0 mt-3 w-[290px] sm:w-[310px] max-w-[calc(100vw-1.5rem)] rounded-2xl shadow-xl dark:shadow-soft-dark border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900"
                 style={{ borderColor: theme.border }}
               >
                 {/* Active User Large Header */}
@@ -601,13 +672,6 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                     <MdPersonAdd size={18} className="text-gray-400" /> {t('navbar.add_account', 'Add another account')}
                   </button>
 
-                  {/* <button
-                    onClick={() => { setShowDropdown(false); navigate("/settings"); }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-3 font-semibold text-gray-600 dark:text-gray-300"
-                  >
-                    <MdSettings size={18} className="text-gray-400" /> Settings
-                  </button> */}
-
                   <button
                     onClick={() => {
                       setShowDropdown(false);
@@ -634,17 +698,16 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             )}
           </div>
 
-
-          <div className="h-6 w-[1px] bg-gray-200 dark:bg-gray-700 ml-1 mr-[-10px] hidden sm:block" />
+          <div className="h-6 w-[1px] bg-white/20 ml-0.5 sm:ml-1 hidden sm:block shrink-0" />
           <button
             onClick={onToggleBitToolSidebar}
-            className="relative left-2 h-9 p-1 px-2 rounded-full bg-white dark:hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
+            className="h-8 sm:h-9 px-1.5 sm:px-2 rounded-full bg-white dark:hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 cursor-pointer"
             title={t('navbar.bit_tools', 'Toggle BIT Tools')}
           >
             <img
               src={bitToolLogo}
               alt="BIT Tool"
-              className="h-5 object-contain opacity-80 group-hover:opacity-100"
+              className="h-4 sm:h-5 object-contain opacity-80 hover:opacity-100"
             />
           </button>
         </div>
@@ -665,4 +728,3 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 };
 
 export default NavBar;
-
