@@ -7865,15 +7865,15 @@ const Casbox = () => {
                       handleCancelEditMessage();
                     }
                   }}
-                  className="flex-1 px-4 py-2.5 rounded-full text-sm border focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent"
-                  style={{ borderColor: theme?.border || '#e2e8f0', color: theme?.text || '#000' }}
+                  className="flex-1 px-4 py-2.5 rounded-full text-sm border focus:outline-none focus:ring-1 focus:ring-[#666666] focus:border-[#666666] bg-transparent transition-colors"
+                  style={{ borderColor: '#555555', color: theme?.text || '#000' }}
                   disabled={savingEdit}
                 />
                 <button
                   type="submit"
                   disabled={savingEdit || !newChatText.trim()}
                   className="p-2.5 rounded-full text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm shrink-0 border-0"
-                  style={{ backgroundColor: theme?.accent || "#135bec" }}
+                  style={{ backgroundColor: "#555555" }}
                   title={editingMessage ? "Save edit" : "Send message"}
                 >
                   {editingMessage ? <MdCheck size={18} /> : <MdSend size={18} />}
