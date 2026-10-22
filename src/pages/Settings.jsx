@@ -2724,7 +2724,7 @@ const Settings = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-col gap-5 w-full max-w-5xl"
+              className="flex flex-col gap-5 w-full max-w-6xl"
             >
               {/* Shortcuts Search / Filter Bar */}
               <div
@@ -2752,7 +2752,7 @@ const Settings = () => {
               </div>
 
               {/* Sections Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 lg:gap-6">
                 {/* Section 1: Mail Navigation */}
                 {(!shortcutFilter || [
                   "go to inbox", "go to sent", "go to drafts", "go to starred", "go to trash", "navigation", "inbox", "sent", "drafts", "starred", "trash"
@@ -2787,21 +2787,21 @@ const Settings = () => {
                         .map((item, idx) => (
                           <div
                             key={idx}
-                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition min-h-[44px]"
+                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition min-h-[46px] gap-3"
                           >
-                            <div className="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis mr-3" style={{ color: theme.text }}>
+                            <div className="text-sm font-medium leading-snug break-words flex-1 min-w-0" style={{ color: theme.text }}>
                               {item.action}
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                            <div className="flex items-center gap-1.5 shrink-0 ml-auto justify-end">
                               {item.keys.map((k, kIdx) =>
                                 k === "then" ? (
-                                  <span key={kIdx} className="text-xs text-gray-400 dark:text-gray-500 font-medium px-0.5 select-none">
+                                  <span key={kIdx} className="text-xs text-gray-400 dark:text-gray-500 font-medium px-0.5 select-none shrink-0">
                                     then
                                   </span>
                                 ) : (
                                   <kbd
                                     key={kIdx}
-                                    className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap"
+                                    className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap shrink-0"
                                   >
                                     {k}
                                   </kbd>
@@ -2849,16 +2849,16 @@ const Settings = () => {
                         .map((item, idx) => (
                           <div
                             key={idx}
-                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition min-h-[44px]"
+                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition min-h-[46px] gap-3"
                           >
-                            <div className="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis mr-3" style={{ color: theme.text }}>
+                            <div className="text-sm font-medium leading-snug break-words flex-1 min-w-0" style={{ color: theme.text }}>
                               {item.action}
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                            <div className="flex items-center gap-1.5 shrink-0 ml-auto justify-end">
                               {item.keys.map((k, kIdx) => (
                                 <kbd
                                   key={kIdx}
-                                  className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap"
+                                  className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap shrink-0"
                                 >
                                   {k}
                                 </kbd>
@@ -2902,16 +2902,16 @@ const Settings = () => {
                         .map((item, idx) => (
                           <div
                             key={idx}
-                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition min-h-[44px]"
+                            className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition min-h-[46px] gap-3"
                           >
-                            <div className="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis mr-3" style={{ color: theme.text }}>
+                            <div className="text-sm font-medium leading-snug break-words flex-1 min-w-0" style={{ color: theme.text }}>
                               {item.action}
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                            <div className="flex items-center gap-1.5 shrink-0 ml-auto justify-end">
                               {item.keys.map((k, kIdx) => (
                                 <kbd
                                   key={kIdx}
-                                  className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap"
+                                  className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap shrink-0"
                                 >
                                   {k}
                                 </kbd>
