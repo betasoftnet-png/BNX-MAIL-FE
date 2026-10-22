@@ -311,16 +311,16 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             </span>
           </div>
 
-          {/* COMPOSE (Responsive sizing) */}
+          {/* COMPOSE */}
           <button
             onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 md:px-3.5 lg:px-4 py-1.5 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 ml-1 sm:ml-2 md:ml-3 lg:ml-4 xl:ml-6 shrink-0 cursor-pointer"
+            className="h-8 sm:h-9 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 ml-2 sm:ml-4 shrink-0 cursor-pointer select-none"
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent || "#135bec" }}>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
-            <span className="text-xs sm:text-[13px] hidden sm:inline">{t('navbar.compose', t('common.compose', 'Compose'))}</span>
+            <span className="text-xs sm:text-[13px] font-semibold leading-none whitespace-nowrap">{t('navbar.compose', t('common.compose', 'Compose'))}</span>
           </button>
         </div>
 
