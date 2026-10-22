@@ -1,9 +1,44 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
+
+// Plugin to replace deprecated 'unload' event in sockjs-client with 'pagehide'
+// to comply with modern browser Permissions Policy: unload=()
+function fixSockJsUnloadPlugin() {
+  return {
+    name: 'fix-sockjs-unload',
+    enforce: 'pre',
+    transform(code, id) {
+      const normalizedId = id.replace(/\\/g, '/');
+      if (normalizedId.includes('sockjs-client') && normalizedId.includes('event.js')) {
+        return {
+          code: code.replace("attachEvent('unload', unloadTriggered)", "attachEvent('pagehide', unloadTriggered)"),
+          map: null,
+        };
+      }
+    },
+  };
+}
+
+const esbuildFixSockJsUnload = {
+  name: 'esbuild-fix-sockjs-unload',
+  setup(build) {
+    build.onLoad({ filter: /sockjs-client[\\/]lib[\\/]utils[\\/]event\.js$/ }, async (args) => {
+      const source = await fs.promises.readFile(args.path, 'utf8');
+      const contents = source.replace("attachEvent('unload', unloadTriggered)", "attachEvent('pagehide', unloadTriggered)");
+      return { contents, loader: 'js' };
+    });
+  },
+};
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), fixSockJsUnloadPlugin()],
+  optimizeDeps: {
+    esbuildOptions: {
+      plugins: [esbuildFixSockJsUnload],
+    },
+  },
   define: {
     global: 'window',
   },
