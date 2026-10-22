@@ -302,7 +302,10 @@ const EmailList = ({
                   </div>
 
                   {/* Sender Name */}
-                  <div className="w-24 sm:w-36 md:w-48 shrink-0 truncate pr-1 sm:pr-2">
+                  <div 
+                    className="w-24 sm:w-32 md:w-36 lg:w-44 shrink-0 truncate pr-1 sm:pr-2.5"
+                    title={isSentByUser ? (email.to || email.recipientEmail) : sender}
+                  >
                     <span
                       className={`text-xs sm:text-sm ${isUnread
                         ? "font-bold text-gray-900 dark:text-gray-100"
@@ -316,38 +319,49 @@ const EmailList = ({
                           <span className="text-[9px] font-bold border border-current px-0.5 rounded-sm opacity-50">TO</span>
                           {(email.to || email.recipientEmail)?.split("@")[0]}
                         </span>
-                      ) : (
-                        sender?.includes("<")
-                          ? sender.split("<")[0].replace(/^["']/g, "").replace(/["']$/g, "").trim()
-                          : (sender?.split("@")[0] || sender)
-                      )}
+                      ) : (() => {
+                        if (!sender) return "Unknown";
+                        if (sender.includes("<")) {
+                          const namePart = sender.split("<")[0].replace(/^["'\s]+|["'\s]+$/g, "").trim();
+                          if (namePart) return namePart;
+                          const emailInside = sender.match(/<([^>]+)>/)?.[1];
+                          if (emailInside) return emailInside.split("@")[0];
+                        }
+                        return sender.split("@")[0] || sender;
+                      })()}
                     </span>
                   </div>
 
                   {/* Subject & Snippet */}
-                  <div className="flex-1 min-w-0 flex items-baseline gap-1 sm:gap-2 truncate pr-1 sm:pr-4">
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5 sm:gap-2 pr-1 sm:pr-3">
                     {!isAllInbox && email.accountEmail && (
                       <span className="shrink-0 text-[9px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 px-1.5 py-0.5 rounded-md select-none hidden md:inline" title={`Account: ${email.accountEmail}`}>
                         {email.accountEmail.split('@')[0].toUpperCase()}
                       </span>
                     )}
-                    <span
-                      className={`text-xs sm:text-sm truncate ${isUnread
-                        ? "font-bold text-gray-900 dark:text-gray-100"
-                        : "font-medium text-gray-800 dark:text-gray-200"
-                        }`}
+                    <div 
+                      className="flex-1 min-w-0 truncate text-xs sm:text-sm"
+                      title={email.subject || "(No Subject)"}
                     >
-                      {email.subject || "(No Subject)"}
-                    </span>
-                    {(() => {
-                      const snippet = getEmailPreviewSnippet(email);
-                      if (!snippet) return null;
-                      return (
-                        <span className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 truncate font-normal hidden sm:inline">
-                          — {snippet}
-                        </span>
-                      );
-                    })()}
+                      <span
+                        className={`${
+                          isUnread
+                            ? "font-bold text-gray-900 dark:text-gray-100"
+                            : "font-medium text-gray-800 dark:text-gray-200"
+                        }`}
+                      >
+                        {email.subject || "(No Subject)"}
+                      </span>
+                      {(() => {
+                        const snippet = getEmailPreviewSnippet(email);
+                        if (!snippet) return null;
+                        return (
+                          <span className="text-gray-400 dark:text-gray-500 font-normal hidden sm:inline">
+                            {" — "}{snippet}
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
 
                   {/* Labels */}
