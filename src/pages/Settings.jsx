@@ -2724,52 +2724,9 @@ const Settings = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-col gap-6 w-full max-w-5xl"
+              className="flex flex-col gap-5 w-full max-w-5xl"
             >
-              {/* 1. Top Banner Card */}
-              <div
-                className="w-full p-6 sm:p-7 md:p-8 rounded-2xl md:rounded-3xl border shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 overflow-hidden relative"
-                style={{
-                  background: theme.cardBg,
-                  borderColor: theme.border,
-                }}
-              >
-                <div className="flex-1 z-10">
-                  <div className="flex items-start gap-4 mb-2">
-                    <div className="w-12 h-12 rounded-full bg-[#2563eb] text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
-                      <MdKeyboard size={24} />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: theme.text }}>
-                        Keyboard Shortcuts
-                      </h2>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-0.5">
-                        Navigate BNXmail faster with keyboard shortcuts.
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-3 max-w-xl leading-relaxed">
-                    Perform actions, jump across folders, and manage your emails efficiently without using your mouse.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto shrink-0 z-10">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-sm">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Shortcuts Active
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/inbox")}
-                    className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition shadow-sm hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer flex items-center gap-1.5"
-                    style={{ borderColor: theme.border, color: theme.text }}
-                  >
-                    ← {t("common.back_to_inbox", "Back to Inbox")}
-                  </button>
-                </div>
-              </div>
-
-              {/* 2. Shortcuts Search / Filter Bar */}
+              {/* Shortcuts Search / Filter Bar */}
               <div
                 className="w-full px-4 py-3 rounded-2xl border flex items-center gap-3 shadow-sm"
                 style={{ background: theme.cardBg, borderColor: theme.border }}
@@ -2779,7 +2736,7 @@ const Settings = () => {
                   type="text"
                   value={shortcutFilter}
                   onChange={(e) => setShortcutFilter(e.target.value)}
-                  placeholder="Filter shortcuts (e.g. compose, reply, inbox, delete)..."
+                  placeholder="Search shortcuts (e.g. compose, reply, inbox, delete)..."
                   className="w-full bg-transparent border-none outline-none text-sm placeholder:text-gray-400"
                   style={{ color: theme.text }}
                 />
@@ -2794,7 +2751,7 @@ const Settings = () => {
                 )}
               </div>
 
-              {/* 3. Sections Grid */}
+              {/* Sections Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Section 1: Mail Navigation */}
                 {(!shortcutFilter || [
@@ -2820,11 +2777,11 @@ const Settings = () => {
 
                     <div className="flex flex-col gap-1 flex-1">
                       {[
-                        { action: "Go to Inbox", desc: "Open your Inbox folder", keys: ["Ctrl + G", "then", "I"] },
-                        { action: "Go to Sent", desc: "Open sent messages", keys: ["Ctrl + G", "then", "S"] },
-                        { action: "Go to Drafts", desc: "Open saved drafts", keys: ["Ctrl + G", "then", "D"] },
-                        { action: "Go to Starred", desc: "Open starred messages", keys: ["Ctrl + G", "then", "T"] },
-                        { action: "Go to Trash", desc: "Open deleted messages", keys: ["Ctrl + G", "then", "T", "then", "R"] },
+                        { action: "Go to Inbox", desc: "Open your Inbox folder", keys: ["Ctrl + G", "-", "I"] },
+                        { action: "Go to Sent", desc: "Open sent messages", keys: ["Ctrl + G", "-", "S"] },
+                        { action: "Go to Drafts", desc: "Open saved drafts", keys: ["Ctrl + G", "-", "D"] },
+                        { action: "Go to Starred", desc: "Open starred messages", keys: ["Ctrl + G", "-", "T"] },
+                        { action: "Go to Trash", desc: "Open deleted messages", keys: ["Ctrl + G", "T", "R"] },
                       ]
                         .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
                         .map((item, idx) => (
@@ -2842,8 +2799,8 @@ const Settings = () => {
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0 ml-3">
                               {item.keys.map((k, kIdx) =>
-                                k === "then" ? (
-                                  <span key={kIdx} className="text-[11px] text-gray-400 font-medium">then</span>
+                                k === "-" ? (
+                                  <span key={kIdx} className="text-xs text-gray-400 dark:text-gray-500 font-semibold px-0.5">-</span>
                                 ) : (
                                   <kbd
                                     key={kIdx}
@@ -2889,7 +2846,7 @@ const Settings = () => {
                         { action: "Forward an email", desc: "Forward active message", keys: ["Ctrl + F"] },
                         { action: "Search emails", desc: "Focus search input field", keys: ["Ctrl + /"] },
                         { action: "Archive selected email", desc: "Move active message to archive", keys: ["Ctrl + E"] },
-                        { action: "Delete selected email", desc: "Move active message to trash", keys: ["Ctrl + Del"] },
+                        { action: "Delete selected email", desc: "Move message to trash", keys: ["Ctrl + Delete"] },
                       ]
                         .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
                         .map((item, idx) => (
@@ -2906,18 +2863,14 @@ const Settings = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0 ml-3">
-                              {item.keys.map((k, kIdx) =>
-                                k === "or" ? (
-                                  <span key={kIdx} className="text-[11px] text-gray-400 font-medium">or</span>
-                                ) : (
-                                  <kbd
-                                    key={kIdx}
-                                    className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700"
-                                  >
-                                    {k}
-                                  </kbd>
-                                )
-                              )}
+                              {item.keys.map((k, kIdx) => (
+                                <kbd
+                                  key={kIdx}
+                                  className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700"
+                                >
+                                  {k}
+                                </kbd>
+                              ))}
                             </div>
                           </div>
                         ))}
@@ -2984,43 +2937,39 @@ const Settings = () => {
                 )}
               </div>
 
-              {/* 4. Smart Input Protection & Navigation Card */}
+              {/* Tips Card */}
               <div
-                className="w-full p-5 sm:p-6 rounded-2xl md:rounded-3xl border shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                className="w-full p-4 sm:p-5 rounded-2xl border shadow-sm flex items-center gap-3.5"
                 style={{
                   background: theme.mode === "dark" ? "rgba(59, 130, 246, 0.08)" : "#eff6ff",
-                  borderColor: theme.mode === "dark" ? "rgba(59, 130, 246, 0.2)" : "#bfdbfe",
+                  borderColor: theme.mode === "dark" ? "rgba(59, 130, 246, 0.2)" : "#dbeafe",
                 }}
               >
-                <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                    <MdLightbulb size={22} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-blue-900 dark:text-blue-200">
-                      Smart Input Protection & Sequential Keys
-                    </h4>
-                    <p className="text-xs text-blue-800/80 dark:text-blue-300/80 mt-1 max-w-2xl leading-relaxed">
-                      Shortcuts are automatically paused while typing in any text input, search box, or email compose editor to prevent conflicts. For navigation shortcuts like <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 font-mono text-[10px] font-bold">Ctrl + G</kbd> then <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 font-mono text-[10px] font-bold">I</kbd>, press each key in sequence.
-                    </p>
-                  </div>
+                <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <MdLightbulb size={18} />
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("accounts")}
-                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-gray-700 transition shadow-sm cursor-pointer"
-                  >
-                    Go to Accounts
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/inbox")}
-                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm cursor-pointer"
-                  >
-                    Back to Inbox
-                  </button>
+                <div className="flex-1 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-6 min-w-0">
+                  <span className="font-bold text-sm text-blue-900 dark:text-blue-200 shrink-0">
+                    Tips
+                  </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs text-gray-600 dark:text-gray-300 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      <span>Use <strong className="font-semibold text-gray-900 dark:text-gray-100">Ctrl</strong> (Windows/Linux) or <strong className="font-semibold text-gray-900 dark:text-gray-100">Cmd</strong> (Mac) for shortcuts.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      <span>Shortcuts are disabled while typing in input fields.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      <span>Some actions work only when a message is selected or open.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      <span>Press <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 font-mono text-[10px] font-bold">?</kbd> anytime to view this help.</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
