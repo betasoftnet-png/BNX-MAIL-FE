@@ -1,5 +1,5 @@
 import React from "react";
-import { MdCheck, MdUndo, MdClose } from "react-icons/md";
+import { MdCheck, MdClose } from "react-icons/md";
 
 /**
  * MessageUndoToast:
@@ -22,7 +22,7 @@ const MessageUndoToast = ({ pending, onUndo, onDismiss, positionClass = "bottom-
     <div
       role="alert"
       aria-live="polite"
-      className={`absolute ${positionClass} z-40 max-w-[92%] sm:max-w-none pointer-events-auto select-none animate-in fade-in slide-in-from-bottom-3 duration-200`}
+      className={`absolute ${positionClass} z-50 max-w-[92%] sm:max-w-none pointer-events-auto select-none animate-in fade-in slide-in-from-bottom-3 duration-200`}
     >
       <div className="flex items-center gap-3 sm:gap-4 bg-white text-gray-900 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-[0_12px_36px_-6px_rgba(0,0,0,0.16),0_4px_12px_-2px_rgba(0,0,0,0.08)] border border-blue-100 dark:border-gray-200">
         {/* Green Success / Check Icon */}
@@ -35,14 +35,15 @@ const MessageUndoToast = ({ pending, onUndo, onDismiss, positionClass = "bottom-
           {label}
         </span>
 
-        {/* Prominent Royal Blue Undo Button */}
+        {/* Prominent Royal Blue Undo Button - only 'Undo' at 7px font size */}
         <button
           type="button"
           onClick={() => onUndo(pending.opId)}
-          className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-[#0D47A1] hover:bg-[#1565C0] active:scale-95 text-white text-xs font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center gap-1.5 cursor-pointer shrink-0"
+          style={{ fontSize: "7px", lineHeight: "1" }}
+          className="px-3 py-1.5 bg-[#0D47A1] hover:bg-[#1565C0] active:scale-95 text-white font-bold rounded-lg shadow-sm hover:shadow transition-all duration-150 cursor-pointer shrink-0 uppercase tracking-wider flex items-center justify-center min-h-[26px]"
+          aria-label="Undo message deletion"
         >
-          <MdUndo size={16} />
-          <span>Undo</span>
+          Undo
         </button>
 
         {/* Circular Blue Progress Indicator with Countdown */}

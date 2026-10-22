@@ -822,6 +822,7 @@ const ChatRoom = () => {
   // 5-Second Undo Message Deletion state & handlers for Colab Chat
   const [activeColabUndoToast, setActiveColabUndoToast] = useState(null);
   const pendingColabDeletionsRef = useRef({});
+  const fetchHistoryRef = useRef(null);
 
   const isChatAdmin = useMemo(() => {
     if (!chat || !user?.email) return false;
@@ -847,6 +848,9 @@ const ChatRoom = () => {
     if (msgId) {
       try {
         await chatAPI.deleteMessage(msgId);
+        if (fetchHistoryRef.current) {
+          fetchHistoryRef.current();
+        }
       } catch (err) {
         console.error("Failed to delete colab message on backend", err);
       }
@@ -1613,6 +1617,7 @@ const ChatRoom = () => {
       scrollToBottom(true);
     }
   }, [chatId]);
+  fetchHistoryRef.current = fetchHistory;
 
   const fetchChatMembers = async (signal) => {
     if (!chatId) return;
