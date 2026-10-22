@@ -1306,10 +1306,10 @@ const Casbox = () => {
             }
 
             setMessages(prev => {
-              const existingIdx = prev.findIndex(m => m.id === newMsg.id);
+              const existingIdx = prev.findIndex(m => m.id === newMsg.id || (m.isOptimistic && m.body === newMsg.body));
               if (existingIdx !== -1) {
                 const next = [...prev];
-                next[existingIdx] = { ...next[existingIdx], ...newMsg };
+                next[existingIdx] = { ...next[existingIdx], ...newMsg, isOptimistic: false };
                 return next;
               }
               return [newMsg, ...prev];
@@ -1322,10 +1322,10 @@ const Casbox = () => {
             );
             if (selectedContactRef.current && normalizeEmail(selectedContactRef.current) === otherEmail) {
               setThreadMessages(prev => {
-                const existingIdx = prev.findIndex(m => m.id === newMsg.id);
+                const existingIdx = prev.findIndex(m => m.id === newMsg.id || (m.isOptimistic && m.body === newMsg.body));
                 if (existingIdx !== -1) {
                   const next = [...prev];
-                  next[existingIdx] = { ...next[existingIdx], ...newMsg };
+                  next[existingIdx] = { ...next[existingIdx], ...newMsg, isOptimistic: false };
                   return next;
                 }
                 return [...prev, newMsg];
@@ -4581,38 +4581,88 @@ const Casbox = () => {
     setReplyingToMessage(null);
     chatInputRef.current?.focus();
 
+    let messageBody = textToSend;
+    if (replySnapshot) {
+      const quoteSnippet = (cleanMessageBody(replySnapshot.body) || "").replace(/\n/g, ' ').slice(0, 100);
+      const originalMsgId = getMessageKey(replySnapshot) || (replySnapshot.id !== undefined && replySnapshot.id !== null ? String(replySnapshot.id) : (replySnapshot.uid || `${replySnapshot.timestamp}-${replySnapshot.senderEmail || replySnapshot.sender}-${replySnapshot.body}`));
+      const sLabel = replySnapshot.senderLabel || (isCurrentUser(replySnapshot.senderEmail || replySnapshot.sender) ? (user?.username || 'You') : getDisplayName(replySnapshot.senderEmail || replySnapshot.sender, replySnapshot));
+      messageBody = `[Replying to ${sLabel} id=${originalMsgId}: "${quoteSnippet}"]\n${messageBody}`;
+    }
+
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const myEmail = user?.email || user?.username || "";
+    const optimisticMsg = {
+      id: tempId,
+      tempId: tempId,
+      senderEmail: myEmail,
+      sender: myEmail,
+      receiverEmail: otherEmail,
+      receiver: otherEmail,
+      subject: selectedMessage?.subject || "Casbox Message",
+      body: messageBody,
+      timestamp: new Date().toISOString(),
+      status: "SENT",
+      isOptimistic: true,
+      isAccepted: true,
+      accepted: true
+    };
+
+    // Ensure near bottom so view auto-scrolls to the newly sent message
+    isNearBottomRef.current = true;
+
+    // Immediately render optimistic message in chat view
+    setThreadMessages(prev => [...prev, optimisticMsg]);
+    setMessages(prev => [optimisticMsg, ...prev]);
+
+    // Ensure input retains focus immediately without interruption
+    requestAnimationFrame(() => {
+      chatInputRef.current?.focus();
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+    });
+
+    const payload = {
+      receiverEmail: otherEmail,
+      subject: selectedMessage?.subject || "Casbox Message",
+      body: messageBody,
+      attachmentsJson: null
+    };
+
     try {
       setSendingChat(true);
-      let messageBody = textToSend;
-      if (replySnapshot) {
-        const quoteSnippet = (cleanMessageBody(replySnapshot.body) || "").replace(/\n/g, ' ').slice(0, 100);
-        const originalMsgId = getMessageKey(replySnapshot) || (replySnapshot.id !== undefined && replySnapshot.id !== null ? String(replySnapshot.id) : (replySnapshot.uid || `${replySnapshot.timestamp}-${replySnapshot.senderEmail || replySnapshot.sender}-${replySnapshot.body}`));
-        const sLabel = replySnapshot.senderLabel || (isCurrentUser(replySnapshot.senderEmail || replySnapshot.sender) ? (user?.username || 'You') : getDisplayName(replySnapshot.senderEmail || replySnapshot.sender, replySnapshot));
-        messageBody = `[Replying to ${sLabel} id=${originalMsgId}: "${quoteSnippet}"]\n${messageBody}`;
-      }
-
-      const payload = {
-        receiverEmail: otherEmail,
-        subject: selectedMessage?.subject || "Casbox Message",
-        body: messageBody,
-        attachmentsJson: null
-      };
-
       const res = await casboxAPI.sendMessage(payload);
       const newMsg = res.data;
 
+      // Replace optimistic message with confirmed server message
       setThreadMessages(prev => {
+        const idx = prev.findIndex(m => m.id === tempId || m.tempId === tempId || m.id === newMsg.id);
+        if (idx !== -1) {
+          const next = [...prev];
+          next[idx] = newMsg;
+          return next;
+        }
         if (prev.some(m => m.id === newMsg.id)) return prev;
         return [...prev, newMsg];
       });
 
       setMessages(prev => {
+        const idx = prev.findIndex(m => m.id === tempId || m.tempId === tempId || m.id === newMsg.id);
+        if (idx !== -1) {
+          const next = [...prev];
+          next[idx] = newMsg;
+          return next;
+        }
         if (prev.some(m => m.id === newMsg.id)) return prev;
         return [newMsg, ...prev];
       });
 
     } catch (err) {
       console.error("Failed to send Casbox message", err);
+      // Remove optimistic message on failure
+      setThreadMessages(prev => prev.filter(m => m.id !== tempId && m.tempId !== tempId));
+      setMessages(prev => prev.filter(m => m.id !== tempId && m.tempId !== tempId));
+
       // Restore unsent text if user hasn't started typing another message
       setNewChatText(prev => prev ? prev : textToSend);
 
@@ -7812,6 +7862,9 @@ const Casbox = () => {
               <form
                 onSubmit={editingMessage ? (e) => { e.preventDefault(); handleSaveEditMessage(); } : handleSendChatMessage}
                 className="flex items-center gap-3 bg-transparent w-full relative"
+                autoComplete="off"
+                data-lpignore="true"
+                data-form-type="other"
               >
                 <div className="relative shrink-0 flex items-center" ref={emojiPickerRef}>
                   <button
@@ -7848,7 +7901,17 @@ const Casbox = () => {
                 <input
                   ref={chatInputRef}
                   autoFocus
+                  id="casbox-chat-input"
+                  name="casbox_chat_message"
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
                   placeholder={editingMessage ? "Edit message..." : "Type a message..."}
                   value={newChatText}
                   onChange={(e) => setNewChatText(e.target.value)}
