@@ -1009,6 +1009,16 @@ const Casbox = () => {
     setForwardSearchTerm("");
   }, [selectedMessage?.id, selectedMessage?.contact, selectedMessage?.senderEmail, selectedMessage?.receiverEmail]);
 
+  // Auto-focus personal chat message input when opening or switching conversation
+  useEffect(() => {
+    if (selectedMessage && !selectedSentDetail) {
+      const timer = setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedMessage?.id, selectedMessage?.uid, selectedMessage?.contact, selectedMessage?.senderEmail, selectedMessage?.receiverEmail, selectedSentDetail]);
+
   const toggleSelectRow = useCallback((rowId) => {
     setSelectedRowIds((prev) => {
       const next = new Set(prev);
@@ -1393,6 +1403,7 @@ const Casbox = () => {
 
   const handleEmojiSelect = (emoji) => {
     setNewChatText(prev => prev + emoji);
+    chatInputRef.current?.focus();
   };
 
   useEffect(() => {
@@ -2755,6 +2766,7 @@ const Casbox = () => {
   const handleCancelEditMessage = useCallback(() => {
     setEditingMessage(null);
     setNewChatText("");
+    chatInputRef.current?.focus();
   }, []);
 
   const handleSaveEditMessage = useCallback(async () => {
@@ -2852,6 +2864,9 @@ const Casbox = () => {
       toast.error(errMsg);
     } finally {
       setSavingEdit(false);
+      requestAnimationFrame(() => {
+        chatInputRef.current?.focus();
+      });
     }
   }, [editingMessage, newChatText, cleanMessageBody, getMessageAgeSeconds]);
 
@@ -3240,6 +3255,9 @@ const Casbox = () => {
     if (msg && !isCurrentUser(msg.senderEmail || msg.sender) && targetId) {
       markMessagesAsSeen([targetId]);
     }
+    setTimeout(() => {
+      chatInputRef.current?.focus();
+    }, 80);
   };
 
   const handleOpenMessageDetail = useCallback((item) => {
@@ -4527,12 +4545,17 @@ const Casbox = () => {
   }, [conversationList, messagesFilter, messagesSearch, isCurrentUser, getDisplayName]);
 
   const handleSendChatMessage = async (e) => {
-    if (e) e.preventDefault();
-    if (!newChatText.trim()) return;
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    const textToSend = newChatText.trim();
+    if (!textToSend) {
+      chatInputRef.current?.focus();
+      return;
+    }
 
     const otherEmail = getOtherUserEmail(selectedMessage);
     if (!otherEmail) {
       toast.error("Could not determine contact to send message.");
+      chatInputRef.current?.focus();
       return;
     }
 
@@ -4542,21 +4565,29 @@ const Casbox = () => {
       (selectedMessage?.receiverEmail && isBlockedContact(selectedMessage.receiverEmail))
     ) {
       toast.error("This user is blocked.");
+      chatInputRef.current?.focus();
       return;
     }
 
     if (isDisconnectedContact(otherEmail)) {
       toast.error("Cannot send message. This connection is disconnected.");
+      chatInputRef.current?.focus();
       return;
     }
 
+    // Immediately clear input and reply preview so user can continue typing next message right away
+    setNewChatText("");
+    const replySnapshot = replyingToMessage;
+    setReplyingToMessage(null);
+    chatInputRef.current?.focus();
+
     try {
       setSendingChat(true);
-      let messageBody = newChatText.trim();
-      if (replyingToMessage) {
-        const quoteSnippet = (cleanMessageBody(replyingToMessage.body) || "").replace(/\n/g, ' ').slice(0, 100);
-        const originalMsgId = getMessageKey(replyingToMessage) || (replyingToMessage.id !== undefined && replyingToMessage.id !== null ? String(replyingToMessage.id) : (replyingToMessage.uid || `${replyingToMessage.timestamp}-${replyingToMessage.senderEmail || replyingToMessage.sender}-${replyingToMessage.body}`));
-        const sLabel = replyingToMessage.senderLabel || (isCurrentUser(replyingToMessage.senderEmail || replyingToMessage.sender) ? (user?.username || 'You') : getDisplayName(replyingToMessage.senderEmail || replyingToMessage.sender, replyingToMessage));
+      let messageBody = textToSend;
+      if (replySnapshot) {
+        const quoteSnippet = (cleanMessageBody(replySnapshot.body) || "").replace(/\n/g, ' ').slice(0, 100);
+        const originalMsgId = getMessageKey(replySnapshot) || (replySnapshot.id !== undefined && replySnapshot.id !== null ? String(replySnapshot.id) : (replySnapshot.uid || `${replySnapshot.timestamp}-${replySnapshot.senderEmail || replySnapshot.sender}-${replySnapshot.body}`));
+        const sLabel = replySnapshot.senderLabel || (isCurrentUser(replySnapshot.senderEmail || replySnapshot.sender) ? (user?.username || 'You') : getDisplayName(replySnapshot.senderEmail || replySnapshot.sender, replySnapshot));
         messageBody = `[Replying to ${sLabel} id=${originalMsgId}: "${quoteSnippet}"]\n${messageBody}`;
       }
 
@@ -4568,10 +4599,6 @@ const Casbox = () => {
       };
 
       const res = await casboxAPI.sendMessage(payload);
-
-      setNewChatText("");
-      setReplyingToMessage(null);
-
       const newMsg = res.data;
 
       setThreadMessages(prev => {
@@ -4586,6 +4613,9 @@ const Casbox = () => {
 
     } catch (err) {
       console.error("Failed to send Casbox message", err);
+      // Restore unsent text if user hasn't started typing another message
+      setNewChatText(prev => prev ? prev : textToSend);
+
       const rawMsg = err.response?.data?.message || err.response?.data?.error || "";
       const isBlockedError =
         isBlockedContact(otherEmail) ||
@@ -4600,6 +4630,9 @@ const Casbox = () => {
       toast.error(errMsg);
     } finally {
       setSendingChat(false);
+      requestAnimationFrame(() => {
+        chatInputRef.current?.focus();
+      });
     }
   };
 
@@ -7814,23 +7847,31 @@ const Casbox = () => {
                 </div>
                 <input
                   ref={chatInputRef}
+                  autoFocus
                   type="text"
                   placeholder={editingMessage ? "Edit message..." : "Type a message..."}
                   value={newChatText}
                   onChange={(e) => setNewChatText(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Escape' && editingMessage) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (editingMessage) {
+                        handleSaveEditMessage();
+                      } else {
+                        handleSendChatMessage(e);
+                      }
+                    } else if (e.key === 'Escape' && editingMessage) {
                       e.preventDefault();
                       handleCancelEditMessage();
                     }
                   }}
                   className="flex-1 px-4 py-2.5 rounded-full text-sm border focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent"
                   style={{ borderColor: theme?.border || '#e2e8f0', color: theme?.text || '#000' }}
-                  disabled={sendingChat || savingEdit}
+                  disabled={savingEdit}
                 />
                 <button
                   type="submit"
-                  disabled={sendingChat || savingEdit || !newChatText.trim()}
+                  disabled={savingEdit || !newChatText.trim()}
                   className="p-2.5 rounded-full text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm shrink-0 border-0"
                   style={{ backgroundColor: theme?.accent || "#135bec" }}
                   title={editingMessage ? "Save edit" : "Send message"}
