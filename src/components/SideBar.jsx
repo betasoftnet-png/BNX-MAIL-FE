@@ -6,6 +6,7 @@ import { useMail } from "../context/MailContext";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../context/LanguageContext";
 import StorageWidget from './StorageWidget';
+import logo from "../assets/bnx-remove.png";
 import { 
   Mail, 
   Star, 
@@ -208,11 +209,35 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
         className={`
           h-full overflow-y-auto flex flex-col transition-all duration-300 shrink-0 border-r-0 hidden-scrollbar
           flex relative translate-x-0 sidebar-wrapper
-          ${!isDesktopOpen ? "sidebar-collapsed" : "md:w-56"}
+          ${!isDesktopOpen && !isMobileOpen ? "sidebar-collapsed" : "md:w-56"}
           ${isMobileOpen ? "sidebar-mobile-open" : ""}
         `}
-        style={{ backgroundColor: isMobileOpen ? undefined : (backgroundImage ? "transparent" : (theme.sidebarBg || theme.bg || "#f0f5fc")) }}
+        style={{
+          backgroundColor: isMobileOpen 
+            ? (theme.mode === "dark" ? (theme.sidebarBg || "#1f2937") : (theme.sidebarBg || "#f0f5fc"))
+            : (backgroundImage ? "transparent" : (theme.sidebarBg || theme.bg || "#f0f5fc"))
+        }}
       >
+        {/* MOBILE DRAWER HEADER */}
+        {isMobileOpen && (
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-blue-100/70 dark:border-gray-800 md:hidden shrink-0">
+            <div className="flex items-center gap-2">
+              <img src={logo} alt="BNX Mail" className="h-7 bg-white rounded-lg p-0.5 shrink-0" />
+              <span className="text-base font-bold tracking-tight text-[#195bac] dark:text-blue-400 select-none">
+                BNX<span className="font-normal text-gray-700 dark:text-gray-200">mail</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              title="Close Menu"
+              aria-label="Close Menu"
+            >
+              <MdClose size={20} />
+            </button>
+          </div>
+        )}
 
         {/* NAVIGATION */}
         <nav className="flex-1 flex flex-col pr-0 pt-4 pb-2 space-y-0.5 overflow-y-auto hidden-scrollbar">
@@ -593,7 +618,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
         {/* BOTTOM SECTION: STORAGE + SETTINGS + SUPPORT */}
         <div className="space-y-1 mb-4 shrink-0 pt-2 border-t border-blue-100/70 dark:border-gray-800">
-          <StorageWidget isDesktopOpen={isDesktopOpen} />
+          <StorageWidget isDesktopOpen={isDesktopOpen} isExpanded={isMobileOpen || isDesktopOpen} />
 
           {/* Settings */}
           <button

@@ -138,6 +138,26 @@ const AppContent = () => {
   const [isBitToolSidebarOpen, setIsBitToolSidebarOpen] = useState(false);
   const { theme, backgroundImage, isLandscapeImage } = useTheme();
 
+  // Close mobile sidebar on desktop resize or Esc key
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768 && isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileSidebarOpen]);
+
   // Sticky Notes State Management
   const [notes, setNotes] = useState(() => {
     try {
@@ -237,7 +257,7 @@ const AppContent = () => {
           onToggleDesktopSidebar={() =>
             setIsDesktopSidebarOpen((v) => !v)
           }
-          onOpenMenu={() => setIsMobileSidebarOpen(true)}
+          onOpenMenu={() => setIsMobileSidebarOpen(prev => !prev)}
           onToggleBitToolSidebar={() => setIsBitToolSidebarOpen(v => !v)}
           onOpenNotes={() => setShowNotesManager(v => !v)}
         />
@@ -245,8 +265,9 @@ const AppContent = () => {
         <div className="flex-1 min-h-0 flex overflow-hidden relative">
           {isMobileSidebarOpen && (
             <div
-              className="fixed inset-0 bg-black/40 z-50 md:hidden"
+              className="fixed inset-0 bg-black/40 z-[4999] md:hidden transition-opacity backdrop-blur-[1px]"
               onClick={() => setIsMobileSidebarOpen(false)}
+              aria-label="Close menu backdrop"
             />
           )}
 

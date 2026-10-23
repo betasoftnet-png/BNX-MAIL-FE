@@ -3,7 +3,7 @@ import { useTranslation } from "../context/LanguageContext";
 import { mailAPI } from '../services/api';
 import { Cloud } from 'lucide-react';
 
-const StorageWidget = ({ isDesktopOpen }) => {
+const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
   const { t } = useTranslation();
   const [storageData, setStorageData] = useState({
     used: 2013265, // ~1.92 MB fallback
@@ -45,7 +45,9 @@ const StorageWidget = ({ isDesktopOpen }) => {
 
   if (loading) return null;
 
-  if (!isDesktopOpen) {
+  const showFull = isExpanded !== undefined ? isExpanded : isDesktopOpen;
+
+  if (!showFull) {
     return (
       <a
         href="https://storage.beta-softnet.com/"
