@@ -1447,74 +1447,6 @@ const ChatRoom = () => {
   const activeFetchingChatIdRef = useRef(null);
   const isFetchingCommentsRef = useRef(false);
 
-  useEffect(() => {
-    // Abort pending comments request from previous chat room when switching
-    if (commentsAbortControllerRef.current) {
-      commentsAbortControllerRef.current.abort();
-    }
-    activeCommentsChatIdRef.current = chatId;
-    activeFetchingChatIdRef.current = null;
-    isFetchingCommentsRef.current = false;
-    hasInitialScrolledRef.current = false;
-    prevChatIdRef.current = chatId;
-    prevMessagesLengthRef.current = 0;
-
-    // Immediately display cached comments if available
-    const cached = chatCache.getMessages(chatId);
-    if (cached && Array.isArray(cached) && cached.length > 0) {
-      setMessages(cached);
-      setLoadingComments(false);
-      cached.forEach(m => {
-        if (m && m.id) processedMessageIdsRef.current.add(String(m.id));
-      });
-    } else {
-      setMessages([]);
-      setLoadingComments(true);
-    }
-    setCommentsError(null);
-
-    return () => {
-      if (commentsAbortControllerRef.current) {
-        commentsAbortControllerRef.current.abort();
-      }
-    };
-  }, [chatId]);
-
-  const fetchChatDetails = async (signal) => {
-    if (chat) return;
-    const cachedChat = chatCache.getChat(chatId);
-    if (cachedChat) {
-      setChat(cachedChat);
-      return;
-    }
-    if (user?.email) {
-      const userChats = chatCache.getUserChats(user.email);
-      if (Array.isArray(userChats) && userChats.length > 0) {
-        const found = userChats.find(c => String(c.id) === String(chatId));
-        if (found) {
-          setChat(found);
-          chatCache.setChat(chatId, found);
-          return;
-        }
-      }
-    }
-    if (!user?.email) return;
-    try {
-      const res = await chatAPI.getUserChats(user.email, { signal });
-      if (res.data) {
-        const chatList = Array.isArray(res.data) ? res.data : (res.data.data || []);
-        const currentChat = chatList.find(c => String(c.id) === String(chatId));
-        if (currentChat) {
-          setChat(currentChat);
-          chatCache.setChat(chatId, currentChat);
-        }
-      }
-    } catch (err) {
-      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
-      console.error("Failed to fetch chat details:", err);
-    }
-  };
-
   const fetchHistory = useCallback(async (isUserRetry = false) => {
     if (!chatId) {
       setLoadingComments(false);
@@ -1547,7 +1479,7 @@ const ChatRoom = () => {
       cached.forEach(m => {
         if (m && m.id) processedMessageIdsRef.current.add(String(m.id));
       });
-    } else if (isUserRetry || messages.length === 0) {
+    } else {
       // Show loading indicator only when comments genuinely need to be fetched and are not yet available
       setLoadingComments(true);
     }
@@ -1555,7 +1487,7 @@ const ChatRoom = () => {
     isFetchingCommentsRef.current = true;
 
     try {
-      const res = await chatAPI.getMessageHistory(chatId, { signal, timeout: 20000 });
+      const res = await chatAPI.getMessageHistory(chatId, { signal, forceRefresh: isUserRetry });
       
       // If user switched to another chat while fetching, discard this result
       if (activeCommentsChatIdRef.current !== chatId || signal.aborted) {
@@ -1629,7 +1561,7 @@ const ChatRoom = () => {
           console.warn("Could not fetch comments history:", err?.message || err);
           setCommentsError(isTimeout 
             ? "Request timed out while loading comments. Please try again."
-            : "Unable to load comments. Please check your connection."
+            : (err?.response?.data?.message || "Unable to load comments. Please check your connection.")
           );
         }
       }
@@ -1643,6 +1575,78 @@ const ChatRoom = () => {
     }
   }, [chatId]);
   fetchHistoryRef.current = fetchHistory;
+
+  useEffect(() => {
+    if (!chatId) return;
+
+    activeCommentsChatIdRef.current = chatId;
+    activeFetchingChatIdRef.current = null;
+    isFetchingCommentsRef.current = false;
+    hasInitialScrolledRef.current = false;
+    prevChatIdRef.current = chatId;
+    prevMessagesLengthRef.current = 0;
+
+    // Immediately display cached comments if available
+    const cached = chatCache.getMessages(chatId);
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      setMessages(cached);
+      setLoadingComments(false);
+      cached.forEach(m => {
+        if (m && m.id) processedMessageIdsRef.current.add(String(m.id));
+      });
+    } else {
+      setMessages([]);
+      setLoadingComments(true);
+    }
+    setCommentsError(null);
+
+    // Load comments
+    fetchHistory();
+
+    return () => {
+      if (commentsAbortControllerRef.current) {
+        commentsAbortControllerRef.current.abort();
+        commentsAbortControllerRef.current = null;
+      }
+      activeFetchingChatIdRef.current = null;
+      isFetchingCommentsRef.current = false;
+    };
+  }, [chatId, fetchHistory]);
+
+  const fetchChatDetails = async (signal) => {
+    if (chat) return;
+    const cachedChat = chatCache.getChat(chatId);
+    if (cachedChat) {
+      setChat(cachedChat);
+      return;
+    }
+    if (user?.email) {
+      const userChats = chatCache.getUserChats(user.email);
+      if (Array.isArray(userChats) && userChats.length > 0) {
+        const found = userChats.find(c => String(c.id) === String(chatId));
+        if (found) {
+          setChat(found);
+          chatCache.setChat(chatId, found);
+          return;
+        }
+      }
+    }
+    if (!user?.email) return;
+    try {
+      const res = await chatAPI.getUserChats(user.email, { signal });
+      if (res.data) {
+        const chatList = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        const currentChat = chatList.find(c => String(c.id) === String(chatId));
+        if (currentChat) {
+          setChat(currentChat);
+          chatCache.setChat(chatId, currentChat);
+        }
+      }
+    } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
+      console.error("Failed to fetch chat details:", err);
+    }
+  };
 
   const fetchChatMembers = async (signal) => {
     if (!chatId) return;
@@ -1736,13 +1740,6 @@ const ChatRoom = () => {
     setTemplates([...defaultMapped, ...customMapped]);
   };
 
-
-  // 1. Comments Loading: Independent & immediate (Priority 1)
-  useEffect(() => {
-    if (!chatId) return;
-
-    fetchHistory();
-  }, [chatId, fetchHistory]);
 
   // 2. Auxiliary Data (Chat details, Broadcasts, Members): Deferred to give Comments API immediate priority
   const auxAbortControllerRef = useRef(null);

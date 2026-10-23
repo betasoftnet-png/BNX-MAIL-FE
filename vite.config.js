@@ -44,25 +44,13 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    // ✅ Comment out proxy for testing
-    /* proxy: {
+    proxy: {
       '/api': {
-        target: 'http://168.231.123.52:8080',
+        target: 'https://api.bnxmail.com',
         changeOrigin: true,
         secure: false,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
-            console.log('proxy error', err);
-          });
-          proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (proxyRes, req, res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
-          });
-        },
       },
-    }, */
+    },
   },
   build: {
     chunkSizeWarningLimit: 1200,

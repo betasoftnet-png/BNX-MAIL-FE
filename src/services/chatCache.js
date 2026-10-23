@@ -70,10 +70,21 @@ const rehydrateFromStorage = () => {
 rehydrateFromStorage();
 
 export const chatCache = {
+  // Clear any existing in-flight promise for a key
+  clearInFlight(key) {
+    if (key) {
+      memoryCache.inFlight.delete(key);
+    }
+  },
+
   // Deduplicate inflight requests to prevent redundant simultaneous network calls
-  dedupe(key, fetcher, signal = null) {
+  dedupe(key, fetcher, signal = null, force = false) {
     if (!key) return typeof fetcher === 'function' ? fetcher() : Promise.resolve(fetcher);
     if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+
+    if (force) {
+      memoryCache.inFlight.delete(key);
+    }
 
     let promise = memoryCache.inFlight.get(key);
     if (!promise) {
@@ -93,6 +104,8 @@ export const chatCache = {
     if (signal) {
       return new Promise((resolve, reject) => {
         const abortHandler = () => {
+          // Immediately evict in-flight request when aborted so subsequent attempts / retries don't hang on an aborted promise
+          memoryCache.inFlight.delete(key);
           reject(new DOMException('Aborted', 'AbortError'));
         };
         signal.addEventListener('abort', abortHandler, { once: true });
@@ -297,7 +310,7 @@ export const chatCache = {
     // If already in memory and fresh, skip
     const existingMsgs = memoryCache.messages.get(idStr);
     if (!existingMsgs || Date.now() - existingMsgs.timestamp > CACHE_TTL_MS) {
-      chatAPI.getMessageHistory(chatId, { timeout: 6000 }).catch(() => {});
+      chatAPI.getMessageHistory(chatId).catch(() => {});
     }
   },
 };

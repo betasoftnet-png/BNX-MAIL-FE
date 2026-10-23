@@ -390,10 +390,12 @@ export const chatAPI = {
     },
     getMessageHistory: (chatId, config = {}) => {
         if (!chatId) return Promise.resolve({ data: [] });
-        const timeout = config.timeout || 20000;
+        const { forceRefresh = false, ...axiosConfig } = config;
+        const timeout = axiosConfig.timeout || 20000;
         return chatCache.dedupe(`msg_${chatId}`, () =>
-            api.get(API_ENDPOINTS.CHAT.MESSAGES.replace(':chatId', chatId), { timeout, ...config }),
-            config.signal
+            api.get(API_ENDPOINTS.CHAT.MESSAGES.replace(':chatId', chatId), { timeout, ...axiosConfig }),
+            axiosConfig.signal,
+            forceRefresh
         ).then(res => {
             if (res?.data) {
                 const history = Array.isArray(res.data)
