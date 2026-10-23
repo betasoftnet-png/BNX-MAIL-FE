@@ -492,6 +492,7 @@ export const vaultAPI = {
 export const casboxAPI = {
     getAllMessages: () => api.get('/api/casbox'),
     getThread: (contactEmail) => api.get(`/api/casbox/thread/${encodeURIComponent(contactEmail)}`),
+    validateRecipient: (email) => api.get(`/api/casbox/validate-recipient?email=${encodeURIComponent(email || '')}`),
     sendMessage: (data) => api.post('/api/casbox/send', data),
     editMessage: (id, body) => api.patch(`/api/casbox/${encodeURIComponent(id)}`, { body, content: body }),
     updateStatus: (data) => api.patch('/api/casbox/status', data),

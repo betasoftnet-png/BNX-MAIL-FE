@@ -892,6 +892,24 @@ const FloatingCompose = () => {
     }
   };
 
+  const handleCasboxRecipientBlur = async () => {
+    const raw = (formData.to || "").trim();
+    if (!raw || (composeMode !== "chat" && composeMode !== "casbox")) return;
+    const emailRegex = /^[A-Za-z0-9+_.-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
+    if (raw.includes('@') && !emailRegex.test(raw)) {
+      setError("Invalid recipient email address.");
+      return;
+    }
+    try {
+      const res = await casboxAPI.validateRecipient(raw);
+      if (!res.data?.valid) {
+        setError("Invalid email ID. This BNXmail account does not exist.");
+      }
+    } catch (err) {
+      setError("Invalid email ID. This BNXmail account does not exist.");
+    }
+  };
+
   /* ---------------- SEND EMAIL ---------------- */
   const handleSend = async (e) => {
     e.preventDefault();
@@ -909,12 +927,56 @@ const FloatingCompose = () => {
     }
 
     if (composeMode === "chat" || composeMode === "casbox") {
+        const rawReceiver = (formData.to || "").trim();
+        if (!rawReceiver) {
+           setError("Recipient email is required");
+           sendingRef.current = false;
+           setSending(false);
+           return;
+        }
+
+        // Validate email format
+        const emailRegex = /^[A-Za-z0-9+_.-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
+        if (rawReceiver.includes('@') && !emailRegex.test(rawReceiver)) {
+           const malformedMsg = "Invalid recipient email address.";
+           setError(malformedMsg);
+           toast.error(malformedMsg);
+           sendingRef.current = false;
+           setSending(false);
+           return;
+        }
+
         if (!formData.body && attachments.length === 0) {
            setError("Message text or attachment is required");
            sendingRef.current = false;
            setSending(false);
            return;
         }
+
+        // Validate recipient existence against backend before sending
+        try {
+           const checkRes = await casboxAPI.validateRecipient(rawReceiver);
+           if (!checkRes.data?.valid) {
+              const notFoundMsg = "Invalid email ID. This BNXmail account does not exist.";
+              setError(notFoundMsg);
+              toast.error(notFoundMsg);
+              sendingRef.current = false;
+              setSending(false);
+              return;
+           }
+        } catch (valErr) {
+           console.error("Recipient validation failed:", valErr);
+           const rawValMsg = valErr.response?.data?.message || valErr.response?.data?.error || "";
+           const notFoundMsg = /malformed|format/i.test(rawValMsg)
+              ? "Invalid recipient email address."
+              : "Invalid email ID. This BNXmail account does not exist.";
+           setError(notFoundMsg);
+           toast.error(notFoundMsg);
+           sendingRef.current = false;
+           setSending(false);
+           return;
+        }
+
         try {
             // Strip HTML but preserve newlines for casbox/chat
             let rawHtml = formData.body || "";
@@ -930,7 +992,7 @@ const FloatingCompose = () => {
             const bodyToSend = plainText || (formData.body ? formData.body.replace(/<[^>]+>/g, '').trim() : "");
 
             const res = await casboxAPI.sendMessage({
-                receiverEmail: formData.to.trim(),
+                receiverEmail: rawReceiver,
                 subject: formData.subject || "Casbox Message",
                 body: bodyToSend,
                 attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : null
@@ -938,7 +1000,7 @@ const FloatingCompose = () => {
             toast.success("Chat message sent.");
             closeCompose();
             window.dispatchEvent(new CustomEvent('casbox_message_sent', { 
-                detail: { receiverEmail: formData.to.trim(), message: res.data } 
+                detail: { receiverEmail: rawReceiver, message: res.data } 
             }));
         } catch(err) {
             const rawMsg = err.response?.data?.message || err.response?.data?.error || "";
@@ -947,7 +1009,14 @@ const FloatingCompose = () => {
               rawMsg === "You cannot send messages to this user because you have blocked them." ||
               /cannot send messages to this user/i.test(rawMsg) ||
               /blocked/i.test(rawMsg);
-            const errMsg = isBlocked ? "This user is blocked." : (rawMsg || "Failed to send message");
+            let errMsg;
+            if (isBlocked) {
+              errMsg = "This user is blocked.";
+            } else if (/does not exist|account does not exist|invalid recipient|invalid email/i.test(rawMsg)) {
+              errMsg = "Invalid email ID. This BNXmail account does not exist.";
+            } else {
+              errMsg = rawMsg || "Failed to send message";
+            }
             setError(errMsg);
             toast.error(errMsg);
         } finally {
@@ -1700,6 +1769,7 @@ const FloatingCompose = () => {
                   placeholder="Chat / Casbox Recipient (Email or Username)"
                   value={formData.to}
                   onChange={handleChange}
+                  onBlur={handleCasboxRecipientBlur}
                 />
               </div>
             )}
