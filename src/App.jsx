@@ -233,6 +233,7 @@ const AppContent = () => {
         <NavBar
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
+          isDesktopSidebarOpen={isDesktopSidebarOpen}
           onToggleDesktopSidebar={() =>
             setIsDesktopSidebarOpen((v) => !v)
           }

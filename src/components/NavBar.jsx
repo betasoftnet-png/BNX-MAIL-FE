@@ -15,7 +15,7 @@ import bitToolLogo from "../assets/BIT-TOOL-2.png";
 import AppLauncher from "./AppLauncher";
 import CustomDateRangeModal from "./CustomDateRangeModal";
 
-const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSidebar, onToggleBitToolSidebar, onOpenNotes }) => {
+const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSidebar, onToggleBitToolSidebar, onOpenNotes, isDesktopSidebarOpen = true }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -286,17 +286,24 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     >
       <div className="flex items-center justify-between w-full relative gap-1.5 sm:gap-3">
         {/* LEFT */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3 shrink-0">
+        <div className="flex items-center shrink-0">
           {/* Mobile Menu Toggle Button */}
           <button
             onClick={onOpenMenu}
-            className="p-1 sm:p-1.5 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer shrink-0"
+            className="p-1 sm:p-1.5 mr-1.5 sm:mr-2 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer shrink-0"
             title="Open Menu"
           >
             <MdMenu size={22} />
           </button>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Logo & Brand Name */}
+          <div
+            className={`flex items-center gap-1.5 sm:gap-2 shrink-0 transition-all duration-300 ${
+              isDesktopSidebarOpen
+                ? "md:w-[11.75rem] lg:w-[11.5rem]"
+                : "w-auto mr-2 sm:mr-4"
+            }`}
+          >
             <img
               src={logo}
               alt="BNX Mail"
@@ -314,7 +321,9 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           {/* COMPOSE */}
           <button
             onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
-            className="h-8 sm:h-9 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 ml-2 sm:ml-4 shrink-0 cursor-pointer select-none"
+            className={`h-8 sm:h-9 w-auto sm:w-28 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ${
+              !isDesktopSidebarOpen ? "ml-1 sm:ml-2" : ""
+            }`}
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent || "#135bec" }}>
