@@ -7592,6 +7592,23 @@ const Casbox = () => {
                               <MdOutlineEmojiEmotions size={18} />
                             </button>
 
+                            {/* Forward Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMessageMenuId(null);
+                                setActiveReactionMsgId(null);
+                                setShowFullEmojiPicker(false);
+                                handleInitiateForward(msg, senderLabel);
+                              }}
+                              className="p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                              title="Forward message"
+                              aria-label="Forward message"
+                            >
+                              <MdForward size={18} />
+                            </button>
+
                             {/* Three-Dot Menu Button */}
                             <button
                               type="button"
