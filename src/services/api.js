@@ -391,7 +391,7 @@ export const chatAPI = {
     getMessageHistory: (chatId, config = {}) => {
         if (!chatId) return Promise.resolve({ data: [] });
         const { forceRefresh = false, ...axiosConfig } = config;
-        const timeout = axiosConfig.timeout || 20000;
+        const timeout = axiosConfig.timeout || 45000;
         return chatCache.dedupe(`msg_${chatId}`, () =>
             api.get(API_ENDPOINTS.CHAT.MESSAGES.replace(':chatId', chatId), { timeout, ...axiosConfig }),
             axiosConfig.signal,

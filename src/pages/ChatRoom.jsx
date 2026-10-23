@@ -1558,6 +1558,16 @@ const ChatRoom = () => {
           setCommentsError(null);
         } else {
           const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
+          if (isTimeout && !isUserRetry && !signal.aborted) {
+            activeFetchingChatIdRef.current = null;
+            isFetchingCommentsRef.current = false;
+            setTimeout(() => {
+              if (activeCommentsChatIdRef.current === chatId && !signal.aborted) {
+                fetchHistory(true);
+              }
+            }, 500);
+            return;
+          }
           console.warn("Could not fetch comments history:", err?.message || err);
           setCommentsError(isTimeout 
             ? "Request timed out while loading comments. Please try again."

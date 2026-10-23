@@ -303,15 +303,23 @@ export const chatCache = {
   },
 
   // Prefetch Chat Room Data (called on hover over a Colab item)
+  _prefetchTimer: null,
   prefetchChat(chatId, chatAPI) {
     if (!chatId || !chatAPI) return;
     const idStr = String(chatId);
 
     // If already in memory and fresh, skip
     const existingMsgs = memoryCache.messages.get(idStr);
-    if (!existingMsgs || Date.now() - existingMsgs.timestamp > CACHE_TTL_MS) {
-      chatAPI.getMessageHistory(chatId).catch(() => {});
+    if (existingMsgs && (Date.now() - existingMsgs.timestamp < CACHE_TTL_MS)) {
+      return;
     }
+
+    if (this._prefetchTimer) {
+      clearTimeout(this._prefetchTimer);
+    }
+    this._prefetchTimer = setTimeout(() => {
+      chatAPI.getMessageHistory(chatId, { timeout: 20000 }).catch(() => {});
+    }, 300);
   },
 };
 

@@ -902,11 +902,13 @@ const FloatingCompose = () => {
     }
     try {
       const res = await casboxAPI.validateRecipient(raw);
-      if (!res.data?.valid) {
+      if (res?.data && res.data.valid === false) {
         setError("Invalid email ID. This BNXmail account does not exist.");
       }
     } catch (err) {
-      setError("Invalid email ID. This BNXmail account does not exist.");
+      if (err?.response?.status === 400 || err?.response?.data?.valid === false) {
+        setError("Invalid email ID. This BNXmail account does not exist.");
+      }
     }
   };
 
@@ -954,22 +956,22 @@ const FloatingCompose = () => {
         }
 
         // Validate recipient existence against backend before sending
+        let isInvalidAccount = false;
         try {
            const checkRes = await casboxAPI.validateRecipient(rawReceiver);
-           if (!checkRes.data?.valid) {
-              const notFoundMsg = "Invalid email ID. This BNXmail account does not exist.";
-              setError(notFoundMsg);
-              toast.error(notFoundMsg);
-              sendingRef.current = false;
-              setSending(false);
-              return;
+           if (checkRes?.data && checkRes.data.valid === false) {
+              isInvalidAccount = true;
            }
         } catch (valErr) {
            console.error("Recipient validation failed:", valErr);
-           const rawValMsg = valErr.response?.data?.message || valErr.response?.data?.error || "";
-           const notFoundMsg = /malformed|format/i.test(rawValMsg)
-              ? "Invalid recipient email address."
-              : "Invalid email ID. This BNXmail account does not exist.";
+           const status = valErr?.response?.status;
+           if (status === 400 || valErr?.response?.data?.valid === false) {
+              isInvalidAccount = true;
+           }
+        }
+
+        if (isInvalidAccount) {
+           const notFoundMsg = "Invalid email ID. This BNXmail account does not exist.";
            setError(notFoundMsg);
            toast.error(notFoundMsg);
            sendingRef.current = false;
