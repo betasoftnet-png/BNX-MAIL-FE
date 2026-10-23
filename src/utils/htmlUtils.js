@@ -81,3 +81,112 @@ export const getEmailPreviewSnippet = (email) => {
 
   return extractPlainTextFromHtml(rawBody);
 };
+
+/**
+ * Ensures all hyperlinks inside email HTML content open safely in a new browser tab.
+ * - Adds target="_blank" and rel="noopener noreferrer" to all <a> tags with an href.
+ * - Overrides any target="_self", target="_top", or target="_parent" to target="_blank".
+ * - Strips any <base target="..."> tags that could override anchor targets.
+ * - Preserves the exact URL, query parameters, verification tokens, and hashes.
+ * 
+ * @param {string} htmlContent - HTML string of the email body
+ * @returns {string} - Transformed HTML string with target="_blank" and rel="noopener noreferrer"
+ */
+export const sanitizeAndTargetEmailLinks = (htmlContent) => {
+  if (!htmlContent || typeof htmlContent !== "string") return "";
+
+  try {
+    if (typeof DOMParser !== "undefined") {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlContent, "text/html");
+
+      // Strip any <base> tags that could hijack link targets or relative URLs
+      const baseElements = doc.querySelectorAll("base");
+      baseElements.forEach((b) => b.remove());
+
+      const anchors = doc.querySelectorAll("a[href]");
+      anchors.forEach((a) => {
+        const href = a.getAttribute("href");
+        if (href && !href.startsWith("#")) {
+          a.setAttribute("target", "_blank");
+          a.setAttribute("rel", "noopener noreferrer");
+        }
+      });
+
+      return doc.body.innerHTML;
+    }
+  } catch (err) {
+    console.error("DOMParser error in sanitizeAndTargetEmailLinks:", err);
+  }
+
+  // Regex fallback in environments where DOMParser is unavailable or throws
+  return htmlContent.replace(/<a\b([^>]*?)>/gi, (match, attrs) => {
+    if (!/href\s*=/i.test(attrs)) return match;
+
+    const hrefMatch = attrs.match(/href\s*=\s*(['"])(.*?)\1/i);
+    if (hrefMatch && hrefMatch[2].startsWith("#")) return match;
+
+    let updated = attrs;
+    if (/target\s*=\s*(['"])[^'"]*\1/i.test(updated)) {
+      updated = updated.replace(/target\s*=\s*(['"])[^'"]*\1/i, 'target="_blank"');
+    } else {
+      updated += ' target="_blank"';
+    }
+
+    if (/rel\s*=\s*(['"])[^'"]*\1/i.test(updated)) {
+      const currentRel = (updated.match(/rel\s*=\s*(['"])(.*?)\1/i) || [])[2] || "";
+      const relParts = new Set(currentRel.split(/\s+/).filter(Boolean));
+      relParts.add("noopener");
+      relParts.add("noreferrer");
+      updated = updated.replace(/rel\s*=\s*(['"])[^'"]*\1/i, `rel="${Array.from(relParts).join(" ")}"`);
+    } else {
+      updated += ' rel="noopener noreferrer"';
+    }
+
+    return `<a${updated}>`;
+  });
+};
+
+const escapeHtml = (str) => {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+/**
+ * Linkifies plain text containing URLs so that verification and reset links in plain text emails
+ * open in a new browser tab with target="_blank" and rel="noopener noreferrer".
+ * 
+ * @param {string} text - Raw plain text
+ * @returns {string} - HTML string with auto-linked URLs
+ */
+export const linkifyPlainText = (text) => {
+  if (!text || typeof text !== "string") return "";
+
+  // Match URLs starting with http://, https://, or www.
+  const urlRegex = /((?:https?:\/\/|www\.)[^\s<]+[^<.,:;"')\]\s])/gi;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(escapeHtml(text.slice(lastIndex, match.index)));
+    }
+    const matchedUrl = match[0];
+    const href = matchedUrl.startsWith("www.") ? `https://${matchedUrl}` : matchedUrl;
+    const escapedDisplay = escapeHtml(matchedUrl);
+    parts.push(`<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-medium hover:text-blue-700">${escapedDisplay}</a>`);
+    lastIndex = urlRegex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(escapeHtml(text.slice(lastIndex)));
+  }
+
+  return parts.join("");
+};

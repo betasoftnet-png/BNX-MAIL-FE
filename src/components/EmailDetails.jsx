@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -50,6 +50,7 @@ import { mailAPI, reportAPI, blockedContactsAPI } from "../services/api";
 import toast from "react-hot-toast";
 import logo from "../assets/bnx-remove.png";
 import html2pdf from "html2pdf.js";
+import { sanitizeAndTargetEmailLinks, linkifyPlainText } from "../utils/htmlUtils";
 
 const getMimeType = (fileName) => {
   const ext = fileName.split('.').pop().toLowerCase();
@@ -138,6 +139,53 @@ const EmailDetails = ({
   const [localLabels, setLocalLabels] = useState(email?.labels || []);
   const [isSnoozing, setIsSnoozing] = useState(false);
   const [isApplyingLabel, setIsApplyingLabel] = useState(false);
+
+  const isHtmlContent = Boolean(
+    email?.htmlBody ||
+    (email?.isHtml && email?.body) ||
+    (email?.body && (
+      email.body.trim().startsWith('<!DOCTYPE html') ||
+      email.body.trim().startsWith('<html') ||
+      email.body.includes('</html>') ||
+      email.body.includes('</p>') ||
+      email.body.includes('</div>') ||
+      email.body.includes('</td>')
+    ))
+  );
+
+  const processedHtmlBody = useMemo(() => {
+    const raw = email?.htmlBody || email?.body || "";
+    return sanitizeAndTargetEmailLinks(raw);
+  }, [email?.htmlBody, email?.body]);
+
+  const processedPlainBody = useMemo(() => {
+    const raw = email?.body || email?.textPlain || "(No content available)";
+    return linkifyPlainText(raw);
+  }, [email?.body, email?.textPlain]);
+
+  const handleEmailBodyClick = (e) => {
+    const link = e.target.closest("a");
+    if (!link) return;
+
+    const href = link.getAttribute("href");
+    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+
+    // Ensure safe new tab opening attributes
+    link.setAttribute("target", "_blank");
+    link.setAttribute("rel", "noopener noreferrer");
+
+    // For external hyperlinks (http, https, //), guarantee opening in a new tab without altering current tab
+    if (
+      href.startsWith("http://") ||
+      href.startsWith("https://") ||
+      href.startsWith("//") ||
+      /^https?:\/\//i.test(link.href)
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      window.open(link.href, "_blank", "noopener,noreferrer");
+    }
+  };
 
   useEffect(() => {
     setLocalLabels(email?.labels || []);
@@ -1235,20 +1283,18 @@ const EmailDetails = ({
             </div>
 
             {/* BODY */}
-            <div className="max-w-none prose prose-slate dark:prose-invert prose-p:leading-relaxed text-[14px] sm:text-[15px] leading-relaxed overflow-x-auto break-words [&_img]:max-w-full [&_img]:h-auto">
-              {email.htmlBody || (email.isHtml && email.body) || (email.body && (
-                email.body.trim().startsWith('<!DOCTYPE html') ||
-                email.body.trim().startsWith('<html') ||
-                email.body.includes('</html>') ||
-                email.body.includes('</p>') ||
-                email.body.includes('</div>') ||
-                email.body.includes('</td>')
-              )) ? (
-                <div dangerouslySetInnerHTML={{ __html: email.htmlBody || email.body }} style={{ color: theme.text }} />
+            <div
+              className="max-w-none prose prose-slate dark:prose-invert prose-p:leading-relaxed text-[14px] sm:text-[15px] leading-relaxed overflow-x-auto break-words [&_img]:max-w-full [&_img]:h-auto"
+              onClick={handleEmailBodyClick}
+            >
+              {isHtmlContent ? (
+                <div dangerouslySetInnerHTML={{ __html: processedHtmlBody }} style={{ color: theme.text }} />
               ) : (
-                <p className="whitespace-pre-wrap text-gray-800 dark:text-gray-200" style={{ color: theme.text }}>
-                  {email.body || email.textPlain || "(No content available)"}
-                </p>
+                <div
+                  className="whitespace-pre-wrap text-gray-800 dark:text-gray-200 font-sans"
+                  style={{ color: theme.text }}
+                  dangerouslySetInnerHTML={{ __html: processedPlainBody }}
+                />
               )}
               {bounceDetails && (
                 <div className="mt-8 p-4 bg-gray-50 dark:bg-black/20 rounded-xl border border-gray-100 dark:border-gray-800 font-mono text-xs whitespace-pre-wrap text-gray-600 dark:text-gray-400 overflow-x-auto">

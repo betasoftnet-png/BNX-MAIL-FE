@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { mailBackupAPI } from "../services/mailBackupApi";
 import { useTheme } from "../context/ThemeContext";
 import { MdBackup, MdArrowBack, MdAttachFile, MdFileDownload, MdInsertDriveFile } from "react-icons/md";
+import { sanitizeAndTargetEmailLinks, linkifyPlainText } from "../utils/htmlUtils";
 
 const MailBackupViewer = () => {
   const { id } = useParams();
@@ -189,9 +190,28 @@ const MailBackupViewer = () => {
             <hr className="border-gray-150 dark:border-gray-800/80 m-0" />
 
             {/* Email Body content */}
-            <div className="text-sm overflow-x-auto select-text leading-relaxed">
+            <div
+              className="text-sm overflow-x-auto select-text leading-relaxed"
+              onClick={(e) => {
+                const link = e.target.closest("a");
+                if (!link) return;
+                const href = link.getAttribute("href");
+                if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+                link.setAttribute("target", "_blank");
+                link.setAttribute("rel", "noopener noreferrer");
+                if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//") || /^https?:\/\//i.test(link.href)) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.open(link.href, "_blank", "noopener,noreferrer");
+                }
+              }}
+            >
               <div
-                dangerouslySetInnerHTML={{ __html: backup.htmlBody || backup.body }}
+                dangerouslySetInnerHTML={{
+                  __html: backup.htmlBody
+                    ? sanitizeAndTargetEmailLinks(backup.htmlBody)
+                    : (backup.body ? (/<[a-z][\s\S]*>/i.test(backup.body) ? sanitizeAndTargetEmailLinks(backup.body) : linkifyPlainText(backup.body)) : "")
+                }}
                 style={{ color: theme.text }}
                 className="whitespace-pre-wrap font-sans"
               />
