@@ -734,7 +734,8 @@ const ChatRoom = () => {
   });
   const [newMessage, setNewMessage] = useState("");
   const [loadingComments, setLoadingComments] = useState(() => {
-    return !chatCache.hasMessages(chatId);
+    const cached = chatCache.getMessages(chatId);
+    return !(cached && Array.isArray(cached) && cached.length > 0);
   });
   const [commentsError, setCommentsError] = useState(null);
   const [isSendingComment, setIsSendingComment] = useState(false);
@@ -1441,22 +1442,24 @@ const ChatRoom = () => {
     }
   };
 
-  const abortControllerRef = useRef(null);
+  const commentsAbortControllerRef = useRef(null);
+  const activeCommentsChatIdRef = useRef(chatId);
+  const isFetchingCommentsRef = useRef(false);
 
   useEffect(() => {
-    // Abort pending requests from previous chat room when switching
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+    // Abort pending comments request from previous chat room when switching
+    if (commentsAbortControllerRef.current) {
+      commentsAbortControllerRef.current.abort();
     }
-    abortControllerRef.current = new AbortController();
-    isFetchingHistoryRef.current = false;
+    activeCommentsChatIdRef.current = chatId;
+    isFetchingCommentsRef.current = false;
     hasInitialScrolledRef.current = false;
     prevChatIdRef.current = chatId;
     prevMessagesLengthRef.current = 0;
 
-    // Clear stale messages and comments error when changing chat
+    // Immediately display cached comments if available
     const cached = chatCache.getMessages(chatId);
-    if (cached && Array.isArray(cached)) {
+    if (cached && Array.isArray(cached) && cached.length > 0) {
       setMessages(cached);
       setLoadingComments(false);
       cached.forEach(m => {
@@ -1469,8 +1472,8 @@ const ChatRoom = () => {
     setCommentsError(null);
 
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      if (commentsAbortControllerRef.current) {
+        commentsAbortControllerRef.current.abort();
       }
     };
   }, [chatId]);
@@ -1510,41 +1513,47 @@ const ChatRoom = () => {
     }
   };
 
-  const isFetchingHistoryRef = useRef(false);
-
-  const fetchHistory = useCallback(async (customSignal = null) => {
+  const fetchHistory = useCallback(async (isUserRetry = false) => {
     if (!chatId) {
       setLoadingComments(false);
       return;
     }
-    if (isFetchingHistoryRef.current) return;
-    isFetchingHistoryRef.current = true;
 
-    let signal = customSignal;
-    if (!signal) {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      abortControllerRef.current = new AbortController();
-      signal = abortControllerRef.current.signal;
+    // Cancel any previous in-flight fetch for comments
+    if (commentsAbortControllerRef.current) {
+      commentsAbortControllerRef.current.abort();
     }
+    const controller = new AbortController();
+    commentsAbortControllerRef.current = controller;
+    const signal = controller.signal;
+    activeCommentsChatIdRef.current = chatId;
 
-    const hasCached = chatCache.hasMessages(chatId);
-    if (!hasCached) {
+    // Check if comments are already available in cache or memory
+    const cached = chatCache.getMessages(chatId);
+    const hasCachedData = Array.isArray(cached) && cached.length > 0;
+
+    if (hasCachedData) {
+      // Immediately display cached comments without blocking
+      setMessages(cached);
+      setLoadingComments(false);
+      cached.forEach(m => {
+        if (m && m.id) processedMessageIdsRef.current.add(String(m.id));
+      });
+    } else if (isUserRetry || messages.length === 0) {
+      // Show loading indicator only when comments genuinely need to be fetched and are not yet available
       setLoadingComments(true);
     }
     setCommentsError(null);
-
-    let isTimeout = false;
-    const timeoutId = setTimeout(() => {
-      if (isFetchingHistoryRef.current && abortControllerRef.current && !signal?.aborted) {
-        isTimeout = true;
-        abortControllerRef.current.abort();
-      }
-    }, 25000);
+    isFetchingCommentsRef.current = true;
 
     try {
-      const res = await chatAPI.getMessageHistory(chatId, { signal, timeout: 25000 });
+      const res = await chatAPI.getMessageHistory(chatId, { signal, timeout: 6000 });
+      
+      // If user switched to another chat while fetching, discard this result
+      if (activeCommentsChatIdRef.current !== chatId || signal.aborted) {
+        return;
+      }
+
       let history = [];
       if (res && res.data) {
         if (Array.isArray(res.data)) {
@@ -1590,11 +1599,16 @@ const ChatRoom = () => {
       setCommentsError(null);
       chatCache.setMessages(chatId, normalizedHistory);
     } catch (err) {
+      if (activeCommentsChatIdRef.current !== chatId || signal.aborted) {
+        return;
+      }
+
       const isCanceled = (
         err?.name === 'CanceledError' || 
+        err?.name === 'AbortError' ||
         err?.code === 'ERR_CANCELED' || 
         err?.message === 'canceled' ||
-        signal?.aborted
+        signal.aborted
       );
 
       if (!isCanceled) {
@@ -1602,19 +1616,17 @@ const ChatRoom = () => {
         if (fallback && fallback.length > 0) {
           setMessages(fallback);
           setCommentsError(null);
-        } else if (isTimeout) {
-          console.warn("Comments request timed out");
-          setCommentsError("Unable to load comments. Please check your connection.");
         } else {
           console.warn("Could not fetch comments history:", err?.message || err);
-          setCommentsError(null);
+          setCommentsError("Unable to load comments. Please check your connection.");
         }
       }
     } finally {
-      clearTimeout(timeoutId);
-      isFetchingHistoryRef.current = false;
-      setLoadingComments(false);
-      scrollToBottom(true);
+      if (activeCommentsChatIdRef.current === chatId) {
+        isFetchingCommentsRef.current = false;
+        setLoadingComments(false);
+        scrollToBottom(true);
+      }
     }
   }, [chatId]);
   fetchHistoryRef.current = fetchHistory;
@@ -1716,13 +1728,20 @@ const ChatRoom = () => {
   useEffect(() => {
     if (!chatId) return;
 
-    // Immediately start Comments API request with signal
-    fetchHistory(abortControllerRef.current?.signal);
+    fetchHistory();
   }, [chatId, fetchHistory]);
 
   // 2. Auxiliary Data (Chat details, Broadcasts, Members): Deferred to give Comments API immediate priority
+  const auxAbortControllerRef = useRef(null);
+
   useEffect(() => {
     if (!chatId) return;
+
+    if (auxAbortControllerRef.current) {
+      auxAbortControllerRef.current.abort();
+    }
+    auxAbortControllerRef.current = new AbortController();
+    const signal = auxAbortControllerRef.current.signal;
 
     const cachedChat = chatCache.getChat(chatId);
     if (cachedChat && !chat) {
@@ -1740,13 +1759,17 @@ const ChatRoom = () => {
 
     // Defer auxiliary requests slightly so Comments request hits the network first
     const timer = setTimeout(() => {
-      const signal = abortControllerRef.current?.signal;
       fetchChatDetails(signal);
       fetchChatMembers(signal);
       fetchBroadcasts(signal);
     }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (auxAbortControllerRef.current) {
+        auxAbortControllerRef.current.abort();
+      }
+    };
   }, [chatId]);
 
   // Subscribe to live messages over WebSocket
@@ -2432,7 +2455,7 @@ const ChatRoom = () => {
                     {commentsError}
                   </p>
                   <button
-                    onClick={() => fetchHistory()}
+                    onClick={() => fetchHistory(true)}
                     className="mt-3 px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
                     style={{ background: theme.accent || "#135bec" }}
                   >

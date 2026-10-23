@@ -71,23 +71,45 @@ rehydrateFromStorage();
 
 export const chatCache = {
   // Deduplicate inflight requests to prevent redundant simultaneous network calls
-  dedupe(key, fetcher) {
+  dedupe(key, fetcher, signal = null) {
     if (!key) return typeof fetcher === 'function' ? fetcher() : Promise.resolve(fetcher);
-    if (memoryCache.inFlight.has(key)) {
-      return memoryCache.inFlight.get(key);
+    if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+
+    let promise = memoryCache.inFlight.get(key);
+    if (!promise) {
+      try {
+        const result = fetcher();
+        promise = Promise.resolve(result)
+          .finally(() => {
+            memoryCache.inFlight.delete(key);
+          });
+        memoryCache.inFlight.set(key, promise);
+      } catch (err) {
+        memoryCache.inFlight.delete(key);
+        return Promise.reject(err);
+      }
     }
-    try {
-      const result = fetcher();
-      const promise = Promise.resolve(result)
-        .finally(() => {
-          memoryCache.inFlight.delete(key);
-        });
-      memoryCache.inFlight.set(key, promise);
-      return promise;
-    } catch (err) {
-      memoryCache.inFlight.delete(key);
-      return Promise.reject(err);
+
+    if (signal) {
+      return new Promise((resolve, reject) => {
+        const abortHandler = () => {
+          reject(new DOMException('Aborted', 'AbortError'));
+        };
+        signal.addEventListener('abort', abortHandler, { once: true });
+        promise.then(
+          (val) => {
+            signal.removeEventListener('abort', abortHandler);
+            resolve(val);
+          },
+          (err) => {
+            signal.removeEventListener('abort', abortHandler);
+            reject(err);
+          }
+        );
+      });
     }
+
+    return promise;
   },
 
   // User Chats (Colab list)
@@ -275,14 +297,7 @@ export const chatCache = {
     // If already in memory and fresh, skip
     const existingMsgs = memoryCache.messages.get(idStr);
     if (!existingMsgs || Date.now() - existingMsgs.timestamp > CACHE_TTL_MS) {
-      chatAPI.getMessageHistory(chatId)
-        .then(res => {
-          if (res?.data) {
-            const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
-            this.setMessages(idStr, list);
-          }
-        })
-        .catch(() => {});
+      chatAPI.getMessageHistory(chatId, { timeout: 6000 }).catch(() => {});
     }
   },
 };
