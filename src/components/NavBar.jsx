@@ -300,7 +300,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <div
             className={`flex items-center gap-1.5 sm:gap-2 shrink-0 transition-all duration-300 ${
               isDesktopSidebarOpen
-                ? "md:w-[11.75rem] lg:w-[11.5rem]"
+                ? "md:w-[14.1875rem] lg:w-[13.9375rem]"
                 : "w-auto mr-2 sm:mr-4"
             }`}
           >
@@ -321,7 +321,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           {/* COMPOSE */}
           <button
             onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
-            className={`h-8 sm:h-9 w-auto sm:w-28 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ${
+            className={`h-8 sm:h-9 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ${
               !isDesktopSidebarOpen ? "ml-1 sm:ml-2" : ""
             }`}
             title={t('navbar.compose', t('common.compose', 'Compose'))}
