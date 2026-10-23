@@ -1444,6 +1444,7 @@ const ChatRoom = () => {
 
   const commentsAbortControllerRef = useRef(null);
   const activeCommentsChatIdRef = useRef(chatId);
+  const activeFetchingChatIdRef = useRef(null);
   const isFetchingCommentsRef = useRef(false);
 
   useEffect(() => {
@@ -1452,6 +1453,7 @@ const ChatRoom = () => {
       commentsAbortControllerRef.current.abort();
     }
     activeCommentsChatIdRef.current = chatId;
+    activeFetchingChatIdRef.current = null;
     isFetchingCommentsRef.current = false;
     hasInitialScrolledRef.current = false;
     prevChatIdRef.current = chatId;
@@ -1519,7 +1521,12 @@ const ChatRoom = () => {
       return;
     }
 
-    // Cancel any previous in-flight fetch for comments
+    // Prevent duplicate in-flight requests for the same chatId unless it is an explicit user retry
+    if (activeFetchingChatIdRef.current === chatId && !isUserRetry) {
+      return;
+    }
+
+    // Cancel any previous in-flight fetch for a different chat
     if (commentsAbortControllerRef.current) {
       commentsAbortControllerRef.current.abort();
     }
@@ -1527,6 +1534,7 @@ const ChatRoom = () => {
     commentsAbortControllerRef.current = controller;
     const signal = controller.signal;
     activeCommentsChatIdRef.current = chatId;
+    activeFetchingChatIdRef.current = chatId;
 
     // Check if comments are already available in cache or memory
     const cached = chatCache.getMessages(chatId);
@@ -1547,7 +1555,7 @@ const ChatRoom = () => {
     isFetchingCommentsRef.current = true;
 
     try {
-      const res = await chatAPI.getMessageHistory(chatId, { signal, timeout: 6000 });
+      const res = await chatAPI.getMessageHistory(chatId, { signal, timeout: 20000 });
       
       // If user switched to another chat while fetching, discard this result
       if (activeCommentsChatIdRef.current !== chatId || signal.aborted) {
@@ -1617,12 +1625,17 @@ const ChatRoom = () => {
           setMessages(fallback);
           setCommentsError(null);
         } else {
+          const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
           console.warn("Could not fetch comments history:", err?.message || err);
-          setCommentsError("Unable to load comments. Please check your connection.");
+          setCommentsError(isTimeout 
+            ? "Request timed out while loading comments. Please try again."
+            : "Unable to load comments. Please check your connection."
+          );
         }
       }
     } finally {
       if (activeCommentsChatIdRef.current === chatId) {
+        activeFetchingChatIdRef.current = null;
         isFetchingCommentsRef.current = false;
         setLoadingComments(false);
         scrollToBottom(true);
