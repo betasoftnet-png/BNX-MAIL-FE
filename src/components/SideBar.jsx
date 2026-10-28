@@ -113,7 +113,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
       case 'Inbox':
         return <Mail size={19} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Starred':
-        return <Star size={19} strokeWidth={strokeWidth} className="shrink-0 text-yellow-500 fill-yellow-500" />;
+        return <Star size={19} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Snoozed':
         return <Clock size={19} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Sent':
