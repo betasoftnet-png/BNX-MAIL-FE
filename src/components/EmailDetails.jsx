@@ -257,7 +257,80 @@ const EmailDetails = ({
                         cleanSenderEmail.toLowerCase().includes("noreply") ||
                         cleanSenderEmail.toLowerCase().includes("no-reply");
 
-    const [showBlockModal, setShowBlockModal] = useState(false);
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const parsed = new Date(dateString);
+    if (isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const [showRecipientDetails, setShowRecipientDetails] = useState(false);
+
+  useEffect(() => {
+    setShowRecipientDetails(false);
+  }, [email?.uid]);
+
+  const { senderDisplayName, senderEmailAddress } = useMemo(() => {
+    const rawFrom = email?.from || "";
+    let name = "";
+    let emailAddr = cleanSenderEmail || "";
+    if (rawFrom.includes("<")) {
+      name = rawFrom.split("<")[0].replace(/^["'\s]+|["'\s]+$/g, "").trim();
+      const match = rawFrom.match(/<([^>]+)>/);
+      if (match) emailAddr = match[1].trim();
+    } else if (rawFrom.includes("@")) {
+      name = rawFrom.split("@")[0].trim();
+      emailAddr = rawFrom.trim();
+    } else {
+      name = rawFrom || "Unknown";
+    }
+    if (!name && emailAddr) {
+      name = emailAddr.split("@")[0];
+    }
+    return {
+      senderDisplayName: name || "Unknown",
+      senderEmailAddress: emailAddr,
+    };
+  }, [email?.from, cleanSenderEmail]);
+
+  const avatarColor = useMemo(() => {
+    const name = (senderDisplayName || "").toLowerCase();
+    if (name.includes("spotify")) return "#1db954";
+    if (name.includes("google") || name.includes("gmail")) return "#ea4335";
+    if (name.includes("microsoft") || name.includes("outlook")) return "#0078d4";
+    if (name.includes("apple") || name.includes("icloud")) return "#555555";
+    if (name.includes("github")) return "#24292f";
+    if (name.includes("netflix")) return "#e50914";
+    if (name.includes("amazon")) return "#ff9900";
+    if (name.includes("cyberletics")) return "#0ea5e9";
+    if (name.includes("mxtoolbox")) return "#f97316";
+    if (name.includes("beta")) return "#2563eb";
+
+    const colors = [
+      "#10b981", "#3b82f6", "#8b5cf6", "#ec4899",
+      "#f59e0b", "#06b6d4", "#6366f1", "#ef4444", "#14b8a6"
+    ];
+    let hash = 0;
+    for (let i = 0; i < senderDisplayName.length; i++) {
+      hash = senderDisplayName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }, [senderDisplayName]);
+
+  const emailDateFormatted = useMemo(() => {
+    if (!email) return "";
+    const rawDate = email.sentDate || email.receivedDate || email.date || email.createdAt || email.timestamp;
+    return formatDate(rawDate);
+  }, [email?.sentDate, email?.receivedDate, email?.date, email?.createdAt, email?.timestamp]);
+
+  const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockedContacts, setBlockedContacts] = useState([]);
 
   useEffect(() => {
@@ -517,22 +590,6 @@ const EmailDetails = ({
       console.error("Remove label error:", err);
       setLocalLabels(prevLabels);
     }
-  };
-
-
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "";
-    const parsed = new Date(dateString);
-    if (isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
   };
 
   const getOriginalEmailContentHTML = (emailObj) => {
@@ -1182,10 +1239,123 @@ const EmailDetails = ({
 
       {/* CONTENT AREA */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 bg-transparent">
-        {/* SUBJECT */}
+        {/* 1. SENDER INFO (TOP) */}
+        <div className="flex items-start justify-between gap-4 pb-4 mb-4 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-start gap-3 min-w-0">
+            {/* Sender Avatar */}
+            <div
+              className="h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-xs shrink-0 select-none overflow-hidden"
+              style={{ backgroundColor: avatarColor }}
+            >
+              {senderDisplayName.toLowerCase().includes("spotify") ? (
+                <svg className="w-6 h-6 fill-current text-white" viewBox="0 0 24 24">
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.503 17.309c-.218.356-.68.47-1.036.252-2.842-1.737-6.42-2.13-10.635-1.168-.407.093-.812-.162-.905-.568-.093-.406.162-.812.568-.905 4.623-1.057 8.577-.615 11.756 1.353.356.218.47.68.252 1.036zm1.47-3.267c-.274.444-.858.587-1.302.313-3.254-2.001-8.214-2.583-12.062-1.413-.497.151-1.025-.136-1.176-.633-.151-.497.136-1.025.633-1.176 4.398-1.336 9.878-.693 13.595 1.595.443.274.586.858.312 1.302zm.126-3.41c-3.903-2.317-10.334-2.53-14.073-1.394-.598.182-1.233-.162-1.415-.76-.182-.598.162-1.233.76-1.415 4.293-1.303 11.393-1.054 15.867 1.602.537.319.715 1.018.396 1.555-.319.537-1.018.715-1.555.396z"/>
+                </svg>
+              ) : (
+                senderDisplayName[0]?.toUpperCase() || "U"
+              )}
+            </div>
+
+            {/* Sender Name & Recipient Info */}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-snug">
+                <span className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 tracking-tight">
+                  {senderDisplayName}
+                </span>
+                {senderEmailAddress && (
+                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-normal">
+                    &lt;{senderEmailAddress}&gt;
+                  </span>
+                )}
+                {isBlocked && (
+                  <span className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded transition-all select-none border border-red-200 dark:border-red-800/40">
+                    Blocked
+                  </span>
+                )}
+                {cleanSenderEmail && !isSystemEmail && (
+                  <button
+                    onClick={() => handleUnsubscribeClick()}
+                    className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none"
+                    title={t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
+                  >
+                    {t("bulk_actions.unsubscribe", "Unsubscribe")}
+                  </button>
+                )}
+              </div>
+
+              {/* Recipient Dropdown Line */}
+              <div className="relative mt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowRecipientDetails((prev) => !prev)}
+                  className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer rounded transition-colors group"
+                >
+                  <span>
+                    to{" "}
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">
+                      {email.to || "me"}
+                    </span>
+                  </span>
+                  <MdArrowDropDown
+                    size={16}
+                    className={`text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-transform duration-200 ${
+                      showRecipientDetails ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {showRecipientDetails && (
+                  <div className="absolute left-0 top-full mt-1.5 w-72 sm:w-80 p-3.5 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
+                    <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                      <span className="text-gray-400 font-medium">from:</span>
+                      <span className="font-semibold text-gray-800 dark:text-gray-100 truncate ml-2">
+                        {email.from}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                      <span className="text-gray-400 font-medium">to:</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
+                        {email.to || "me"}
+                      </span>
+                    </div>
+                    {email.cc && (
+                      <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                        <span className="text-gray-400 font-medium">cc:</span>
+                        <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
+                          {email.cc}
+                        </span>
+                      </div>
+                    )}
+                    {email.bcc && (
+                      <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                        <span className="text-gray-400 font-medium">bcc:</span>
+                        <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
+                          {email.bcc}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-gray-400 font-medium">date:</span>
+                      <span className="text-gray-600 dark:text-gray-300 ml-2">
+                        {emailDateFormatted}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Date & Time on the right */}
+          <div className="text-xs text-gray-500 dark:text-gray-400 shrink-0 pt-0.5 whitespace-nowrap">
+            {emailDateFormatted}
+          </div>
+        </div>
+
+        {/* 2. EMAIL SUBJECT (BELOW SENDER DETAILS) */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <h1
-            className="text-xl sm:text-2xl font-bold leading-tight tracking-tight"
+            className="text-xl sm:text-2xl font-bold leading-tight tracking-tight text-gray-900 dark:text-gray-100"
             style={{ color: theme.text }}
           >
             {email.subject || "(No Subject)"}
@@ -1219,68 +1389,6 @@ const EmailDetails = ({
             })}
           </div>
         </div>
-
-
-            {/* Fallback original presentation */}
-            {/* SENDER INFO */}
-            <div
-              className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-6 border-b"
-              style={{ borderColor: theme.border }}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold text-base shadow-sm shrink-0"
-                  style={{ backgroundColor: theme.accent || "#135bec" }}
-                >
-                  {email.from?.split("@")[0]?.[0]?.toUpperCase() || "U"}
-                </div>
-                <div>
-                  <p className="font-semibold text-sm sm:text-base flex flex-wrap items-center gap-x-2" style={{ color: theme.text }}>
-                    {email.from?.includes("<") ? (
-                      <>
-                        <span>{email.from.split("<")[0].replace(/^["']/g, "").replace(/["']$/g, "").trim()}</span>
-                        <span className="text-xs font-normal text-gray-500 dark:text-gray-400">&lt;{email.from.split("<")[1].split(">")[0]}&gt;</span>
-                      </>
-                    ) : (
-                      <span>{email.from}</span>
-                    )}
-                    {isBlocked && (
-                      <span className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded transition-all select-none border border-red-200 dark:border-red-800/40">
-                        Blocked
-                      </span>
-                    )}
-                    {cleanSenderEmail && !isSystemEmail && (
-                      <button
-                        onClick={() => handleUnsubscribeClick()}
-                        className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none"
-                        title={t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
-                      >
-                        {t("bulk_actions.unsubscribe", "Unsubscribe")}
-                      </button>
-                    )}
-                  </p>
-                  <div className="flex flex-col gap-0.5">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
-                      to <span className="font-medium text-gray-700 dark:text-gray-300">{email.to || "me"}</span>
-                    </p>
-                    {email.cc && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
-                        cc <span className="font-medium text-gray-700 dark:text-gray-300">{email.cc}</span>
-                      </p>
-                    )}
-                    {email.bcc && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
-                        bcc <span className="font-medium text-gray-700 dark:text-gray-300">{email.bcc}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <span className="text-xs font-medium text-gray-400 dark:text-gray-500 self-start sm:self-center bg-black/[0.03] dark:bg-white/[0.04] px-2.5 py-1 rounded-full">
-                {email.sentDate ? formatDate(email.sentDate) : email.receivedDate ? formatDate(email.receivedDate) : email.date ? formatDate(email.date) : email.createdAt ? formatDate(email.createdAt) : ""}
-              </span>
-            </div>
 
             {/* BODY */}
             <div
