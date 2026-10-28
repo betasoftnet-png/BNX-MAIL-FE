@@ -1,24 +1,50 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSignup } from '../../context/SignupContext';
 import { authAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
+const DUPLICATE_MOBILE_ERROR = 'This mobile number is already registered. Please use another number';
+
+const isAlreadyRegisteredError = (msg, data, status) => {
+    if (status === 409) return true;
+    if (data?.code === 'MOBILE_ALREADY_EXISTS' || data?.code === 'PHONE_ALREADY_REGISTERED' || data?.code === 'USER_EXISTS') return true;
+    if (!msg || typeof msg !== 'string') return false;
+    const lower = msg.toLowerCase();
+    return (
+        (lower.includes('already') && (lower.includes('register') || lower.includes('exist') || lower.includes('link') || lower.includes('taken') || lower.includes('use') || lower.includes('account'))) ||
+        lower.includes('phone number already') ||
+        lower.includes('mobile number already') ||
+        lower.includes('mobile already') ||
+        lower.includes('duplicate mobile') ||
+        lower.includes('duplicate phone')
+    );
+};
+
 const SignupMobileVerify = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { formData, updateFormData } = useSignup();
     const [step, setStep] = useState('MOBILE'); // MOBILE or OTP
     const [loading, setLoading] = useState(false);
     const [resending, setResending] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(location.state?.mobileError || '');
+
+    useEffect(() => {
+        if (location.state?.mobileError) {
+            setError(location.state.mobileError);
+        }
+    }, [location.state]);
 
     const handleSendOtp = async (e) => {
         if (e) e.preventDefault();
+        if (loading) return; // Prevent duplicate API submissions while in progress
         setError('');
 
-        if (!formData.mobileNumber || formData.mobileNumber.trim() === '+') {
+        const mobile = (formData.mobileNumber || '').trim();
+        if (!mobile || mobile === '+') {
             const err = 'Mobile number is required';
             setError(err);
             toast.error(err);
@@ -27,11 +53,13 @@ const SignupMobileVerify = () => {
 
         setLoading(true);
         try {
-            const response = await authAPI.sendMobileOtp({ mobile: formData.mobileNumber });
+            const response = await authAPI.sendMobileOtp({ mobile });
             
             // Handle if backend returns 200 OK but success is false
             if (response.data && response.data.success === false) {
-                const errMsg = response.data.message || 'Failed to send OTP';
+                const rawMsg = response.data.message || '';
+                const isDuplicate = isAlreadyRegisteredError(rawMsg, response.data, response.status);
+                const errMsg = isDuplicate ? DUPLICATE_MOBILE_ERROR : (rawMsg || 'Failed to send OTP');
                 setError(errMsg);
                 toast.error(errMsg);
                 return;
@@ -41,7 +69,11 @@ const SignupMobileVerify = () => {
             setError('');
             setStep('OTP');
         } catch (err) {
-            const errMsg = err.response?.data?.message || 'Failed to send OTP';
+            const serverData = err.response?.data;
+            const status = err.response?.status;
+            const rawMsg = serverData?.message || serverData?.error || '';
+            const isDuplicate = isAlreadyRegisteredError(rawMsg, serverData, status);
+            const errMsg = isDuplicate ? DUPLICATE_MOBILE_ERROR : (rawMsg || 'Failed to send OTP');
             setError(errMsg);
             toast.error(errMsg);
         } finally {
@@ -50,21 +82,34 @@ const SignupMobileVerify = () => {
     };
 
     const handleResendOtp = async () => {
+        if (resending || loading) return; // Prevent duplicate API submissions
         setError('');
         setResending(true);
         try {
             const response = await authAPI.sendMobileOtp({ mobile: formData.mobileNumber });
             if (response.data && response.data.success === false) {
-                const errMsg = response.data.message || 'Failed to resend OTP';
+                const rawMsg = response.data.message || '';
+                const isDuplicate = isAlreadyRegisteredError(rawMsg, response.data, response.status);
+                const errMsg = isDuplicate ? DUPLICATE_MOBILE_ERROR : (rawMsg || 'Failed to resend OTP');
                 setError(errMsg);
                 toast.error(errMsg);
+                if (isDuplicate) {
+                    setStep('MOBILE');
+                }
                 return;
             }
             toast.success('A new OTP has been sent to your mobile number');
         } catch (err) {
-            const errMsg = err.response?.data?.message || 'Failed to resend OTP';
+            const serverData = err.response?.data;
+            const status = err.response?.status;
+            const rawMsg = serverData?.message || serverData?.error || '';
+            const isDuplicate = isAlreadyRegisteredError(rawMsg, serverData, status);
+            const errMsg = isDuplicate ? DUPLICATE_MOBILE_ERROR : (rawMsg || 'Failed to resend OTP');
             setError(errMsg);
             toast.error(errMsg);
+            if (isDuplicate) {
+                setStep('MOBILE');
+            }
         } finally {
             setResending(false);
         }
@@ -72,6 +117,7 @@ const SignupMobileVerify = () => {
 
     const handleVerifyOtp = async (e) => {
         e.preventDefault();
+        if (loading) return; // Prevent duplicate API submissions
         setError('');
 
         const otp = (formData.mobileOtp || '').trim();
@@ -176,7 +222,11 @@ const SignupMobileVerify = () => {
                             value={formData.mobileNumber}
                             onChange={(phone) => {
                                 setError('');
-                                updateFormData({ mobileNumber: '+' + phone });
+                                updateFormData({
+                                    mobileNumber: '+' + phone,
+                                    mobileVerified: false,
+                                    mobileOtp: ''
+                                });
                             }}
                             enableSearch={true}
                             containerClass="!w-full"

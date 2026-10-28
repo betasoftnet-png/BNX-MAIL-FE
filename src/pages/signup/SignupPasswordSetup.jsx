@@ -97,6 +97,17 @@ const SignupPasswordSetup = () => {
                 return;
             }
 
+            if (
+                lower.includes('phone') || 
+                lower.includes('mobile') || 
+                (lower.includes('already') && (lower.includes('number') || lower.includes('contact')))
+            ) {
+                const dupMsg = 'This mobile number is already registered. Please use another number';
+                toast.error(dupMsg);
+                navigate('/signup/mobile-verify', { state: { mobileError: dupMsg } });
+                return;
+            }
+
             if (lower.includes('password')) {
                 setFieldErrors(prev => ({ ...prev, password: errMsg }));
                 return;
