@@ -175,12 +175,6 @@ const handleReply = (email) => {
       >
         <MdStar size={20} className="text-yellow-500" />
         {t("sidebar.starred", "Starred")}
-        <span
-          className="ml-2 text-xs font-normal"
-          style={{ color: theme.subText }}
-        >
-          ({sortedEmails.length})
-        </span>
       </h2>
       <button
         onClick={() => refreshEmails("starred")}

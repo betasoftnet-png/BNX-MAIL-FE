@@ -1162,13 +1162,7 @@ export const MailProvider = ({ children }) => {
             });
         }
 
-        // 5. Update unreadCounts for starred
-        setUnreadCounts(prev => ({
-            ...prev,
-            starred: nextSet.size
-        }));
-
-        // 6. Notify UI across components
+        // 5. Notify UI across components
         window.dispatchEvent(new CustomEvent('bnx-starred-updated', {
             detail: { uid: strUid, starred: nextStarred }
         }));

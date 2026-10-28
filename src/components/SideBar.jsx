@@ -113,7 +113,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
       case 'Inbox':
         return <Mail size={19} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Starred':
-        return <Star size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Star size={19} strokeWidth={strokeWidth} className="shrink-0 text-yellow-500 fill-yellow-500" />;
       case 'Snoozed':
         return <Clock size={19} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Sent':
@@ -300,7 +300,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                       </div>
 
                       {/* Unread badge on the right */}
-                      {count > 0 && (
+                      {item.name !== 'Starred' && count > 0 && (
                         <span
                           className={`text-xs px-2.5 py-0.5 rounded-full hide-on-collapse font-sans shrink-0 ${
                             isActive
@@ -376,7 +376,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                                 </span>
                               </div>
 
-                              {count > 0 && (
+                              {item.name !== 'Starred' && count > 0 && (
                                 <span
                                   className={`text-xs px-2.5 py-0.5 rounded-full hide-on-collapse font-sans shrink-0 ${
                                     isActive
