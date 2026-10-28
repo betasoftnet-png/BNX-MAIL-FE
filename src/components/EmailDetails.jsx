@@ -331,7 +331,6 @@ const EmailDetails = ({
     return formatDate(rawDate);
   }, [email?.sentDate, email?.receivedDate, email?.date, email?.createdAt, email?.timestamp]);
 
-  const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockedContacts, setBlockedContacts] = useState([]);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
@@ -370,32 +369,6 @@ const EmailDetails = ({
   }, [normalizedSender]);
 
   const isUnsubscribed = normalizedSender ? blockedContacts.some(c => c.toLowerCase().trim() === normalizedSender.toLowerCase().trim()) : false;
-  const isBlocked = isUnsubscribed;
-
-  const handleToggleBlock = async () => {
-    if (!normalizedSender) return;
-    try {
-      if (isBlocked) {
-        toast.loading("Unblocking sender...", { id: "block-toggle" });
-        await blockedContactsAPI.unblockSender(normalizedSender);
-        setBlockedContacts(prev => prev.filter(c => c.toLowerCase() !== normalizedSender.toLowerCase()));
-        toast.success("Sender unblocked successfully.", { id: "block-toggle" });
-      } else {
-        toast.loading("Blocking sender...", { id: "block-toggle" });
-        await blockedContactsAPI.blockSender(normalizedSender);
-        setBlockedContacts(prev => [...prev, normalizedSender]);
-        toast.success("Sender blocked successfully.", { id: "block-toggle" });
-      }
-      if (fetchEmails) {
-        fetchEmails(currentFolder || "inbox");
-      }
-    } catch (err) {
-      console.error("Failed to toggle block status", err);
-      toast.error("Failed to update block status", { id: "block-toggle" });
-    } finally {
-      setShowBlockModal(false);
-    }
-  };
 
   const handleToggleSubscription = async (targetSender = null) => {
     const rawSender = (typeof targetSender === "string" && targetSender.trim()) ? targetSender : (normalizedSender || cleanSenderEmail);
@@ -1332,11 +1305,6 @@ const EmailDetails = ({
                     &lt;{senderEmailAddress}&gt;
                   </span>
                 )}
-                {isBlocked && (
-                  <span className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded transition-all select-none border border-red-200 dark:border-red-800/40">
-                    Blocked
-                  </span>
-                )}
                 {cleanSenderEmail && !isSystemEmail && (
                   <button
                     type="button"
@@ -1957,48 +1925,6 @@ const EmailDetails = ({
                   className="px-5 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 disabled:cursor-not-allowed rounded-lg transition-colors shadow-sm flex items-center cursor-pointer"
                 >
                   {reportLoading ? "Submitting..." : "Submit Report"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-      {/* Block / Unblock Confirmation Modal */}
-      {showBlockModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col transform transition-all border border-gray-200 dark:border-neutral-800">
-            <div className={`px-6 py-4 border-b flex justify-between items-center ${isBlocked ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/30' : 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/30'}`}>
-              <h2 className={`text-lg font-bold flex items-center ${isBlocked ? 'text-blue-700 dark:text-blue-400' : 'text-red-700 dark:text-red-500'}`}>
-                <MdBlock className="mr-2" size={24} /> {isBlocked ? "Unblock Sender" : "Block Sender"}
-              </h2>
-              <button 
-                onClick={() => setShowBlockModal(false)}
-                className="p-2 text-gray-500 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors cursor-pointer"
-              >
-                <MdClose size={20} />
-              </button>
-            </div>
-            
-            <div className="p-6">
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-                Are you sure you want to {isBlocked ? "unblock" : "block"} this sender?
-              </p>
-              
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-neutral-800">
-                <button
-                  onClick={() => setShowBlockModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleToggleBlock}
-                  className={`px-5 py-2 text-sm font-medium text-white rounded-lg transition-colors shadow-sm flex items-center cursor-pointer ${
-                    isBlocked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'
-                  }`}
-                >
-                  {isBlocked ? "Unblock" : "Block"}
                 </button>
               </div>
             </div>
