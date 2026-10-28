@@ -1940,11 +1940,18 @@ export const MailProvider = ({ children }) => {
     }, []);
 
     const getFolderEmails = useCallback((folder) => {
-        const folderKey = (folder || currentFolderRef.current || 'inbox').toLowerCase();
+        let folderKey = (folder || currentFolderRef.current || 'inbox').toLowerCase();
+        if (folderKey === 'drafts') folderKey = 'draft';
+        if (folderKey === 'allmail') folderKey = 'all-mail';
         const list = [];
         const seenUids = new Set();
 
-        if (currentFolderRef.current.toLowerCase() === folderKey && Array.isArray(emails)) {
+        const currentNormalized = (currentFolderRef.current || '').toLowerCase();
+        const isCurrent = currentNormalized === folderKey ||
+            (folderKey === 'draft' && currentNormalized === 'drafts') ||
+            (folderKey === 'all-mail' && currentNormalized === 'allmail');
+
+        if (isCurrent && Array.isArray(emails)) {
             emails.forEach(e => {
                 const uidStr = String(e.uid ?? e.id ?? '');
                 if (uidStr && !seenUids.has(uidStr)) {
@@ -1954,19 +1961,25 @@ export const MailProvider = ({ children }) => {
             });
         }
 
-        if (pagesCache.current[folderKey]) {
-            Object.values(pagesCache.current[folderKey]).forEach(pageList => {
-                if (Array.isArray(pageList)) {
-                    pageList.forEach(e => {
-                        const uidStr = String(e.uid ?? e.id ?? '');
-                        if (uidStr && !seenUids.has(uidStr)) {
-                            seenUids.add(uidStr);
-                            list.push(e);
-                        }
-                    });
-                }
-            });
-        }
+        const keysToCheck = [folderKey];
+        if (folderKey === 'draft') keysToCheck.push('drafts');
+        if (folderKey === 'all-mail') keysToCheck.push('allmail');
+
+        keysToCheck.forEach(k => {
+            if (pagesCache.current[k]) {
+                Object.values(pagesCache.current[k]).forEach(pageList => {
+                    if (Array.isArray(pageList)) {
+                        pageList.forEach(e => {
+                            const uidStr = String(e.uid ?? e.id ?? '');
+                            if (uidStr && !seenUids.has(uidStr)) {
+                                seenUids.add(uidStr);
+                                list.push(e);
+                            }
+                        });
+                    }
+                });
+            }
+        });
 
         return list;
     }, [emails]);

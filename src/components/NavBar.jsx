@@ -96,10 +96,8 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
   const candidateEmails = useMemo(() => {
     const folderList = typeof getFolderEmails === 'function' ? getFolderEmails(activeFolder) : [];
-    const activeEmails = Array.isArray(emails) ? emails : [];
-
     const map = new Map();
-    [...folderList, ...activeEmails].forEach(item => {
+    folderList.forEach(item => {
       if (!item) return;
       const uidStr = String(item.uid ?? item.id ?? '');
       if (uidStr && !map.has(uidStr)) {
@@ -108,7 +106,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     });
 
     return Array.from(map.values());
-  }, [getFolderEmails, activeFolder, emails]);
+  }, [getFolderEmails, activeFolder]);
 
   const matchingEmails = useMemo(() => {
     if (!queryVal) return [];
@@ -116,12 +114,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     return candidateEmails
       .filter(e => matchesFolderScope(e, activeFolder, user))
       .filter(e => (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true))
-      .filter(e => matchesEmailQuery(e, queryVal))
-      .slice(0, 10);
+      .filter(e => matchesEmailQuery(e, queryVal, activeFolder, user));
   }, [candidateEmails, queryVal, activeFolder, user, matchesDateFilter]);
 
+  const isChatScope = activeFolder === 'casbox' || activeFolder === 'chat';
+
   const matchingCasbox = useMemo(() => {
-    if (!queryVal) return [];
+    // Only search chat messages when the user is explicitly in Casbox or Chat views
+    if (!isChatScope || !queryVal) return [];
     const seen = new Set();
     const results = [];
     for (const m of allCasboxMessages) {
@@ -137,10 +137,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           results.push({ ...m, contactEmail });
         }
       }
-      if (results.length >= 5) break;
+      if (results.length >= 10) break;
     }
     return results;
-  }, [allCasboxMessages, queryVal, user?.email]);
+  }, [isChatScope, allCasboxMessages, queryVal, user?.email]);
 
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const totalItems = matchingEmails.length + matchingCasbox.length;
@@ -339,45 +339,63 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   <div
                     key={`${e.uid || e.id || currentIdx}`}
                     onClick={() => handleSelectEmailSuggestion(e)}
-                    className={`flex flex-col p-2.5 rounded-xl cursor-pointer text-left transition-all border ${
+                    className={`flex items-start gap-2.5 p-3 rounded-xl cursor-pointer text-left transition-all border ${
                       isSelected
-                        ? "bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 shadow-sm"
+                        ? "bg-blue-50/80 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 shadow-sm"
                         : "border-transparent hover:bg-black/5 dark:hover:bg-white/5"
                     }`}
                   >
-                    {/* Top Row: Sender Name + Email + Date */}
-                    <div className="flex items-center justify-between gap-2 min-w-0 mb-1">
-                      <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
-                        <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                          {personName}
-                        </span>
-                        {personEmail && personEmail !== personName && (
-                          <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate font-normal hidden sm:inline">
-                            &lt;{personEmail}&gt;
-                          </span>
-                        )}
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-blue-100/60 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 ml-1 shrink-0">
-                          {folderDisplayName}
-                        </span>
-                      </div>
-                      {dateDisplay && (
-                        <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
-                          {dateDisplay}
-                        </span>
+                    {/* Sender Profile Image / Avatar */}
+                    <div className="shrink-0 mt-0.5">
+                      {e.avatarUrl ? (
+                        <img
+                          src={e.avatarUrl}
+                          alt={personName}
+                          className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700 shadow-xs"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-xs select-none">
+                          {(personName || personEmail || 'U').charAt(0).toUpperCase()}
+                        </div>
                       )}
                     </div>
 
-                    {/* Middle Row: Subject */}
-                    <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate mb-0.5">
-                      {e.subject || "(No Subject)"}
-                    </div>
-
-                    {/* Bottom Row: Message preview snippet */}
-                    {snippet && (
-                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate line-clamp-1">
-                        {snippet}
+                    {/* Email Details Body */}
+                    <div className="flex-1 min-w-0">
+                      {/* Top Row: Sender Name + Email + Folder Badge + Date */}
+                      <div className="flex items-center justify-between gap-2 min-w-0 mb-0.5">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
+                          <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                            {personName}
+                          </span>
+                          {personEmail && personEmail !== personName && (
+                            <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate font-normal hidden sm:inline">
+                              &lt;{personEmail}&gt;
+                            </span>
+                          )}
+                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100/80 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 ml-1 shrink-0">
+                            {folderDisplayName}
+                          </span>
+                        </div>
+                        {dateDisplay && (
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
+                            {dateDisplay}
+                          </span>
+                        )}
                       </div>
-                    )}
+
+                      {/* Middle Row: Full Subject (No unnecessary truncation) */}
+                      <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 break-words mb-1 leading-snug">
+                        {e.subject || "(No Subject)"}
+                      </div>
+
+                      {/* Bottom Row: Readable Message Preview */}
+                      {snippet && (
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed break-words">
+                          {snippet}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -541,7 +559,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
               {showSearchResults && searchQuery.trim().length > 0 && (
                 <div 
-                  className="absolute right-0 mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 sm:p-3 max-h-[460px] overflow-y-auto z-[9999] w-[340px] sm:w-[420px] md:w-[460px] max-w-[95vw] animate-fade-in"
+                  className="absolute right-0 mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 sm:p-3 max-h-[500px] sm:max-h-[540px] overflow-y-auto z-[9999] w-[360px] sm:w-[460px] md:w-[520px] max-w-[95vw] animate-fade-in"
                   style={{ borderColor: theme.border || '#e2e8f0' }}
                 >
                   {renderSearchResults(() => setShowSearchResults(false))}
@@ -600,7 +618,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                 </form>
 
                 {searchQuery.trim().length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 max-h-72 overflow-y-auto">
+                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 max-h-[420px] overflow-y-auto">
                     {renderSearchResults(() => setIsMobileSearchOpen(false))}
                   </div>
                 )}

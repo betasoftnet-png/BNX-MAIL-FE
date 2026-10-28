@@ -159,8 +159,9 @@ export const matchesFolderScope = (email, activeFolder, user) => {
     case 'inbox':
     case 'all-inbox':
     case 'allinbox':
-      // Inbox must not be in trash, spam, draft, snoozed, or archived
+      // Inbox must not be in trash, spam, draft, snoozed, archived, or sent
       if (isTrash || isSpam || isDraft || isSnoozed || isArchived) return false;
+      if (email.isSent || email.folderName?.toLowerCase() === 'sent') return false;
       return true;
 
     case 'starred':
@@ -213,41 +214,93 @@ export const matchesFolderScope = (email, activeFolder, user) => {
 };
 
 /**
- * Searches against relevant email fields:
+ * Searches against relevant email fields accurately:
  * - Sender Name & Email
- * - Recipient Name & Email
- * - Subject
- * - Clean message content preview (plain text snippet, preventing raw HTML/style tag false positives)
+ * - Recipient Name & Email (distinguishing incoming vs outgoing context)
+ * - Subject (full, unclipped match)
+ * - Message Content (clean plain text, stripped of HTML/CSS/scripts)
+ * 
+ * Crucially, when searching in incoming folders (like Inbox), if the query
+ * matches the logged-in user's own identity (e.g. "dilli"), it does NOT falsely
+ * match every incoming email simply because the user was the recipient.
  */
-export const matchesEmailQuery = (email, query) => {
+export const matchesEmailQuery = (email, query, activeFolder = 'inbox', user = null) => {
   if (!email || !query) return false;
   const q = String(query).trim().toLowerCase();
   if (!q) return false;
 
-  // 1. Subject
+  const folder = (activeFolder || 'inbox').toLowerCase();
+  const userEmail = user?.email ? normalizeEmail(user.email) : '';
+  const userLocal = userEmail ? userEmail.split('@')[0] : '';
+  const userName = user?.name ? String(user.name).trim().toLowerCase() : '';
+  const userFullName = user?.fullName ? String(user.fullName).trim().toLowerCase() : '';
+
+  // Determine if the search query matches the logged-in user's own identity
+  const isQueryMyOwnIdentity = Boolean(
+    (userLocal && userLocal.includes(q)) ||
+    (userEmail && userEmail.includes(q)) ||
+    (userName && userName.includes(q)) ||
+    (userFullName && userFullName.includes(q))
+  );
+
+  // 1. Subject match (always valid in any folder)
   const subjectStr = (email.subject || '').toLowerCase();
   if (subjectStr.includes(q)) return true;
 
-  // 2. Sender fields
+  // 2. Sender fields (from, senderEmail)
   const fromStr = (email.from || '').toLowerCase();
   const senderEmailStr = (email.senderEmail || '').toLowerCase();
-  if (fromStr.includes(q) || senderEmailStr.includes(q)) return true;
+  const senderMatches = fromStr.includes(q) || senderEmailStr.includes(q);
 
-  // 3. Recipient fields
+  if (folder === 'sent') {
+    // In Sent folder, the user is the sender of all emails.
+    // Searching user's own name in Sent folder shouldn't match all sent emails.
+    if (senderMatches && !isQueryMyOwnIdentity) return true;
+  } else {
+    // In Inbox, Starred, Drafts, Trash, etc., matching the sender is primary
+    if (senderMatches) return true;
+  }
+
+  // 3. Recipient fields (to, recipientEmail, cc, bcc)
   const toStr = (email.to || '').toLowerCase();
   const recipientEmailStr = (email.recipientEmail || '').toLowerCase();
   const ccStr = (email.cc || '').toLowerCase();
   const bccStr = (email.bcc || '').toLowerCase();
-  if (toStr.includes(q) || recipientEmailStr.includes(q) || ccStr.includes(q) || bccStr.includes(q)) {
-    return true;
+  const allRecipientsStr = `${toStr} ${recipientEmailStr} ${ccStr} ${bccStr}`;
+
+  if (folder === 'sent' || folder === 'draft' || folder === 'drafts' || folder === 'outbox') {
+    // In Sent or Drafts, recipient search is primary
+    if (allRecipientsStr.includes(q)) return true;
+  } else {
+    // In Inbox / Starred / Trash / etc., the logged-in user is the recipient of all incoming emails.
+    // If the query is the user's own name/email (e.g. "dilli"), matching the recipient field
+    // would falsely match EVERY incoming email.
+    if (!isQueryMyOwnIdentity && allRecipientsStr.includes(q)) {
+      return true;
+    }
+    // If multiple recipients exist, check if another recipient (other than user) matches:
+    if (isQueryMyOwnIdentity && allRecipientsStr) {
+      const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let otherRecipients = allRecipientsStr;
+      if (userEmail) otherRecipients = otherRecipients.replace(new RegExp(escapeRegExp(userEmail), 'gi'), '');
+      if (userLocal) otherRecipients = otherRecipients.replace(new RegExp(escapeRegExp(userLocal), 'gi'), '');
+      if (otherRecipients.includes(q)) return true;
+    }
   }
 
-  // 4. Message Content (clean plain text snippet, NOT raw HTML tags/CSS markup)
-  const textPlainStr = (email.textPlain || '').toLowerCase();
-  if (textPlainStr.includes(q)) return true;
+  // 4. Message Content / Body (clean plain text snippet, NOT raw HTML tags/CSS markup)
+  let snippet = getEmailPreviewSnippet(email).toLowerCase();
+  let textPlain = (email.textPlain || '').toLowerCase();
 
-  const snippetStr = getEmailPreviewSnippet(email).toLowerCase();
-  if (snippetStr.includes(q)) return true;
+  // If the query matches the user's email, strip automated footer unsubscribe/user links
+  if (isQueryMyOwnIdentity && userEmail) {
+    const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    snippet = snippet.replace(new RegExp(escapeRegExp(userEmail), 'gi'), '');
+    textPlain = textPlain.replace(new RegExp(escapeRegExp(userEmail), 'gi'), '');
+  }
+
+  if (textPlain.includes(q)) return true;
+  if (snippet.includes(q)) return true;
 
   return false;
 };
