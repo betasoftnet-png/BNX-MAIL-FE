@@ -1229,15 +1229,16 @@ const EmailDetails = ({
                 handleToggleStar(email.uid, email.folderName);
               }
             }}
-            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer group"
+            className="p-2 rounded-full cursor-pointer"
             title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
+            aria-label={isStarred ? "Unstar email" : "Star email"}
           >
             <MdStar
               size={20}
               className={
                 isStarred
                   ? "text-yellow-500 fill-current drop-shadow-sm"
-                  : "text-gray-400 dark:text-gray-500 group-hover:text-yellow-500 transition-colors"
+                  : "text-gray-400 dark:text-gray-500"
               }
             />
           </button>

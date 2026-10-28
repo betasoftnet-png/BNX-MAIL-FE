@@ -293,8 +293,9 @@ const EmailList = ({
                             e.stopPropagation();
                             onStar?.(email.uid, email.folderName);
                           }}
-                          className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-400 dark:text-gray-500 hover:text-yellow-500 cursor-pointer"
+                          className="p-1 rounded-full cursor-pointer text-gray-400 dark:text-gray-500"
                           title={isItemStarred ? "Unstar" : "Star"}
+                          aria-label={isItemStarred ? "Unstar email" : "Star email"}
                         >
                           {isItemStarred ? (
                             <MdStar size={18} className="text-yellow-500 fill-current" />
