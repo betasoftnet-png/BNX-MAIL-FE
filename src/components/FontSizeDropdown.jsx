@@ -190,13 +190,13 @@ export const FontSizeDropdown = ({
         type="button"
         onMouseDown={(e) => e.preventDefault()}
         onClick={handleToggleOpen}
-        className="inline-flex items-center justify-between gap-1.5 h-7 min-w-[70px] bg-transparent hover:bg-black/5 dark:hover:bg-white/10 border border-gray-200 dark:border-neutral-700 text-gray-700 dark:text-gray-200 text-xs font-semibold px-2 rounded cursor-pointer transition-colors select-none shrink-0 box-border"
+        className="font-size-btn inline-flex items-center justify-between gap-1.5 h-8 min-w-[85px] sm:min-w-[90px] bg-transparent hover:bg-black/5 dark:hover:bg-white/10 border border-gray-200 dark:border-neutral-700 text-gray-700 dark:text-gray-200 text-xs font-semibold px-2.5 rounded-md cursor-pointer transition-colors select-none shrink-0 box-border"
         title="Font size"
       >
-        <span className="truncate text-left leading-none">{currentSize}</span>
+        <span className="whitespace-nowrap text-left leading-none font-medium">{currentSize}</span>
         <MdArrowDropDown
-          size={16}
-          className={`text-gray-400 dark:text-gray-400 transition-transform duration-150 shrink-0 ${
+          size={18}
+          className={`text-gray-500 dark:text-gray-400 transition-transform duration-150 shrink-0 ${
             isOpen ? "rotate-180" : ""
           }`}
         />

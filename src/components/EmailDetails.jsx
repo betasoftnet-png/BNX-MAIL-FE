@@ -462,6 +462,27 @@ const EmailDetails = ({
   // File Upload states and ref
   const fileInputRef = React.useRef(null);
   const replyQuillRef = React.useRef(null);
+  const replyQuillModules = useMemo(() => ({
+    toolbar: {
+      container: "#inline-reply-toolbar",
+      handlers: {
+        underline: function() {
+          this.quill.focus();
+          const range = this.quill.getSelection(true);
+          if (!range) return;
+          const format = this.quill.getFormat(range);
+          this.quill.format('underline', !format.underline, 'user');
+        },
+        blockquote: function() {
+          this.quill.focus();
+          const range = this.quill.getSelection(true);
+          if (!range) return;
+          const format = this.quill.getFormat(range);
+          this.quill.format('blockquote', !format.blockquote, 'user');
+        }
+      }
+    }
+  }), []);
   const [draftId, setDraftId] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -1612,17 +1633,17 @@ const EmailDetails = ({
                 display: flex !important;
                 align-items: center !important;
                 flex-wrap: nowrap !important;
-                gap: 6px !important;
+                gap: 8px !important;
               }
               #inline-reply-toolbar button {
                 cursor: pointer !important;
                 float: none !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                width: 28px !important;
-                height: 28px !important;
-                min-width: 28px !important;
-                min-height: 28px !important;
+                width: 32px !important;
+                height: 32px !important;
+                min-width: 32px !important;
+                min-height: 32px !important;
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
@@ -1632,20 +1653,50 @@ const EmailDetails = ({
                 box-sizing: border-box !important;
                 transition: background-color 0.15s ease, color 0.15s ease !important;
               }
+              #inline-reply-toolbar .font-size-btn {
+                width: auto !important;
+                min-width: 88px !important;
+                max-width: none !important;
+                height: 32px !important;
+                min-height: 32px !important;
+                padding: 0 10px !important;
+              }
               #inline-reply-toolbar button:hover {
-                background-color: rgba(0, 0, 0, 0.05) !important;
+                background-color: rgba(0, 0, 0, 0.06) !important;
               }
               .dark #inline-reply-toolbar button:hover {
-                background-color: rgba(255, 255, 255, 0.1) !important;
+                background-color: rgba(255, 255, 255, 0.12) !important;
               }
               #inline-reply-toolbar button.ql-active {
                 background-color: rgba(59, 130, 246, 0.15) !important;
                 color: #2563eb !important;
               }
               #inline-reply-toolbar button svg {
-                width: 15px !important;
-                height: 15px !important;
+                width: 18px !important;
+                height: 18px !important;
                 flex-shrink: 0 !important;
+              }
+              #inline-reply-toolbar button.ql-bold {
+                font-size: 16px !important;
+                font-weight: 700 !important;
+              }
+              #inline-reply-toolbar button.ql-italic {
+                font-size: 16px !important;
+                font-style: italic !important;
+                font-family: serif !important;
+              }
+              #inline-reply-toolbar button.ql-underline {
+                font-size: 16px !important;
+                text-decoration: underline !important;
+                font-weight: 600 !important;
+              }
+              #inline-reply-toolbar button.ql-strike {
+                font-size: 16px !important;
+                text-decoration: line-through !important;
+              }
+              #inline-reply-toolbar button.ql-blockquote {
+                font-size: 19px !important;
+                font-weight: 700 !important;
               }
               #inline-reply-toolbar .ql-stroke {
                 stroke: #4b5563 !important;
@@ -1664,7 +1715,7 @@ const EmailDetails = ({
             <ReactQuill
               ref={replyQuillRef}
               theme="snow"
-              modules={{ toolbar: "#inline-reply-toolbar" }}
+              modules={replyQuillModules}
               bounds="self"
               value={replyBody}
               onChange={setReplyBody}
@@ -1716,7 +1767,7 @@ const EmailDetails = ({
 
           {/* Bottom Toolbar Row */}
           <div className="flex items-center justify-between mt-1 flex-wrap gap-4">
-            <div className="flex items-center gap-3.5 sm:gap-4 flex-wrap">
+            <div className="flex items-center gap-4 sm:gap-5 flex-wrap">
               {/* Send Button */}
               <button
                 type="button"
@@ -1730,22 +1781,23 @@ const EmailDetails = ({
               {/* Formatting bar container - always visible now next to Send button */}
               <div 
                 id="inline-reply-toolbar" 
-                className="flex items-center flex-nowrap gap-1.5 p-1 bg-white dark:bg-neutral-800 rounded-lg border text-gray-700 dark:text-gray-300 shrink-0 select-none max-w-full overflow-x-auto scrollbar-none relative z-30" 
+                onMouseDown={(e) => e.preventDefault()}
+                className="flex items-center flex-nowrap gap-2 p-1 bg-white dark:bg-neutral-800 rounded-xl border text-gray-700 dark:text-gray-300 shrink-0 select-none max-w-full overflow-x-auto scrollbar-none relative z-30" 
                 style={{ borderColor: theme.border }}
               >
                 <FontSizeDropdown quillRef={replyQuillRef} direction="up" />
                 
-                <button className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">B</button>
-                <button className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">I</button>
-                <button className="ql-underline underline hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">U</button>
-                <button className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">S</button>
-                <button className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-[15px] font-bold">”</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Bold">B</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Italic">I</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-underline underline hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Underline">U</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Strikethrough">S</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Quote">”</button>
                 
-                <button className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" value="bullet" title="Bullet List"></button>
-                <button className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" value="ordered" title="Numbered List"></button>
-                <button className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" value="-1" title="Decrease Indent"></button>
-                <button className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" value="+1" title="Increase Indent"></button>
-                <button className="ql-link !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" title="Insert Link"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-list hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="bullet" title="Bulleted List"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-list hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="ordered" title="Numbered List"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-indent hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="-1" title="Decrease Indent"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-indent hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="+1" title="Increase Indent"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-link hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Insert Link"></button>
               </div>
             </div>
 

@@ -882,4 +882,31 @@
   scrollbar-width: none;
 }
 
+/* Ensure blockquote and underline in Quill editors and email reader are styled properly */
+.ql-editor u,
+.email-content u,
+[contenteditable] u {
+  text-decoration: underline !important;
+}
+
+.ql-editor blockquote,
+.email-content blockquote,
+[contenteditable] blockquote {
+  border-left: 4px solid #3b82f6 !important;
+  padding-left: 14px !important;
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
+  color: #4b5563 !important;
+  font-style: italic !important;
+  display: block !important;
+}
+
+.dark .ql-editor blockquote,
+.dark .email-content blockquote,
+.dark [contenteditable] blockquote {
+  border-left-color: #60a5fa !important;
+  color: #9ca3af !important;
+}
+
+
 

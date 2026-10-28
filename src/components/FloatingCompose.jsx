@@ -1557,7 +1557,21 @@ const FloatingCompose = () => {
       toolbar: {
         container: isReply ? "#reply-quill-toolbar" : "#compose-quill-toolbar",
         handlers: {
-          link: handleQuillLink
+          link: handleQuillLink,
+          underline: function() {
+            this.quill.focus();
+            const range = this.quill.getSelection(true);
+            if (!range) return;
+            const format = this.quill.getFormat(range);
+            this.quill.format('underline', !format.underline, 'user');
+          },
+          blockquote: function() {
+            this.quill.focus();
+            const range = this.quill.getSelection(true);
+            if (!range) return;
+            const format = this.quill.getFormat(range);
+            this.quill.format('blockquote', !format.blockquote, 'user');
+          }
         }
       },
       imageResize: {
@@ -1609,7 +1623,7 @@ const FloatingCompose = () => {
             display: flex !important;
             align-items: center !important;
             flex-wrap: nowrap !important;
-            gap: 6px !important;
+            gap: 8px !important;
           }
           #reply-quill-toolbar button,
           #compose-quill-toolbar button {
@@ -1617,10 +1631,10 @@ const FloatingCompose = () => {
             float: none !important;
             margin: 0 !important;
             padding: 0 !important;
-            width: 28px !important;
-            height: 28px !important;
-            min-width: 28px !important;
-            min-height: 28px !important;
+            width: 32px !important;
+            height: 32px !important;
+            min-width: 32px !important;
+            min-height: 32px !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -1630,13 +1644,22 @@ const FloatingCompose = () => {
             box-sizing: border-box !important;
             transition: background-color 0.15s ease, color 0.15s ease !important;
           }
+          #reply-quill-toolbar .font-size-btn,
+          #compose-quill-toolbar .font-size-btn {
+            width: auto !important;
+            min-width: 88px !important;
+            max-width: none !important;
+            height: 32px !important;
+            min-height: 32px !important;
+            padding: 0 10px !important;
+          }
           #reply-quill-toolbar button:hover,
           #compose-quill-toolbar button:hover {
-            background-color: rgba(0, 0, 0, 0.05) !important;
+            background-color: rgba(0, 0, 0, 0.06) !important;
           }
           .dark #reply-quill-toolbar button:hover,
           .dark #compose-quill-toolbar button:hover {
-            background-color: rgba(255, 255, 255, 0.1) !important;
+            background-color: rgba(255, 255, 255, 0.12) !important;
           }
           #reply-quill-toolbar button.ql-active,
           #compose-quill-toolbar button.ql-active {
@@ -1645,13 +1668,54 @@ const FloatingCompose = () => {
           }
           #reply-quill-toolbar button svg,
           #compose-quill-toolbar button svg {
-            width: 15px !important;
-            height: 15px !important;
+            width: 18px !important;
+            height: 18px !important;
             flex-shrink: 0 !important;
+          }
+          #reply-quill-toolbar button.ql-bold,
+          #compose-quill-toolbar button.ql-bold {
+            font-size: 16px !important;
+            font-weight: 700 !important;
+          }
+          #reply-quill-toolbar button.ql-italic,
+          #compose-quill-toolbar button.ql-italic {
+            font-size: 16px !important;
+            font-style: italic !important;
+            font-family: serif !important;
+          }
+          #reply-quill-toolbar button.ql-underline,
+          #compose-quill-toolbar button.ql-underline {
+            font-size: 16px !important;
+            text-decoration: underline !important;
+            font-weight: 600 !important;
+          }
+          #reply-quill-toolbar button.ql-strike,
+          #compose-quill-toolbar button.ql-strike {
+            font-size: 16px !important;
+            text-decoration: line-through !important;
+          }
+          #reply-quill-toolbar button.ql-blockquote,
+          #compose-quill-toolbar button.ql-blockquote {
+            font-size: 19px !important;
+            font-weight: 700 !important;
+            line-height: 1 !important;
           }
           #reply-quill-toolbar .ql-stroke,
           #compose-quill-toolbar .ql-stroke {
             stroke: #4b5563 !important;
+            stroke-width: 2 !important;
+          }
+          .dark #reply-quill-toolbar .ql-stroke,
+          .dark #compose-quill-toolbar .ql-stroke {
+            stroke: #d1d5db !important;
+          }
+          #reply-quill-toolbar .ql-fill,
+          #compose-quill-toolbar .ql-fill {
+            fill: #4b5563 !important;
+          }
+          .dark #reply-quill-toolbar .ql-fill,
+          .dark #compose-quill-toolbar .ql-fill {
+            fill: #d1d5db !important;
           }
           .dark #reply-quill-toolbar .ql-stroke,
           .dark #compose-quill-toolbar .ql-stroke {
@@ -2089,18 +2153,22 @@ const FloatingCompose = () => {
           {/* BODY - TOOLBAR REMAINS STATIONARY AT TOP, ONLY EDITOR SCROLLS */}
           <div className={`flex-1 min-h-0 flex flex-col w-full compose-quill overflow-visible ${isReply ? 'reply-composer-style px-5' : 'mt-2 rounded-md'}`}>
             {!isReply && (
-              <div id="compose-quill-toolbar" className="flex items-center flex-nowrap gap-1.5 px-3 py-1.5 border-b border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 shrink-0 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none">
+              <div
+                id="compose-quill-toolbar"
+                onMouseDown={(e) => e.preventDefault()}
+                className="flex items-center flex-nowrap gap-2 px-3 py-1.5 border-b border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 shrink-0 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none"
+              >
                 <FontSizeDropdown quillRef={quillRef} direction="down" />
-                <button type="button" className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Bold">B</button>
-                <button type="button" className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Italic">I</button>
-                <button type="button" className="ql-underline underline hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Underline">U</button>
-                <button type="button" className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Strikethrough">S</button>
-                <button type="button" className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-[15px] font-bold" title="Quote">”</button>
-                <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="bullet" title="Bulleted List"></button>
-                <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="ordered" title="Numbered List"></button>
-                <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="-1" title="Decrease Indent"></button>
-                <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="+1" title="Increase Indent"></button>
-                <button type="button" className="ql-link !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" title="Insert Link"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Bold">B</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Italic">I</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-underline underline hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Underline">U</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Strikethrough">S</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Quote">”</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-list hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="bullet" title="Bulleted List"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-list hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="ordered" title="Numbered List"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-indent hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="-1" title="Decrease Indent"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-indent hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="+1" title="Increase Indent"></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-link hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Insert Link"></button>
               </div>
             )}
             <ReactQuill
@@ -2164,7 +2232,7 @@ const FloatingCompose = () => {
             {/* ACTIONS FOOTER */}
             {isReply ? (
               <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-t shrink-0 relative bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800">
-                <div className="flex items-center flex-wrap gap-3.5 sm:gap-4 flex-1 min-w-0">
+                <div className="flex items-center flex-wrap gap-4 sm:gap-5 flex-1 min-w-0">
                   {/* SPLIT SEND PILL BUTTON */}
                   <div className="inline-flex items-center rounded-full overflow-hidden shadow-sm hover:shadow transition-all bg-blue-600 hover:bg-blue-700 text-white shrink-0">
                     <button
@@ -2279,21 +2347,26 @@ const FloatingCompose = () => {
                   )}
 
                   {/* CUSTOM INLINE QUILL TOOLBAR */}
-                  <div id="reply-quill-toolbar" className="flex items-center flex-nowrap gap-1.5 text-gray-700 dark:text-gray-300 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none">
+                  <div
+                    id="reply-quill-toolbar"
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="flex items-center flex-nowrap gap-2 p-1 bg-white dark:bg-neutral-800 rounded-xl border text-gray-700 dark:text-gray-300 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none"
+                    style={{ borderColor: theme.border }}
+                  >
                     <FontSizeDropdown quillRef={quillRef} direction="up" />
 
-                    <button type="button" className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Bold">B</button>
-                    <button type="button" className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Italic">I</button>
-                    <button type="button" className="ql-underline underline hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Underline">U</button>
-                    <button type="button" className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Strikethrough">S</button>
-                    <button type="button" className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-[15px] font-bold" title="Quote">”</button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Bold">B</button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Italic">I</button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-underline underline hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Underline">U</button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Strikethrough">S</button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Quote">”</button>
 
-                    <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="bullet" title="Bulleted List"></button>
-                    <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="ordered" title="Numbered List"></button>
-                    <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="-1" title="Decrease Indent"></button>
-                    <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="+1" title="Increase Indent"></button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-list hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="bullet" title="Bulleted List"></button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-list hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="ordered" title="Numbered List"></button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-indent hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="-1" title="Decrease Indent"></button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-indent hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" value="+1" title="Increase Indent"></button>
 
-                    <button type="button" className="ql-link !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" title="Insert Link"></button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-link hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Insert Link"></button>
                   </div>
                 </div>
 
