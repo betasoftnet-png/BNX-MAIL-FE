@@ -1608,18 +1608,44 @@ const EmailDetails = ({
                 line-height: 1.6 !important;
                 min-height: 120px !important;
               }
+              #inline-reply-toolbar {
+                display: flex !important;
+                align-items: center !important;
+                flex-wrap: nowrap !important;
+                gap: 6px !important;
+              }
               #inline-reply-toolbar button {
                 cursor: pointer !important;
+                float: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 28px !important;
+                height: 28px !important;
+                min-width: 28px !important;
+                min-height: 28px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex-shrink: 0 !important;
+                border-radius: 6px !important;
+                border: none !important;
+                box-sizing: border-box !important;
+                transition: background-color 0.15s ease, color 0.15s ease !important;
+              }
+              #inline-reply-toolbar button:hover {
+                background-color: rgba(0, 0, 0, 0.05) !important;
+              }
+              .dark #inline-reply-toolbar button:hover {
+                background-color: rgba(255, 255, 255, 0.1) !important;
               }
               #inline-reply-toolbar button.ql-active {
                 background-color: rgba(59, 130, 246, 0.15) !important;
                 color: #2563eb !important;
               }
-              #inline-reply-toolbar button.ql-list svg,
-              #inline-reply-toolbar button.ql-indent svg,
-              #inline-reply-toolbar button.ql-link svg {
+              #inline-reply-toolbar button svg {
                 width: 15px !important;
                 height: 15px !important;
+                flex-shrink: 0 !important;
               }
               #inline-reply-toolbar .ql-stroke {
                 stroke: #4b5563 !important;
@@ -1690,13 +1716,13 @@ const EmailDetails = ({
 
           {/* Bottom Toolbar Row */}
           <div className="flex items-center justify-between mt-1 flex-wrap gap-4">
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3.5 sm:gap-4 flex-wrap">
               {/* Send Button */}
               <button
                 type="button"
                 onClick={handleSendReply}
                 disabled={sendingReply}
-                className="px-6 py-2.5 text-white text-xs font-bold rounded-full shadow-sm hover:shadow transition-all bg-[#0b57d0] hover:bg-[#0b57d0]/90 disabled:opacity-60 cursor-pointer"
+                className="px-6 py-2.5 text-white text-xs font-bold rounded-full shadow-sm hover:shadow transition-all bg-[#0b57d0] hover:bg-[#0b57d0]/90 disabled:opacity-60 cursor-pointer shrink-0"
               >
                 {sendingReply ? t("common.sending", "Sending…") : t("common.send", "Send")}
               </button>
@@ -1704,10 +1730,10 @@ const EmailDetails = ({
               {/* Formatting bar container - always visible now next to Send button */}
               <div 
                 id="inline-reply-toolbar" 
-                className="flex items-center gap-1 p-1 bg-white dark:bg-neutral-800 rounded-lg border text-gray-700 dark:text-gray-300 shrink-0 select-none overflow-visible whitespace-nowrap max-w-full relative z-30" 
+                className="flex items-center flex-nowrap gap-1.5 p-1 bg-white dark:bg-neutral-800 rounded-lg border text-gray-700 dark:text-gray-300 shrink-0 select-none max-w-full overflow-x-auto scrollbar-none relative z-30" 
                 style={{ borderColor: theme.border }}
               >
-                <FontSizeDropdown quillRef={replyQuillRef} direction="up" className="mr-1" />
+                <FontSizeDropdown quillRef={replyQuillRef} direction="up" />
                 
                 <button className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">B</button>
                 <button className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">I</button>

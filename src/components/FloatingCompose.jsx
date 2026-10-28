@@ -1600,53 +1600,78 @@ const FloatingCompose = () => {
               font-style: normal !important;
               font-size: 14px !important;
             }
-            #reply-quill-toolbar button,
-            #compose-quill-toolbar button {
-              cursor: pointer !important;
-            }
-            #reply-quill-toolbar button.ql-active,
-            #compose-quill-toolbar button.ql-active {
-              background-color: rgba(59, 130, 246, 0.15) !important;
-              color: #2563eb !important;
-            }
-            #reply-quill-toolbar button.ql-list svg,
-            #reply-quill-toolbar button.ql-indent svg,
-            #reply-quill-toolbar button.ql-link svg,
-            #reply-quill-toolbar button.ql-clean svg,
-            #compose-quill-toolbar button.ql-list svg,
-            #compose-quill-toolbar button.ql-indent svg,
-            #compose-quill-toolbar button.ql-link svg,
-            #compose-quill-toolbar button.ql-clean svg {
-              width: 15px !important;
-              height: 15px !important;
-            }
-            #reply-quill-toolbar .ql-stroke,
-            #compose-quill-toolbar .ql-stroke {
-              stroke: #4b5563 !important;
-            }
-            .dark #reply-quill-toolbar .ql-stroke,
-            .dark #compose-quill-toolbar .ql-stroke {
-              stroke: #d1d5db !important;
-            }
-            #reply-quill-toolbar .ql-fill,
-            #compose-quill-toolbar .ql-fill {
-              fill: #4b5563 !important;
-            }
-            .dark #reply-quill-toolbar .ql-fill,
-            .dark #compose-quill-toolbar .ql-fill {
-              fill: #d1d5db !important;
-            }
           `}</style>
         )}
 
         <style>{`
+          #reply-quill-toolbar,
+          #compose-quill-toolbar {
+            display: flex !important;
+            align-items: center !important;
+            flex-wrap: nowrap !important;
+            gap: 6px !important;
+          }
+          #reply-quill-toolbar button,
+          #compose-quill-toolbar button {
+            cursor: pointer !important;
+            float: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 28px !important;
+            height: 28px !important;
+            min-width: 28px !important;
+            min-height: 28px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+            border-radius: 6px !important;
+            border: none !important;
+            box-sizing: border-box !important;
+            transition: background-color 0.15s ease, color 0.15s ease !important;
+          }
+          #reply-quill-toolbar button:hover,
+          #compose-quill-toolbar button:hover {
+            background-color: rgba(0, 0, 0, 0.05) !important;
+          }
+          .dark #reply-quill-toolbar button:hover,
+          .dark #compose-quill-toolbar button:hover {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+          }
+          #reply-quill-toolbar button.ql-active,
+          #compose-quill-toolbar button.ql-active {
+            background-color: rgba(59, 130, 246, 0.15) !important;
+            color: #2563eb !important;
+          }
+          #reply-quill-toolbar button svg,
+          #compose-quill-toolbar button svg {
+            width: 15px !important;
+            height: 15px !important;
+            flex-shrink: 0 !important;
+          }
+          #reply-quill-toolbar .ql-stroke,
+          #compose-quill-toolbar .ql-stroke {
+            stroke: #4b5563 !important;
+          }
+          .dark #reply-quill-toolbar .ql-stroke,
+          .dark #compose-quill-toolbar .ql-stroke {
+            stroke: #d1d5db !important;
+          }
+          #reply-quill-toolbar .ql-fill,
+          #compose-quill-toolbar .ql-fill {
+            fill: #4b5563 !important;
+          }
+          .dark #reply-quill-toolbar .ql-fill,
+          .dark #compose-quill-toolbar .ql-fill {
+            fill: #d1d5db !important;
+          }
           .compose-quill {
             display: flex !important;
             flex-direction: column !important;
             flex: 1 1 0% !important;
             min-height: 0 !important;
             height: 100% !important;
-            overflow: hidden !important;
+            overflow: visible !important;
           }
           .compose-quill .quill {
             display: flex !important;
@@ -1654,7 +1679,7 @@ const FloatingCompose = () => {
             flex: 1 1 0% !important;
             min-height: 0 !important;
             height: 100% !important;
-            overflow: hidden !important;
+            overflow: visible !important;
           }
           .compose-quill .ql-toolbar.ql-snow {
             flex-shrink: 0 !important;
@@ -2064,22 +2089,18 @@ const FloatingCompose = () => {
           {/* BODY - TOOLBAR REMAINS STATIONARY AT TOP, ONLY EDITOR SCROLLS */}
           <div className={`flex-1 min-h-0 flex flex-col w-full compose-quill overflow-visible ${isReply ? 'reply-composer-style px-5' : 'mt-2 rounded-md'}`}>
             {!isReply && (
-              <div id="compose-quill-toolbar" className="flex items-center flex-wrap gap-1 sm:gap-1.5 px-3 py-1.5 border-b border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 shrink-0 relative z-30 overflow-visible">
+              <div id="compose-quill-toolbar" className="flex items-center flex-nowrap gap-1.5 px-3 py-1.5 border-b border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 shrink-0 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none">
                 <FontSizeDropdown quillRef={quillRef} direction="down" />
-                <span className="w-[1px] h-4 bg-gray-200 dark:bg-neutral-700 mx-1"></span>
                 <button type="button" className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Bold">B</button>
                 <button type="button" className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Italic">I</button>
                 <button type="button" className="ql-underline underline hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Underline">U</button>
                 <button type="button" className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Strikethrough">S</button>
                 <button type="button" className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-[15px] font-bold" title="Quote">”</button>
-                <span className="w-[1px] h-4 bg-gray-200 dark:bg-neutral-700 mx-1"></span>
-                <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="bullet" title="Bullet List"></button>
+                <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="bullet" title="Bulleted List"></button>
                 <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="ordered" title="Numbered List"></button>
                 <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="-1" title="Decrease Indent"></button>
                 <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="+1" title="Increase Indent"></button>
-                <span className="w-[1px] h-4 bg-gray-200 dark:bg-neutral-700 mx-1"></span>
                 <button type="button" className="ql-link !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" title="Insert Link"></button>
-                <button type="button" className="ql-clean !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" title="Clear Formatting"></button>
               </div>
             )}
             <ReactQuill
@@ -2143,7 +2164,7 @@ const FloatingCompose = () => {
             {/* ACTIONS FOOTER */}
             {isReply ? (
               <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-t shrink-0 relative bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800">
-                <div className="flex items-center flex-wrap gap-2 sm:gap-3 flex-1 min-w-0">
+                <div className="flex items-center flex-wrap gap-3.5 sm:gap-4 flex-1 min-w-0">
                   {/* SPLIT SEND PILL BUTTON */}
                   <div className="inline-flex items-center rounded-full overflow-hidden shadow-sm hover:shadow transition-all bg-blue-600 hover:bg-blue-700 text-white shrink-0">
                     <button
@@ -2258,7 +2279,7 @@ const FloatingCompose = () => {
                   )}
 
                   {/* CUSTOM INLINE QUILL TOOLBAR */}
-                  <div id="reply-quill-toolbar" className="flex items-center flex-wrap gap-1 sm:gap-1.5 text-gray-700 dark:text-gray-300 relative z-30 overflow-visible">
+                  <div id="reply-quill-toolbar" className="flex items-center flex-nowrap gap-1.5 text-gray-700 dark:text-gray-300 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none">
                     <FontSizeDropdown quillRef={quillRef} direction="up" />
 
                     <button type="button" className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Bold">B</button>
@@ -2267,7 +2288,7 @@ const FloatingCompose = () => {
                     <button type="button" className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Strikethrough">S</button>
                     <button type="button" className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-[15px] font-bold" title="Quote">”</button>
 
-                    <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="bullet" title="Bullet List"></button>
+                    <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="bullet" title="Bulleted List"></button>
                     <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="ordered" title="Numbered List"></button>
                     <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="-1" title="Decrease Indent"></button>
                     <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="+1" title="Increase Indent"></button>
