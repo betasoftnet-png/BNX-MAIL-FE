@@ -333,23 +333,44 @@ const EmailDetails = ({
 
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockedContacts, setBlockedContacts] = useState([]);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    blockedContactsAPI.getBlockedContacts()
-      .then(res => {
-        if (isMounted && res.data && res.data.data) {
-          const list = res.data.data.map(c => typeof c === 'string' ? c : c.email);
-          setBlockedContacts(list);
+    const fetchStatus = async () => {
+      try {
+        const extractEmails = (res) => {
+          const raw = res?.data?.data || res?.data || [];
+          if (Array.isArray(raw)) {
+            return raw.map(c => typeof c === 'string' ? c : (c?.email || c?.blockedEmail || '')).filter(Boolean);
+          }
+          return [];
+        };
+
+        const [contactsRes, subsRes] = await Promise.allSettled([
+          blockedContactsAPI.getBlockedContacts(),
+          mailAPI.getSubscriptions()
+        ]);
+
+        if (!isMounted) return;
+        const set = new Set();
+        if (contactsRes.status === "fulfilled") {
+          extractEmails(contactsRes.value).forEach(e => set.add(e.toLowerCase().trim()));
         }
-      })
-      .catch(err => {
-        console.error("Failed to load blocked contacts from backend", err);
-      });
+        if (subsRes.status === "fulfilled") {
+          extractEmails(subsRes.value).forEach(e => set.add(e.toLowerCase().trim()));
+        }
+        setBlockedContacts(Array.from(set));
+      } catch (err) {
+        console.error("Failed to load subscription status", err);
+      }
+    };
+    fetchStatus();
     return () => { isMounted = false; };
   }, [normalizedSender]);
 
-  const isBlocked = normalizedSender ? blockedContacts.some(c => c.toLowerCase() === normalizedSender.toLowerCase()) : false;
+  const isUnsubscribed = normalizedSender ? blockedContacts.some(c => c.toLowerCase().trim() === normalizedSender.toLowerCase().trim()) : false;
+  const isBlocked = isUnsubscribed;
 
   const handleToggleBlock = async () => {
     if (!normalizedSender) return;
@@ -376,41 +397,77 @@ const EmailDetails = ({
     }
   };
 
-  const handleUnsubscribeClick = async (targetSender = null) => {
-    const rawSender = (typeof targetSender === "string" && targetSender.trim()) ? targetSender : cleanSenderEmail;
-    const emailToUnsub = (typeof rawSender === "string") ? rawSender.trim() : "";
-    if (!emailToUnsub) return;
-    const confirmUnsubscribe = window.confirm(`Are you sure you want to unsubscribe and block future emails from ${emailToUnsub}?`);
-    if (confirmUnsubscribe) {
-      try {
-        toast.loading("Unsubscribing...", { id: "unsubscribe" });
+  const handleToggleSubscription = async (targetSender = null) => {
+    const rawSender = (typeof targetSender === "string" && targetSender.trim()) ? targetSender : (normalizedSender || cleanSenderEmail);
+    const emailToToggle = (typeof rawSender === "string") ? rawSender.trim() : "";
+    if (!emailToToggle || subscriptionLoading) return;
+    const lowerSender = emailToToggle.toLowerCase().trim();
+
+    setSubscriptionLoading(true);
+    const toastId = "subscription-toggle";
+
+    try {
+      if (isUnsubscribed) {
+        // Currently unsubscribed -> Resubscribe
+        toast.loading(t("subscriptions.subscribing", "Resubscribing..."), { id: toastId });
         const promises = [];
-        if (mailAPI.unsubscribe) promises.push(mailAPI.unsubscribe(emailToUnsub));
-        if (blockedContactsAPI?.blockSender) promises.push(blockedContactsAPI.blockSender(emailToUnsub));
+        if (mailAPI.subscribe) promises.push(mailAPI.subscribe(emailToToggle));
+        if (blockedContactsAPI?.unblockSender) promises.push(blockedContactsAPI.unblockSender(emailToToggle));
 
         const results = await Promise.allSettled(promises);
-        const hasSuccess = results.some(r => r.status === "fulfilled" && (
-          (typeof r.value?.status === "number" && r.value.status >= 200 && r.value.status < 300 && r.value?.data?.success !== false) ||
-          (r.value?.success !== false && !r.value?.error)
+        const hasSuccess = results.some(r => (
+          r.status === "fulfilled" && (
+            (typeof r.value?.status === "number" && r.value.status >= 200 && r.value.status < 300 && r.value?.data?.success !== false) ||
+            (r.value?.success !== false && !r.value?.error && r.value?.data?.success !== false)
+          )
         ));
 
         if (!hasSuccess) {
-          throw new Error("Failed to unsubscribe");
+          const rejectedReason = results.find(r => r.status === "rejected")?.reason;
+          throw rejectedReason || new Error("Failed to resubscribe");
         }
 
-        toast.success(`Unsubscribed from ${emailToUnsub}`, { id: "unsubscribe" });
-        if (fetchEmails) {
-          fetchEmails(currentFolder || "inbox");
+        setBlockedContacts(prev => prev.filter(c => c.toLowerCase().trim() !== lowerSender));
+        toast.success(t("subscriptions.resubscribed", `Resubscribed to ${emailToToggle}`), { id: toastId });
+      } else {
+        // Currently subscribed -> Unsubscribe
+        toast.loading(t("subscriptions.unsubscribing", "Unsubscribing..."), { id: toastId });
+        const promises = [];
+        if (mailAPI.unsubscribe) promises.push(mailAPI.unsubscribe(emailToToggle));
+        if (blockedContactsAPI?.blockSender) promises.push(blockedContactsAPI.blockSender(emailToToggle));
+
+        const results = await Promise.allSettled(promises);
+        const hasSuccess = results.some(r => (
+          r.status === "fulfilled" && (
+            (typeof r.value?.status === "number" && r.value.status >= 200 && r.value.status < 300 && r.value?.data?.success !== false) ||
+            (r.value?.success !== false && !r.value?.error && r.value?.data?.success !== false)
+          )
+        ));
+
+        if (!hasSuccess) {
+          const rejectedReason = results.find(r => r.status === "rejected")?.reason;
+          throw rejectedReason || new Error("Failed to unsubscribe");
         }
-        if (onBack) {
-          onBack();
-        }
-      } catch (error) {
-        console.error("Failed to unsubscribe:", error);
-        toast.error("Failed to unsubscribe", { id: "unsubscribe" });
+
+        setBlockedContacts(prev => {
+          const exists = prev.some(c => c.toLowerCase().trim() === lowerSender);
+          return exists ? prev : [...prev, lowerSender];
+        });
+        toast.success(t("subscriptions.unsubscribed", `Unsubscribed from ${emailToToggle}`), { id: toastId });
       }
+
+      if (typeof fetchEmails === "function") {
+        fetchEmails(currentFolder || "inbox");
+      }
+    } catch (error) {
+      console.error("Subscription toggle failed:", error);
+      toast.error(error?.message || "Failed to update subscription status", { id: toastId });
+    } finally {
+      setSubscriptionLoading(false);
     }
   };
+
+  const handleUnsubscribeClick = handleToggleSubscription;
   const isActuallyArchived = isArchiveFolder || email.folderName?.toLowerCase() === "archive";
   const [showReply, setShowReply] = useState(false);
   const [replyMode, setReplyMode] = useState("reply"); // 'reply' or 'forward'
@@ -1282,11 +1339,15 @@ const EmailDetails = ({
                 )}
                 {cleanSenderEmail && !isSystemEmail && (
                   <button
-                    onClick={() => handleUnsubscribeClick()}
-                    className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none"
-                    title={t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
+                    type="button"
+                    onClick={() => handleToggleSubscription()}
+                    disabled={subscriptionLoading}
+                    className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe to this sender") : t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
                   >
-                    {t("bulk_actions.unsubscribe", "Unsubscribe")}
+                    {subscriptionLoading
+                      ? (isUnsubscribed ? "Resubscribing..." : "Unsubscribing...")
+                      : (isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe") : t("bulk_actions.unsubscribe", "Unsubscribe"))}
                   </button>
                 )}
               </div>
