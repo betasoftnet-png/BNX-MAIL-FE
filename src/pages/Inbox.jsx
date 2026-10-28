@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { useAuth } from "../context/AuthContext";
@@ -20,7 +20,7 @@ const Inbox = ({ searchQuery }) => {
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
-  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter, dateFilter, customDateRange, resetDateFilter } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter, dateFilter, customDateRange, resetDateFilter } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
@@ -269,12 +269,12 @@ const Inbox = ({ searchQuery }) => {
 
         {/* Refresh Button */}
         <button
-          onClick={() => fetchEmails(currentFolder, false, 1)}
-          disabled={loading}
+          onClick={() => refreshEmails(currentFolder)}
+          disabled={loading || isRefreshing}
           className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
           title={t("common.refresh", "Refresh mail")}
         >
-          <MdRefresh size={18} className={loading ? "animate-spin" : ""} />
+          <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
         </button>
 
         {/* All Tabs */}

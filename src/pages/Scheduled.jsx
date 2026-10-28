@@ -1,10 +1,11 @@
-﻿import { useTranslation } from "../context/LanguageContext";
+import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState, useCallback } from "react";
 import { mailAPI } from "../services/api";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
+import { MdRefresh } from "react-icons/md";
 import toast from "react-hot-toast";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
@@ -220,6 +221,14 @@ const Scheduled = ({ searchQuery }) => {
             </span>
           )}
         </h2>
+        <button
+          onClick={() => fetchScheduled(false)}
+          disabled={loading || isRefreshing}
+          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
+          title={t("common.refresh", "Refresh mail")}
+        >
+          <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
+        </button>
       </div>
     );
 

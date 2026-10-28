@@ -2,7 +2,7 @@ import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMail } from "../context/MailContext";
-import { MdReport, MdDelete } from "react-icons/md";
+import { MdReport, MdDelete, MdRefresh } from "react-icons/md";
 import toast from "react-hot-toast";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
@@ -17,7 +17,7 @@ const Spam = ({ searchQuery }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, handleMarkRead, openCompose, matchesDateFilter } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, handleMarkRead, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
@@ -197,17 +197,27 @@ const Spam = ({ searchQuery }) => {
           ({uniqueEmails.length})
         </span>
       </h2>
-      {uniqueEmails.length > 0 && (
+      <div className="flex items-center gap-2">
         <button
-          onClick={handleDeleteAllSpam}
-          disabled={isDeletingAll}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-          title="Delete all spam emails"
+          onClick={() => refreshEmails("spam")}
+          disabled={loading || isRefreshing}
+          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
+          title={t("common.refresh", "Refresh mail")}
         >
-          <MdDelete size={16} />
-          Delete All
+          <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
         </button>
-      )}
+        {uniqueEmails.length > 0 && (
+          <button
+            onClick={handleDeleteAllSpam}
+            disabled={isDeletingAll}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            title="Delete all spam emails"
+          >
+            <MdDelete size={16} />
+            Delete All
+          </button>
+        )}
+      </div>
     </div>
 
   );

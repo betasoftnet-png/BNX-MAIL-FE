@@ -15,7 +15,7 @@ const AllMail = ({ searchQuery }) => {
   const navigate = useNavigate();
   const { labelId } = useParams();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, fetchEmails, fetchLabelEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleSnooze, labels, currentFolder, handleArchive, handleUnarchive, openCompose, matchesDateFilter } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, fetchLabelEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleSnooze, labels, currentFolder, handleArchive, handleUnarchive, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
   const selectedEmail = selectedEmailOverride || emails.find(
@@ -254,16 +254,16 @@ const AllMail = ({ searchQuery }) => {
                 <button
                   onClick={() => {
                     if (labelId) {
-                      fetchLabelEmails(labelId);
+                      refreshEmails(`label-${labelId}`);
                     } else {
-                      fetchEmails("all-mail");
+                      refreshEmails("all-mail");
                     }
                   }}
-                  disabled={loading}
+                  disabled={loading || isRefreshing}
                   className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer"
                   title="Refresh mail"
                 >
-                  <MdRefresh size={18} className={loading ? "animate-spin" : ""} />
+                  <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
                 </button>
               </div>
 

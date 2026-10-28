@@ -1,7 +1,7 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState } from "react";
 import { useMail } from "../context/MailContext";
-import { MdDelete } from "react-icons/md";
+import { MdDelete, MdRefresh } from "react-icons/md";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
@@ -14,7 +14,7 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 const Trash = ({ searchQuery }) => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, fetchEmails, handleDeletePermanently, handleSnooze, handleApplyLabel, handleToggleStar, handleArchive, matchesDateFilter } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleDeletePermanently, handleSnooze, handleApplyLabel, handleToggleStar, handleArchive, matchesDateFilter } = useMail();
   const [selectedEmail, setSelectedEmail] = useState(null);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -125,6 +125,14 @@ const Trash = ({ searchQuery }) => {
                   ({emails.length})
                 </span>
               </h2>
+              <button
+                onClick={() => refreshEmails("trash")}
+                disabled={loading || isRefreshing}
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
+                title={t("common.refresh", "Refresh mail")}
+              >
+                <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
+              </button>
             </div>
           
   );

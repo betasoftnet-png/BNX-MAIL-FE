@@ -70,6 +70,8 @@ export const MailProvider = ({ children }) => {
         delete pagesCache.current[`${folderKey}_total`];
     }, []);
     const [loading, setLoading] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const isRefreshingRef = useRef(false);
     const [unreadCounts, setUnreadCounts] = useState({ inbox: 0, unread: 0, spam: 0, trash: 0 });
     const [labels, setLabels] = useState([]);
     const [totalEmails, setTotalEmails] = useState(0);
@@ -85,7 +87,7 @@ export const MailProvider = ({ children }) => {
         currentFolderRef.current = currentFolder;
     }, [currentFolder]);
 
-    const fetchLabelEmails = useCallback(async (labelId, silent = false, page = null) => {
+    const fetchLabelEmails = useCallback(async (labelId, silent = false, page = null, force = false) => {
         const isFolderChange = currentFolderRef.current !== `label-${labelId}`;
         const targetPage = isFolderChange
             ? (page !== null && page !== undefined ? page : 1)
@@ -93,7 +95,11 @@ export const MailProvider = ({ children }) => {
 
         updateCurrentPage(targetPage);
         if (!user) return;
-        if (!silent) setLoading(true);
+        if (!silent || force) setLoading(true);
+        if (force) {
+            setIsRefreshing(true);
+            isRefreshingRef.current = true;
+        }
         // Only clear if the folder actually changed to avoid flashing on auto-polling/refresh
         setEmails(prev => (currentFolderRef.current === `label-${labelId}` ? prev : []));
         setCurrentFolder(`label-${labelId}`);
@@ -112,7 +118,7 @@ export const MailProvider = ({ children }) => {
                     const validPage = totalPages;
                     updateCurrentPage(validPage);
                     if (validPage !== targetPage) {
-                        fetchLabelEmails(labelId, silent, validPage);
+                        fetchLabelEmails(labelId, silent, validPage, force);
                         return;
                     }
                 }
@@ -136,9 +142,13 @@ export const MailProvider = ({ children }) => {
             }
         } catch (error) {
             console.error('Failed to fetch label emails:', error);
-            toast.error('Failed to load labeled emails');
+            toast.error(error?.response?.data?.message || 'Failed to load labeled emails');
         } finally {
-            if (!silent) setLoading(false);
+            if (force) {
+                setIsRefreshing(false);
+                isRefreshingRef.current = false;
+            }
+            if (!silent || force) setLoading(false);
         }
     }, [user, limit, updateCurrentPage]);
 
@@ -673,8 +683,14 @@ export const MailProvider = ({ children }) => {
         }
     }, [user, limit, getStarredWithDrafts, fetchAllInboxEmails, fetchAllMailEmails]);
 
-    const fetchEmails = useCallback(async (folder = currentFolderRef.current, silent = false, page = null) => {
+    const fetchEmails = useCallback(async (folder = currentFolderRef.current, silent = false, page = null, force = false) => {
         const folderKey = (folder || currentFolderRef.current).toLowerCase();
+
+        if (folderKey.startsWith('label-')) {
+            const labelId = folder.replace(/^label-/i, '');
+            return await fetchLabelEmails(labelId, silent, page, force);
+        }
+
         const isFolderChange = currentFolderRef.current.toLowerCase() !== folderKey;
         const targetPage = isFolderChange
             ? (page !== null && page !== undefined ? page : 1)
@@ -684,8 +700,12 @@ export const MailProvider = ({ children }) => {
         
         if (!user) return;
 
-        // Instant render: if in-memory cache has data for this folder & page, display it immediately!
-        if (pagesCache.current[folderKey] && pagesCache.current[folderKey][targetPage]) {
+        if (force) {
+            invalidateCache(folderKey);
+            setIsRefreshing(true);
+            isRefreshingRef.current = true;
+        } else if (pagesCache.current[folderKey] && pagesCache.current[folderKey][targetPage]) {
+            // Instant render: if in-memory cache has data for this folder & page, display it immediately!
             const cachedList = pagesCache.current[folderKey][targetPage];
             const cachedTotal = pagesCache.current[`${folderKey}_total`] ?? cachedList.length;
             setEmails(cachedList);
@@ -697,7 +717,7 @@ export const MailProvider = ({ children }) => {
             return;
         }
 
-        if (!silent) {
+        if (!silent || force) {
             setLoading(true);
         }
         
@@ -767,7 +787,7 @@ export const MailProvider = ({ children }) => {
                     res = await fetchAllMailEmails(targetPage, limit);
                     break;
                 }
-                default: res = await mailAPI.getInbox(page, limit);
+                default: res = await mailAPI.getInbox(targetPage, limit);
             }
 
             if (res.data?.success) {
@@ -885,7 +905,7 @@ export const MailProvider = ({ children }) => {
                         const validPage = totalPages;
                         updateCurrentPage(validPage);
                         if (validPage !== targetPage) {
-                            fetchEmails(folder, silent, validPage);
+                            fetchEmails(folder, silent, validPage, force);
                             return;
                         }
                     }
@@ -895,11 +915,41 @@ export const MailProvider = ({ children }) => {
             }
         } catch (error) {
             console.error(`Failed to fetch ${folder}:`, error);
-            toast.error(`Failed to load ${folder}`);
+            toast.error(error?.response?.data?.message || (force ? `Failed to refresh ${folder}` : `Failed to load ${folder}`));
         } finally {
-            if (!silent && currentFolderRef.current.toLowerCase() === folderKey) setLoading(false);
+            if (force) {
+                setIsRefreshing(false);
+                isRefreshingRef.current = false;
+            }
+            if ((!silent || force) && currentFolderRef.current.toLowerCase() === folderKey) setLoading(false);
         }
-    }, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts, fetchAllInboxEmails, fetchAllMailEmails]);
+    }, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts, fetchAllInboxEmails, fetchAllMailEmails, invalidateCache, fetchLabelEmails]);
+
+    const refreshEmails = useCallback(async (folder) => {
+        if (isRefreshingRef.current) return;
+        isRefreshingRef.current = true;
+        setIsRefreshing(true);
+        setLoading(true);
+
+        const targetFolder = folder || currentFolderRef.current || 'inbox';
+        const targetPage = currentPageRef.current || 1;
+
+        try {
+            if (targetFolder.toLowerCase().startsWith('label-')) {
+                const labelId = targetFolder.replace(/^label-/i, '');
+                await fetchLabelEmails(labelId, false, targetPage, true);
+            } else {
+                await fetchEmails(targetFolder, false, targetPage, true);
+            }
+        } catch (err) {
+            console.error(`Failed to refresh ${targetFolder}:`, err);
+            toast.error(err?.response?.data?.message || `Failed to refresh ${targetFolder}`);
+        } finally {
+            setIsRefreshing(false);
+            setLoading(false);
+            isRefreshingRef.current = false;
+        }
+    }, [fetchEmails, fetchLabelEmails]);
 
     const fetchLabels = useCallback(async () => {
         if (!user) return;
@@ -1989,12 +2039,14 @@ export const MailProvider = ({ children }) => {
             emails,
             getFolderEmails,
             loading,
+            isRefreshing,
             currentFolder,
             setCurrentFolder,
             unreadCounts,
             labels,
             fetchEmails,
             fetchEmailsSilently,
+            refreshEmails,
             invalidateCache,
             fetchLabels,
             fetchLabelEmails,
@@ -2050,12 +2102,14 @@ export const useMail = () => {
             emails: [],
             getFolderEmails: () => [],
             loading: false,
+            isRefreshing: false,
             labels: [],
             unreadCounts: { inbox: 0, unread: 0, spam: 0, trash: 0 },
             totalEmails: 0,
             currentPage: 1,
             fetchEmails: async () => {},
             fetchEmailsSilently: async () => {},
+            refreshEmails: async () => {},
             fetchLabelEmails: async () => {},
             handleToggleStar: async () => {},
             handleMoveToTrash: async () => {},
