@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from '../context/LanguageContext';
 import { mailAPI } from '../services/api';
@@ -65,37 +65,37 @@ const StorageManagement = () => {
   const categories = [
     {
       name: 'Emails',
-      icon: '📧',
+      icon: 'ðŸ“§',
       size: storageData?.emailsSize !== undefined ? storageData.emailsSize : Math.round(used * 0.45),
       color: theme.accent || '#135bec'
     },
     {
       name: 'Attachments',
-      icon: '📎',
+      icon: 'ðŸ“Ž',
       size: storageData?.attachmentsSize !== undefined ? storageData.attachmentsSize : Math.round(used * 0.30),
       color: '#10b981'
     },
     {
       name: 'Trash',
-      icon: '🗑️',
+      icon: 'ðŸ—‘ï¸',
       size: storageData?.trashSize !== undefined ? storageData.trashSize : Math.round(used * 0.10),
       color: '#ef4444'
     },
     {
       name: 'Sent',
-      icon: '📤',
+      icon: 'ðŸ“¤',
       size: storageData?.sentSize !== undefined ? storageData.sentSize : Math.round(used * 0.08),
       color: '#f59e0b'
     },
     {
       name: 'Drafts',
-      icon: '📝',
+      icon: 'ðŸ“',
       size: storageData?.draftsSize !== undefined ? storageData.draftsSize : Math.round(used * 0.05),
       color: '#8b5cf6'
     },
     {
       name: 'Other',
-      icon: '📁',
+      icon: 'ðŸ“',
       size: storageData?.otherSize !== undefined ? storageData.otherSize : Math.round(used * 0.02),
       color: '#6b7280'
     }
@@ -118,7 +118,7 @@ const StorageManagement = () => {
               className="flex items-center gap-1.5 text-xs font-bold transition-all opacity-80 hover:opacity-100 cursor-pointer"
               style={{ color: theme.text }}
             >
-              ← Back to list
+              â† Back to list
             </button>
             <span className="h-4 w-px bg-gray-300 dark:bg-gray-700" />
             <img src={beta2} alt="BNX Mail" className="h-7 w-auto" />
@@ -152,7 +152,7 @@ const StorageManagement = () => {
             </div>
           ) : error ? (
             <div className="p-12 text-center rounded-3xl border bg-white/40 dark:bg-gray-900/40 backdrop-blur-md flex flex-col items-center justify-center gap-3" style={{ borderColor: theme.border }}>
-              <span className="text-2xl">⚠️</span>
+              <span className="text-2xl">âš ï¸</span>
               <span className="text-sm font-bold text-red-500">{error}</span>
               <button 
                 onClick={() => window.location.reload()}
@@ -311,7 +311,7 @@ const StorageManagement = () => {
           </div>
         ) : error ? (
           <div className="p-12 text-center rounded-3xl border bg-white/40 dark:bg-gray-900/40 backdrop-blur-md flex flex-col items-center justify-center gap-3" style={{ borderColor: theme.border }}>
-            <span className="text-2xl">⚠️</span>
+            <span className="text-2xl">âš ï¸</span>
             <span className="text-sm font-bold text-red-500">{error}</span>
             <button 
               onClick={() => window.location.reload()}

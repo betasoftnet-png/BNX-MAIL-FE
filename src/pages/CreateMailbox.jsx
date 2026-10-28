@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { emailAPI } from '../services/api';
 // import logo from '../assets/bnx.jpeg';
@@ -109,7 +109,7 @@ const CreateMailbox = () => {
                                 <span>Securing Identity...</span>
                             </div>
                         ) : (
-                            'Claim Email Address →'
+                            'Claim Email Address â†’'
                         )}
                     </button>
                 </form>

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
@@ -123,7 +123,7 @@ const Privacy = () => {
           </section>
 
           <footer className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 text-center text-slate-500 dark:text-slate-400">
-            <p>© 2026 BETA Softnet. All rights reserved.</p>
+            <p>Â© 2026 BETA Softnet. All rights reserved.</p>
           </footer>
         </div>
       </div>

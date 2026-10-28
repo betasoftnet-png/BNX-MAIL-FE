@@ -17,7 +17,9 @@ const Send = ({ searchQuery }) => {
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
-  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
+  const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
+  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid)) ||
+    (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -32,24 +34,29 @@ const Send = ({ searchQuery }) => {
 
   useEffect(() => {
     setSelectedEmailUid(null);
+    setSelectedEmailOverride(null);
     setSelectedIds(new Set());
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handleOpenEmail = (e) => {
+      const email = e.detail?.email;
+      const uid = e.detail?.uid;
+      if (uid !== undefined && uid !== null) {
+        setSelectedEmailUid(uid);
+        if (email) setSelectedEmailOverride(email);
+      }
+    };
+    window.addEventListener('bnx-open-email', handleOpenEmail);
+    return () => window.removeEventListener('bnx-open-email', handleOpenEmail);
+  }, []);
 
   useEffect(() => {
     fetchEmails('sent');
   }, [fetchEmails]);
 
   const visibleEmails = emails.filter(
-    (e) =>
-      (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true) &&
-      (!searchQuery ||
-        e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
+    (e) => typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
   );
 
   const handleSelectEmail = (email) => {
@@ -81,7 +88,7 @@ const Send = ({ searchQuery }) => {
             className="animate-spin rounded-full h-10 w-10 border-b-2 mx-auto mb-4"
             style={{ borderColor: theme.accent }}
           />
-          <p style={{ color: theme.subText }}>Loading sent mail…</p>
+          <p style={{ color: theme.subText }}>Loading sent mailâ€¦</p>
         </div>
       </div>
     );

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { MdMailOutline, MdRefresh, MdMoreVert } from "react-icons/md";
@@ -138,7 +138,7 @@ const BulkMail = ({ searchQuery }) => {
               style={{ borderColor: theme.border, color: theme.text }}
             >
               <span>View: {activeView}</span>
-              <span className="text-[10px] opacity-75">▼</span>
+              <span className="text-[10px] opacity-75">â–¼</span>
             </button>
             {showViewsDropdown && (
               <>
@@ -172,8 +172,8 @@ const BulkMail = ({ searchQuery }) => {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
               style={{ borderColor: theme.border, color: theme.text }}
             >
-              <span>📎 Attachments: {activeAttachmentFilter}</span>
-              <span className="text-[10px] opacity-75">▼</span>
+              <span>ðŸ“Ž Attachments: {activeAttachmentFilter}</span>
+              <span className="text-[10px] opacity-75">â–¼</span>
             </button>
             {showAttachmentDropdown && (
               <>
@@ -252,7 +252,7 @@ const BulkMail = ({ searchQuery }) => {
       {showSmartFilter && (
         <div className="px-4 py-2 bg-blue-50/30 dark:bg-blue-950/10 border-b border-gray-100/50 dark:border-gray-800/50 flex flex-wrap items-center justify-between text-xs gap-3">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-blue-500">💡</span>
+            <span className="text-blue-500">ðŸ’¡</span>
             <span className="font-semibold text-blue-600 dark:text-blue-400">Smart Filter:</span>
             <span>Mass-mail, newsletters, and promotional alerts are automatically redirected here to keep your primary inbox uncluttered.</span>
           </div>

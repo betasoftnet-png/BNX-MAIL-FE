@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import { MdSecurity, MdCheckCircle, MdError, MdRefresh, MdLock, MdCloudQueue, MdLanguage, MdLaunch } from "react-icons/md";
@@ -412,7 +412,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
                   Remote Revocation Verification
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Leave this tab open and click <strong>Revoke Access</strong> in BNXmail (Settings → Active Sessions & Logs → Connected Applications). This page will immediately detect revocation and automatically log out.
+                  Leave this tab open and click <strong>Revoke Access</strong> in BNXmail (Settings â†’ Active Sessions & Logs â†’ Connected Applications). This page will immediately detect revocation and automatically log out.
                 </p>
               </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authAPI, emailAPI } from '../services/api';
 import { useSignup } from '../context/SignupContext';
@@ -343,7 +343,7 @@ const Register = () => {
                                 <span>Processing...</span>
                             </div>
                         ) : (
-                            'Create Secure Account →'
+                            'Create Secure Account â†’'
                         )}
                     </button>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../context/LanguageContext";
@@ -14,6 +14,15 @@ import logo from "../assets/bnx-remove.png";
 import bitToolLogo from "../assets/BIT-TOOL-2.png";
 import AppLauncher from "./AppLauncher";
 import CustomDateRangeModal from "./CustomDateRangeModal";
+import {
+  getActiveFolderFromPath,
+  getFolderDisplayName,
+  matchesFolderScope,
+  matchesEmailQuery,
+  parsePersonAndEmail,
+  formatSuggestionDate
+} from "../utils/searchUtils";
+import { getEmailPreviewSnippet } from "../utils/htmlUtils";
 
 const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSidebar, onToggleBitToolSidebar, onOpenNotes, isDesktopSidebarOpen = true }) => {
   const { t } = useTranslation();
@@ -21,7 +30,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const location = useLocation();
   const { user, logout, logoutAll, switchAccount, getSessions } = useAuth();
   const { theme, currentThemeName, changeTheme, backgroundImage } = useTheme();
-  const { openCompose, emails, dateFilter, setDateFilter, customDateRange, setCustomDateRange, matchesDateFilter } = useMail();
+  const { openCompose, emails, getFolderEmails, labels, dateFilter, setDateFilter, customDateRange, setCustomDateRange, matchesDateFilter } = useMail();
   const isPrimary = user?.isPrimary || user?.mailboxes?.find(m => m.email === user.email)?.isPrimary;
 
   const currentTab = location.pathname.startsWith('/colab') || location.pathname.startsWith('/chat') || location.pathname.startsWith('/casbox') ? 'chat'
@@ -81,39 +90,126 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const activeFolder = getActiveFolderFromPath(location.pathname);
+  const folderDisplayName = getFolderDisplayName(activeFolder, labels);
   const queryVal = searchQuery.trim().toLowerCase();
 
-  const matchingEmails = queryVal
-    ? (emails || []).filter(e => (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true)).filter(e => 
-        e.subject?.toLowerCase().includes(queryVal) ||
-        e.from?.toLowerCase().includes(queryVal) ||
-        e.senderEmail?.toLowerCase().includes(queryVal) ||
-        e.to?.toLowerCase().includes(queryVal) ||
-        e.recipientEmail?.toLowerCase().includes(queryVal) ||
-        e.body?.toLowerCase().includes(queryVal) ||
-        e.textPlain?.toLowerCase().includes(queryVal)
-      ).slice(0, 5)
-    : [];
+  const candidateEmails = useMemo(() => {
+    const folderList = typeof getFolderEmails === 'function' ? getFolderEmails(activeFolder) : [];
+    const activeEmails = Array.isArray(emails) ? emails : [];
 
-  const matchingCasbox = queryVal
-    ? allCasboxMessages.filter(m => 
-        m.body?.toLowerCase().includes(queryVal) ||
-        m.senderEmail?.toLowerCase().includes(queryVal) ||
-        m.receiverEmail?.toLowerCase().includes(queryVal) ||
-        m.subject?.toLowerCase().includes(queryVal)
-      ).slice(0, 5)
-    : [];
+    const map = new Map();
+    [...folderList, ...activeEmails].forEach(item => {
+      if (!item) return;
+      const uidStr = String(item.uid ?? item.id ?? '');
+      if (uidStr && !map.has(uidStr)) {
+        map.set(uidStr, item);
+      }
+    });
 
-  const matchingChats = queryVal
-    ? allChatRooms.filter(c => {
-        const chatPartner = c.memberEmails?.find(e => e !== user?.email) || "";
-        const chatName = c.type === 'DIRECT' ? chatPartner?.split('@')[0] : (c.name || `Chat #${c.id}`);
-        return (
-          chatName.toLowerCase().includes(queryVal) ||
-          c.memberEmails?.some(email => email.toLowerCase().includes(queryVal))
-        );
-      }).slice(0, 5)
-    : [];
+    return Array.from(map.values());
+  }, [getFolderEmails, activeFolder, emails]);
+
+  const matchingEmails = useMemo(() => {
+    if (!queryVal) return [];
+
+    return candidateEmails
+      .filter(e => matchesFolderScope(e, activeFolder, user))
+      .filter(e => (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true))
+      .filter(e => matchesEmailQuery(e, queryVal))
+      .slice(0, 10);
+  }, [candidateEmails, queryVal, activeFolder, user, matchesDateFilter]);
+
+  const matchingCasbox = useMemo(() => {
+    if (!queryVal) return [];
+    const seen = new Set();
+    const results = [];
+    for (const m of allCasboxMessages) {
+      const body = (m.body || '').toLowerCase();
+      const sender = (m.senderEmail || '').toLowerCase();
+      const receiver = (m.receiverEmail || '').toLowerCase();
+      const subject = (m.subject || '').toLowerCase();
+      if (body.includes(queryVal) || sender.includes(queryVal) || receiver.includes(queryVal) || subject.includes(queryVal)) {
+        const contactEmail = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
+        const key = `${contactEmail}_${m.id || m.body}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push({ ...m, contactEmail });
+        }
+      }
+      if (results.length >= 5) break;
+    }
+    return results;
+  }, [allCasboxMessages, queryVal, user?.email]);
+
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const totalItems = matchingEmails.length + matchingCasbox.length;
+
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [searchQuery]);
+
+  const handleSelectEmailSuggestion = (email) => {
+    if (!email) return;
+    setShowSearchResults(false);
+    setIsMobileSearchOpen(false);
+
+    const isDraft = email.isDraft || email.draft || 
+      email.folderName?.toLowerCase() === 'draft' || email.folderName?.toLowerCase() === 'drafts';
+
+    if (isDraft && typeof openCompose === 'function') {
+      openCompose({ draft: { ...email } });
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent('bnx-open-email', {
+      detail: {
+        email,
+        uid: email.uid !== undefined && email.uid !== null ? email.uid : email.id
+      }
+    }));
+  };
+
+  const handleSelectCasboxSuggestion = (message) => {
+    setShowSearchResults(false);
+    setIsMobileSearchOpen(false);
+    const contactEmail = message.senderEmail === user?.email ? message.receiverEmail : message.senderEmail;
+    navigate("/casbox", { state: { preselectContact: contactEmail } });
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      setShowSearchResults(false);
+      setIsMobileSearchOpen(false);
+      return;
+    }
+
+    if (!showSearchResults && searchQuery.trim().length > 0) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setShowSearchResults(true);
+        return;
+      }
+    }
+
+    if (totalItems === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < totalItems - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : totalItems - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < matchingEmails.length) {
+        handleSelectEmailSuggestion(matchingEmails[selectedIndex]);
+      } else if (selectedIndex >= matchingEmails.length && selectedIndex < totalItems) {
+        handleSelectCasboxSuggestion(matchingCasbox[selectedIndex - matchingEmails.length]);
+      } else if (matchingEmails.length > 0) {
+        handleSelectEmailSuggestion(matchingEmails[0]);
+      }
+    }
+  };
   const fileInputRef = useRef(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -179,103 +275,158 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
   const handleSearch = (e) => {
     e.preventDefault();
-    console.log("Searching:", searchQuery);
+    if (selectedIndex >= 0 && selectedIndex < matchingEmails.length) {
+      handleSelectEmailSuggestion(matchingEmails[selectedIndex]);
+    } else if (selectedIndex >= matchingEmails.length && selectedIndex < totalItems) {
+      handleSelectCasboxSuggestion(matchingCasbox[selectedIndex - matchingEmails.length]);
+    } else if (matchingEmails.length > 0) {
+      handleSelectEmailSuggestion(matchingEmails[0]);
+    }
   };
 
   const renderSearchResults = (onClose) => {
-    if (matchingEmails.length === 0 && matchingCasbox.length === 0 && matchingChats.length === 0) {
+    const hasEmails = matchingEmails.length > 0;
+    const hasCasbox = matchingCasbox.length > 0;
+
+    if (!hasEmails && !hasCasbox) {
       return (
-        <div className="text-xs text-gray-400 dark:text-gray-600 text-center py-4 select-none">
-          {t('navbar.no_matching_results', 'No matching results found')}
+        <div className="py-6 px-4 text-center select-none animate-fade-in">
+          <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-500 flex items-center justify-center">
+            <Search size={18} />
+          </div>
+          <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+            No matching emails found
+          </p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+            No results in <span className="font-semibold text-gray-600 dark:text-gray-300">{folderDisplayName}</span> for &ldquo;{searchQuery}&rdquo;
+          </p>
         </div>
       );
     }
 
+    let globalItemIdx = 0;
+
     return (
-      <>
+      <div className="flex flex-col gap-2.5 py-1 animate-fade-in">
+        {/* Scope Header */}
+        <div className="flex items-center justify-between px-2 pt-0.5 pb-1 border-b border-gray-100 dark:border-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
+          <span>Search scope: <strong className="text-blue-600 dark:text-blue-400 uppercase font-bold tracking-wide">{folderDisplayName}</strong></span>
+          <span className="text-[10px] bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full font-semibold">
+            {matchingEmails.length} {matchingEmails.length === 1 ? 'result' : 'results'}
+          </span>
+        </div>
+
         {/* Matching Emails */}
-        {matchingEmails.length > 0 && (
-          <div className="mb-3">
-            <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none">
-              {t('navbar.emails_category', t('storage.emails', 'Emails'))}
+        {hasEmails && (
+          <div>
+            <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1 px-2 select-none flex items-center justify-between">
+              <span>EMAILS</span>
             </div>
-            <div className="flex flex-col gap-0.5">
-              {matchingEmails.map(e => (
-                <div
-                  key={e.uid}
-                  onClick={() => {
-                    setSearchQuery(e.subject);
-                    setShowSearchResults(false);
-                    onClose?.();
-                    navigate("/all-mail");
-                  }}
-                  className="flex flex-col p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left transition-colors"
-                >
-                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{e.subject}</span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{e.from}</span>
-                </div>
-              ))}
+            <div className="flex flex-col gap-1">
+              {matchingEmails.map((e) => {
+                const currentIdx = globalItemIdx++;
+                const isSelected = selectedIndex === currentIdx;
+                const isSentFolder = activeFolder === 'sent';
+                const { name: personName, email: personEmail } = parsePersonAndEmail(
+                  isSentFolder ? (e.to || e.recipientEmail) : (e.from || e.senderEmail),
+                  e.senderEmail
+                );
+                const rawDate = e.receivedDate || e.sentDate || e.date || e.createdAt || e.timestamp;
+                const dateDisplay = formatSuggestionDate(rawDate);
+                const snippet = getEmailPreviewSnippet(e);
+
+                return (
+                  <div
+                    key={`${e.uid || e.id || currentIdx}`}
+                    onClick={() => handleSelectEmailSuggestion(e)}
+                    className={`flex flex-col p-2.5 rounded-xl cursor-pointer text-left transition-all border ${
+                      isSelected
+                        ? "bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 shadow-sm"
+                        : "border-transparent hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    {/* Top Row: Sender Name + Email + Date */}
+                    <div className="flex items-center justify-between gap-2 min-w-0 mb-1">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
+                        <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                          {personName}
+                        </span>
+                        {personEmail && personEmail !== personName && (
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate font-normal hidden sm:inline">
+                            &lt;{personEmail}&gt;
+                          </span>
+                        )}
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-blue-100/60 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 ml-1 shrink-0">
+                          {folderDisplayName}
+                        </span>
+                      </div>
+                      {dateDisplay && (
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
+                          {dateDisplay}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Middle Row: Subject */}
+                    <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate mb-0.5">
+                      {e.subject || "(No Subject)"}
+                    </div>
+
+                    {/* Bottom Row: Message preview snippet */}
+                    {snippet && (
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate line-clamp-1">
+                        {snippet}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Matching Casbox Messages */}
-        {matchingCasbox.length > 0 && (
-          <div className="mb-3">
-            <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none">
-              {t('navbar.casbox_chat', 'Casbox Chat')}
+        {hasCasbox && (
+          <div className="mt-1 pt-2 border-t border-gray-100 dark:border-gray-800">
+            <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none flex items-center justify-between">
+              <span>{t('navbar.casbox_chat', 'Casbox Chat')}</span>
+              <span className="text-[9px] font-semibold text-gray-400">{matchingCasbox.length}</span>
             </div>
-            <div className="flex flex-col gap-0.5">
-              {matchingCasbox.map(m => {
-                const contactEmail = m.senderEmail === user?.email ? m.receiverEmail : m.senderEmail;
-                return (
-                  <div
-                    key={m.id}
-                    onClick={() => {
-                      setShowSearchResults(false);
-                      onClose?.();
-                      navigate("/casbox", { state: { preselectContact: contactEmail } });
-                    }}
-                    className="flex flex-col p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left transition-colors"
-                  >
-                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{contactEmail?.split('@')[0]}</span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-450 truncate italic">"{m.body}"</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+            <div className="flex flex-col gap-1">
+              {matchingCasbox.map((m) => {
+                const currentIdx = globalItemIdx++;
+                const isSelected = selectedIndex === currentIdx;
+                const contactEmail = m.contactEmail;
+                const contactName = contactEmail?.split('@')[0] || "Contact";
 
-        {/* Matching Colab Chats */}
-        {matchingChats.length > 0 && (
-          <div className="mb-1">
-            <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2 select-none">
-              {t('navbar.colab_rooms', 'Colab Rooms')}
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {matchingChats.map(c => {
-                const chatPartner = c.memberEmails?.find(e => e !== user?.email) || "";
-                const chatName = c.type === 'DIRECT' ? chatPartner?.split('@')[0] : (c.name || `Chat #${c.id}`);
                 return (
                   <div
-                    key={c.id}
-                    onClick={() => {
-                      setShowSearchResults(false);
-                      onClose?.();
-                      navigate(`/chat/${c.id}`, { state: { chat: c } });
-                    }}
-                    className="flex flex-col p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-left transition-colors"
+                    key={m.id || currentIdx}
+                    onClick={() => handleSelectCasboxSuggestion(m)}
+                    className={`flex flex-col p-2.5 rounded-xl cursor-pointer text-left transition-all border ${
+                      isSelected
+                        ? "bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 shadow-sm"
+                        : "border-transparent hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
                   >
-                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{chatName}</span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest font-bold">{c.type}</span>
+                    <div className="flex items-center justify-between gap-2 min-w-0 mb-0.5">
+                      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        {contactName}
+                      </span>
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-purple-100/60 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 shrink-0">
+                        Chat
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate italic">
+                      &ldquo;{m.body}&rdquo;
+                    </span>
                   </div>
                 );
               })}
             </div>
           </div>
         )}
-      </>
+      </div>
     );
   };
 
@@ -355,7 +506,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         <div className="flex items-center justify-end gap-1.5 sm:gap-2 md:gap-2.5 shrink-0">
 
           {/* DESKTOP SEARCH (md+ screens) */}
-          <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-28 lg:w-36 xl:w-44 focus-within:w-36 lg:focus-within:w-48 xl:focus-within:w-56 transition-all duration-200" ref={searchContainerRef}>
+          <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-36 lg:w-48 xl:w-56 focus-within:w-48 lg:focus-within:w-64 xl:focus-within:w-72 transition-all duration-200" ref={searchContainerRef}>
             <div className="relative group w-full">
               <input
                 id="mail-search-input"
@@ -366,21 +517,31 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   setSearchQuery(e.target.value);
                   setShowSearchResults(true);
                 }}
-                placeholder={t('navbar.search_placeholder', 'Search mail...')}
-                className="w-full px-2 py-1 pl-6 sm:pl-7.5 rounded-full text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white/20 active:bg-white/20 focus-visible:bg-white/20 text-white focus:text-white focus:shadow-sm border border-transparent focus:border-white/30 outline-none transition-all duration-200 truncate placeholder:truncate"
+                onKeyDown={handleKeyDown}
+                placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
+                className="w-full px-2 py-1.5 pl-7 sm:pl-8 pr-7 rounded-full text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white/20 active:bg-white/20 focus-visible:bg-white/20 text-white focus:text-white focus:shadow-sm border border-transparent focus:border-white/30 outline-none transition-all duration-200 truncate placeholder:truncate"
               />
-              <svg
-                className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 transition-colors text-white/60 group-focus-within:text-white/90 pointer-events-none"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <Search
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 transition-colors text-white/60 group-focus-within:text-white/90 pointer-events-none"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchQuery("");
+                    setShowSearchResults(false);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-0.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Clear search"
+                >
+                  <X size={13} />
+                </button>
+              )}
 
               {showSearchResults && searchQuery.trim().length > 0 && (
                 <div 
-                  className="absolute right-0 mt-2 bg-white dark:bg-gray-800 border shadow-2xl rounded-2xl p-3 max-h-96 overflow-y-auto z-[999] w-[280px] sm:w-[320px] max-w-[90vw]"
+                  className="absolute right-0 mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 sm:p-3 max-h-[460px] overflow-y-auto z-[9999] w-[340px] sm:w-[420px] md:w-[460px] max-w-[95vw] animate-fade-in"
                   style={{ borderColor: theme.border || '#e2e8f0' }}
                 >
                   {renderSearchResults(() => setShowSearchResults(false))}
@@ -413,7 +574,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
             {isMobileSearchOpen && (
               <div 
-                className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] sm:w-80 max-w-[340px] bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 z-[999] animate-fade-in"
+                className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] sm:w-80 max-w-[360px] bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 z-[9999] animate-fade-in"
                 style={{ borderColor: theme.border || '#e2e8f0' }}
               >
                 <form onSubmit={handleSearch} className="relative flex items-center w-full">
@@ -422,7 +583,8 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t('navbar.search_placeholder', 'Search mail...')}
+                    onKeyDown={handleKeyDown}
+                    placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
                     className="w-full pl-8 pr-7 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1.5 focus:ring-blue-500 border border-transparent"
                   />
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
@@ -430,7 +592,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                     <button
                       type="button"
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 cursor-pointer"
                     >
                       <X size={14} />
                     </button>

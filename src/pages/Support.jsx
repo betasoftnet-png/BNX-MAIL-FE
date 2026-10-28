@@ -1,4 +1,4 @@
-import { useTranslation } from "../context/LanguageContext";
+﻿import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useRef } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { 
@@ -174,15 +174,15 @@ const Support = () => {
             <svg className="w-10 h-10 text-white opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
-            <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-[10px]">💬</div>
-            <div className="absolute -bottom-2 -left-4 w-7 h-7 rounded-full bg-[#5f5bf6] flex items-center justify-center shadow-lg text-[9px] transform rotate-12">✈️</div>
+            <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-[10px]">ðŸ’¬</div>
+            <div className="absolute -bottom-2 -left-4 w-7 h-7 rounded-full bg-[#5f5bf6] flex items-center justify-center shadow-lg text-[9px] transform rotate-12">âœˆï¸</div>
           </div>
         </div>
 
         {/* Hero Copy & Search Input */}
         <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
           <h2 className="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-white leading-tight">
-            How can we help you today? 👋
+            How can we help you today? ðŸ‘‹
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1.5 max-w-md leading-relaxed">
             Search our knowledge base or raise a ticket directly to our support team.

@@ -14,7 +14,8 @@ const Archive = ({ searchQuery }) => {
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleUnarchive, handleSnooze, handleApplyLabel, matchesDateFilter } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
-  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
+  const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
+  const selectedEmail = selectedEmailOverride || emails.find((e) => String(e.uid) === String(selectedEmailUid));
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -46,19 +47,6 @@ const Archive = ({ searchQuery }) => {
 
   const visibleEmails = emails.filter((e) => {
     if (typeof matchesDateFilter === 'function' && !matchesDateFilter(e)) return false;
-    // 1. Search Query
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchSearch =
-        e.subject?.toLowerCase().includes(q) ||
-        e.from?.toLowerCase().includes(q) ||
-        e.senderEmail?.toLowerCase().includes(q) ||
-        e.to?.toLowerCase().includes(q) ||
-        e.recipientEmail?.toLowerCase().includes(q) ||
-        e.body?.toLowerCase().includes(q) ||
-        e.textPlain?.toLowerCase().includes(q);
-      if (!matchSearch) return false;
-    }
 
     // 2. From filter
     if (filterFrom) {
@@ -143,7 +131,19 @@ const Archive = ({ searchQuery }) => {
     fetchEmails('archive');
   }, [fetchEmails]);
 
+  useEffect(() => {
+    const handleBnxOpenEmail = (event) => {
+      const emailToOpen = event?.detail?.email;
+      if (!emailToOpen) return;
+      setSelectedEmailOverride(emailToOpen);
+      if (emailToOpen.uid) setSelectedEmailUid(emailToOpen.uid);
+    };
+    window.addEventListener("bnx-open-email", handleBnxOpenEmail);
+    return () => window.removeEventListener("bnx-open-email", handleBnxOpenEmail);
+  }, []);
+
   const handleSelectEmail = (email) => {
+    setSelectedEmailOverride(null);
     setSelectedEmailUid(email.uid);
   };
 
@@ -170,17 +170,28 @@ const Archive = ({ searchQuery }) => {
   const detailsComponent = selectedEmail ? (
     <EmailDetails
       emailList={visibleEmails}
-      onNavigate={(email) => setSelectedEmailUid(email.uid)}
+      onNavigate={(email) => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(email.uid);
+      }}
       email={selectedEmail}
-      onBack={() => setSelectedEmailUid(null)}
-      onClose={() => setSelectedEmailUid(null)}
+      onBack={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
+      onClose={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
       onDelete={(uid) => {
         handleMoveToTrash(uid, "archive");
+        setSelectedEmailOverride(null);
         setSelectedEmailUid(null);
       }}
       onStar={(uid) => handleToggleStar(uid, "archive")}
       onArchive={(uid) => {
         handleUnarchive(uid);
+        setSelectedEmailOverride(null);
         setSelectedEmailUid(null);
       }}
       isArchiveFolder={true}
@@ -205,7 +216,7 @@ const Archive = ({ searchQuery }) => {
         className="px-4 py-1.5 text-xs font-bold rounded-full shadow-sm text-white tracking-wide flex items-center gap-1.5 uppercase select-none"
         style={{ background: theme.accent }}
       >
-        📦 Archive ({emails.length})
+        ðŸ“¦ Archive ({emails.length})
       </span>
 
       {/* UI-only filters */}
@@ -415,7 +426,7 @@ const Archive = ({ searchQuery }) => {
     <div className="flex-1 flex flex-col overflow-hidden">
       {emails.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-          <span className="text-5xl mb-3">📭</span>
+          <span className="text-5xl mb-3">ðŸ“­</span>
           <p className="text-base font-semibold" style={{ color: theme.text }}>No archived emails</p>
           <p className="text-sm" style={{ color: theme.subText }}>
             Archive emails to keep your inbox clean
@@ -476,7 +487,7 @@ const FilterButton = ({ label, open, setOpen, children, active = false, align = 
         `}
       >
         <span>{label}</span>
-        <span className="text-[10px]">▼</span>
+        <span className="text-[10px]">â–¼</span>
       </button>
 
       {open && (

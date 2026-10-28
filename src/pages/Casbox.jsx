@@ -1,4 +1,4 @@
-import { useTranslation } from "../context/LanguageContext";
+﻿import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
@@ -170,53 +170,53 @@ const getFileIcon = (fileName) => {
   const ext = fileName?.split('.').pop().toLowerCase() || '';
   switch (ext) {
     case 'pdf':
-      return { icon: '📄', color: '#ea4335', name: 'PDF' };
+      return { icon: 'ðŸ“„', color: '#ea4335', name: 'PDF' };
     case 'doc':
     case 'docx':
-      return { icon: '📝', color: '#1a73e8', name: 'Word' };
+      return { icon: 'ðŸ“', color: '#1a73e8', name: 'Word' };
     case 'xls':
     case 'xlsx':
-      return { icon: '📊', color: '#1e8e3e', name: 'Excel' };
+      return { icon: 'ðŸ“Š', color: '#1e8e3e', name: 'Excel' };
     case 'ppt':
     case 'pptx':
-      return { icon: '📈', color: '#f86734', name: 'PowerPoint' };
+      return { icon: 'ðŸ“ˆ', color: '#f86734', name: 'PowerPoint' };
     case 'png':
     case 'jpg':
     case 'jpeg':
     case 'gif':
     case 'webp':
     case 'svg':
-      return { icon: '🖼️', color: '#12a4b4', name: 'Image' };
+      return { icon: 'ðŸ–¼ï¸', color: '#12a4b4', name: 'Image' };
     case 'zip':
     case 'rar':
     case '7z':
     case 'tar':
     case 'gz':
-      return { icon: '📦', color: '#e37400', name: 'Archive' };
+      return { icon: 'ðŸ“¦', color: '#e37400', name: 'Archive' };
     case 'mp3':
     case 'wav':
     case 'ogg':
-      return { icon: '🎵', color: '#aa00ff', name: 'Audio' };
+      return { icon: 'ðŸŽµ', color: '#aa00ff', name: 'Audio' };
     case 'mp4':
     case 'avi':
     case 'mov':
     case 'mkv':
-      return { icon: '🎥', color: '#d500f9', name: 'Video' };
+      return { icon: 'ðŸŽ¥', color: '#d500f9', name: 'Video' };
     default:
-      return { icon: '📎', color: '#5f6368', name: 'File' };
+      return { icon: 'ðŸ“Ž', color: '#5f6368', name: 'File' };
   }
 };
 
 const POPULAR_EMOJIS = [
-  "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚",
-  "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣",
-  "👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "✊", "👊", "🤛", "🤜", "👏", "🙌",
-  "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "👀",
-  "❤️", "🩷", "🧡", "💛", "💚", "💙", "🩵", "💜", "🖤", "🩶", "🤍", "🤎", "💔", "❤️‍🔥", "❤️‍🩹", "❣️", "💕", "💞", "💓", "💗",
-  "🎉", "✨", "🔥", "💡", "🌟", "🎈", "🎁", "💬", "✉️", "📅", "💻", "📱", "⌚", "📷", "🎨", "🎵", "✈️", "🚗", "🏠", "💼"
+  "ðŸ˜€", "ðŸ˜ƒ", "ðŸ˜„", "ðŸ˜", "ðŸ˜†", "ðŸ˜…", "ðŸ˜‚", "ðŸ¤£", "ðŸ˜Š", "ðŸ˜‡", "ðŸ™‚", "ðŸ™ƒ", "ðŸ˜‰", "ðŸ˜Œ", "ðŸ˜", "ðŸ¥°", "ðŸ˜˜", "ðŸ˜—", "ðŸ˜™", "ðŸ˜š",
+  "ðŸ˜‹", "ðŸ˜›", "ðŸ˜", "ðŸ˜œ", "ðŸ¤ª", "ðŸ¤¨", "ðŸ§", "ðŸ¤“", "ðŸ˜Ž", "ðŸ¥¸", "ðŸ¥³", "ðŸ˜", "ðŸ˜’", "ðŸ˜ž", "ðŸ˜”", "ðŸ˜Ÿ", "ðŸ˜•", "ðŸ™", "â˜¹ï¸", "ðŸ˜£",
+  "ðŸ‘", "ðŸ‘Ž", "ðŸ‘Œ", "âœŒï¸", "ðŸ¤ž", "ðŸ¤Ÿ", "ðŸ¤˜", "ðŸ¤™", "ðŸ‘ˆ", "ðŸ‘‰", "ðŸ‘†", "ðŸ–•", "ðŸ‘‡", "â˜ï¸", "âœŠ", "ðŸ‘Š", "ðŸ¤›", "ðŸ¤œ", "ðŸ‘", "ðŸ™Œ",
+  "ðŸ‘", "ðŸ¤²", "ðŸ¤", "ðŸ™", "âœï¸", "ðŸ’…", "ðŸ¤³", "ðŸ’ª", "ðŸ¦¾", "ðŸ¦¿", "ðŸ¦µ", "ðŸ¦¶", "ðŸ‘‚", "ðŸ¦»", "ðŸ‘ƒ", "ðŸ§ ", "ðŸ«€", "ðŸ«", "ðŸ¦·", "ðŸ‘€",
+  "â¤ï¸", "ðŸ©·", "ðŸ§¡", "ðŸ’›", "ðŸ’š", "ðŸ’™", "ðŸ©µ", "ðŸ’œ", "ðŸ–¤", "ðŸ©¶", "ðŸ¤", "ðŸ¤Ž", "ðŸ’”", "â¤ï¸â€ðŸ”¥", "â¤ï¸â€ðŸ©¹", "â£ï¸", "ðŸ’•", "ðŸ’ž", "ðŸ’“", "ðŸ’—",
+  "ðŸŽ‰", "âœ¨", "ðŸ”¥", "ðŸ’¡", "ðŸŒŸ", "ðŸŽˆ", "ðŸŽ", "ðŸ’¬", "âœ‰ï¸", "ðŸ“…", "ðŸ’»", "ðŸ“±", "âŒš", "ðŸ“·", "ðŸŽ¨", "ðŸŽµ", "âœˆï¸", "ðŸš—", "ðŸ ", "ðŸ’¼"
 ];
 
-const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+const QUICK_REACTIONS = ["ðŸ‘", "â¤ï¸", "ðŸ˜‚", "ðŸ˜®", "ðŸ˜¢", "ðŸ™"];
 
 // Helper to sanitize reactions map so each user has at most one reaction per message
 const sanitizeReactionsMap = (rawMap) => {
@@ -254,113 +254,113 @@ const EMOJI_CATEGORIES = [
   {
     id: 'smileys',
     name: 'Smileys & People',
-    icon: '😃',
+    icon: 'ðŸ˜ƒ',
     emojis: [
-      { emoji: '😀', name: 'grinning' }, { emoji: '😃', name: 'smiley' }, { emoji: '😄', name: 'smile' }, { emoji: '😁', name: 'grin' },
-      { emoji: '😆', name: 'laughing' }, { emoji: '😅', name: 'sweat smile' }, { emoji: '😂', name: 'joy' }, { emoji: '🤣', name: 'rofl' },
-      { emoji: '😊', name: 'blush' }, { emoji: '😇', name: 'innocent' }, { emoji: '🙂', name: 'slightly smiling' }, { emoji: '🙃', name: 'upside down' },
-      { emoji: '😉', name: 'wink' }, { emoji: '😌', name: 'relieved' }, { emoji: '😍', name: 'heart eyes' }, { emoji: '🥰', name: 'smiling with hearts' },
-      { emoji: '😘', name: 'kissing heart' }, { emoji: '😗', name: 'kissing' }, { emoji: '😙', name: 'kissing smiling eyes' }, { emoji: '😚', name: 'kissing closed eyes' },
-      { emoji: '😋', name: 'yum' }, { emoji: '😛', name: 'stuck out tongue' }, { emoji: '😝', name: 'stuck out tongue closed eyes' }, { emoji: '😜', name: 'stuck out tongue wink' },
-      { emoji: '🤪', name: 'zany' }, { emoji: '🤨', name: 'raised eyebrow' }, { emoji: '🧐', name: 'monocle' }, { emoji: '🤓', name: 'nerd' },
-      { emoji: '😎', name: 'sunglasses' }, { emoji: '🥸', name: 'disguise' }, { emoji: '🥳', name: 'partying' }, { emoji: '😏', name: 'smirk' },
-      { emoji: '😒', name: 'unamused' }, { emoji: '😞', name: 'disappointed' }, { emoji: '😔', name: 'pensive' }, { emoji: '😟', name: 'worried' },
-      { emoji: '😕', name: 'confused' }, { emoji: '🙁', name: 'slightly frowning' }, { emoji: '☹️', name: 'frowning' }, { emoji: '😣', name: 'persevere' },
-      { emoji: '😖', name: 'confounded' }, { emoji: '😫', name: 'tired' }, { emoji: '😩', name: 'weary' }, { emoji: '🥺', name: 'pleading' },
-      { emoji: '😢', name: 'cry' }, { emoji: '😭', name: 'sob' }, { emoji: '😮', name: 'open mouth' }, { emoji: '😱', name: 'scream' },
-      { emoji: '😡', name: 'rage' }, { emoji: '😠', name: 'angry' }, { emoji: '😤', name: 'triumph' }, { emoji: '🤫', name: 'shushing' },
-      { emoji: '🤗', name: 'hugs' }, { emoji: '🤔', name: 'thinking' }, { emoji: '🤐', name: 'zipper mouth' }, { emoji: '😴', name: 'sleeping' },
-      { emoji: '👍', name: 'thumbs up' }, { emoji: '👎', name: 'thumbs down' }, { emoji: '👏', name: 'clap' }, { emoji: '🙌', name: 'hooray' },
-      { emoji: '👐', name: 'open hands' }, { emoji: '🤲', name: 'palms up' }, { emoji: '🤝', name: 'handshake' }, { emoji: '🙏', name: 'pray thanks' },
-      { emoji: '✌️', name: 'peace' }, { emoji: '🤞', name: 'crossed fingers' }, { emoji: '🤟', name: 'love you' }, { emoji: '🤘', name: 'rock' },
-      { emoji: '🤙', name: 'call me' }, { emoji: '👌', name: 'ok hand' }, { emoji: '🤌', name: 'pinched fingers' }, { emoji: '👊', name: 'fist' }
+      { emoji: 'ðŸ˜€', name: 'grinning' }, { emoji: 'ðŸ˜ƒ', name: 'smiley' }, { emoji: 'ðŸ˜„', name: 'smile' }, { emoji: 'ðŸ˜', name: 'grin' },
+      { emoji: 'ðŸ˜†', name: 'laughing' }, { emoji: 'ðŸ˜…', name: 'sweat smile' }, { emoji: 'ðŸ˜‚', name: 'joy' }, { emoji: 'ðŸ¤£', name: 'rofl' },
+      { emoji: 'ðŸ˜Š', name: 'blush' }, { emoji: 'ðŸ˜‡', name: 'innocent' }, { emoji: 'ðŸ™‚', name: 'slightly smiling' }, { emoji: 'ðŸ™ƒ', name: 'upside down' },
+      { emoji: 'ðŸ˜‰', name: 'wink' }, { emoji: 'ðŸ˜Œ', name: 'relieved' }, { emoji: 'ðŸ˜', name: 'heart eyes' }, { emoji: 'ðŸ¥°', name: 'smiling with hearts' },
+      { emoji: 'ðŸ˜˜', name: 'kissing heart' }, { emoji: 'ðŸ˜—', name: 'kissing' }, { emoji: 'ðŸ˜™', name: 'kissing smiling eyes' }, { emoji: 'ðŸ˜š', name: 'kissing closed eyes' },
+      { emoji: 'ðŸ˜‹', name: 'yum' }, { emoji: 'ðŸ˜›', name: 'stuck out tongue' }, { emoji: 'ðŸ˜', name: 'stuck out tongue closed eyes' }, { emoji: 'ðŸ˜œ', name: 'stuck out tongue wink' },
+      { emoji: 'ðŸ¤ª', name: 'zany' }, { emoji: 'ðŸ¤¨', name: 'raised eyebrow' }, { emoji: 'ðŸ§', name: 'monocle' }, { emoji: 'ðŸ¤“', name: 'nerd' },
+      { emoji: 'ðŸ˜Ž', name: 'sunglasses' }, { emoji: 'ðŸ¥¸', name: 'disguise' }, { emoji: 'ðŸ¥³', name: 'partying' }, { emoji: 'ðŸ˜', name: 'smirk' },
+      { emoji: 'ðŸ˜’', name: 'unamused' }, { emoji: 'ðŸ˜ž', name: 'disappointed' }, { emoji: 'ðŸ˜”', name: 'pensive' }, { emoji: 'ðŸ˜Ÿ', name: 'worried' },
+      { emoji: 'ðŸ˜•', name: 'confused' }, { emoji: 'ðŸ™', name: 'slightly frowning' }, { emoji: 'â˜¹ï¸', name: 'frowning' }, { emoji: 'ðŸ˜£', name: 'persevere' },
+      { emoji: 'ðŸ˜–', name: 'confounded' }, { emoji: 'ðŸ˜«', name: 'tired' }, { emoji: 'ðŸ˜©', name: 'weary' }, { emoji: 'ðŸ¥º', name: 'pleading' },
+      { emoji: 'ðŸ˜¢', name: 'cry' }, { emoji: 'ðŸ˜­', name: 'sob' }, { emoji: 'ðŸ˜®', name: 'open mouth' }, { emoji: 'ðŸ˜±', name: 'scream' },
+      { emoji: 'ðŸ˜¡', name: 'rage' }, { emoji: 'ðŸ˜ ', name: 'angry' }, { emoji: 'ðŸ˜¤', name: 'triumph' }, { emoji: 'ðŸ¤«', name: 'shushing' },
+      { emoji: 'ðŸ¤—', name: 'hugs' }, { emoji: 'ðŸ¤”', name: 'thinking' }, { emoji: 'ðŸ¤', name: 'zipper mouth' }, { emoji: 'ðŸ˜´', name: 'sleeping' },
+      { emoji: 'ðŸ‘', name: 'thumbs up' }, { emoji: 'ðŸ‘Ž', name: 'thumbs down' }, { emoji: 'ðŸ‘', name: 'clap' }, { emoji: 'ðŸ™Œ', name: 'hooray' },
+      { emoji: 'ðŸ‘', name: 'open hands' }, { emoji: 'ðŸ¤²', name: 'palms up' }, { emoji: 'ðŸ¤', name: 'handshake' }, { emoji: 'ðŸ™', name: 'pray thanks' },
+      { emoji: 'âœŒï¸', name: 'peace' }, { emoji: 'ðŸ¤ž', name: 'crossed fingers' }, { emoji: 'ðŸ¤Ÿ', name: 'love you' }, { emoji: 'ðŸ¤˜', name: 'rock' },
+      { emoji: 'ðŸ¤™', name: 'call me' }, { emoji: 'ðŸ‘Œ', name: 'ok hand' }, { emoji: 'ðŸ¤Œ', name: 'pinched fingers' }, { emoji: 'ðŸ‘Š', name: 'fist' }
     ]
   },
   {
     id: 'animals',
     name: 'Animals & Nature',
-    icon: '🐻',
+    icon: 'ðŸ»',
     emojis: [
-      { emoji: '🐶', name: 'dog' }, { emoji: '🐱', name: 'cat' }, { emoji: '🐭', name: 'mouse' }, { emoji: '🐹', name: 'hamster' },
-      { emoji: '🐰', name: 'rabbit' }, { emoji: '🦊', name: 'fox' }, { emoji: '🐻', name: 'bear' }, { emoji: '🐼', name: 'panda' },
-      { emoji: '🐨', name: 'koala' }, { emoji: '🐯', name: 'tiger' }, { emoji: '🦁', name: 'lion' }, { emoji: '🐮', name: 'cow' },
-      { emoji: '🐷', name: 'pig' }, { emoji: '🐸', name: 'frog' }, { emoji: '🐵', name: 'monkey' }, { emoji: '🐔', name: 'chicken' },
-      { emoji: '🐧', name: 'penguin' }, { emoji: '🐦', name: 'bird' }, { emoji: '🐤', name: 'chick' }, { emoji: '🦆', name: 'duck' },
-      { emoji: '🦅', name: 'eagle' }, { emoji: '🦉', name: 'owl' }, { emoji: '🦇', name: 'bat' }, { emoji: '🐺', name: 'wolf' },
-      { emoji: '🐗', name: 'boar' }, { emoji: '🐴', name: 'horse' }, { emoji: '🦄', name: 'unicorn' }, { emoji: '🐝', name: 'bee' },
-      { emoji: '🐛', name: 'bug' }, { emoji: '🦋', name: 'butterfly' }, { emoji: '🐌', name: 'snail' }, { emoji: '🐞', name: 'ladybug' },
-      { emoji: '🌸', name: 'cherry blossom' }, { emoji: '🌹', name: 'rose' }, { emoji: '🌺', name: 'hibiscus' }, { emoji: '🌻', name: 'sunflower' },
-      { emoji: '🌼', name: 'blossom' }, { emoji: '🌷', name: 'tulip' }, { emoji: '🌱', name: 'seedling' }, { emoji: '🌲', name: 'evergreen tree' },
-      { emoji: '🌳', name: 'deciduous tree' }, { emoji: '🌴', name: 'palm tree' }, { emoji: '🌵', name: 'cactus' }, { emoji: '🍀', name: 'four leaf clover' }
+      { emoji: 'ðŸ¶', name: 'dog' }, { emoji: 'ðŸ±', name: 'cat' }, { emoji: 'ðŸ­', name: 'mouse' }, { emoji: 'ðŸ¹', name: 'hamster' },
+      { emoji: 'ðŸ°', name: 'rabbit' }, { emoji: 'ðŸ¦Š', name: 'fox' }, { emoji: 'ðŸ»', name: 'bear' }, { emoji: 'ðŸ¼', name: 'panda' },
+      { emoji: 'ðŸ¨', name: 'koala' }, { emoji: 'ðŸ¯', name: 'tiger' }, { emoji: 'ðŸ¦', name: 'lion' }, { emoji: 'ðŸ®', name: 'cow' },
+      { emoji: 'ðŸ·', name: 'pig' }, { emoji: 'ðŸ¸', name: 'frog' }, { emoji: 'ðŸµ', name: 'monkey' }, { emoji: 'ðŸ”', name: 'chicken' },
+      { emoji: 'ðŸ§', name: 'penguin' }, { emoji: 'ðŸ¦', name: 'bird' }, { emoji: 'ðŸ¤', name: 'chick' }, { emoji: 'ðŸ¦†', name: 'duck' },
+      { emoji: 'ðŸ¦…', name: 'eagle' }, { emoji: 'ðŸ¦‰', name: 'owl' }, { emoji: 'ðŸ¦‡', name: 'bat' }, { emoji: 'ðŸº', name: 'wolf' },
+      { emoji: 'ðŸ—', name: 'boar' }, { emoji: 'ðŸ´', name: 'horse' }, { emoji: 'ðŸ¦„', name: 'unicorn' }, { emoji: 'ðŸ', name: 'bee' },
+      { emoji: 'ðŸ›', name: 'bug' }, { emoji: 'ðŸ¦‹', name: 'butterfly' }, { emoji: 'ðŸŒ', name: 'snail' }, { emoji: 'ðŸž', name: 'ladybug' },
+      { emoji: 'ðŸŒ¸', name: 'cherry blossom' }, { emoji: 'ðŸŒ¹', name: 'rose' }, { emoji: 'ðŸŒº', name: 'hibiscus' }, { emoji: 'ðŸŒ»', name: 'sunflower' },
+      { emoji: 'ðŸŒ¼', name: 'blossom' }, { emoji: 'ðŸŒ·', name: 'tulip' }, { emoji: 'ðŸŒ±', name: 'seedling' }, { emoji: 'ðŸŒ²', name: 'evergreen tree' },
+      { emoji: 'ðŸŒ³', name: 'deciduous tree' }, { emoji: 'ðŸŒ´', name: 'palm tree' }, { emoji: 'ðŸŒµ', name: 'cactus' }, { emoji: 'ðŸ€', name: 'four leaf clover' }
     ]
   },
   {
     id: 'food',
     name: 'Food & Drink',
-    icon: '🍔',
+    icon: 'ðŸ”',
     emojis: [
-      { emoji: '🍏', name: 'green apple' }, { emoji: '🍎', name: 'red apple' }, { emoji: '🍐', name: 'pear' }, { emoji: '🍊', name: 'tangerine' },
-      { emoji: '🍋', name: 'lemon' }, { emoji: '🍌', name: 'banana' }, { emoji: '🍉', name: 'watermelon' }, { emoji: '🍇', name: 'grapes' },
-      { emoji: '🍓', name: 'strawberry' }, { emoji: '🫐', name: 'blueberries' }, { emoji: '🍈', name: 'melon' }, { emoji: '🍒', name: 'cherries' },
-      { emoji: '🍑', name: 'peach' }, { emoji: '🥭', name: 'mango' }, { emoji: '🍍', name: 'pineapple' }, { emoji: '🥥', name: 'coconut' },
-      { emoji: '🥝', name: 'kiwi' }, { emoji: '🍅', name: 'tomato' }, { emoji: '🥑', name: 'avocado' }, { emoji: '🥦', name: 'broccoli' },
-      { emoji: '🍔', name: 'hamburger' }, { emoji: '🍟', name: 'french fries' }, { emoji: '🍕', name: 'pizza' }, { emoji: '🌭', name: 'hot dog' },
-      { emoji: '🥪', name: 'sandwich' }, { emoji: '🌮', name: 'taco' }, { emoji: '🌯', name: 'burrito' }, { emoji: '🍜', name: 'ramen' },
-      { emoji: '🍣', name: 'sushi' }, { emoji: '🍦', name: 'ice cream' }, { emoji: '🍩', name: 'doughnut' }, { emoji: '🍪', name: 'cookie' },
-      { emoji: '🎂', name: 'birthday cake' }, { emoji: '🍰', name: 'shortcake' }, { emoji: '🍫', name: 'chocolate' }, { emoji: '☕', name: 'coffee' }
+      { emoji: 'ðŸ', name: 'green apple' }, { emoji: 'ðŸŽ', name: 'red apple' }, { emoji: 'ðŸ', name: 'pear' }, { emoji: 'ðŸŠ', name: 'tangerine' },
+      { emoji: 'ðŸ‹', name: 'lemon' }, { emoji: 'ðŸŒ', name: 'banana' }, { emoji: 'ðŸ‰', name: 'watermelon' }, { emoji: 'ðŸ‡', name: 'grapes' },
+      { emoji: 'ðŸ“', name: 'strawberry' }, { emoji: 'ðŸ«', name: 'blueberries' }, { emoji: 'ðŸˆ', name: 'melon' }, { emoji: 'ðŸ’', name: 'cherries' },
+      { emoji: 'ðŸ‘', name: 'peach' }, { emoji: 'ðŸ¥­', name: 'mango' }, { emoji: 'ðŸ', name: 'pineapple' }, { emoji: 'ðŸ¥¥', name: 'coconut' },
+      { emoji: 'ðŸ¥', name: 'kiwi' }, { emoji: 'ðŸ…', name: 'tomato' }, { emoji: 'ðŸ¥‘', name: 'avocado' }, { emoji: 'ðŸ¥¦', name: 'broccoli' },
+      { emoji: 'ðŸ”', name: 'hamburger' }, { emoji: 'ðŸŸ', name: 'french fries' }, { emoji: 'ðŸ•', name: 'pizza' }, { emoji: 'ðŸŒ­', name: 'hot dog' },
+      { emoji: 'ðŸ¥ª', name: 'sandwich' }, { emoji: 'ðŸŒ®', name: 'taco' }, { emoji: 'ðŸŒ¯', name: 'burrito' }, { emoji: 'ðŸœ', name: 'ramen' },
+      { emoji: 'ðŸ£', name: 'sushi' }, { emoji: 'ðŸ¦', name: 'ice cream' }, { emoji: 'ðŸ©', name: 'doughnut' }, { emoji: 'ðŸª', name: 'cookie' },
+      { emoji: 'ðŸŽ‚', name: 'birthday cake' }, { emoji: 'ðŸ°', name: 'shortcake' }, { emoji: 'ðŸ«', name: 'chocolate' }, { emoji: 'â˜•', name: 'coffee' }
     ]
   },
   {
     id: 'activities',
     name: 'Activities',
-    icon: '⚽',
+    icon: 'âš½',
     emojis: [
-      { emoji: '⚽', name: 'soccer ball' }, { emoji: '🏀', name: 'basketball' }, { emoji: '🏈', name: 'football' }, { emoji: '⚾', name: 'baseball' },
-      { emoji: '🥎', name: 'softball' }, { emoji: '🎾', name: 'tennis' }, { emoji: '🏐', name: 'volleyball' }, { emoji: '🏉', name: 'rugby' },
-      { emoji: '🥏', name: 'frisbee' }, { emoji: '🎱', name: '8 ball pool' }, { emoji: '🏓', name: 'ping pong' }, { emoji: '🏸', name: 'badminton' },
-      { emoji: '🏒', name: 'ice hockey' }, { emoji: '🏑', name: 'field hockey' }, { emoji: '🥊', name: 'boxing glove' }, { emoji: '🥋', name: 'martial arts' },
-      { emoji: '🎯', name: 'dart' }, { emoji: '⛳', name: 'golf' }, { emoji: '🎳', name: 'bowling' }, { emoji: '🎮', name: 'video game' },
-      { emoji: '🎲', name: 'game die' }, { emoji: '🧩', name: 'puzzle' }, { emoji: '🎨', name: 'art palette' }, { emoji: '🎬', name: 'clapper board' }
+      { emoji: 'âš½', name: 'soccer ball' }, { emoji: 'ðŸ€', name: 'basketball' }, { emoji: 'ðŸˆ', name: 'football' }, { emoji: 'âš¾', name: 'baseball' },
+      { emoji: 'ðŸ¥Ž', name: 'softball' }, { emoji: 'ðŸŽ¾', name: 'tennis' }, { emoji: 'ðŸ', name: 'volleyball' }, { emoji: 'ðŸ‰', name: 'rugby' },
+      { emoji: 'ðŸ¥', name: 'frisbee' }, { emoji: 'ðŸŽ±', name: '8 ball pool' }, { emoji: 'ðŸ“', name: 'ping pong' }, { emoji: 'ðŸ¸', name: 'badminton' },
+      { emoji: 'ðŸ’', name: 'ice hockey' }, { emoji: 'ðŸ‘', name: 'field hockey' }, { emoji: 'ðŸ¥Š', name: 'boxing glove' }, { emoji: 'ðŸ¥‹', name: 'martial arts' },
+      { emoji: 'ðŸŽ¯', name: 'dart' }, { emoji: 'â›³', name: 'golf' }, { emoji: 'ðŸŽ³', name: 'bowling' }, { emoji: 'ðŸŽ®', name: 'video game' },
+      { emoji: 'ðŸŽ²', name: 'game die' }, { emoji: 'ðŸ§©', name: 'puzzle' }, { emoji: 'ðŸŽ¨', name: 'art palette' }, { emoji: 'ðŸŽ¬', name: 'clapper board' }
     ]
   },
   {
     id: 'travel',
     name: 'Travel & Places',
-    icon: '🚗',
+    icon: 'ðŸš—',
     emojis: [
-      { emoji: '🚗', name: 'car' }, { emoji: '🚕', name: 'taxi' }, { emoji: '🚙', name: 'suv' }, { emoji: '🚌', name: 'bus' },
-      { emoji: '🚎', name: 'trolleybus' }, { emoji: '🏎️', name: 'race car' }, { emoji: '🚓', name: 'police car' }, { emoji: '🚑', name: 'ambulance' },
-      { emoji: '🚒', name: 'fire engine' }, { emoji: '🚐', name: 'minibus' }, { emoji: '🛻', name: 'pickup truck' }, { emoji: '🚚', name: 'delivery truck' },
-      { emoji: '🚛', name: 'semi truck' }, { emoji: '🚜', name: 'tractor' }, { emoji: '🛵', name: 'scooter' }, { emoji: '🏍️', name: 'motorcycle' },
-      { emoji: '🚲', name: 'bicycle' }, { emoji: '🛴', name: 'kick scooter' }, { emoji: '✈️', name: 'airplane' }, { emoji: '🚀', name: 'rocket' },
-      { emoji: '🛸', name: 'ufo' }, { emoji: '🚁', name: 'helicopter' }, { emoji: '⛵', name: 'sailboat' }, { emoji: '🚢', name: 'ship' }
+      { emoji: 'ðŸš—', name: 'car' }, { emoji: 'ðŸš•', name: 'taxi' }, { emoji: 'ðŸš™', name: 'suv' }, { emoji: 'ðŸšŒ', name: 'bus' },
+      { emoji: 'ðŸšŽ', name: 'trolleybus' }, { emoji: 'ðŸŽï¸', name: 'race car' }, { emoji: 'ðŸš“', name: 'police car' }, { emoji: 'ðŸš‘', name: 'ambulance' },
+      { emoji: 'ðŸš’', name: 'fire engine' }, { emoji: 'ðŸš', name: 'minibus' }, { emoji: 'ðŸ›»', name: 'pickup truck' }, { emoji: 'ðŸšš', name: 'delivery truck' },
+      { emoji: 'ðŸš›', name: 'semi truck' }, { emoji: 'ðŸšœ', name: 'tractor' }, { emoji: 'ðŸ›µ', name: 'scooter' }, { emoji: 'ðŸï¸', name: 'motorcycle' },
+      { emoji: 'ðŸš²', name: 'bicycle' }, { emoji: 'ðŸ›´', name: 'kick scooter' }, { emoji: 'âœˆï¸', name: 'airplane' }, { emoji: 'ðŸš€', name: 'rocket' },
+      { emoji: 'ðŸ›¸', name: 'ufo' }, { emoji: 'ðŸš', name: 'helicopter' }, { emoji: 'â›µ', name: 'sailboat' }, { emoji: 'ðŸš¢', name: 'ship' }
     ]
   },
   {
     id: 'objects',
     name: 'Objects',
-    icon: '💡',
+    icon: 'ðŸ’¡',
     emojis: [
-      { emoji: '💡', name: 'light bulb' }, { emoji: '🔦', name: 'flashlight' }, { emoji: '🕯️', name: 'candle' }, { emoji: '📱', name: 'mobile phone' },
-      { emoji: '💻', name: 'laptop' }, { emoji: '🖥️', name: 'desktop computer' }, { emoji: '🖨️', name: 'printer' }, { emoji: '⌨️', name: 'keyboard' },
-      { emoji: '🖱️', name: 'computer mouse' }, { emoji: '📷', name: 'camera' }, { emoji: '📹', name: 'video camera' }, { emoji: '🔍', name: 'magnifying glass' },
-      { emoji: '🔎', name: 'magnifying glass right' }, { emoji: '🔬', name: 'microscope' }, { emoji: '🔭', name: 'telescope' }, { emoji: '📡', name: 'satellite antenna' },
-      { emoji: '📺', name: 'tv' }, { emoji: '📻', name: 'radio' }, { emoji: '⏰', name: 'alarm clock' }, { emoji: '⏱️', name: 'stopwatch' },
-      { emoji: '⏳', name: 'hourglass' }, { emoji: '🔑', name: 'key' }, { emoji: '🔒', name: 'lock' }, { emoji: '🔓', name: 'unlock' }
+      { emoji: 'ðŸ’¡', name: 'light bulb' }, { emoji: 'ðŸ”¦', name: 'flashlight' }, { emoji: 'ðŸ•¯ï¸', name: 'candle' }, { emoji: 'ðŸ“±', name: 'mobile phone' },
+      { emoji: 'ðŸ’»', name: 'laptop' }, { emoji: 'ðŸ–¥ï¸', name: 'desktop computer' }, { emoji: 'ðŸ–¨ï¸', name: 'printer' }, { emoji: 'âŒ¨ï¸', name: 'keyboard' },
+      { emoji: 'ðŸ–±ï¸', name: 'computer mouse' }, { emoji: 'ðŸ“·', name: 'camera' }, { emoji: 'ðŸ“¹', name: 'video camera' }, { emoji: 'ðŸ”', name: 'magnifying glass' },
+      { emoji: 'ðŸ”Ž', name: 'magnifying glass right' }, { emoji: 'ðŸ”¬', name: 'microscope' }, { emoji: 'ðŸ”­', name: 'telescope' }, { emoji: 'ðŸ“¡', name: 'satellite antenna' },
+      { emoji: 'ðŸ“º', name: 'tv' }, { emoji: 'ðŸ“»', name: 'radio' }, { emoji: 'â°', name: 'alarm clock' }, { emoji: 'â±ï¸', name: 'stopwatch' },
+      { emoji: 'â³', name: 'hourglass' }, { emoji: 'ðŸ”‘', name: 'key' }, { emoji: 'ðŸ”’', name: 'lock' }, { emoji: 'ðŸ”“', name: 'unlock' }
     ]
   },
   {
     id: 'symbols',
     name: 'Symbols & Flags',
-    icon: '🏳️',
+    icon: 'ðŸ³ï¸',
     emojis: [
-      { emoji: '❤️', name: 'red heart' }, { emoji: '🧡', name: 'orange heart' }, { emoji: '💛', name: 'yellow heart' }, { emoji: '💚', name: 'green heart' },
-      { emoji: '💙', name: 'blue heart' }, { emoji: '💜', name: 'purple heart' }, { emoji: '🖤', name: 'black heart' }, { emoji: '🤍', name: 'white heart' },
-      { emoji: '💔', name: 'broken heart' }, { emoji: '❣️', name: 'heart exclamation' }, { emoji: '💕', name: 'two hearts' }, { emoji: '💞', name: 'revolving hearts' },
-      { emoji: '💓', name: 'beating heart' }, { emoji: '💗', name: 'growing heart' }, { emoji: '💖', name: 'sparkling heart' }, { emoji: '💘', name: 'heart arrow' },
-      { emoji: '✨', name: 'sparkles' }, { emoji: '⭐', name: 'star' }, { emoji: '🌟', name: 'glowing star' }, { emoji: '🔥', name: 'fire' },
-      { emoji: '💯', name: '100' }, { emoji: '✅', name: 'check mark' }, { emoji: '❌', name: 'cross mark' }, { emoji: '⚠️', name: 'warning' },
-      { emoji: '🏳️', name: 'white flag' }, { emoji: '🚩', name: 'triangular flag' }, { emoji: '🏁', name: 'chequered flag' }, { emoji: '🎉', name: 'party popper' }
+      { emoji: 'â¤ï¸', name: 'red heart' }, { emoji: 'ðŸ§¡', name: 'orange heart' }, { emoji: 'ðŸ’›', name: 'yellow heart' }, { emoji: 'ðŸ’š', name: 'green heart' },
+      { emoji: 'ðŸ’™', name: 'blue heart' }, { emoji: 'ðŸ’œ', name: 'purple heart' }, { emoji: 'ðŸ–¤', name: 'black heart' }, { emoji: 'ðŸ¤', name: 'white heart' },
+      { emoji: 'ðŸ’”', name: 'broken heart' }, { emoji: 'â£ï¸', name: 'heart exclamation' }, { emoji: 'ðŸ’•', name: 'two hearts' }, { emoji: 'ðŸ’ž', name: 'revolving hearts' },
+      { emoji: 'ðŸ’“', name: 'beating heart' }, { emoji: 'ðŸ’—', name: 'growing heart' }, { emoji: 'ðŸ’–', name: 'sparkling heart' }, { emoji: 'ðŸ’˜', name: 'heart arrow' },
+      { emoji: 'âœ¨', name: 'sparkles' }, { emoji: 'â­', name: 'star' }, { emoji: 'ðŸŒŸ', name: 'glowing star' }, { emoji: 'ðŸ”¥', name: 'fire' },
+      { emoji: 'ðŸ’¯', name: '100' }, { emoji: 'âœ…', name: 'check mark' }, { emoji: 'âŒ', name: 'cross mark' }, { emoji: 'âš ï¸', name: 'warning' },
+      { emoji: 'ðŸ³ï¸', name: 'white flag' }, { emoji: 'ðŸš©', name: 'triangular flag' }, { emoji: 'ðŸ', name: 'chequered flag' }, { emoji: 'ðŸŽ‰', name: 'party popper' }
     ]
   }
 ];
@@ -1916,7 +1916,7 @@ const Casbox = () => {
       setHighlightedMessageId(uniqueKey);
       setTimeout(() => setHighlightedMessageId(null), 2500);
     } else {
-      toast("Message is in earlier history", { icon: "ℹ️" });
+      toast("Message is in earlier history", { icon: "â„¹ï¸" });
     }
   }, []);
 
@@ -2005,7 +2005,7 @@ const Casbox = () => {
         deletedMessageIdsRef.current.has(Number(originalMsgId)) ||
         deletedMessageIdsRef.current.has(String(originalMsgId)))
     ) {
-      toast("Original message is unavailable.", { icon: "ℹ️" });
+      toast("Original message is unavailable.", { icon: "â„¹ï¸" });
       return;
     }
 
@@ -2038,7 +2038,7 @@ const Casbox = () => {
         if (el) {
           highlightElement(el, targetKey);
         } else {
-          toast("Original message is unavailable.", { icon: "ℹ️" });
+          toast("Original message is unavailable.", { icon: "â„¹ï¸" });
         }
       }, 100);
       return;
@@ -2084,7 +2084,7 @@ const Casbox = () => {
             if (el) {
               highlightElement(el, targetKey);
             } else {
-              toast("Original message is unavailable.", { icon: "ℹ️" });
+              toast("Original message is unavailable.", { icon: "â„¹ï¸" });
             }
           }, 120);
           return;
@@ -2095,7 +2095,7 @@ const Casbox = () => {
     }
 
     // 5. If the original message cannot be found or has been deleted
-    toast("Original message is unavailable.", { icon: "ℹ️" });
+    toast("Original message is unavailable.", { icon: "â„¹ï¸" });
   }, [threadMessages, messages, getMessageKey, cleanMessageBody, selectedMessage, getOtherUserEmail]);
 
   const handleInitiateReply = useCallback((msg, senderLabel) => {
@@ -5748,7 +5748,7 @@ const Casbox = () => {
                 }`}
               >
 
-                {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] — [Message Preview] */}
+                {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] â€” [Message Preview] */}
                 <div className="flex items-center min-w-0 flex-1 mr-4">
                   {/* Checkbox */}
                   <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
@@ -5799,7 +5799,7 @@ const Casbox = () => {
                       </span>
                     )}
                     <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
-                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
+                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">â€”</span> : null}
                       {bodyPreview}
                     </span>
                   </div>
@@ -5953,7 +5953,7 @@ const Casbox = () => {
                   <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
                 )}
 
-                {/* Left side: [Checkbox] [Avatar] [Person Name] [Direction | Subject — Preview] */}
+                {/* Left side: [Checkbox] [Avatar] [Person Name] [Direction | Subject â€” Preview] */}
                 <div className="flex items-center min-w-0 flex-1 mr-4">
                   {/* Checkbox */}
                   <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
@@ -6002,9 +6002,9 @@ const Casbox = () => {
                       </span>
                     )}
 
-                    {/* Dash separator — if both subject and bodyPreview exist */}
+                    {/* Dash separator â€” if both subject and bodyPreview exist */}
                     {subject && bodyPreview && (
-                      <span className="text-gray-400 dark:text-gray-500 opacity-60 mr-1.5 shrink-0 select-none">—</span>
+                      <span className="text-gray-400 dark:text-gray-500 opacity-60 mr-1.5 shrink-0 select-none">â€”</span>
                     )}
 
                     {/* Content Preview */}
@@ -6207,7 +6207,7 @@ const Casbox = () => {
                       </span>
                     )}
                     <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
-                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
+                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">â€”</span> : null}
                       {bodyPreview}
                     </span>
                   </div>
@@ -7122,7 +7122,7 @@ const Casbox = () => {
               </div>
             </div>
 
-            {/* Right: Star · Delete · More */}
+            {/* Right: Star Â· Delete Â· More */}
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {/* Starred Messages View Toggle */}
               <button
@@ -8198,7 +8198,7 @@ const Casbox = () => {
                 </pre>
               ) : (
                 <div className="flex flex-col items-center justify-center bg-zinc-900/60 text-white p-8 rounded-2xl border border-zinc-800 max-w-sm text-center shadow-xl">
-                  <span className="text-5xl mb-4 select-none">📎</span>
+                  <span className="text-5xl mb-4 select-none">ðŸ“Ž</span>
                   <p className="font-semibold text-sm mb-1 truncate max-w-[280px]">{previewFile.fileName}</p>
                   <p className="text-[11px] text-gray-400 mb-6">No inline preview available for this file type</p>
                   <button

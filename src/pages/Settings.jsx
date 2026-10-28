@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+﻿import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   MdSettings,
@@ -220,9 +220,9 @@ const Settings = () => {
     recoveryMethodsEnabled: true
   });
   const [connectedServices, setConnectedServices] = useState([
-    { id: "google", name: "Google Workspace / Gmail", icon: "🌐", connected: false },
-    { id: "outlook", name: "Microsoft Outlook / Office 365", icon: "📫", connected: false },
-    { id: "custom_imap", name: "Custom IMAP / POP3 Mailbox", icon: "✉️", connected: false }
+    { id: "google", name: "Google Workspace / Gmail", icon: "ðŸŒ", connected: false },
+    { id: "outlook", name: "Microsoft Outlook / Office 365", icon: "ðŸ“«", connected: false },
+    { id: "custom_imap", name: "Custom IMAP / POP3 Mailbox", icon: "âœ‰ï¸", connected: false }
   ]);
 
   // OTP Verification states for Recovery Email & Phone
@@ -390,8 +390,8 @@ const Settings = () => {
       }
 
       const successMsg = otpTarget === "email"
-        ? `Recovery Email (${maskedContact}) Verified Successfully! ✓`
-        : `Recovery Phone (${maskedContact}) Verified Successfully! ✓`;
+        ? `Recovery Email (${maskedContact}) Verified Successfully! âœ“`
+        : `Recovery Phone (${maskedContact}) Verified Successfully! âœ“`;
 
       toast.success(successMsg, { id: "settings-save-toast", duration: 4000 });
       setShowOtpModal(false);
@@ -1220,7 +1220,7 @@ const Settings = () => {
           className="text-sm font-semibold mb-3 hover:underline text-left cursor-pointer flex items-center gap-1.5 transition-colors hover:text-primary"
           style={{ color: theme.accent }}
         >
-          ← {t("common.back", "Back")}
+          â† {t("common.back", "Back")}
         </button>
         <h2 className="text-2xl font-bold mb-4 px-2" style={{ color: theme.text }}>{t("settings.title", "Settings")}</h2>
 
@@ -1313,7 +1313,7 @@ const Settings = () => {
                   </div>
                   <div className="flex flex-col gap-1 p-4 rounded-xl border" style={{ borderColor: theme.border }}>
                     <span className="text-xs font-semibold text-gray-400 uppercase">{t("settings.account_status", "Account Status")}</span>
-                    <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t("settings.active_verified", "Active & Verified ✓")}</span>
+                    <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t("settings.active_verified", "Active & Verified âœ“")}</span>
                   </div>
                 </div>
               </Section>
@@ -1339,7 +1339,7 @@ const Settings = () => {
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">{t("settings.recovery_email_address", "Recovery Email Address")}</label>
                         {isRecoveryEmailVerified ? (
                           <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                            {t("settings.recovery_email_verified", "Recovery Email Verified ✓")}
+                            {t("settings.recovery_email_verified", "Recovery Email Verified âœ“")}
                           </span>
                         ) : (
                           <span className="px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
@@ -1366,7 +1366,7 @@ const Settings = () => {
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">{t("settings.recovery_phone_number", "Recovery Phone Number")}</label>
                         {isRecoveryPhoneVerified ? (
                           <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                            {t("settings.recovery_phone_verified", "Recovery Phone Verified ✓")}
+                            {t("settings.recovery_phone_verified", "Recovery Phone Verified âœ“")}
                           </span>
                         ) : (
                           <span className="px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
@@ -1642,11 +1642,11 @@ const Settings = () => {
                     style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                   >
                     <option value="en" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>English</option>
-                    <option value="ta" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Tamil (தமிழ்)</option>
-                    <option value="hi" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Hindi (हिंदी)</option>
-                    <option value="te" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Telugu (తెలుగు)</option>
-                    <option value="ml" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Malayalam (മലയാളം)</option>
-                    <option value="kn" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Kannada (ಕನ್ನಡ)</option>
+                    <option value="ta" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Tamil (à®¤à®®à®¿à®´à¯)</option>
+                    <option value="hi" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Hindi (à¤¹à¤¿à¤‚à¤¦à¥€)</option>
+                    <option value="te" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Telugu (à°¤à±†à°²à±à°—à±)</option>
+                    <option value="ml" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Malayalam (à´®à´²à´¯à´¾à´³à´‚)</option>
+                    <option value="kn" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Kannada (à²•à²¨à³à²¨à²¡)</option>
                   </select>
                   <span className="text-xs text-gray-500">{t("settings.display_language_help", "BNXmail display language preference.")}</span>
                 </div>
@@ -1790,7 +1790,7 @@ const Settings = () => {
                               onClick={() => setDefaultSignature(sig.id)}
                               className={`text-xs px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${sig.isDefault ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10"}`}
                             >
-                              {sig.isDefault ? t("settings.is_default", "Default ✓") : t("settings.set_default", "Set Default")}
+                              {sig.isDefault ? t("settings.is_default", "Default âœ“") : t("settings.set_default", "Set Default")}
                             </button>
                             <button
                               type="button"
@@ -1803,7 +1803,7 @@ const Settings = () => {
                               className="text-red-500 hover:text-red-700 px-2 py-1 cursor-pointer font-bold"
                               title={t("settings.delete_signature", "Delete Signature")}
                             >
-                              ✕
+                              âœ•
                             </button>
                           </div>
                           <div className="bg-white text-black rounded-md border relative">
@@ -2343,7 +2343,7 @@ const Settings = () => {
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-green-500 uppercase tracking-wider">{t("settings.this_device", "This device")}</span>
                               )}
                             </div>
-                            <p className="text-sm text-gray-500">{s.ipAddress} — {device.browser}</p>
+                            <p className="text-sm text-gray-500">{s.ipAddress} â€” {device.browser}</p>
                             <p className="text-xs text-gray-400 mt-1">{t("settings.logged_in", "Logged in:")} {new Date(s.createdAt).toLocaleString()}</p>
                           </div>
                         </div>
@@ -2379,7 +2379,7 @@ const Settings = () => {
                               {t("settings.authorized_badge", "Authorized")}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-500">{s.ipAddress || "Remote Client"} — {t("settings.basic_profile_access", "Basic Profile Access")}</p>
+                          <p className="text-sm text-gray-500">{s.ipAddress || "Remote Client"} â€” {t("settings.basic_profile_access", "Basic Profile Access")}</p>
                           <p className="text-xs text-gray-400 mt-1">{t("settings.authorized", "Authorized:")} {new Date(s.loggedInAt).toLocaleString()}</p>
                         </div>
                       </div>
@@ -2622,7 +2622,7 @@ const Settings = () => {
                   <div className="mt-4 p-3.5 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-medium transition-all animate-fadeIn">
                     <div className="flex items-center gap-2.5">
                       <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                        ✓
+                        âœ“
                       </span>
                       <span>Invitation link copied successfully!</span>
                     </div>

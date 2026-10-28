@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { mailBackupAPI } from "../services/mailBackupApi";
 import { useTheme } from "../context/ThemeContext";
@@ -90,12 +90,12 @@ const MailBackup = () => {
     }
   }, [activeFilter, currentPage, pageSize, isVerified]);
 
-  // Mask user email (e.g. ashwin@example.com -> a•••••@example.com)
+  // Mask user email (e.g. ashwin@example.com -> aâ€¢â€¢â€¢â€¢â€¢@example.com)
   const maskEmail = (email) => {
-    if (!email) return "u•••••@example.com";
+    if (!email) return "uâ€¢â€¢â€¢â€¢â€¢@example.com";
     const [localPart, domain] = email.split("@");
     if (localPart.length <= 1) return email;
-    return `${localPart[0]}•••••@${domain}`;
+    return `${localPart[0]}â€¢â€¢â€¢â€¢â€¢@${domain}`;
   };
 
   // OTP inputs keyboard shifting handlers
@@ -276,7 +276,7 @@ const MailBackup = () => {
           {/* Errors display */}
           {otpError && (
             <div className="mb-4 text-xs font-bold text-red-500 flex items-center gap-1 animate-fade-in">
-              <span>⚠️</span> {otpError}
+              <span>âš ï¸</span> {otpError}
             </div>
           )}
 
@@ -394,7 +394,7 @@ const MailBackup = () => {
         ) : error ? (
           // Error State
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto">
-            <span className="text-4xl mb-4 opacity-50">⚠️</span>
+            <span className="text-4xl mb-4 opacity-50">âš ï¸</span>
             <h3 className="text-base font-bold mb-1" style={{ color: theme.text }}>
               Unable to load backup emails
             </h3>
@@ -412,7 +412,7 @@ const MailBackup = () => {
         ) : backups.length === 0 ? (
           // Empty State
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto">
-            <span className="text-5xl mb-4 opacity-60">📦</span>
+            <span className="text-5xl mb-4 opacity-60">ðŸ“¦</span>
             <h3 className="text-base font-bold mb-1" style={{ color: theme.text }}>
               No backup emails yet
             </h3>
@@ -447,7 +447,7 @@ const MailBackup = () => {
                   <div className="text-sm font-medium truncate" style={{ color: theme.text }}>
                     {email.subject || "(No Subject)"}
                     <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">
-                      — {email.snippet || email.bodySnippet || ""}
+                      â€” {email.snippet || email.bodySnippet || ""}
                     </span>
                   </div>
                 </div>

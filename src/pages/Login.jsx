@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -254,7 +254,7 @@ const Login = () => {
                                         value={formData.password}
                                         onChange={handleChange}
                                         className="w-full px-4 py-3 pr-11 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
-                                        placeholder="••••••••"
+                                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                                     />
                                     <button
                                         type="button"
@@ -300,7 +300,7 @@ const Login = () => {
                                     <span>Authenticating...</span>
                                 </div>
                             ) : (
-                                'Sign In →'
+                                'Sign In â†’'
                             )}
                         </button>
 
@@ -329,7 +329,7 @@ const Login = () => {
                                     required
                                     value={otp}
                                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                    placeholder="••••••"
+                                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢"
                                     className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-center text-2xl font-bold tracking-[0.5em] focus:placeholder-transparent transition-all"
                                     maxLength="6"
                                     autoFocus
@@ -348,7 +348,7 @@ const Login = () => {
                                     <span>Verifying...</span>
                                 </div>
                             ) : (
-                                'Verify Code →'
+                                'Verify Code â†’'
                             )}
                         </button>
 
@@ -398,7 +398,7 @@ const Login = () => {
                                         required
                                         value={otp}
                                         onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                        placeholder="••••••"
+                                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢"
                                         className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-center text-2xl font-bold tracking-[0.5em] focus:placeholder-transparent transition-all"
                                         maxLength="6"
                                         autoFocus
@@ -430,7 +430,7 @@ const Login = () => {
                                         <span>Verifying...</span>
                                     </div>
                                 ) : (
-                                    'Verify and Login →'
+                                    'Verify and Login â†’'
                                 )}
                             </button>
                         )}

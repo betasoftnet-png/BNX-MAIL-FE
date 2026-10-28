@@ -291,24 +291,24 @@ const AppContent = () => {
             <ErrorBoundary>
               <React.Suspense fallback={<PageLoader />}>
                 <Routes>
-                  <Route path="/" element={<Inbox searchQuery={searchQuery} />} />
+                  <Route path="/" element={<Inbox />} />
                   <Route path="/analytics" element={<AnalyticsApp />} />
-                  <Route path="/inbox" element={<Inbox searchQuery={searchQuery} />} />
-                  <Route path="/all-inbox" element={<Inbox searchQuery={searchQuery} />} />
-                  <Route path="/starred" element={<Starred searchQuery={searchQuery} />} />
-                  <Route path="/unread" element={<Unread searchQuery={searchQuery} />} />
-                  <Route path="/snoozed" element={<Snoozed searchQuery={searchQuery} />} />
-                  <Route path="/draft" element={<Draft searchQuery={searchQuery} />} />
-                  <Route path="/sent" element={<Send searchQuery={searchQuery} />} />
-                  <Route path="/outbox" element={<Outbox searchQuery={searchQuery} />} />
-                  <Route path="/scheduled" element={<Scheduled searchQuery={searchQuery} />} />
-                  <Route path="/spam" element={<Spam searchQuery={searchQuery} />} />
-                  <Route path="/bulk-mail" element={<BulkMail searchQuery={searchQuery} />} />
-                  <Route path="/notifyhub" element={<Notification searchQuery={searchQuery} />} />
-                  <Route path="/trash" element={<Trash searchQuery={searchQuery} />} />
-                  <Route path="/archive" element={<Archive searchQuery={searchQuery} />} />
-                  <Route path="/all-mail" element={<AllMail searchQuery={searchQuery} />} />
-                  <Route path="/allmail" element={<AllMail searchQuery={searchQuery} />} />
+                  <Route path="/inbox" element={<Inbox />} />
+                  <Route path="/all-inbox" element={<Inbox />} />
+                  <Route path="/starred" element={<Starred />} />
+                  <Route path="/unread" element={<Unread />} />
+                  <Route path="/snoozed" element={<Snoozed />} />
+                  <Route path="/draft" element={<Draft />} />
+                  <Route path="/sent" element={<Send />} />
+                  <Route path="/outbox" element={<Outbox />} />
+                  <Route path="/scheduled" element={<Scheduled />} />
+                  <Route path="/spam" element={<Spam />} />
+                  <Route path="/bulk-mail" element={<BulkMail />} />
+                  <Route path="/notifyhub" element={<Notification />} />
+                  <Route path="/trash" element={<Trash />} />
+                  <Route path="/archive" element={<Archive />} />
+                  <Route path="/all-mail" element={<AllMail />} />
+                  <Route path="/allmail" element={<AllMail />} />
                   <Route path="/templates" element={<Templates />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/colab" element={<Groups />} />
@@ -317,8 +317,8 @@ const AppContent = () => {
                   <Route path="/colab/:id" element={<GroupDetails />} />
                   {/* <Route path="/chat" element={<Groups />} /> */}
                   <Route path="/chat/:chatId" element={<ChatRoom />} />
-                  <Route path="/label/:labelId" element={<AllMail searchQuery={searchQuery} />} />
-                  <Route path="/subscriptions" element={<Subscriptions searchQuery={searchQuery} />} />
+                  <Route path="/label/:labelId" element={<AllMail />} />
+                  <Route path="/subscriptions" element={<Subscriptions />} />
                   <Route path="/vault" element={<Vault />} />
                   <Route path="/casbox" element={<Casbox />} />
                   <Route path="/support" element={<Support />} />

@@ -17,10 +17,11 @@ const Unread = ({ searchQuery }) => {
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter, unreadCounts } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
+  const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
 
   const unreadEmails = emails.filter((e) => !e.isRead || String(e.uid) === String(selectedEmailUid));
   const unreadCount = unreadCounts?.unread !== undefined ? unreadCounts.unread : emails.filter((e) => !e.isRead).length;
-  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
+  const selectedEmail = selectedEmailOverride || emails.find((e) => String(e.uid) === String(selectedEmailUid));
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -35,6 +36,7 @@ const Unread = ({ searchQuery }) => {
 
   useEffect(() => {
     setSelectedEmailUid(null);
+    setSelectedEmailOverride(null);
     setSelectedIds(new Set());
   }, [location.pathname]);
 
@@ -42,20 +44,26 @@ const Unread = ({ searchQuery }) => {
     fetchEmails('unread');
   }, [fetchEmails]);
 
-  const visibleEmails = unreadEmails.filter(
-    (e) =>
-      (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true) &&
-      (!searchQuery ||
-        e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
+  useEffect(() => {
+    const handleBnxOpenEmail = (event) => {
+      const emailToOpen = event?.detail?.email;
+      if (!emailToOpen) return;
+      setSelectedEmailOverride(emailToOpen);
+      if (emailToOpen.uid) setSelectedEmailUid(emailToOpen.uid);
+      if (!emailToOpen.isRead && emailToOpen.uid) {
+        handleMarkRead(emailToOpen.uid);
+      }
+    };
+    window.addEventListener("bnx-open-email", handleBnxOpenEmail);
+    return () => window.removeEventListener("bnx-open-email", handleBnxOpenEmail);
+  }, [handleMarkRead]);
+
+  const visibleEmails = unreadEmails.filter((e) =>
+    typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
   );
 
   const handleSelectEmail = (email) => {
+    setSelectedEmailOverride(null);
     setSelectedEmailUid(email.uid);
     if (!email.isRead) {
       handleMarkRead(email.uid);
@@ -83,21 +91,33 @@ const Unread = ({ searchQuery }) => {
   const detailsComponent = selectedEmail ? (
     <EmailDetails
       emailList={visibleEmails}
-      onNavigate={(email) => setSelectedEmailUid(email.uid)}
+      onNavigate={(email) => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(email.uid);
+      }}
       email={selectedEmail}
-      onBack={() => setSelectedEmailUid(null)}
-      onClose={() => setSelectedEmailUid(null)}
+      onBack={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
+      onClose={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
       onDelete={(uid) => {
         handleMoveToTrash(uid, "unread");
+        setSelectedEmailOverride(null);
         setSelectedEmailUid(null);
       }}
       onStar={(uid) => handleToggleStar(uid, "unread")}
       onArchive={(uid) => {
         handleArchive(uid, "unread");
+        setSelectedEmailOverride(null);
         setSelectedEmailUid(null);
       }}
       onUnarchive={(uid) => {
         handleUnarchive(uid);
+        setSelectedEmailOverride(null);
         setSelectedEmailUid(null);
       }}
       onReply={handleReply}

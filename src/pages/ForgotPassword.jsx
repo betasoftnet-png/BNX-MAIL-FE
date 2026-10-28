@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import toast from 'react-hot-toast';
@@ -279,7 +279,7 @@ const ForgotPassword = () => {
                             disabled={loading || !identifier.trim()}
                             className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         >
-                            {loading ? "Searching..." : "Find Account →"}
+                            {loading ? "Searching..." : "Find Account â†’"}
                         </button>
                     </form>
                 );
@@ -305,7 +305,7 @@ const ForgotPassword = () => {
                                     </div>
                                 </div>
                                 <div className="text-indigo-600 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity font-semibold text-sm">
-                                    Send Code →
+                                    Send Code â†’
                                 </div>
                             </button>
                         )}
@@ -325,7 +325,7 @@ const ForgotPassword = () => {
                                     </div>
                                 </div>
                                 <div className="text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity font-semibold text-sm">
-                                    Send Code →
+                                    Send Code â†’
                                 </div>
                             </button>
                         )}
@@ -393,7 +393,7 @@ const ForgotPassword = () => {
                             disabled={loading || otp.length !== 6}
                             className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         >
-                            {loading ? "Verifying..." : "Verify Code →"}
+                            {loading ? "Verifying..." : "Verify Code â†’"}
                         </button>
 
                         <button 
@@ -425,7 +425,7 @@ const ForgotPassword = () => {
                                             if (error) setError('');
                                         }}
                                         className="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
-                                        placeholder="••••••••"
+                                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                                         required
                                     />
                                     <button
@@ -452,7 +452,7 @@ const ForgotPassword = () => {
                                             if (error) setError('');
                                         }}
                                         className="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
-                                        placeholder="••••••••"
+                                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                                         required
                                     />
                                     <button
@@ -472,7 +472,7 @@ const ForgotPassword = () => {
                             disabled={loading || !passwords.newPassword || !passwords.confirmPassword}
                             className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         >
-                            {loading ? "Resetting..." : "Reset Password →"}
+                            {loading ? "Resetting..." : "Reset Password â†’"}
                         </button>
                     </form>
                 );
@@ -510,7 +510,7 @@ const ForgotPassword = () => {
                                 className="text-red-400 hover:text-red-600 dark:hover:text-red-200 ml-2 font-bold cursor-pointer"
                                 aria-label="Dismiss error"
                             >
-                                ✕
+                                âœ•
                             </button>
                         </div>
                     )}

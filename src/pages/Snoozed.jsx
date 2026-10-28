@@ -29,7 +29,8 @@ const Snoozed = ({ searchQuery }) => {
     matchesDateFilter 
   } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
-  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
+  const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
+  const selectedEmail = selectedEmailOverride || emails.find((e) => String(e.uid) === String(selectedEmailUid));
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -44,6 +45,7 @@ const Snoozed = ({ searchQuery }) => {
 
   useEffect(() => {
     setSelectedEmailUid(null);
+    setSelectedEmailOverride(null);
     setSelectedIds(new Set());
   }, [location.pathname]);
 
@@ -51,20 +53,23 @@ const Snoozed = ({ searchQuery }) => {
     fetchEmails('snoozed');
   }, [fetchEmails]);
 
-  const visibleEmails = emails.filter(
-    (e) =>
-      (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true) &&
-      (!searchQuery ||
-        e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
+  useEffect(() => {
+    const handleBnxOpenEmail = (event) => {
+      const emailToOpen = event?.detail?.email;
+      if (!emailToOpen) return;
+      setSelectedEmailOverride(emailToOpen);
+      if (emailToOpen.uid) setSelectedEmailUid(emailToOpen.uid);
+    };
+    window.addEventListener("bnx-open-email", handleBnxOpenEmail);
+    return () => window.removeEventListener("bnx-open-email", handleBnxOpenEmail);
+  }, []);
+
+  const visibleEmails = emails.filter((e) =>
+    typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
   );
 
   const handleSelectEmail = (email) => {
+    setSelectedEmailOverride(null);
     setSelectedEmailUid(email.uid);
   };
 
@@ -90,21 +95,33 @@ const handleReply = (email) => {
   const detailsComponent = selectedEmail ? (
 <EmailDetails
       emailList={visibleEmails}
-      onNavigate={(email) => setSelectedEmailUid(email.uid)}
+      onNavigate={(email) => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(email.uid);
+      }}
           email={selectedEmail}
-          onBack={() => setSelectedEmailUid(null)}
-          onClose={() => setSelectedEmailUid(null)}
+          onBack={() => {
+            setSelectedEmailOverride(null);
+            setSelectedEmailUid(null);
+          }}
+          onClose={() => {
+            setSelectedEmailOverride(null);
+            setSelectedEmailUid(null);
+          }}
           onDelete={(uid) => {
             handleMoveToTrash(uid, "snoozed");
+            setSelectedEmailOverride(null);
             setSelectedEmailUid(null);
           }}
           onStar={(uid) => handleToggleStar(uid, "snoozed")}
           onArchive={(uid) => {
             handleArchive(uid, "snoozed");
+            setSelectedEmailOverride(null);
             setSelectedEmailUid(null);
           }}
           onUnarchive={(uid) => {
             handleUnarchive(uid);
+            setSelectedEmailOverride(null);
             setSelectedEmailUid(null);
           }}
           onReply={handleReply}

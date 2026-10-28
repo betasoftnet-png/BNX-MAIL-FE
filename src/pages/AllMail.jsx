@@ -17,7 +17,8 @@ const AllMail = ({ searchQuery }) => {
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, fetchLabelEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleSnooze, labels, currentFolder, handleArchive, handleUnarchive, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
-  const selectedEmail = emails.find(
+  const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
+  const selectedEmail = selectedEmailOverride || emails.find(
     (e) => String(e.uid) === String(selectedEmailUid) || `${e.uid}__${e.folderName || ''}` === String(selectedEmailUid)
   );
 
@@ -34,6 +35,8 @@ const AllMail = ({ searchQuery }) => {
 
   useEffect(() => {
     setSelectedIds(new Set());
+    setSelectedEmailUid(null);
+    setSelectedEmailOverride(null);
   }, [labelId]);
 
   const activeLabel = labels.find(l => l.id.toString() === labelId);
@@ -55,19 +58,6 @@ const AllMail = ({ searchQuery }) => {
 
   const visibleEmails = emails.filter((e) => {
     if (typeof matchesDateFilter === 'function' && !matchesDateFilter(e)) return false;
-    // 1. Search Query
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchSearch =
-        e.subject?.toLowerCase().includes(q) ||
-        e.from?.toLowerCase().includes(q) ||
-        e.senderEmail?.toLowerCase().includes(q) ||
-        e.to?.toLowerCase().includes(q) ||
-        e.recipientEmail?.toLowerCase().includes(q) ||
-        e.body?.toLowerCase().includes(q) ||
-        e.textPlain?.toLowerCase().includes(q);
-      if (!matchSearch) return false;
-    }
 
     // 2. From filter
     if (filterFrom) {
@@ -156,10 +146,29 @@ const AllMail = ({ searchQuery }) => {
     }
   }, [fetchEmails, fetchLabelEmails, labelId]);
 
+  useEffect(() => {
+    const handleBnxOpenEmail = (event) => {
+      const emailToOpen = event?.detail?.email;
+      if (!emailToOpen) return;
+      if (emailToOpen.folderName?.toLowerCase() === "drafts" || emailToOpen.folderName?.toLowerCase() === "draft") {
+        openCompose({ draft: emailToOpen });
+      } else {
+        setSelectedEmailOverride(emailToOpen);
+        if (emailToOpen.uid) setSelectedEmailUid(`${emailToOpen.uid}__${emailToOpen.folderName || ''}`);
+        if (!emailToOpen.isRead && emailToOpen.uid) {
+          handleMarkRead(emailToOpen.uid);
+        }
+      }
+    };
+    window.addEventListener("bnx-open-email", handleBnxOpenEmail);
+    return () => window.removeEventListener("bnx-open-email", handleBnxOpenEmail);
+  }, [openCompose, handleMarkRead]);
+
   const handleSelectEmail = (email) => {
     if (email.folderName?.toLowerCase() === "drafts" || email.folderName?.toLowerCase() === "draft") {
       openCompose({ draft: email });
     } else {
+      setSelectedEmailOverride(null);
       setSelectedEmailUid(`${email.uid}__${email.folderName || ''}`);
       if (!email.isRead) {
         handleMarkRead(email.uid);
@@ -167,7 +176,6 @@ const AllMail = ({ searchQuery }) => {
     }
   };
 
-  
   const handleForward = (email) => {
     openCompose({
       forward: true,
@@ -176,7 +184,8 @@ const AllMail = ({ searchQuery }) => {
       originalEmail: email,
     });
   };
-const handleReply = (email) => {
+
+  const handleReply = (email) => {
     openCompose({
       replyTo: email.senderEmail || email.from,
       subject: `Re: ${email.subject || ""}`,
@@ -184,26 +193,34 @@ const handleReply = (email) => {
     });
   };
 
-
   /* ---------------- MAIN UI ---------------- */
   
   const detailsComponent = selectedEmail ? (
 <EmailDetails
       emailList={visibleEmails}
-      onNavigate={(email) => setSelectedEmailUid(email.uid)}
+      onNavigate={(email) => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(email.uid);
+      }}
           email={selectedEmail}
-          onBack={() => setSelectedEmailUid(null)}
+          onBack={() => {
+            setSelectedEmailOverride(null);
+            setSelectedEmailUid(null);
+          }}
           onDelete={(uid) => {
             handleMoveToTrash(uid, currentFolder || "inbox");
+            setSelectedEmailOverride(null);
             setSelectedEmailUid(null);
           }}
           onStar={(uid) => handleToggleStar(uid, currentFolder || "inbox")}
           onArchive={(uid) => {
             handleArchive(uid, currentFolder || "inbox");
+            setSelectedEmailOverride(null);
             setSelectedEmailUid(null);
           }}
           onUnarchive={(uid) => {
             handleUnarchive(uid);
+            setSelectedEmailOverride(null);
             setSelectedEmailUid(null);
           }}
           onReply={handleReply}
@@ -515,7 +532,7 @@ const FilterButton = ({ label, open, setOpen, children, active = false, align = 
         `}
       >
         <span>{label}</span>
-        <span className="text-[10px]">▼</span>
+        <span className="text-[10px]">â–¼</span>
       </button>
 
       {open && (

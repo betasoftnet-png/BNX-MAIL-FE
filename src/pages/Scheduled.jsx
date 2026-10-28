@@ -1,4 +1,4 @@
-import { useTranslation } from "../context/LanguageContext";
+﻿import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState, useCallback } from "react";
 import { mailAPI } from "../services/api";
 import EmailList from "../components/EmailList";
@@ -204,7 +204,7 @@ const Scheduled = ({ searchQuery }) => {
           className="text-base font-bold flex items-center gap-2"
           style={{ color: theme.text }}
         >
-          🕒 Scheduled
+          ðŸ•’ Scheduled
           <span
             className="ml-2 text-xs font-normal"
             style={{ color: theme.subText }}
@@ -216,7 +216,7 @@ const Scheduled = ({ searchQuery }) => {
               className="ml-2 inline-flex items-center text-[10px] text-blue-500 font-normal animate-pulse"
               title="Updating scheduled emails in background..."
             >
-              • Syncing...
+              â€¢ Syncing...
             </span>
           )}
         </h2>
@@ -232,12 +232,12 @@ const Scheduled = ({ searchQuery }) => {
             style={{ borderColor: theme.accent }}
           />
           <p className="text-sm font-medium" style={{ color: theme.subText }}>
-            Loading scheduled emails…
+            Loading scheduled emailsâ€¦
           </p>
         </div>
       ) : error && emails.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-          <span className="text-4xl mb-3">⚠️</span>
+          <span className="text-4xl mb-3">âš ï¸</span>
           <p className="text-sm font-semibold text-red-500 mb-2">{error}</p>
           <button
             onClick={() => fetchScheduled(false)}
@@ -249,7 +249,7 @@ const Scheduled = ({ searchQuery }) => {
         </div>
       ) : emails.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-          <span className="text-5xl mb-3">📭</span>
+          <span className="text-5xl mb-3">ðŸ“­</span>
           <p className="text-base font-semibold" style={{ color: theme.text }}>
             No scheduled emails
           </p>

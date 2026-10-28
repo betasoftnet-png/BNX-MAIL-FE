@@ -39,17 +39,18 @@ const Draft = ({ searchQuery }) => {
     fetchEmails('draft');
   }, [fetchEmails]);
 
-  const visibleEmails = emails.filter(
-    (e) =>
-      (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true) &&
-      (!searchQuery ||
-        e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
+  useEffect(() => {
+    const handleBnxOpenEmail = (event) => {
+      const emailToOpen = event?.detail?.email;
+      if (!emailToOpen) return;
+      openCompose({ draft: { ...emailToOpen } });
+    };
+    window.addEventListener("bnx-open-email", handleBnxOpenEmail);
+    return () => window.removeEventListener("bnx-open-email", handleBnxOpenEmail);
+  }, [openCompose]);
+
+  const visibleEmails = emails.filter((e) =>
+    typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
   );
 
   const handleSelectEmail = (email) => {
@@ -146,7 +147,7 @@ const handleReply = (email) => {
     <div className="flex-1 flex flex-col overflow-hidden">
 {emails.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-                <span className="text-5xl mb-3">📝</span>
+                <span className="text-5xl mb-3">ðŸ“</span>
                 <p
                   className="text-base font-semibold mb-1"
                   style={{ color: theme.text }}

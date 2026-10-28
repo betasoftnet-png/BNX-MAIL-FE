@@ -19,13 +19,14 @@ const Spam = ({ searchQuery }) => {
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, handleMarkRead, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
+  const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
 
   // Frontend-only duplicate filtering: display only one copy based on existing unique ID
   const uniqueEmails = useMemo(() => filterDuplicateSpamEmails(emails), [emails]);
   const selectedEmail = useMemo(
-    () => uniqueEmails.find((e) => String(e.uid) === String(selectedEmailUid)),
-    [uniqueEmails, selectedEmailUid]
+    () => selectedEmailOverride || uniqueEmails.find((e) => String(e.uid) === String(selectedEmailUid)),
+    [selectedEmailOverride, uniqueEmails, selectedEmailUid]
   );
 
   // Mark only the opened spam email as Read immediately when viewed
@@ -91,23 +92,26 @@ const Spam = ({ searchQuery }) => {
     fetchEmails('spam');
   }, [fetchEmails]);
 
+  useEffect(() => {
+    const handleBnxOpenEmail = (event) => {
+      const emailToOpen = event?.detail?.email;
+      if (!emailToOpen) return;
+      setSelectedEmailOverride(emailToOpen);
+      if (emailToOpen.uid) setSelectedEmailUid(emailToOpen.uid);
+      if (!emailToOpen.isRead && emailToOpen.uid && handleMarkRead) {
+        handleMarkRead(emailToOpen.uid);
+      }
+    };
+    window.addEventListener("bnx-open-email", handleBnxOpenEmail);
+    return () => window.removeEventListener("bnx-open-email", handleBnxOpenEmail);
+  }, [handleMarkRead]);
+
   const visibleEmails = useMemo(() => {
-    const filteredByDate = matchesDateFilter ? uniqueEmails.filter(matchesDateFilter) : uniqueEmails;
-    if (!searchQuery) return filteredByDate;
-    const q = searchQuery.toLowerCase();
-    return filteredByDate.filter(
-      (e) =>
-        e.subject?.toLowerCase().includes(q) ||
-        e.from?.toLowerCase().includes(q) ||
-        e.senderEmail?.toLowerCase().includes(q) ||
-        e.to?.toLowerCase().includes(q) ||
-        e.recipientEmail?.toLowerCase().includes(q) ||
-        e.body?.toLowerCase().includes(q) ||
-        e.textPlain?.toLowerCase().includes(q)
-    );
-  }, [uniqueEmails, searchQuery, matchesDateFilter]);
+    return matchesDateFilter ? uniqueEmails.filter(matchesDateFilter) : uniqueEmails;
+  }, [uniqueEmails, matchesDateFilter]);
 
   const handleSelectEmail = (email) => {
+    setSelectedEmailOverride(null);
     setSelectedEmailUid(email.uid);
     if (!email.isRead && handleMarkRead) {
       handleMarkRead(email.uid);
@@ -137,20 +141,26 @@ const Spam = ({ searchQuery }) => {
     <EmailDetails
       emailList={visibleEmails}
       onNavigate={(email) => {
+        setSelectedEmailOverride(null);
         setSelectedEmailUid(email.uid);
         if (!email.isRead && handleMarkRead) {
           handleMarkRead(email.uid);
         }
       }}
       email={selectedEmail}
-      onBack={() => setSelectedEmailUid(null)}
+      onBack={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
       onDelete={(uid) => {
         handleMoveToTrash(uid, "spam");
+        setSelectedEmailOverride(null);
         setSelectedEmailUid(null);
       }}
       onStar={(uid) => handleToggleStar(uid, "spam")}
       onArchive={(uid) => {
         handleArchive(uid, "spam");
+        setSelectedEmailOverride(null);
         setSelectedEmailUid(null);
       }}
       onReply={handleReply}

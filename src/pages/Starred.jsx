@@ -1,4 +1,4 @@
-import { useTranslation } from "../context/LanguageContext";
+﻿import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
@@ -17,6 +17,7 @@ const Starred = ({ searchQuery }) => {
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
+  const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -31,24 +32,29 @@ const Starred = ({ searchQuery }) => {
 
   useEffect(() => {
     setSelectedEmailUid(null);
+    setSelectedEmailOverride(null);
     setSelectedIds(new Set());
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handleOpenEmail = (e) => {
+      const email = e.detail?.email;
+      const uid = e.detail?.uid;
+      if (uid !== undefined && uid !== null) {
+        setSelectedEmailUid(uid);
+        if (email) setSelectedEmailOverride(email);
+      }
+    };
+    window.addEventListener('bnx-open-email', handleOpenEmail);
+    return () => window.removeEventListener('bnx-open-email', handleOpenEmail);
+  }, []);
 
   useEffect(() => {
     fetchEmails('starred');
   }, [fetchEmails]);
 
   const visibleEmails = emails.filter(
-    (e) =>
-      (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true) &&
-      (!searchQuery ||
-        e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
+    (e) => typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
   );
 
   const sortedEmails = useMemo(() => {
@@ -74,7 +80,8 @@ const Starred = ({ searchQuery }) => {
     });
   }, [visibleEmails]);
 
-  const selectedEmail = sortedEmails.find((e) => String(e.uid) === String(selectedEmailUid));
+  const selectedEmail = sortedEmails.find((e) => String(e.uid) === String(selectedEmailUid)) ||
+    (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
 
   const isDraftEmail = (email) => {
     if (!email) return false;

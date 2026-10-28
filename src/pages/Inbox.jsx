@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { useAuth } from "../context/AuthContext";
@@ -23,8 +23,10 @@ const Inbox = ({ searchQuery }) => {
   const { emails, loading, fetchEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter, dateFilter, customDateRange, resetDateFilter } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
+  const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
   const [activeTab, setActiveTab] = useState('ALL');
-  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid));
+  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid)) ||
+    (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -79,22 +81,31 @@ const Inbox = ({ searchQuery }) => {
         ? (activeTab === 'ALL' || getTabCategory(e) === activeTab)
         : true;
       return matchesTab &&
-        (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true) &&
-        (!searchQuery ||
-          e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.to?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.recipientEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()));
+        (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true);
     }
   );
 
   useEffect(() => {
     setSelectedEmailUid(null);
+    setSelectedEmailOverride(null);
     setSelectedIds(new Set());
   }, [location.pathname, activeTab]);
+
+  useEffect(() => {
+    const handleOpenEmail = (e) => {
+      const email = e.detail?.email;
+      const uid = e.detail?.uid;
+      if (uid !== undefined && uid !== null) {
+        setSelectedEmailUid(uid);
+        if (email) setSelectedEmailOverride(email);
+        if (email && !email.isRead && handleMarkRead) {
+          handleMarkRead(uid);
+        }
+      }
+    };
+    window.addEventListener('bnx-open-email', handleOpenEmail);
+    return () => window.removeEventListener('bnx-open-email', handleOpenEmail);
+  }, [handleMarkRead]);
 
   useEffect(() => {
     const handleShortcutAction = (e) => {

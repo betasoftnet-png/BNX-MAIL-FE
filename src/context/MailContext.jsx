@@ -1939,9 +1939,42 @@ export const MailProvider = ({ children }) => {
         });
     }, []);
 
+    const getFolderEmails = useCallback((folder) => {
+        const folderKey = (folder || currentFolderRef.current || 'inbox').toLowerCase();
+        const list = [];
+        const seenUids = new Set();
+
+        if (currentFolderRef.current.toLowerCase() === folderKey && Array.isArray(emails)) {
+            emails.forEach(e => {
+                const uidStr = String(e.uid ?? e.id ?? '');
+                if (uidStr && !seenUids.has(uidStr)) {
+                    seenUids.add(uidStr);
+                    list.push(e);
+                }
+            });
+        }
+
+        if (pagesCache.current[folderKey]) {
+            Object.values(pagesCache.current[folderKey]).forEach(pageList => {
+                if (Array.isArray(pageList)) {
+                    pageList.forEach(e => {
+                        const uidStr = String(e.uid ?? e.id ?? '');
+                        if (uidStr && !seenUids.has(uidStr)) {
+                            seenUids.add(uidStr);
+                            list.push(e);
+                        }
+                    });
+                }
+            });
+        }
+
+        return list;
+    }, [emails]);
+
     return (
         <MailContext.Provider value={{
             emails,
+            getFolderEmails,
             loading,
             currentFolder,
             setCurrentFolder,
@@ -2002,6 +2035,7 @@ export const useMail = () => {
     if (!context) {
         return {
             emails: [],
+            getFolderEmails: () => [],
             loading: false,
             labels: [],
             unreadCounts: { inbox: 0, unread: 0, spam: 0, trash: 0 },
