@@ -140,6 +140,11 @@ const EmailDetails = ({
   const [localLabels, setLocalLabels] = useState(email?.labels || []);
   const [isSnoozing, setIsSnoozing] = useState(false);
   const [isApplyingLabel, setIsApplyingLabel] = useState(false);
+  const [isUnsubscribed, setIsUnsubscribed] = useState(false);
+
+  useEffect(() => {
+    setIsUnsubscribed(false);
+  }, [email?.uid, email?.id]);
 
   const isHtmlContent = Boolean(
     email?.htmlBody ||
@@ -1282,11 +1287,16 @@ const EmailDetails = ({
                 )}
                 {cleanSenderEmail && !isSystemEmail && (
                   <button
-                    onClick={() => handleUnsubscribeClick()}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsUnsubscribed((prev) => !prev);
+                    }}
                     className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none"
-                    title={t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
+                    title={isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe") : t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
                   >
-                    {t("bulk_actions.unsubscribe", "Unsubscribe")}
+                    {isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe") : t("bulk_actions.unsubscribe", "Unsubscribe")}
                   </button>
                 )}
               </div>
