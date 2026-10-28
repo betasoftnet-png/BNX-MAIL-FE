@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import ReactQuill from "react-quill";
+import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import FontSizeDropdown from "./FontSizeDropdown";
+
+const Size = Quill.import('attributors/style/size');
+Size.whitelist = [
+  'small', 'normal', 'large', 'big', 'huge',
+  '10px', '12px', '14px', '16px', '18px', '20px', '24px', '32px'
+];
+Quill.register(Size, true);
 import { 
   MdArchive, 
   MdUnarchive, 
@@ -453,6 +461,7 @@ const EmailDetails = ({
 
   // File Upload states and ref
   const fileInputRef = React.useRef(null);
+  const replyQuillRef = React.useRef(null);
   const [draftId, setDraftId] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -1599,9 +1608,35 @@ const EmailDetails = ({
                 line-height: 1.6 !important;
                 min-height: 120px !important;
               }
+              #inline-reply-toolbar button {
+                cursor: pointer !important;
+              }
+              #inline-reply-toolbar button.ql-active {
+                background-color: rgba(59, 130, 246, 0.15) !important;
+                color: #2563eb !important;
+              }
+              #inline-reply-toolbar button.ql-list svg,
+              #inline-reply-toolbar button.ql-indent svg,
+              #inline-reply-toolbar button.ql-link svg {
+                width: 15px !important;
+                height: 15px !important;
+              }
+              #inline-reply-toolbar .ql-stroke {
+                stroke: #4b5563 !important;
+              }
+              .dark #inline-reply-toolbar .ql-stroke {
+                stroke: #d1d5db !important;
+              }
+              #inline-reply-toolbar .ql-fill {
+                fill: #4b5563 !important;
+              }
+              .dark #inline-reply-toolbar .ql-fill {
+                fill: #d1d5db !important;
+              }
             `}</style>
             
             <ReactQuill
+              ref={replyQuillRef}
               theme="snow"
               modules={{ toolbar: "#inline-reply-toolbar" }}
               bounds="self"
@@ -1669,14 +1704,10 @@ const EmailDetails = ({
               {/* Formatting bar container - always visible now next to Send button */}
               <div 
                 id="inline-reply-toolbar" 
-                className="flex items-center gap-1 p-1 bg-white dark:bg-neutral-800 rounded-lg border text-gray-700 dark:text-gray-300 shrink-0 select-none overflow-x-auto whitespace-nowrap max-w-full" 
+                className="flex items-center gap-1 p-1 bg-white dark:bg-neutral-800 rounded-lg border text-gray-700 dark:text-gray-300 shrink-0 select-none overflow-visible whitespace-nowrap max-w-full relative z-30" 
                 style={{ borderColor: theme.border }}
               >
-                <select className="ql-header bg-transparent border border-gray-200 dark:border-neutral-700 rounded px-1.5 py-0.5 text-xs font-bold outline-none cursor-pointer mr-1">
-                  <option value="">Normal</option>
-                  <option value="1">Heading 1</option>
-                  <option value="2">Heading 2</option>
-                </select>
+                <FontSizeDropdown quillRef={replyQuillRef} direction="up" className="mr-1" />
                 
                 <button className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">B</button>
                 <button className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">I</button>

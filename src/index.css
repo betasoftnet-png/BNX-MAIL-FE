@@ -398,23 +398,35 @@
   font-family: 'Times New Roman', serif !important;
 }
 
-/* Default size picker label: 14px */
-.ql-snow .ql-picker.ql-size .ql-picker-label::before,
+/* Quill Size Picker Labels: Small, Normal, Big */
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="small"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before {
+  content: 'Small' !important;
+}
+
 .ql-snow .ql-picker.ql-size .ql-picker-label:not([data-value])::before,
 .ql-snow .ql-picker.ql-size .ql-picker-label[data-value=""]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="normal"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="normal"]::before,
 .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before,
 .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before {
-  content: '14px' !important;
+  content: 'Normal' !important;
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="large"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="big"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="big"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before {
+  content: 'Big' !important;
 }
 
 .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10px"]::before,
 .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before {
   content: '10px' !important;
-}
-
-.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
-.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before {
-  content: '12px' !important;
 }
 
 .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before,
@@ -427,11 +439,6 @@
   content: '18px' !important;
 }
 
-.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before,
-.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before {
-  content: '20px' !important;
-}
-
 .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before,
 .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before {
   content: '24px' !important;
@@ -440,6 +447,10 @@
 .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="32px"]::before,
 .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="32px"]::before {
   content: '32px' !important;
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-options {
+  z-index: 9999 !important;
 }
 
 /* Quill tooltip positioning and visibility fix */
