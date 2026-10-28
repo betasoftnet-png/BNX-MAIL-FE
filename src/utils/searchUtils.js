@@ -12,39 +12,92 @@ export const normalizeEmail = (val) => {
  * Extracts a clean person name and email address from a string (e.g., "John Doe <john@example.com>").
  */
 export const parsePersonAndEmail = (str, fallbackEmail = '') => {
+  const fb = String(fallbackEmail || '').trim();
   if (!str) {
-    const fb = fallbackEmail || '';
+    if (!fb) return { name: 'Unknown', email: '' };
     return { name: fb.split('@')[0] || 'Unknown', email: fb };
   }
 
-  const trimmed = String(str).trim();
+  let trimmed = String(str).trim();
+
+  // Strip MIME encapsulation if present
+  try {
+    if (trimmed.includes('=?') && trimmed.includes('?=')) {
+      trimmed = trimmed.replace(/=\?([^?]+)\?([BQbq])\?([^?]+)\?=/g, (match, charset, encoding, data) => {
+        try {
+          if (encoding.toUpperCase() === 'B') {
+            return atob(data);
+          } else if (encoding.toUpperCase() === 'Q') {
+            return decodeURIComponent(data.replace(/_/g, ' ').replace(/=([0-9A-F]{2})/gi, '%$1'));
+          }
+        } catch (e) {
+          return match;
+        }
+        return match;
+      });
+    }
+  } catch (e) {}
+
+  // Case 1: "Sender Name" <email@domain.com>
   if (trimmed.includes('<')) {
     const match = trimmed.match(/^(.*?)\s*<([^>]+)>/);
     if (match) {
-      const namePart = match[1].replace(/^["'\s]+|["'\s]+$/g, '').trim();
+      let namePart = match[1].replace(/^["'\s]+|["'\s]+$/g, '').trim();
       const emailPart = match[2].trim();
+      if (!namePart || namePart === emailPart) {
+        namePart = emailPart.split('@')[0] || 'Unknown';
+      }
       return {
-        name: namePart || emailPart.split('@')[0] || 'Unknown',
-        email: emailPart || fallbackEmail
+        name: namePart,
+        email: emailPart || fb
       };
     }
   }
 
+  // Case 2: Raw email address "user@domain.com"
   if (trimmed.includes('@')) {
     return {
-      name: trimmed.split('@')[0],
+      name: trimmed.split('@')[0] || trimmed,
       email: trimmed
     };
   }
 
+  // Case 3: Display Name only
   return {
-    name: trimmed,
-    email: fallbackEmail || ''
+    name: trimmed || (fb ? fb.split('@')[0] : 'Unknown'),
+    email: fb
   };
 };
 
 /**
- * Formats a timestamp into a readable date for search results (e.g. "Today 10:30 AM" or "Oct 28").
+ * Resolves the accurate sender display name and email address for an email record.
+ */
+export const getSenderDetails = (email, activeFolder = 'inbox') => {
+  if (!email) return { name: 'Unknown', email: '' };
+
+  const isSent = (activeFolder || '').toLowerCase() === 'sent';
+
+  if (isSent) {
+    const recipientRaw = email.to || email.recipientEmail || email.recipient || '';
+    const parsed = parsePersonAndEmail(recipientRaw, email.recipientEmail || email.to || '');
+    return {
+      name: parsed.name || 'Recipient',
+      email: parsed.email || ''
+    };
+  }
+
+  // For all other folders (Inbox, Starred, Draft, Trash, Snoozed, Archive, etc.)
+  const fromRaw = email.from || email.sender || email.senderName || email.fromName || email.senderEmail || '';
+  const parsed = parsePersonAndEmail(fromRaw, email.senderEmail || email.from || '');
+
+  return {
+    name: parsed.name || 'Unknown',
+    email: parsed.email || ''
+  };
+};
+
+/**
+ * Formats a timestamp into readable date (e.g. "24 Oct", "Today 10:30 AM").
  */
 export const formatSuggestionDate = (rawDate) => {
   if (!rawDate) return '';
@@ -56,11 +109,14 @@ export const formatSuggestionDate = (rawDate) => {
     return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 
+  const day = d.getDate();
+  const month = d.toLocaleDateString('en-US', { month: 'short' });
+
   if (d.getFullYear() === now.getFullYear()) {
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return `${day} ${month}`;
   }
 
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${day} ${month} ${d.getFullYear()}`;
 };
 
 /**
@@ -289,18 +345,16 @@ export const matchesEmailQuery = (email, query, activeFolder = 'inbox', user = n
   }
 
   // 4. Message Content / Body (clean plain text snippet, NOT raw HTML tags/CSS markup)
-  let snippet = getEmailPreviewSnippet(email).toLowerCase();
-  let textPlain = (email.textPlain || '').toLowerCase();
-
-  // If the query matches the user's email, strip automated footer unsubscribe/user links
-  if (isQueryMyOwnIdentity && userEmail) {
-    const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    snippet = snippet.replace(new RegExp(escapeRegExp(userEmail), 'gi'), '');
-    textPlain = textPlain.replace(new RegExp(escapeRegExp(userEmail), 'gi'), '');
+  // In incoming folders, if the query matches the logged-in user's own identity (e.g. "Dilli"),
+  // incoming emails frequently contain automated greetings like "Dear Dilli," or footers.
+  // We do NOT match incoming emails merely because the user's own name appears in the body greeting.
+  if (!isQueryMyOwnIdentity) {
+    const textPlain = (email.textPlain || '').toLowerCase();
+    const snippet = getEmailPreviewSnippet(email).toLowerCase();
+    if (textPlain.includes(q) || snippet.includes(q)) {
+      return true;
+    }
   }
-
-  if (textPlain.includes(q)) return true;
-  if (snippet.includes(q)) return true;
 
   return false;
 };

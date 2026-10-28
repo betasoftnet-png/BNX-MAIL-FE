@@ -20,6 +20,7 @@ import {
   matchesFolderScope,
   matchesEmailQuery,
   parsePersonAndEmail,
+  getSenderDetails,
   formatSuggestionDate
 } from "../utils/searchUtils";
 import { getEmailPreviewSnippet } from "../utils/htmlUtils";
@@ -319,34 +320,31 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         {/* Matching Emails */}
         {hasEmails && (
           <div>
-            <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1 px-2 select-none flex items-center justify-between">
-              <span>EMAILS</span>
+            <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1.5 px-2 select-none flex items-center justify-between">
+              <span>EMAILS ({folderDisplayName})</span>
             </div>
             <div className="flex flex-col gap-1">
               {matchingEmails.map((e) => {
                 const currentIdx = globalItemIdx++;
                 const isSelected = selectedIndex === currentIdx;
-                const isSentFolder = activeFolder === 'sent';
-                const { name: personName, email: personEmail } = parsePersonAndEmail(
-                  isSentFolder ? (e.to || e.recipientEmail) : (e.from || e.senderEmail),
-                  e.senderEmail
-                );
+                const senderInfo = getSenderDetails(e, activeFolder);
+                const personName = senderInfo.name || 'Unknown';
+                const personEmail = senderInfo.email || '';
                 const rawDate = e.receivedDate || e.sentDate || e.date || e.createdAt || e.timestamp;
                 const dateDisplay = formatSuggestionDate(rawDate);
-                const snippet = getEmailPreviewSnippet(e);
 
                 return (
                   <div
                     key={`${e.uid || e.id || currentIdx}`}
                     onClick={() => handleSelectEmailSuggestion(e)}
-                    className={`flex items-start gap-2.5 p-3 rounded-xl cursor-pointer text-left transition-all border ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-left transition-all border ${
                       isSelected
-                        ? "bg-blue-50/80 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 shadow-sm"
+                        ? "bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 shadow-sm"
                         : "border-transparent hover:bg-black/5 dark:hover:bg-white/5"
                     }`}
                   >
                     {/* Sender Profile Image / Avatar */}
-                    <div className="shrink-0 mt-0.5">
+                    <div className="shrink-0">
                       {e.avatarUrl ? (
                         <img
                           src={e.avatarUrl}
@@ -354,16 +352,16 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                           className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700 shadow-xs"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-xs select-none">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-blue-500 text-white shadow-xs select-none">
                           {(personName || personEmail || 'U').charAt(0).toUpperCase()}
                         </div>
                       )}
                     </div>
 
-                    {/* Email Details Body */}
+                    {/* Email Details Body: Compact 2 lines */}
                     <div className="flex-1 min-w-0">
-                      {/* Top Row: Sender Name + Email + Folder Badge + Date */}
-                      <div className="flex items-center justify-between gap-2 min-w-0 mb-0.5">
+                      {/* Line 1: Sender Name + Email + Date on right */}
+                      <div className="flex items-center justify-between gap-2 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
                           <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
                             {personName}
@@ -373,28 +371,18 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                               &lt;{personEmail}&gt;
                             </span>
                           )}
-                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100/80 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 ml-1 shrink-0">
-                            {folderDisplayName}
-                          </span>
                         </div>
                         {dateDisplay && (
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
                             {dateDisplay}
                           </span>
                         )}
                       </div>
 
-                      {/* Middle Row: Full Subject (No unnecessary truncation) */}
-                      <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 break-words mb-1 leading-snug">
+                      {/* Line 2: Email Subject */}
+                      <div className="text-xs text-gray-700 dark:text-gray-300 truncate mt-0.5">
                         {e.subject || "(No Subject)"}
                       </div>
-
-                      {/* Bottom Row: Readable Message Preview */}
-                      {snippet && (
-                        <div className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed break-words">
-                          {snippet}
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
