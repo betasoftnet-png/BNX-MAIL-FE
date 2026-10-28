@@ -14,7 +14,9 @@ import {
   MdReply,
   MdArrowDropDown,
   MdFileDownload,
-  MdRemoveRedEye
+  MdRemoveRedEye,
+  MdArrowBack,
+  MdPersonOutline
 } from "react-icons/md";
 import { mailAPI, api, userAPI, signatureAPI, casboxAPI, settingsAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
@@ -23,6 +25,32 @@ import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../context/LanguageContext";
 import { DEFAULT_TEMPLATES } from "../pages/Templates";
 import toast from "react-hot-toast";
+
+const extractFormattedPlainText = (content) => {
+  if (!content) return "";
+  let text = String(content).trim();
+  if (/<[a-z][\s\S]*>/i.test(text)) {
+    text = text
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<br\s*[\/]?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<\/tr>/gi, "\n")
+      .replace(/<\/li>/gi, "\n")
+      .replace(/<[^>]+>/g, "");
+    try {
+      const doc = new DOMParser().parseFromString(text, 'text/html');
+      text = doc.documentElement.textContent || text;
+    } catch (e) {}
+  }
+  return text
+    .split("\n")
+    .map(line => line.trim())
+    .filter((line, idx, arr) => line.length > 0 || (idx > 0 && arr[idx - 1].length > 0))
+    .join("\n")
+    .trim();
+};
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import ImageResize from 'quill-image-resize-module-react';
@@ -219,7 +247,7 @@ const FloatingCompose = () => {
     updateDraftUidInState
   } = useMail();
 
-  const isReply = !!(composeData?.replyTo || composeData?.forward);
+  const isReply = Boolean(composeData?.replyTo);
   const fileInputRef = useRef(null);
 
   const [composeMode, setComposeMode] = useState("mail"); // "chat" or "mail"
@@ -242,6 +270,7 @@ const FloatingCompose = () => {
 
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
+  const [quotedMessage, setQuotedMessage] = useState("");
 
   const [showTemplates, setShowTemplates] = useState(false);
   const [allTemplates, setAllTemplates] = useState([]);
@@ -476,6 +505,22 @@ const FloatingCompose = () => {
   };
 
   const getFinalBody = (bodyVal) => {
+    if (isReply && quotedMessage) {
+      const cleanUserBody = bodyVal || "";
+      const escapedQuote = quotedMessage
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br/>");
+      const originalQuoteHtml = `
+        <br/><br/>
+        <div class="bnx_original_quote" style="color: #555555; border-left: 3px solid #0052cc; padding-left: 12px; margin-top: 16px; font-size: 13px;">
+          <div style="font-weight: 600; margin-bottom: 6px; color: #777777;">--- Original Message ---</div>
+          <div style="white-space: pre-wrap;">${escapedQuote}</div>
+        </div>
+      `;
+      return `${cleanUserBody}${originalQuoteHtml}`;
+    }
     return bodyVal;
   };
 
@@ -558,24 +603,24 @@ const FloatingCompose = () => {
       });
     } else {
       // Normal state: restore user's preferred normal size & position
-      const defaultW = Math.min(540, window.innerWidth - 40);
-      const defaultH = Math.min(500, window.innerHeight - 60);
+      const defaultW = isReply ? Math.min(580, window.innerWidth - 40) : Math.min(540, window.innerWidth - 40);
+      const defaultH = isReply ? Math.min(620, window.innerHeight - 60) : Math.min(500, window.innerHeight - 60);
       const savedW = lastNormalSizeRef.current?.width || defaultW;
       const savedH = lastNormalSizeRef.current?.height || defaultH;
-      const w = Math.min(savedW, window.innerWidth - 40);
-      const h = Math.min(savedH, window.innerHeight - 60);
+      const w = isReply ? Math.min(580, window.innerWidth - 40) : Math.min(savedW, window.innerWidth - 40);
+      const h = isReply ? Math.min(620, window.innerHeight - 60) : Math.min(savedH, window.innerHeight - 60);
 
-      const defaultX = window.innerWidth - w - 20;
-      const defaultY = window.innerHeight - h - 20;
+      const defaultX = window.innerWidth - w - 24;
+      const defaultY = window.innerHeight - h - 24;
       const savedX = lastNormalPosRef.current?.x !== undefined ? lastNormalPosRef.current.x : defaultX;
       const savedY = lastNormalPosRef.current?.y !== undefined ? lastNormalPosRef.current.y : defaultY;
-      const x = Math.max(10, Math.min(savedX, window.innerWidth - w - 10));
-      const y = Math.max(10, Math.min(savedY, window.innerHeight - h - 10));
+      const x = isReply ? defaultX : Math.max(10, Math.min(savedX, window.innerWidth - w - 10));
+      const y = isReply ? defaultY : Math.max(10, Math.min(savedY, window.innerHeight - h - 10));
 
       setSize({ width: w, height: h });
       setPosition({ x, y });
     }
-  }, [isComposeMaximized, isComposeMinimized, isComposeOpen, isMobile]);
+  }, [isComposeMaximized, isComposeMinimized, isComposeOpen, isMobile, isReply]);
 
   // Load Custom + Default templates for inline insertion
   useEffect(() => {
@@ -612,6 +657,9 @@ const FloatingCompose = () => {
       imapDraftUidRef.current = null;
       setDraftId(null);
       initialFormDataRef.current = null;
+      setQuotedMessage("");
+      setShowCc(false);
+      setShowBcc(false);
       setFormData({
         to: "",
         cc: "",
@@ -710,17 +758,35 @@ const FloatingCompose = () => {
 
       if (composeData) {
         if (!signatureInjectedRef.current) {
-          if (composeData.replyTo || composeData.forward) {
+          if (composeData.replyTo) {
+            let extractedQuote = "";
+            if (composeData.originalBody) {
+              extractedQuote = extractFormattedPlainText(composeData.originalBody);
+            } else if (composeData.originalEmail) {
+              const orig = composeData.originalEmail;
+              extractedQuote = extractFormattedPlainText(orig.body || orig.htmlBody || orig.textPlain || "");
+            }
+            setQuotedMessage(extractedQuote);
+
             const replyForm = {
-              to: composeData.forward ? "" : composeData.replyTo,
+              to: composeData.replyTo,
+              cc: composeData.cc || "",
+              bcc: composeData.bcc || "",
+              subject: composeData.subject || "",
+              body: "",
+            };
+            setFormData(replyForm);
+            initialFormDataRef.current = { ...replyForm };
+            if (composeData.cc) setShowCc(true);
+            if (composeData.bcc) setShowBcc(true);
+          } else if (composeData.forward) {
+            setQuotedMessage("");
+            const replyForm = {
+              to: "",
               cc: "",
               bcc: "",
               subject: composeData.subject || "",
-              body: composeData.forward
-                ? getOriginalEmailContentHTML(composeData.originalEmail)
-                : (composeData.originalBody && composeData.mode !== 'casbox' && composeData.mode !== 'chat'
-                    ? `<br/><br/><div>--- Original Message ---<br/>${composeData.originalBody.replace(/\n/g, '<br/>')}</div>`
-                    : ""),
+              body: getOriginalEmailContentHTML(composeData.originalEmail),
             };
             setFormData(replyForm);
             initialFormDataRef.current = { ...replyForm };
@@ -1517,9 +1583,10 @@ const FloatingCompose = () => {
               min-height: 0 !important;
               height: 100% !important;
               overflow: hidden !important;
+              font-family: inherit !important;
             }
             .reply-composer-style .ql-editor {
-              padding: 12px 0 !important;
+              padding: 10px 0 !important;
               font-size: 14px !important;
               line-height: 1.6 !important;
               flex: 1 1 0% !important;
@@ -1527,6 +1594,38 @@ const FloatingCompose = () => {
               height: 100% !important;
               overflow-y: auto !important;
               overscroll-behavior-y: contain;
+            }
+            .reply-composer-style .ql-editor.ql-blank::before {
+              left: 0 !important;
+              right: 0 !important;
+              color: #9ca3af !important;
+              font-style: normal !important;
+              font-size: 14px !important;
+            }
+            #reply-quill-toolbar button {
+              cursor: pointer !important;
+            }
+            #reply-quill-toolbar button.ql-active {
+              background-color: rgba(59, 130, 246, 0.15) !important;
+              color: #2563eb !important;
+            }
+            #reply-quill-toolbar button.ql-list svg,
+            #reply-quill-toolbar button.ql-indent svg,
+            #reply-quill-toolbar button.ql-link svg {
+              width: 15px !important;
+              height: 15px !important;
+            }
+            #reply-quill-toolbar .ql-stroke {
+              stroke: #4b5563 !important;
+            }
+            .dark #reply-quill-toolbar .ql-stroke {
+              stroke: #d1d5db !important;
+            }
+            #reply-quill-toolbar .ql-fill {
+              fill: #4b5563 !important;
+            }
+            .dark #reply-quill-toolbar .ql-fill {
+              fill: #d1d5db !important;
             }
           `}</style>
         )}
@@ -1598,40 +1697,42 @@ const FloatingCompose = () => {
         {/* HEADER / DRAG HANDLE */}
         {isReply ? (
           <div
-            className={`${isMobile ? "" : "compose-drag-handle"} flex items-center justify-between px-4 py-3 cursor-move shrink-0 border-b select-none`}
-            style={{ 
-              backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.03)' : '#ffffff',
-              borderColor: theme.border || "rgba(0,0,0,0.1)"
-            }}
+            className={`${isMobile ? "" : "compose-drag-handle"} flex items-center justify-between px-5 pt-3.5 pb-2 cursor-move shrink-0 select-none bg-white dark:bg-neutral-900`}
             onClick={() => {
               if (isComposeMinimized) {
                 setIsComposeMinimized(false);
               }
             }}
           >
-            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              <MdReply size={20} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer" />
-              <MdArrowDropDown size={16} className="text-gray-400 -ml-1 shrink-0 cursor-pointer" />
-              <span className="font-semibold text-sm truncate max-w-[200px] sm:max-w-[300px]" style={{ color: theme.text }}>
-                {formData.to || composeData?.replyTo || "Recipient"}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 transition-colors cursor-pointer"
+                title="Back / Close"
+              >
+                <MdArrowBack size={20} />
+              </button>
+              <span className="font-bold text-base text-gray-800 dark:text-gray-100">
+                Reply
               </span>
             </div>
-            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
               {!isMobile && (
                 <button
                   type="button"
                   onClick={handleMinimizeToggle}
-                  className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
                   title={isComposeMinimized ? "Expand" : "Minimize"}
                 >
-                  <MdRemove size={16} />
+                  <MdRemove size={18} />
                 </button>
               )}
               {!isMobile && (
                 <button
                   type="button"
                   onClick={handleMaximizeToggle}
-                  className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
                   title={(!isComposeMinimized && isComposeMaximized) ? "Restore" : "Maximize"}
                 >
                   {(!isComposeMinimized && isComposeMaximized) ? <MdCloseFullscreen size={16} /> : <MdOpenInFull size={16} />}
@@ -1640,10 +1741,10 @@ const FloatingCompose = () => {
               <button
                 type="button"
                 onClick={handleClose}
-                className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 cursor-pointer"
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
                 title="Close"
               >
-                <MdClose size={16} />
+                <MdClose size={18} />
               </button>
             </div>
           </div>
@@ -1720,100 +1821,205 @@ const FloatingCompose = () => {
         {/* BODY CONTENT (HIDDEN WHEN MINIMIZED, PRESERVES ALL INPUT STATE & REFS) */}
         <form
           onSubmit={handleSend}
-          className={`flex-1 flex flex-col p-4 overflow-hidden min-h-0 bg-transparent ${isComposeMinimized ? '!hidden' : ''}`}
+          className={`flex-1 flex flex-col ${isReply ? 'p-0 pt-0.5' : 'p-4'} overflow-hidden min-h-0 bg-transparent ${isComposeMinimized ? '!hidden' : ''}`}
           style={{ display: isComposeMinimized ? 'none' : 'flex' }}
         >
           {/* ALERTS */}
           {error && (
-            <div className="mb-3 p-2 rounded bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-900/30 text-xs font-medium shrink-0">
+            <div className={`p-2 rounded bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-900/30 text-xs font-medium shrink-0 ${isReply ? 'mx-5 mb-2' : 'mb-3'}`}>
               {error}
             </div>
           )}
           {success && (
-            <div className="mb-3 p-2 rounded bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-900/30 text-xs font-medium shrink-0">
+            <div className={`p-2 rounded bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-900/30 text-xs font-medium shrink-0 ${isReply ? 'mx-5 mb-2' : 'mb-3'}`}>
               {success}
             </div>
           )}
 
-          {/* HEADER FIELDS (RECIPIENT & SUBJECT) - FIXED / NON-SHRINKING */}
-          <div className="shrink-0 flex flex-col gap-0.5">
-            {/* Cc & Bcc toggles */}
-            {!isReply && (composeMode === "mail" || composeMode === "email") && (
-              <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
-                <div className="text-gray-400 dark:text-gray-500 w-10">{t('compose.to', 'To')}</div>
-                <input
-                  type="text"
-                  name="to"
-                  autoFocus
-                  className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                  placeholder={t('compose.recipients', 'Recipients')}
-                  value={formData.to}
-                  onChange={handleChange}
-                />
-                <div className="flex gap-2 text-gray-500 font-medium">
-                  <button type="button" onClick={() => setShowCc(!showCc)} className="hover:underline">
+          {/* HEADER FIELDS (RECIPIENT & SUBJECT) */}
+          {isReply ? (
+            <div className="shrink-0 flex flex-col gap-1.5 px-5 pt-1">
+              {/* To Row */}
+              <div className="flex items-center justify-between text-sm min-h-[34px]">
+                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                  <span className="text-gray-500 dark:text-gray-400 font-medium text-sm w-6 shrink-0">To</span>
+                  {formData.to ? (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-950/60 border border-blue-200/90 dark:border-blue-800/80 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300 max-w-[calc(100%-40px)]">
+                      <MdPersonOutline size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span className="truncate">{formData.to}</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, to: "" }))}
+                        className="text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 ml-0.5 cursor-pointer text-xs leading-none"
+                        title="Remove recipient"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      name="to"
+                      autoFocus
+                      className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm"
+                      placeholder="Recipient email..."
+                      value={formData.to}
+                      onChange={handleChange}
+                    />
+                  )}
+                </div>
+                <div className="flex items-center gap-3 shrink-0 text-sm font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setShowCc(!showCc)}
+                    className={`text-blue-600 dark:text-blue-400 hover:underline cursor-pointer ${showCc ? 'font-bold' : ''}`}
+                  >
                     Cc
                   </button>
-                  <button type="button" onClick={() => setShowBcc(!showBcc)} className="hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => setShowBcc(!showBcc)}
+                    className={`text-blue-600 dark:text-blue-400 hover:underline cursor-pointer ${showBcc ? 'font-bold' : ''}`}
+                  >
                     Bcc
                   </button>
                 </div>
               </div>
-            )}
-            {!isReply && (composeMode === "chat" || composeMode === "casbox") && (
-              <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
-                <div className="text-gray-400 dark:text-gray-500 w-10">To</div>
+
+              {/* CC */}
+              {showCc && (
+                <div className="flex items-center py-1 text-sm shrink-0 animate-fade-in border-b border-gray-100 dark:border-neutral-800">
+                  <span className="text-gray-500 dark:text-gray-400 font-medium text-sm w-6 shrink-0">Cc</span>
+                  <input
+                    type="text"
+                    name="cc"
+                    value={formData.cc}
+                    onChange={handleChange}
+                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm"
+                    placeholder="carboncopy@example.com"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setShowCc(false); setFormData(p => ({ ...p, cc: "" })); }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs ml-2 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* BCC */}
+              {showBcc && (
+                <div className="flex items-center py-1 text-sm shrink-0 animate-fade-in border-b border-gray-100 dark:border-neutral-800">
+                  <span className="text-gray-500 dark:text-gray-400 font-medium text-sm w-6 shrink-0">Bcc</span>
+                  <input
+                    type="text"
+                    name="bcc"
+                    value={formData.bcc}
+                    onChange={handleChange}
+                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm"
+                    placeholder="blindcopy@example.com"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setShowBcc(false); setFormData(p => ({ ...p, bcc: "" })); }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs ml-2 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* SUBJECT */}
+              <div className="pt-1.5 pb-0.5">
                 <input
                   type="text"
-                  name="to"
-                  autoFocus
-                  className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                  placeholder="Chat / Casbox Recipient (Email or Username)"
-                  value={formData.to}
+                  name="subject"
+                  value={formData.subject}
                   onChange={handleChange}
-                  onBlur={handleCasboxRecipientBlur}
+                  className="w-full bg-transparent font-bold text-sm text-gray-800 dark:text-gray-100 outline-none border-none placeholder-gray-400"
+                  placeholder="Subject..."
                 />
               </div>
-            )}
+            </div>
+          ) : (
+            <div className="shrink-0 flex flex-col gap-0.5">
+              {/* Cc & Bcc toggles */}
+              {(composeMode === "mail" || composeMode === "email") && (
+                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
+                  <div className="text-gray-400 dark:text-gray-500 w-10">{t('compose.to', 'To')}</div>
+                  <input
+                    type="text"
+                    name="to"
+                    autoFocus
+                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
+                    placeholder={t('compose.recipients', 'Recipients')}
+                    value={formData.to}
+                    onChange={handleChange}
+                  />
+                  <div className="flex gap-2 text-gray-500 font-medium">
+                    <button type="button" onClick={() => setShowCc(!showCc)} className="hover:underline">
+                      Cc
+                    </button>
+                    <button type="button" onClick={() => setShowBcc(!showBcc)} className="hover:underline">
+                      Bcc
+                    </button>
+                  </div>
+                </div>
+              )}
+              {(composeMode === "chat" || composeMode === "casbox") && (
+                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
+                  <div className="text-gray-400 dark:text-gray-500 w-10">To</div>
+                  <input
+                    type="text"
+                    name="to"
+                    autoFocus
+                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
+                    placeholder="Chat / Casbox Recipient (Email or Username)"
+                    value={formData.to}
+                    onChange={handleChange}
+                    onBlur={handleCasboxRecipientBlur}
+                  />
+                </div>
+              )}
 
-            {/* CC */}
-            {!isReply && showCc && (composeMode === "mail" || composeMode === "email") && (
-              <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
-                <div className="text-gray-400 dark:text-gray-500 w-10">Cc:</div>
-                <input
-                  type="text"
-                  name="cc"
-                  value={formData.cc}
-                  onChange={handleChange}
-                  onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
-                  className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                  placeholder="carboncopy@example.com"
-                  spellCheck={spellingCheck ? "true" : "false"}
-                  autoCorrect={autoCorrect ? "on" : "off"}
-                />
-              </div>
-            )}
+              {/* CC */}
+              {showCc && (composeMode === "mail" || composeMode === "email") && (
+                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
+                  <div className="text-gray-400 dark:text-gray-500 w-10">Cc:</div>
+                  <input
+                    type="text"
+                    name="cc"
+                    value={formData.cc}
+                    onChange={handleChange}
+                    onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
+                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
+                    placeholder="carboncopy@example.com"
+                    spellCheck={spellingCheck ? "true" : "false"}
+                    autoCorrect={autoCorrect ? "on" : "off"}
+                  />
+                </div>
+              )}
 
-            {/* BCC */}
-            {!isReply && showBcc && (composeMode === "mail" || composeMode === "email") && (
-              <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
-                <div className="text-gray-400 dark:text-gray-500 w-10">Bcc:</div>
-                <input
-                  type="text"
-                  name="bcc"
-                  value={formData.bcc}
-                  onChange={handleChange}
-                  onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
-                  className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                  placeholder="blindcopy@example.com"
-                  spellCheck={spellingCheck ? "true" : "false"}
-                  autoCorrect={autoCorrect ? "on" : "off"}
-                />
-              </div>
-            )}
+              {/* BCC */}
+              {showBcc && (composeMode === "mail" || composeMode === "email") && (
+                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
+                  <div className="text-gray-400 dark:text-gray-500 w-10">Bcc:</div>
+                  <input
+                    type="text"
+                    name="bcc"
+                    value={formData.bcc}
+                    onChange={handleChange}
+                    onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
+                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
+                    placeholder="blindcopy@example.com"
+                    spellCheck={spellingCheck ? "true" : "false"}
+                    autoCorrect={autoCorrect ? "on" : "off"}
+                  />
+                </div>
+              )}
 
-            {/* SUBJECT */}
-            {!isReply && (
+              {/* SUBJECT */}
               <div className="flex items-center gap-2 border-b py-1.5 shrink-0" style={{ borderColor: theme.border }}>
                 <span className="text-xs font-semibold w-10 text-gray-500">{t('compose.subject', 'Subject')}:</span>
                 <input
@@ -1828,11 +2034,26 @@ const FloatingCompose = () => {
                   autoCorrect={autoCorrect ? "on" : "off"}
                 />
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* QUOTED ORIGINAL MESSAGE SECTION (REPLY MODE) */}
+          {isReply && quotedMessage && (
+            <div className="mx-5 my-2 p-3.5 bg-[#f0f6ff]/80 dark:bg-neutral-800/80 border-l-[3.5px] border-blue-500 rounded-r-xl rounded-l-xs text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed max-h-36 overflow-y-auto whitespace-pre-wrap select-text font-normal shadow-xs shrink-0">
+              <div className="text-gray-500 dark:text-gray-400 text-xs mb-1.5 font-medium select-none">
+                --- Original Message ---
+              </div>
+              {quotedMessage}
+            </div>
+          )}
+
+          {/* SUBTLE DIVIDER */}
+          {isReply && (
+            <div className="border-b border-gray-100 dark:border-neutral-800 mx-5 my-1 shrink-0"></div>
+          )}
 
           {/* BODY - TOOLBAR REMAINS STATIONARY AT TOP, ONLY EDITOR SCROLLS */}
-          <div className={`flex-1 min-h-0 flex flex-col mt-2 w-full compose-quill rounded-md overflow-hidden ${isReply ? 'reply-composer-style' : ''}`}>
+          <div className={`flex-1 min-h-0 flex flex-col w-full compose-quill overflow-hidden ${isReply ? 'reply-composer-style px-5' : 'mt-2 rounded-md'}`}>
             <ReactQuill
               ref={quillRef}
               theme="snow"
@@ -1840,7 +2061,7 @@ const FloatingCompose = () => {
               bounds="self"
               value={formData.body}
               onChange={(content) => setFormData((prev) => ({ ...prev, body: content }))}
-              placeholder={composeData?.forward ? "Type your forwarded message here..." : "Type your message here..."}
+              placeholder={isReply ? "Write your reply..." : (composeData?.forward ? "Type your forwarded message here..." : "Type your message here...")}
               className="flex-1 min-h-0 flex flex-col h-full bg-white text-black"
             />
           </div>
@@ -1893,16 +2114,17 @@ const FloatingCompose = () => {
             />
             {/* ACTIONS FOOTER */}
             {isReply ? (
-              <div className="flex items-center justify-between border-t pt-3 mt-2 shrink-0 relative" style={{ borderColor: theme.border }}>
-                <div className="flex items-center gap-1 sm:gap-2">
-                  {/* SPLIT SEND BUTTON */}
-                  <div className="inline-flex items-center rounded-full overflow-hidden shadow-sm hover:shadow transition-all" style={{ backgroundColor: theme.accent || '#135bec' }}>
+              <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-t shrink-0 relative bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800">
+                <div className="flex items-center flex-wrap gap-2 sm:gap-3 flex-1 min-w-0">
+                  {/* SPLIT SEND PILL BUTTON */}
+                  <div className="inline-flex items-center rounded-full overflow-hidden shadow-sm hover:shadow transition-all bg-blue-600 hover:bg-blue-700 text-white shrink-0">
                     <button
                       type="submit"
                       disabled={sending || uploading}
-                      className="px-5 py-2 text-white text-xs font-bold disabled:opacity-60 cursor-pointer border-r border-white/20"
+                      className="flex items-center gap-1.5 pl-4 pr-2.5 py-2 text-white text-xs sm:text-sm font-semibold disabled:opacity-60 cursor-pointer"
                     >
-                      {sending ? t('compose.sending', 'Sending...') : t('compose.send_email', 'Send Email')}
+                      <MdSend size={14} className="shrink-0" />
+                      <span>{sending ? t('compose.sending', 'Sending...') : 'Send'}</span>
                     </button>
                     {(composeMode === "mail" || composeMode === "email") && (
                       <button
@@ -1912,7 +2134,7 @@ const FloatingCompose = () => {
                           setShowScheduleMenu(!showScheduleMenu);
                           setShowCustomSchedule(false);
                         }}
-                        className="px-3 py-2 text-white disabled:opacity-60 cursor-pointer flex items-center justify-center hover:bg-white/10 transition-colors"
+                        className="pr-3 pl-1 py-2 text-white/90 hover:text-white disabled:opacity-60 cursor-pointer flex items-center justify-center hover:bg-white/10 transition-colors"
                         title="Schedule send"
                       >
                         <MdArrowDropDown size={16} />
@@ -2008,46 +2230,46 @@ const FloatingCompose = () => {
                   )}
 
                   {/* CUSTOM INLINE QUILL TOOLBAR */}
-                  <div id="reply-quill-toolbar" className="flex flex-wrap items-center gap-1 sm:gap-2.5 text-gray-700 dark:text-gray-300">
-                    <select className="ql-header bg-transparent border border-gray-200 dark:border-neutral-700 rounded px-1.5 py-1 text-xs font-bold outline-none cursor-pointer">
+                  <div id="reply-quill-toolbar" className="flex items-center flex-wrap gap-1 sm:gap-1.5 text-gray-700 dark:text-gray-300">
+                    <select className="ql-header bg-transparent border-none text-gray-700 dark:text-gray-200 text-xs font-semibold outline-none cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 px-1.5 py-1 rounded">
                       <option value="">Normal</option>
                       <option value="1">Heading 1</option>
                       <option value="2">Heading 2</option>
                     </select>
-                    
-                    <button className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">B</button>
-                    <button className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">I</button>
-                    <button className="ql-underline underline hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">U</button>
-                    <button className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-sm">S</button>
-                    <button className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/5 !w-7 !h-7 rounded flex items-center justify-center text-[15px] font-bold">”</button>
-                    
-                    <button className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" value="bullet" title="Bullet List"></button>
-                    <button className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" value="ordered" title="Numbered List"></button>
-                    <button className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" value="-1" title="Decrease Indent"></button>
-                    <button className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" value="+1" title="Increase Indent"></button>
-                    
-                    <button className="ql-link !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5" title="Insert Link"></button>
+
+                    <button type="button" className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Bold">B</button>
+                    <button type="button" className="ql-italic italic hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Italic">I</button>
+                    <button type="button" className="ql-underline underline hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Underline">U</button>
+                    <button type="button" className="ql-strike line-through hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-sm" title="Strikethrough">S</button>
+                    <button type="button" className="ql-blockquote hover:bg-black/5 dark:hover:bg-white/10 !w-7 !h-7 rounded flex items-center justify-center text-[15px] font-bold" title="Quote">”</button>
+
+                    <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="bullet" title="Bullet List"></button>
+                    <button type="button" className="ql-list !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="ordered" title="Numbered List"></button>
+                    <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="-1" title="Decrease Indent"></button>
+                    <button type="button" className="ql-indent !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" value="+1" title="Increase Indent"></button>
+
+                    <button type="button" className="ql-link !w-7 !h-7 rounded flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10" title="Insert Link"></button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 text-gray-500 shrink-0">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-550 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                    className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer"
                     title="Attach file"
                   >
-                    <MdAttachFile size={18} className="transform rotate-45" />
+                    <MdAttachFile size={19} className="transform rotate-45" />
                   </button>
 
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowSignaturesMenu(!showSignaturesMenu)}
-                      className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-550 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                      className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer"
                       title="Insert Signature"
                     >
-                      <MdEditDocument size={18} />
+                      <MdEditDocument size={19} />
                     </button>
 
                     {showSignaturesMenu && (
@@ -2096,10 +2318,10 @@ const FloatingCompose = () => {
                   <button
                     type="button"
                     onClick={handleDiscard}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-semibold transition-colors cursor-pointer"
+                    className="p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-950/30 text-gray-500 hover:text-red-600 transition-colors cursor-pointer"
                     title="Discard draft"
                   >
-                    <MdDeleteOutline size={18} />
+                    <MdDeleteOutline size={19} />
                   </button>
                 </div>
               </div>
@@ -2458,10 +2680,10 @@ const FloatingCompose = () => {
             zIndex: previewFile ? 1100 : 100,
             display: "flex",
             flexDirection: "column",
-            borderRadius: isReply ? "16px 16px 0 0" : (isComposeMinimized ? "12px 12px 0 0" : "0"),
-            boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
-            border: `1px solid ${theme.border}`,
-            backgroundColor: isReply ? (theme.name === 'dark' ? theme.cardBg : '#ffffff') : theme.cardBg,
+            borderRadius: isReply ? "20px 20px 0 0" : (isComposeMinimized ? "12px 12px 0 0" : "0"),
+            boxShadow: isReply ? "0 10px 35px rgba(0,0,0,0.18)" : "0 12px 30px rgba(0,0,0,0.15)",
+            border: isReply ? `1px solid ${theme.border || '#e5e7eb'}` : `1px solid ${theme.border}`,
+            backgroundColor: isReply ? (theme.mode === 'dark' ? '#1f2937' : '#ffffff') : theme.cardBg,
             overflow: "hidden"
           }}
         >
@@ -2508,10 +2730,10 @@ const FloatingCompose = () => {
           zIndex: previewFile ? 1100 : 100,
           display: "flex",
           flexDirection: "column",
-          borderRadius: isReply ? "16px" : "12px 12px 0 0",
-          boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
-          border: `1px solid ${theme.border}`,
-          backgroundColor: isReply ? (theme.name === 'dark' ? theme.cardBg : '#ffffff') : theme.cardBg,
+          borderRadius: isReply ? "20px" : (isComposeMinimized ? "12px 12px 0 0" : "12px 12px 0 0"),
+          boxShadow: isReply ? "0 20px 50px -10px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.06)" : "0 12px 30px rgba(0,0,0,0.15)",
+          border: isReply ? `1px solid ${theme.border || '#e5e7eb'}` : `1px solid ${theme.border}`,
+          backgroundColor: isReply ? (theme.mode === 'dark' ? '#1f2937' : '#ffffff') : theme.cardBg,
           overflow: "hidden"
         }}
       >
