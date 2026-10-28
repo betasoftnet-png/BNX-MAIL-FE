@@ -101,6 +101,10 @@ const Starred = ({ searchQuery }) => {
     const email = sortedEmails.find((e) => String(e.uid) === String(uid));
     const targetFolder = isDraftEmail(email) ? 'draft' : (folder || 'starred');
     await handleToggleStar(uid, targetFolder);
+    if (String(selectedEmailUid) === String(uid)) {
+      setSelectedEmailUid(null);
+      setSelectedEmailOverride(null);
+    }
   };
 
   const handleDelete = (uid, folder) => {

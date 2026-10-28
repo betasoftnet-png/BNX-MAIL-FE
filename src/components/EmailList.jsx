@@ -25,7 +25,7 @@ const EmailList = ({
   const { user } = useAuth();
   const location = useLocation();
   const { theme, emailsPerPage, backgroundImage } = useTheme();
-  const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter, currentFolder } = useMail();
+  const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred } = useMail();
   const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
   const snoozeAction = onSnooze || contextHandleSnooze;
 
@@ -285,20 +285,25 @@ const EmailList = ({
 
                   {/* Star Button */}
                   <div className="flex items-center shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onStar?.(email.uid, email.folderName);
-                      }}
-                      className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-400 dark:text-gray-500 hover:text-yellow-500 cursor-pointer"
-                      title={email.starred ? "Unstar" : "Star"}
-                    >
-                      {email.starred ? (
-                        <MdStar size={18} className="text-yellow-500 fill-current" />
-                      ) : (
-                        <MdStarBorder size={18} className="text-gray-400 dark:text-gray-500" />
-                      )}
-                    </button>
+                    {(() => {
+                      const isItemStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email.uid ?? email.id) : Boolean(email.starred);
+                      return (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onStar?.(email.uid, email.folderName);
+                          }}
+                          className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-400 dark:text-gray-500 hover:text-yellow-500 cursor-pointer"
+                          title={isItemStarred ? "Unstar" : "Star"}
+                        >
+                          {isItemStarred ? (
+                            <MdStar size={18} className="text-yellow-500 fill-current" />
+                          ) : (
+                            <MdStarBorder size={18} className="text-gray-400 dark:text-gray-500" />
+                          )}
+                        </button>
+                      );
+                    })()}
                   </div>
 
                   {/* Sender Name */}

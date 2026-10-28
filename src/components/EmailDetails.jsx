@@ -130,7 +130,8 @@ const EmailDetails = ({
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze } = useMail();
+  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze, isEmailStarred, handleToggleStar } = useMail();
+  const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id) : Boolean(email?.starred);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const snoozeAction = onSnooze || handleSnooze;
@@ -1221,14 +1222,20 @@ const EmailDetails = ({
           </button>
 
           <button
-            onClick={() => onStar ? onStar(email.uid) : handleToggleStar?.(email.uid, "trash")}
+            onClick={() => {
+              if (onStar) {
+                onStar(email.uid, email.folderName);
+              } else if (handleToggleStar) {
+                handleToggleStar(email.uid, email.folderName);
+              }
+            }}
             className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer group"
-            title={email.starred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
+            title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
           >
             <MdStar
               size={20}
               className={
-                email.starred
+                isStarred
                   ? "text-yellow-500 fill-current drop-shadow-sm"
                   : "text-gray-400 dark:text-gray-500 group-hover:text-yellow-500 transition-colors"
               }

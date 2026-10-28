@@ -1,4 +1,5 @@
 import { getEmailPreviewSnippet } from './htmlUtils';
+import { isEmailIdStarred } from './starredStorage';
 
 /**
  * Normalizes an email address or string for case-insensitive comparison.
@@ -196,7 +197,9 @@ export const matchesFolderScope = (email, activeFolder, user) => {
     email.folderName?.toLowerCase() === 'draft' || email.folderName?.toLowerCase() === 'drafts'
   );
   const isStarred = Boolean(
-    email.starred === true || email.isStarred === true
+    email.starred === true ||
+    email.isStarred === true ||
+    isEmailIdStarred(email.uid ?? email.id, user?.email)
   );
   const isSnoozed = Boolean(
     email.snoozedUntil || email.isSnoozed || email.folderName?.toLowerCase() === 'snoozed'
