@@ -7,10 +7,6 @@ if (typeof window !== 'undefined' && window.Selection && Selection.prototype.add
   Selection.prototype.addRange = function (range) {
     if (!range) return;
     try {
-      const container = range.commonAncestorContainer || range.startContainer;
-      if (container && document.body && !document.body.contains(container)) {
-        return;
-      }
       return originalAddRange.call(this, range);
     } catch (err) {
       if (

@@ -602,7 +602,7 @@ const ComposePage = () => {
               {/* BODY */}
               <textarea
                 name="body"
-                value={formData.body}
+                value={formData.body || ""}
                 onChange={handleChange}
                 onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
                 placeholder="Type your messageâ€¦"
@@ -825,10 +825,14 @@ const Field = ({ label, name, value, onChange, extra, theme, spellCheck = false,
     >
       <span className="w-16 text-sm font-medium text-gray-500 shrink-0">{label}:</span>
       <input
+        type="text"
         name={name}
-        value={value}
+        value={value || ""}
         onChange={onChange}
-        onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect === "on" || autoCorrect === true)}
+        onKeyDown={(e) => {
+          handleStandardInputAutoCorrect(e, autoCorrect === "on" || autoCorrect === true);
+          if (e.key === 'Enter') e.preventDefault();
+        }}
         className="flex-1 outline-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 group"
         placeholder={`Enter ${label.toLowerCase()}...`}
         spellCheck={spellCheck ? "true" : "false"}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Rnd } from "react-rnd";
 import { 
@@ -311,6 +311,33 @@ const FloatingCompose = () => {
 
   const signatureInjectedRef = useRef(false);
   const quillRef = useRef(null);
+
+  const dynamicQuillModules = useMemo(() => ({
+    toolbar: {
+      container: isReply ? "#reply-quill-toolbar" : "#compose-quill-toolbar",
+      handlers: {
+        link: handleQuillLink,
+        underline: function() {
+          this.quill.focus();
+          const range = this.quill.getSelection(true);
+          if (!range) return;
+          const format = this.quill.getFormat(range);
+          this.quill.format('underline', !format.underline, 'user');
+        },
+        blockquote: function() {
+          this.quill.focus();
+          const range = this.quill.getSelection(true);
+          if (!range) return;
+          const format = this.quill.getFormat(range);
+          this.quill.format('blockquote', !format.blockquote, 'user');
+        }
+      }
+    },
+    imageResize: {
+      parchment: Quill.import('parchment'),
+      modules: ['Resize', 'DisplaySize', 'Toolbar']
+    }
+  }), [isReply]);
 
   const [draftId, setDraftId] = useState(null);
   const imapDraftUidRef = useRef(null);
@@ -1582,33 +1609,6 @@ const FloatingCompose = () => {
   };
 
   const renderContent = () => {
-    const dynamicQuillModules = {
-      toolbar: {
-        container: isReply ? "#reply-quill-toolbar" : "#compose-quill-toolbar",
-        handlers: {
-          link: handleQuillLink,
-          underline: function() {
-            this.quill.focus();
-            const range = this.quill.getSelection(true);
-            if (!range) return;
-            const format = this.quill.getFormat(range);
-            this.quill.format('underline', !format.underline, 'user');
-          },
-          blockquote: function() {
-            this.quill.focus();
-            const range = this.quill.getSelection(true);
-            if (!range) return;
-            const format = this.quill.getFormat(range);
-            this.quill.format('blockquote', !format.blockquote, 'user');
-          }
-        }
-      },
-      imageResize: {
-        parchment: Quill.import('parchment'),
-        modules: ['Resize', 'DisplaySize', 'Toolbar']
-      }
-    };
-
     return (
       <>
         {isReply && (
@@ -1990,8 +1990,11 @@ const FloatingCompose = () => {
                       autoFocus
                       className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm"
                       placeholder="Recipient email..."
-                      value={formData.to}
+                      value={formData.to || ""}
                       onChange={handleChange}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.preventDefault();
+                      }}
                     />
                   )}
                 </div>
@@ -2020,10 +2023,16 @@ const FloatingCompose = () => {
                   <input
                     type="text"
                     name="cc"
-                    value={formData.cc}
+                    value={formData.cc || ""}
                     onChange={handleChange}
+                    onKeyDown={(e) => {
+                      handleStandardInputAutoCorrect(e, autoCorrect);
+                      if (e.key === 'Enter') e.preventDefault();
+                    }}
                     className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm"
                     placeholder="carboncopy@example.com"
+                    spellCheck={spellingCheck ? "true" : "false"}
+                    autoCorrect={autoCorrect ? "on" : "off"}
                   />
                   <button
                     type="button"
@@ -2042,10 +2051,16 @@ const FloatingCompose = () => {
                   <input
                     type="text"
                     name="bcc"
-                    value={formData.bcc}
+                    value={formData.bcc || ""}
                     onChange={handleChange}
+                    onKeyDown={(e) => {
+                      handleStandardInputAutoCorrect(e, autoCorrect);
+                      if (e.key === 'Enter') e.preventDefault();
+                    }}
                     className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm"
                     placeholder="blindcopy@example.com"
+                    spellCheck={spellingCheck ? "true" : "false"}
+                    autoCorrect={autoCorrect ? "on" : "off"}
                   />
                   <button
                     type="button"
@@ -2062,10 +2077,16 @@ const FloatingCompose = () => {
                 <input
                   type="text"
                   name="subject"
-                  value={formData.subject}
+                  value={formData.subject || ""}
                   onChange={handleChange}
+                  onKeyDown={(e) => {
+                    handleStandardInputAutoCorrect(e, autoCorrect);
+                    if (e.key === 'Enter') e.preventDefault();
+                  }}
                   className="w-full bg-transparent font-bold text-sm text-gray-800 dark:text-gray-100 outline-none border-none placeholder-gray-400"
                   placeholder="Subject..."
+                  spellCheck={spellingCheck ? "true" : "false"}
+                  autoCorrect={autoCorrect ? "on" : "off"}
                 />
               </div>
             </div>
@@ -2081,8 +2102,11 @@ const FloatingCompose = () => {
                     autoFocus
                     className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
                     placeholder={t('compose.recipients', 'Recipients')}
-                    value={formData.to}
+                    value={formData.to || ""}
                     onChange={handleChange}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.preventDefault();
+                    }}
                   />
                   <div className="flex gap-2 text-gray-500 font-medium">
                     <button type="button" onClick={() => setShowCc(!showCc)} className="hover:underline">
@@ -2103,9 +2127,12 @@ const FloatingCompose = () => {
                     autoFocus
                     className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
                     placeholder="Chat / Casbox Recipient (Email or Username)"
-                    value={formData.to}
+                    value={formData.to || ""}
                     onChange={handleChange}
                     onBlur={handleCasboxRecipientBlur}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.preventDefault();
+                    }}
                   />
                 </div>
               )}
@@ -2117,9 +2144,12 @@ const FloatingCompose = () => {
                   <input
                     type="text"
                     name="cc"
-                    value={formData.cc}
+                    value={formData.cc || ""}
                     onChange={handleChange}
-                    onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
+                    onKeyDown={(e) => {
+                      handleStandardInputAutoCorrect(e, autoCorrect);
+                      if (e.key === 'Enter') e.preventDefault();
+                    }}
                     className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
                     placeholder="carboncopy@example.com"
                     spellCheck={spellingCheck ? "true" : "false"}
@@ -2135,9 +2165,12 @@ const FloatingCompose = () => {
                   <input
                     type="text"
                     name="bcc"
-                    value={formData.bcc}
+                    value={formData.bcc || ""}
                     onChange={handleChange}
-                    onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
+                    onKeyDown={(e) => {
+                      handleStandardInputAutoCorrect(e, autoCorrect);
+                      if (e.key === 'Enter') e.preventDefault();
+                    }}
                     className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
                     placeholder="blindcopy@example.com"
                     spellCheck={spellingCheck ? "true" : "false"}
@@ -2150,10 +2183,14 @@ const FloatingCompose = () => {
               <div className="flex items-center gap-2 border-b py-1.5 shrink-0" style={{ borderColor: theme.border }}>
                 <span className="text-xs font-semibold w-10 text-gray-500">{t('compose.subject', 'Subject')}:</span>
                 <input
+                  type="text"
                   name="subject"
-                  value={formData.subject}
+                  value={formData.subject || ""}
                   onChange={handleChange}
-                  onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
+                  onKeyDown={(e) => {
+                    handleStandardInputAutoCorrect(e, autoCorrect);
+                    if (e.key === 'Enter') e.preventDefault();
+                  }}
                   className="flex-1 bg-transparent text-sm outline-none border-none"
                   style={{ color: theme.text }}
                   placeholder={t('compose.subject_placeholder', 'Enter subject...')}
@@ -2205,7 +2242,7 @@ const FloatingCompose = () => {
               theme="snow"
               modules={dynamicQuillModules}
               bounds="self"
-              value={formData.body}
+              value={formData.body || ""}
               onChange={(content) => setFormData((prev) => ({ ...prev, body: content }))}
               placeholder={isReply ? "Write your reply..." : (composeData?.forward ? "Type your forwarded message here..." : "Type your message here...")}
               className="flex-1 min-h-0 flex flex-col h-full bg-white text-black"
@@ -2736,7 +2773,7 @@ const FloatingCompose = () => {
   const renderPreviewModal = () => {
     if (!previewFile) return null;
     return createPortal(
-      <div className="fixed inset-0 bg-black/90 z-[1000] flex flex-col animate-fade-in">
+      <div className="fixed inset-0 bg-black/90 z-[3100] flex flex-col animate-fade-in">
         {/* HEADER */}
         <div className="flex items-center justify-between px-6 py-4 bg-black/30 border-b border-white/5 text-white select-none">
           <div className="flex flex-col min-w-0">
@@ -2824,7 +2861,7 @@ const FloatingCompose = () => {
             right: 0,
             top: isComposeMinimized ? "auto" : 0,
             height: isComposeMinimized ? "45px" : "100%",
-            zIndex: previewFile ? 1100 : 100,
+            zIndex: previewFile ? 3000 : 2000,
             display: "flex",
             flexDirection: "column",
             borderRadius: isReply ? "20px 20px 0 0" : (isComposeMinimized ? "12px 12px 0 0" : "0"),
@@ -2872,9 +2909,11 @@ const FloatingCompose = () => {
         enableResizing={!isComposeMinimized && !isComposeMaximized}
         disableDragging={isComposeMaximized}
         dragHandleClassName="compose-drag-handle"
+        cancel="input, textarea, button, select, option, .ql-editor, [contenteditable], .compose-quill, #compose-quill-toolbar, #reply-quill-toolbar"
+        enableUserSelectHack={false}
         bounds="window"
         style={{
-          zIndex: previewFile ? 1100 : 100,
+          zIndex: previewFile ? 3000 : 2000,
           display: "flex",
           flexDirection: "column",
           borderRadius: isReply ? "20px" : (isComposeMinimized ? "12px 12px 0 0" : "12px 12px 0 0"),
