@@ -1,12 +1,43 @@
 import Quill from 'quill';
 import { validateAndNormalizeUrl } from './urlValidator';
 
+export function isExternalInputFocused(quillRoot) {
+  if (typeof document === 'undefined') return false;
+  const active = document.activeElement;
+  if (!active || active === document.body) return false;
+  if (quillRoot && (active === quillRoot || quillRoot.contains(active))) return false;
+  if (active.classList?.contains('ql-editor') || active.closest?.('.ql-editor')) return false;
+  
+  const tagName = active.tagName;
+  if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+    return true;
+  }
+  if (active.isContentEditable) {
+    return true;
+  }
+  if (typeof active.closest === 'function') {
+    return Boolean(active.closest('input, textarea, select, [contenteditable="true"]'));
+  }
+  return false;
+}
+
 // Global safeguard for Quill selection restore when editor/modal unmounts or detaches from DOM
 if (typeof window !== 'undefined' && window.Selection && Selection.prototype.addRange) {
   const originalAddRange = Selection.prototype.addRange;
   Selection.prototype.addRange = function (range) {
     if (!range) return;
     try {
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+        const container = range.commonAncestorContainer || range.startContainer;
+        if (container && !active.contains(container) && active !== container) {
+          const editor = container.nodeType === 1 ? container.closest?.('.ql-editor') : container.parentElement?.closest?.('.ql-editor');
+          if (editor) {
+            // Do not steal focus from the active input to the editor
+            return;
+          }
+        }
+      }
       return originalAddRange.call(this, range);
     } catch (err) {
       if (
@@ -209,6 +240,69 @@ if (Quill) {
           attachLinkValidation(this.tooltip);
         }
       };
+    }
+
+    // Safeguard Quill setSelection & focus from stealing focus when user is typing in To, Cc, Bcc, Subject
+    if (Quill.prototype && !Quill.prototype.__focusStealPatched) {
+      Quill.prototype.__focusStealPatched = true;
+
+      const originalSetSelection = Quill.prototype.setSelection;
+      Quill.prototype.setSelection = function (index, length, source) {
+        if (isExternalInputFocused(this.root)) {
+          if (this.selection) {
+            if (index != null) {
+              const idx = typeof index === 'object' && index !== null ? index.index : index;
+              const len = typeof index === 'object' && index !== null ? index.length : (length || 0);
+              this.selection.lastRange = { index: idx || 0, length: len || 0 };
+              this.selection.savedRange = this.selection.lastRange;
+            }
+          }
+          return;
+        }
+        return originalSetSelection.apply(this, arguments);
+      };
+
+      const originalFocus = Quill.prototype.focus;
+      Quill.prototype.focus = function () {
+        if (isExternalInputFocused(this.root)) {
+          return;
+        }
+        return originalFocus.apply(this, arguments);
+      };
+    }
+
+    // Safeguard Selection.prototype.setNativeRange from stealing focus
+    if (typeof document !== 'undefined') {
+      try {
+        const dummyDiv = document.createElement('div');
+        const dummyQuill = new Quill(dummyDiv);
+        if (dummyQuill.selection && dummyQuill.selection.constructor && dummyQuill.selection.constructor.prototype) {
+          const SelectionProto = dummyQuill.selection.constructor.prototype;
+          if (SelectionProto.setNativeRange && !SelectionProto.__focusStealPatched) {
+            SelectionProto.__focusStealPatched = true;
+            const originalSetNativeRange = SelectionProto.setNativeRange;
+            SelectionProto.setNativeRange = function (startNode, startOffset, endNode, endOffset, force) {
+              if (isExternalInputFocused(this.root) && !this.hasFocus()) {
+                // An external input (To, Cc, Bcc, Subject) currently has focus. Do not steal focus to this.root!
+                return;
+              }
+              return originalSetNativeRange.apply(this, arguments);
+            };
+          }
+          if (SelectionProto.focus && !SelectionProto.__focusProtoStealPatched) {
+            SelectionProto.__focusProtoStealPatched = true;
+            const originalSelectionFocus = SelectionProto.focus;
+            SelectionProto.focus = function () {
+              if (isExternalInputFocused(this.root)) {
+                return;
+              }
+              return originalSelectionFocus.apply(this, arguments);
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("Could not patch Quill Selection prototype:", err);
+      }
     }
   } catch (err) {
     console.error('Error applying Quill patches:', err);

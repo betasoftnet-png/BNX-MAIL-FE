@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Rnd } from "react-rnd";
 import { 
@@ -311,6 +311,7 @@ const FloatingCompose = () => {
 
   const signatureInjectedRef = useRef(false);
   const quillRef = useRef(null);
+  const focusedFieldRef = useRef(null);
 
   const dynamicQuillModules = useMemo(() => ({
     toolbar: {
@@ -924,12 +925,21 @@ const FloatingCompose = () => {
   };
 
   const handleChange = (e) => {
+    e.stopPropagation();
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
     setError("");
   };
+
+  const handleBodyChange = useCallback((content) => {
+    setFormData((prev) => {
+      if (prev.body === content) return prev;
+      return { ...prev, body: content };
+    });
+  }, []);
 
   /* ---------------- ATTACHMENT UPLOAD HANDLER ---------------- */
   const handleFileChange = async (e) => {
@@ -1992,7 +2002,10 @@ const FloatingCompose = () => {
                       placeholder="Recipient email..."
                       value={formData.to || ""}
                       onChange={handleChange}
+                      onFocus={() => { focusedFieldRef.current = 'to'; }}
+                      onBlur={() => { if (focusedFieldRef.current === 'to') focusedFieldRef.current = null; }}
                       onKeyDown={(e) => {
+                        e.stopPropagation();
                         if (e.key === 'Enter') e.preventDefault();
                       }}
                     />
@@ -2025,7 +2038,10 @@ const FloatingCompose = () => {
                     name="cc"
                     value={formData.cc || ""}
                     onChange={handleChange}
+                    onFocus={() => { focusedFieldRef.current = 'cc'; }}
+                    onBlur={() => { if (focusedFieldRef.current === 'cc') focusedFieldRef.current = null; }}
                     onKeyDown={(e) => {
+                      e.stopPropagation();
                       handleStandardInputAutoCorrect(e, autoCorrect);
                       if (e.key === 'Enter') e.preventDefault();
                     }}
@@ -2053,7 +2069,10 @@ const FloatingCompose = () => {
                     name="bcc"
                     value={formData.bcc || ""}
                     onChange={handleChange}
+                    onFocus={() => { focusedFieldRef.current = 'bcc'; }}
+                    onBlur={() => { if (focusedFieldRef.current === 'bcc') focusedFieldRef.current = null; }}
                     onKeyDown={(e) => {
+                      e.stopPropagation();
                       handleStandardInputAutoCorrect(e, autoCorrect);
                       if (e.key === 'Enter') e.preventDefault();
                     }}
@@ -2079,7 +2098,10 @@ const FloatingCompose = () => {
                   name="subject"
                   value={formData.subject || ""}
                   onChange={handleChange}
+                  onFocus={() => { focusedFieldRef.current = 'subject'; }}
+                  onBlur={() => { if (focusedFieldRef.current === 'subject') focusedFieldRef.current = null; }}
                   onKeyDown={(e) => {
+                    e.stopPropagation();
                     handleStandardInputAutoCorrect(e, autoCorrect);
                     if (e.key === 'Enter') e.preventDefault();
                   }}
@@ -2104,7 +2126,10 @@ const FloatingCompose = () => {
                     placeholder={t('compose.recipients', 'Recipients')}
                     value={formData.to || ""}
                     onChange={handleChange}
+                    onFocus={() => { focusedFieldRef.current = 'to'; }}
+                    onBlur={() => { if (focusedFieldRef.current === 'to') focusedFieldRef.current = null; }}
                     onKeyDown={(e) => {
+                      e.stopPropagation();
                       if (e.key === 'Enter') e.preventDefault();
                     }}
                   />
@@ -2129,8 +2154,13 @@ const FloatingCompose = () => {
                     placeholder="Chat / Casbox Recipient (Email or Username)"
                     value={formData.to || ""}
                     onChange={handleChange}
-                    onBlur={handleCasboxRecipientBlur}
+                    onFocus={() => { focusedFieldRef.current = 'to'; }}
+                    onBlur={(e) => {
+                      if (focusedFieldRef.current === 'to') focusedFieldRef.current = null;
+                      handleCasboxRecipientBlur(e);
+                    }}
                     onKeyDown={(e) => {
+                      e.stopPropagation();
                       if (e.key === 'Enter') e.preventDefault();
                     }}
                   />
@@ -2146,7 +2176,10 @@ const FloatingCompose = () => {
                     name="cc"
                     value={formData.cc || ""}
                     onChange={handleChange}
+                    onFocus={() => { focusedFieldRef.current = 'cc'; }}
+                    onBlur={() => { if (focusedFieldRef.current === 'cc') focusedFieldRef.current = null; }}
                     onKeyDown={(e) => {
+                      e.stopPropagation();
                       handleStandardInputAutoCorrect(e, autoCorrect);
                       if (e.key === 'Enter') e.preventDefault();
                     }}
@@ -2167,7 +2200,10 @@ const FloatingCompose = () => {
                     name="bcc"
                     value={formData.bcc || ""}
                     onChange={handleChange}
+                    onFocus={() => { focusedFieldRef.current = 'bcc'; }}
+                    onBlur={() => { if (focusedFieldRef.current === 'bcc') focusedFieldRef.current = null; }}
                     onKeyDown={(e) => {
+                      e.stopPropagation();
                       handleStandardInputAutoCorrect(e, autoCorrect);
                       if (e.key === 'Enter') e.preventDefault();
                     }}
@@ -2187,7 +2223,10 @@ const FloatingCompose = () => {
                   name="subject"
                   value={formData.subject || ""}
                   onChange={handleChange}
+                  onFocus={() => { focusedFieldRef.current = 'subject'; }}
+                  onBlur={() => { if (focusedFieldRef.current === 'subject') focusedFieldRef.current = null; }}
                   onKeyDown={(e) => {
+                    e.stopPropagation();
                     handleStandardInputAutoCorrect(e, autoCorrect);
                     if (e.key === 'Enter') e.preventDefault();
                   }}
@@ -2243,7 +2282,22 @@ const FloatingCompose = () => {
               modules={dynamicQuillModules}
               bounds="self"
               value={formData.body || ""}
-              onChange={(content) => setFormData((prev) => ({ ...prev, body: content }))}
+              onChange={handleBodyChange}
+              onFocus={() => {
+                if (focusedFieldRef.current && focusedFieldRef.current !== 'body') {
+                  const targetInput = document.querySelector(`input[name="${focusedFieldRef.current}"]`);
+                  if (targetInput && document.activeElement !== targetInput) {
+                    targetInput.focus();
+                    return;
+                  }
+                }
+                focusedFieldRef.current = 'body';
+              }}
+              onBlur={() => {
+                if (focusedFieldRef.current === 'body') {
+                  focusedFieldRef.current = null;
+                }
+              }}
               placeholder={isReply ? "Write your reply..." : (composeData?.forward ? "Type your forwarded message here..." : "Type your message here...")}
               className="flex-1 min-h-0 flex flex-col h-full bg-white text-black"
             />
