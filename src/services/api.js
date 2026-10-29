@@ -54,6 +54,14 @@ api.interceptors.response.use(
         }
 
         if (!error.response) {
+            const config = error.config;
+            const isGetRequest = !config?.method || config.method.toLowerCase() === 'get';
+            // Automatically retry once for transient network drops, socket timeouts, or HTTP/2 ping failures on GET requests
+            if (config && isGetRequest && !config._networkRetry) {
+                config._networkRetry = true;
+                await new Promise(resolve => setTimeout(resolve, 300));
+                return api(config);
+            }
             return Promise.reject(error);
         }
 

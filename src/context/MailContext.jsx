@@ -574,7 +574,7 @@ export const MailProvider = ({ children }) => {
     }, [limit]);
 
     const fetchEmailsSilently = useCallback(async (folder, page = null) => {
-        if (!user) return;
+        if (!user || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
         const folderKey = folder.toLowerCase();
         const targetPage = (page !== null && page !== undefined) ? page : (currentFolderRef.current.toLowerCase() === folderKey ? currentPageRef.current : 1);
         const reqKey = `${folderKey}_${targetPage}`;
@@ -766,7 +766,9 @@ export const MailProvider = ({ children }) => {
             }
         } catch (e) {
             if (e?.code === 'ECONNABORTED' || e?.message?.includes('timeout')) {
-                console.warn(`[Silent Refresh] Timed out while refreshing ${folder}. Will retry on next cycle.`);
+                // Timeout on silent refresh, will retry on next cycle
+            } else if (e?.message === 'Network Error' || e?.code === 'ERR_NETWORK') {
+                // Transient network glitch or connection reset; background sync will retry on next interval
             } else if (e?.name !== 'CanceledError' && e?.code !== 'ERR_CANCELED') {
                 console.warn(`[Silent Refresh] Background sync skipped for ${folder}:`, e?.message || e);
             }
@@ -1011,8 +1013,10 @@ export const MailProvider = ({ children }) => {
                 }
             }
         } catch (error) {
-            console.error(`Failed to fetch ${folder}:`, error);
-            toast.error(error?.response?.data?.message || (force ? `Failed to refresh ${folder}` : `Failed to load ${folder}`));
+            if (!silent) {
+                console.error(`Failed to fetch ${folder}:`, error);
+                toast.error(error?.response?.data?.message || (force ? `Failed to refresh ${folder}` : `Failed to load ${folder}`));
+            }
         } finally {
             if (force) {
                 setIsRefreshing(false);
@@ -1080,7 +1084,7 @@ export const MailProvider = ({ children }) => {
         if (!user) return;
 
         const syncAllMailStatus = () => {
-            if (document.hidden) return;
+            if (document.hidden || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
             const isChatMode = typeof window !== 'undefined' && 
                 (window.location.pathname.startsWith('/colab') || 
                  window.location.pathname.startsWith('/chat') || 
