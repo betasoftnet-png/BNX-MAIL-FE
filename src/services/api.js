@@ -386,7 +386,7 @@ export const chatAPI = {
     createGroupChat: (data) => api.post(API_ENDPOINTS.CHAT.GROUP, data),
     getUserChats: (email, config = {}) => {
         if (!email) return Promise.resolve({ data: [] });
-        return chatCache.dedupe(`user_chats_${email}`, () => 
+        return chatCache.dedupe(`user_chats_${email}`, () =>
             api.get(API_ENDPOINTS.CHAT.USER_CHATS.replace(':email', email), { timeout: 30000, ...config })
         ).then(res => {
             if (res?.data) {
@@ -555,92 +555,92 @@ export const settingsAPI = {
 
 // Blocked Contacts API Service
 export const blockedContactsAPI = {
-  blockSender: async (email) => {
-    const cleanEmail = cleanSenderEmailParam(email);
-    if (!cleanEmail) {
-      return { success: false, message: 'Invalid email' };
-    }
-    try {
-      const response = await api.post(
-        '/api/blocked-contacts',
-        {
-          email: cleanEmail,
-          blockedEmail: cleanEmail,
-          senderEmail: cleanEmail,
-          contactEmail: cleanEmail,
-          blocked_email: cleanEmail
-        },
-        {
-          params: {
-            email: cleanEmail,
-            blockedEmail: cleanEmail,
-            senderEmail: cleanEmail
-          }
+    blockSender: async (email) => {
+        const cleanEmail = cleanSenderEmailParam(email);
+        if (!cleanEmail) {
+            return { success: false, message: 'Invalid email' };
         }
-      );
-      return response.data || { success: true, data: { blocked: true }, status: 200 };
-    } catch (err) {
-      console.warn("Backend /api/blocked-contacts returned error, using fallback:", err?.response?.status, err?.message);
-      return {
-        success: true,
-        data: { blocked: true, email: cleanEmail, blockedEmail: cleanEmail },
-        status: 200,
-        fallback: true,
-        message: err?.response?.data?.message || "Sender marked as blocked"
-      };
-    }
-  },
-
-  unblockSender: async (email) => {
-    const cleanEmail = cleanSenderEmailParam(email);
-    if (!cleanEmail) {
-      return { success: false, message: 'Invalid email' };
-    }
-    try {
-      const response = await api.delete(`/api/blocked-contacts/${encodeURIComponent(cleanEmail)}`, {
-        params: {
-          email: cleanEmail,
-          blockedEmail: cleanEmail,
-          senderEmail: cleanEmail
-        },
-        data: {
-          email: cleanEmail,
-          blockedEmail: cleanEmail,
-          senderEmail: cleanEmail
+        try {
+            const response = await api.post(
+                '/api/blocked-contacts',
+                {
+                    email: cleanEmail,
+                    blockedEmail: cleanEmail,
+                    senderEmail: cleanEmail,
+                    contactEmail: cleanEmail,
+                    blocked_email: cleanEmail
+                },
+                {
+                    params: {
+                        email: cleanEmail,
+                        blockedEmail: cleanEmail,
+                        senderEmail: cleanEmail
+                    }
+                }
+            );
+            return response.data || { success: true, data: { blocked: true }, status: 200 };
+        } catch (err) {
+            console.warn("Backend /api/blocked-contacts returned error, using fallback:", err?.response?.status, err?.message);
+            return {
+                success: true,
+                data: { blocked: true, email: cleanEmail, blockedEmail: cleanEmail },
+                status: 200,
+                fallback: true,
+                message: err?.response?.data?.message || "Sender marked as blocked"
+            };
         }
-      });
-      return response.data || { success: true, data: { blocked: false }, status: 200 };
-    } catch (err) {
-      console.warn("Backend /api/blocked-contacts unblock error, using fallback:", err?.response?.status, err?.message);
-      return {
-        success: true,
-        data: { blocked: false, email: cleanEmail },
-        status: 200,
-        fallback: true,
-        message: err?.response?.data?.message || "Sender unblocked"
-      };
-    }
-  },
+    },
 
-  checkBlockStatus: async (email) => {
-    const cleanEmail = cleanSenderEmailParam(email);
-    if (!cleanEmail) return { success: true, data: { blocked: false } };
-    try {
-      const response = await api.get(`/api/blocked-contacts/check?email=${encodeURIComponent(cleanEmail)}`);
-      return response.data || { success: true, data: { blocked: false } };
-    } catch (err) {
-      console.warn("Failed to check block status, returning fallback", err);
-      return { success: true, data: { blocked: false } };
-    }
-  },
+    unblockSender: async (email) => {
+        const cleanEmail = cleanSenderEmailParam(email);
+        if (!cleanEmail) {
+            return { success: false, message: 'Invalid email' };
+        }
+        try {
+            const response = await api.delete(`/api/blocked-contacts/${encodeURIComponent(cleanEmail)}`, {
+                params: {
+                    email: cleanEmail,
+                    blockedEmail: cleanEmail,
+                    senderEmail: cleanEmail
+                },
+                data: {
+                    email: cleanEmail,
+                    blockedEmail: cleanEmail,
+                    senderEmail: cleanEmail
+                }
+            });
+            return response.data || { success: true, data: { blocked: false }, status: 200 };
+        } catch (err) {
+            console.warn("Backend /api/blocked-contacts unblock error, using fallback:", err?.response?.status, err?.message);
+            return {
+                success: true,
+                data: { blocked: false, email: cleanEmail },
+                status: 200,
+                fallback: true,
+                message: err?.response?.data?.message || "Sender unblocked"
+            };
+        }
+    },
 
-  getBlockedContacts: async () => {
-    try {
-      const response = await api.get('/api/blocked-contacts');
-      return response.data;
-    } catch (err) {
-      console.warn("Failed to load blocked contacts, returning empty list fallback", err);
-      return { success: true, data: [] };
+    checkBlockStatus: async (email) => {
+        const cleanEmail = cleanSenderEmailParam(email);
+        if (!cleanEmail) return { success: true, data: { blocked: false } };
+        try {
+            const response = await api.get(`/api/blocked-contacts/check?email=${encodeURIComponent(cleanEmail)}`);
+            return response.data || { success: true, data: { blocked: false } };
+        } catch (err) {
+            console.warn("Failed to check block status, returning fallback", err);
+            return { success: true, data: { blocked: false } };
+        }
+    },
+
+    getBlockedContacts: async () => {
+        try {
+            const response = await api.get('/api/blocked-contacts');
+            return response.data;
+        } catch (err) {
+            console.warn("Failed to load blocked contacts, returning empty list fallback", err);
+            return { success: true, data: [] };
+        }
     }
-  }
 };
