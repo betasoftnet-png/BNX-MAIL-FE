@@ -2039,6 +2039,9 @@ export const MailProvider = ({ children }) => {
             if (sentEmailObj) {
                 saveStoredStarredEmail(sentEmailObj, user?.email);
             }
+            mailAPI.toggleStar(sentUid, 'Sent').catch(err => {
+                console.warn('Backend toggleStar for sent email skipped/failed:', err);
+            });
         }
         saveStoredStarredIds(nextSet, user?.email);
         setStarredIds(nextSet);

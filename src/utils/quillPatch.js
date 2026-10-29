@@ -1,6 +1,32 @@
 import Quill from 'quill';
 import { validateAndNormalizeUrl } from './urlValidator';
 
+// Global safeguard for Quill selection restore when editor/modal unmounts or detaches from DOM
+if (typeof window !== 'undefined' && window.Selection && Selection.prototype.addRange) {
+  const originalAddRange = Selection.prototype.addRange;
+  Selection.prototype.addRange = function (range) {
+    if (!range) return;
+    try {
+      const container = range.commonAncestorContainer || range.startContainer;
+      if (container && document.body && !document.body.contains(container)) {
+        return;
+      }
+      return originalAddRange.call(this, range);
+    } catch (err) {
+      if (
+        err &&
+        (err.name === 'IndexSizeError' ||
+         err.name === 'HierarchyRequestError' ||
+         err.name === 'NotFoundError' ||
+         (typeof err.message === 'string' && err.message.toLowerCase().includes("isn't in document")))
+      ) {
+        return;
+      }
+      throw err;
+    }
+  };
+}
+
 export function getOrCreateErrorEl(tooltip) {
   if (!tooltip || !tooltip.root) return null;
   let errorEl = tooltip.root.querySelector('.ql-tooltip-error');

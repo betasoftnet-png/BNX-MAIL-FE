@@ -1149,14 +1149,10 @@ const FloatingCompose = () => {
       subject: formData.subject,
       body: getFinalBody(formData.body),
       isHtml: true,
-      draftUid: currentImapDraftUid || currentDraftUid || null,
-      draftId: currentDraftId || null,
-      uid: currentImapDraftUid || currentDraftUid || null,
-      isStarred: isStarredDraft,
-      starred: isStarredDraft
     };
     if (formData.cc) payload.cc = formData.cc;
     if (formData.bcc) payload.bcc = formData.bcc;
+    if (attachments && attachments.length > 0) payload.attachments = attachments;
 
     const executeSend = async (tid) => {
       try {
@@ -1401,10 +1397,10 @@ const FloatingCompose = () => {
         });
       }
 
+      const safeUid = targetUid && /^\d+$/.test(String(targetUid).trim()) ? String(targetUid).trim() : null;
       const payload = {
-        uid: targetUid,
-        id: targetId,
-        to: formData.to,
+        uid: safeUid,
+        to: formData.to || "",
         subject: formData.subject || "(No Subject)",
         body: getFinalBody(formData.body),
         isHtml: true,
@@ -1491,10 +1487,10 @@ const FloatingCompose = () => {
         const targetUid = imapDraftUidRef.current ? String(imapDraftUidRef.current) : (composeData?.draft?.uid ? String(composeData.draft.uid) : null);
         const targetId = draftId || composeData?.draft?.id || null;
 
+        const safeUid = targetUid && /^\d+$/.test(String(targetUid).trim()) ? String(targetUid).trim() : null;
         const payload = {
-          uid: targetUid,
-          id: targetId,
-          to: formData.to,
+          uid: safeUid,
+          to: formData.to || "",
           subject: formData.subject || "(No Subject)",
           body: getFinalBody(formData.body),
           isHtml: true,
@@ -1510,7 +1506,7 @@ const FloatingCompose = () => {
             }
           }
         }).catch((err) => {
-          console.error("Failed to persist draft on close:", err);
+          console.warn("Notice: Silent draft persist on close skipped/failed:", err?.response?.data?.message || err?.message);
         });
       }
 

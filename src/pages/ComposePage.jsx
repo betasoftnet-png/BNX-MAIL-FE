@@ -235,11 +235,7 @@ const ComposePage = () => {
         to: formData.to,
         subject: formData.subject,
         body: formData.body,
-        draftUid: targetDraftUid || null,
-        draftId: targetDraftId || null,
-        uid: targetDraftUid || null,
-        isStarred: isStarredDraft,
-        starred: isStarredDraft
+        isHtml: true,
       };
 
       if (formData.cc) payload.cc = formData.cc;
