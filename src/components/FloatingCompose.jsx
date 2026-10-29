@@ -217,7 +217,16 @@ const getFontSizeCss = (size) => {
 
 const getTextColorCss = (color) => color || '#000000';
 
-const FloatingCompose = () => {
+const ComposeWindow = ({
+  windowId,
+  order = 0,
+  initialData = null,
+  onClose,
+  onFocusWindow,
+  isActive = false,
+  zIndex = 2000,
+  minimizedIndex = 0,
+}) => {
   useEffect(() => {
     const handleTextStyleChanged = (e) => {
       if (e.detail) {
@@ -234,13 +243,6 @@ const FloatingCompose = () => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { 
-    isComposeOpen, 
-    closeCompose, 
-    isComposeMinimized, 
-    setIsComposeMinimized, 
-    isComposeMaximized, 
-    setIsComposeMaximized, 
-    composeData,
     fetchEmails,
     fetchEmailsSilently,
     invalidateCache,
@@ -252,6 +254,12 @@ const FloatingCompose = () => {
     isEmailStarred
   } = useMail();
 
+  const composeData = initialData;
+  const closeCompose = onClose;
+  const isComposeOpen = true;
+  const [isComposeMinimized, setIsComposeMinimized] = useState(false);
+  const [isComposeMaximized, setIsComposeMaximized] = useState(false);
+  const containerRef = useRef(null);
   const wasDraftStarredRef = useRef(false);
   const isReply = Boolean(composeData?.replyTo);
   const fileInputRef = useRef(null);
@@ -315,7 +323,7 @@ const FloatingCompose = () => {
 
   const dynamicQuillModules = useMemo(() => ({
     toolbar: {
-      container: isReply ? "#reply-quill-toolbar" : "#compose-quill-toolbar",
+      container: isReply ? `#reply-quill-toolbar-${windowId}` : `#compose-quill-toolbar-${windowId}`,
       handlers: {
         link: handleQuillLink,
         underline: function() {
@@ -338,7 +346,7 @@ const FloatingCompose = () => {
       parchment: Quill.import('parchment'),
       modules: ['Resize', 'DisplaySize', 'Toolbar']
     }
-  }), [isReply]);
+  }), [isReply, windowId]);
 
   const [draftId, setDraftId] = useState(null);
   const imapDraftUidRef = useRef(null);
@@ -558,29 +566,64 @@ const FloatingCompose = () => {
     return bodyVal;
   };
 
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [size, setSize] = useState({ width: 540, height: 500 });
-  const [position, setPosition] = useState({ x: window.innerWidth - 570, y: window.innerHeight - 520 });
-  const lastNormalSizeRef = useRef({ width: 540, height: 500 });
-  const lastNormalPosRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== "undefined" ? window.innerWidth < 768 : false));
+  const isRight = (order % 2 === 0);
+  const sideRank = Math.floor(order / 2);
+
+  const calculateDefaultSizeAndPos = useCallback(() => {
+    if (typeof window === "undefined") {
+      return { size: { width: 520, height: 480 }, position: { x: 100, y: 100 } };
+    }
+    const mobile = window.innerWidth < 768;
+    const defaultW = isReply ? Math.min(580, window.innerWidth - 40) : Math.min(520, window.innerWidth - 40);
+    const defaultH = isReply ? Math.min(620, window.innerHeight - 60) : Math.min(480, window.innerHeight - 60);
+
+    if (mobile) {
+      return {
+        size: { width: window.innerWidth, height: window.innerHeight },
+        position: { x: 0, y: 0 }
+      };
+    }
+
+    const xOffset = (sideRank % 6) * 24;
+    const yOffset = (sideRank % 6) * 36;
+
+    let initX;
+    if (isRight) {
+      const baseX = window.innerWidth - defaultW - 24;
+      initX = Math.max(10, baseX - xOffset);
+    } else {
+      const baseX = 24;
+      initX = Math.min(window.innerWidth - defaultW - 10, baseX + xOffset);
+    }
+    const baseY = window.innerHeight - defaultH - 20;
+    const initY = Math.max(10, baseY - yOffset);
+
+    return {
+      size: { width: defaultW, height: defaultH },
+      position: { x: initX, y: initY }
+    };
+  }, [isReply, isRight, sideRank]);
+
+  const [size, setSize] = useState(() => calculateDefaultSizeAndPos().size);
+  const [position, setPosition] = useState(() => calculateDefaultSizeAndPos().position);
+  const lastNormalSizeRef = useRef({ ...calculateDefaultSizeAndPos().size });
+  const lastNormalPosRef = useRef({ ...calculateDefaultSizeAndPos().position });
 
   const handleMinimizeToggle = (e) => {
     if (e && typeof e.stopPropagation === "function") {
       e.stopPropagation();
     }
-    if (isComposeMinimized) {
-      setIsComposeMinimized(false);
-    } else {
-      setIsComposeMinimized(true);
-    }
+    onFocusWindow?.();
+    setIsComposeMinimized((prev) => !prev);
   };
 
   const handleMaximizeToggle = (e) => {
     if (e && typeof e.stopPropagation === "function") {
       e.stopPropagation();
     }
+    onFocusWindow?.();
     if (isComposeMinimized) {
-      // If currently minimized, clicking maximize un-minimizes AND maximizes into full view
       setIsComposeMinimized(false);
       setIsComposeMaximized(true);
     } else {
@@ -619,42 +662,45 @@ const FloatingCompose = () => {
 
   // Reset/sync positioning and size on state toggle or mobile detection
   useEffect(() => {
-    if (!isComposeOpen || isMobile) return;
+    if (isMobile) return;
 
     if (isComposeMinimized) {
-      // Minimized state: docked compact header bar at bottom-right
-      const w = Math.min(500, window.innerWidth - 40);
-      setSize({ width: w, height: 45 });
-      setPosition({ x: window.innerWidth - w - 20, y: window.innerHeight - 45 });
+      // Minimized state: docked compact header bar at bottom of respective side
+      const minW = Math.min(260, window.innerWidth - 40);
+      const minH = 45;
+      let minX;
+      if (isRight) {
+        minX = Math.max(10, window.innerWidth - minW - 20 - (minimizedIndex % 4) * (minW + 10));
+      } else {
+        minX = Math.min(window.innerWidth - minW - 10, 20 + (minimizedIndex % 4) * (minW + 10));
+      }
+      const minY = window.innerHeight - minH;
+      setSize({ width: minW, height: minH });
+      setPosition({ x: minX, y: minY });
     } else if (isComposeMaximized) {
       // Maximized state: full screen / viewport view
-      const w = Math.max(350, Math.min(1200, window.innerWidth - 40));
-      const h = Math.max(400, window.innerHeight - 60);
-      setSize({ width: w, height: h });
+      const maxW = Math.max(350, Math.min(1200, window.innerWidth - 40));
+      const maxH = Math.max(400, window.innerHeight - 60);
+      setSize({ width: maxW, height: maxH });
       setPosition({
-        x: Math.max(10, Math.round((window.innerWidth - w) / 2)),
-        y: Math.max(10, Math.round((window.innerHeight - h) / 2)),
+        x: Math.max(10, Math.round((window.innerWidth - maxW) / 2)),
+        y: Math.max(10, Math.round((window.innerHeight - maxH) / 2)),
       });
     } else {
       // Normal state: restore user's preferred normal size & position
-      const defaultW = isReply ? Math.min(580, window.innerWidth - 40) : Math.min(540, window.innerWidth - 40);
-      const defaultH = isReply ? Math.min(620, window.innerHeight - 60) : Math.min(500, window.innerHeight - 60);
-      const savedW = lastNormalSizeRef.current?.width || defaultW;
-      const savedH = lastNormalSizeRef.current?.height || defaultH;
-      const w = isReply ? Math.min(580, window.innerWidth - 40) : Math.min(savedW, window.innerWidth - 40);
-      const h = isReply ? Math.min(620, window.innerHeight - 60) : Math.min(savedH, window.innerHeight - 60);
+      const defaultState = calculateDefaultSizeAndPos();
+      const savedW = lastNormalSizeRef.current?.width || defaultState.size.width;
+      const savedH = lastNormalSizeRef.current?.height || defaultState.size.height;
+      const savedX = lastNormalPosRef.current?.x !== undefined ? lastNormalPosRef.current.x : defaultState.position.x;
+      const savedY = lastNormalPosRef.current?.y !== undefined ? lastNormalPosRef.current.y : defaultState.position.y;
 
-      const defaultX = window.innerWidth - w - 24;
-      const defaultY = window.innerHeight - h - 24;
-      const savedX = lastNormalPosRef.current?.x !== undefined ? lastNormalPosRef.current.x : defaultX;
-      const savedY = lastNormalPosRef.current?.y !== undefined ? lastNormalPosRef.current.y : defaultY;
-      const x = isReply ? defaultX : Math.max(10, Math.min(savedX, window.innerWidth - w - 10));
-      const y = isReply ? defaultY : Math.max(10, Math.min(savedY, window.innerHeight - h - 10));
+      const clampedX = Math.max(10, Math.min(savedX, window.innerWidth - savedW - 10));
+      const clampedY = Math.max(10, Math.min(savedY, window.innerHeight - savedH - 10));
 
-      setSize({ width: w, height: h });
-      setPosition({ x, y });
+      setSize({ width: savedW, height: savedH });
+      setPosition({ x: clampedX, y: clampedY });
     }
-  }, [isComposeMaximized, isComposeMinimized, isComposeOpen, isMobile, isReply]);
+  }, [isComposeMaximized, isComposeMinimized, isMobile, isRight, minimizedIndex, calculateDefaultSizeAndPos]);
 
   // Load Custom + Default templates for inline insertion
   useEffect(() => {
@@ -1657,15 +1703,19 @@ const FloatingCompose = () => {
         )}
 
         <style>{`
-          #reply-quill-toolbar,
-          #compose-quill-toolbar {
+          [id^="reply-quill-toolbar"],
+          [id^="compose-quill-toolbar"],
+          .reply-quill-toolbar,
+          .compose-quill-toolbar {
             display: flex !important;
             align-items: center !important;
             flex-wrap: nowrap !important;
             gap: 8px !important;
           }
-          #reply-quill-toolbar button,
-          #compose-quill-toolbar button {
+          [id^="reply-quill-toolbar"] button,
+          [id^="compose-quill-toolbar"] button,
+          .reply-quill-toolbar button,
+          .compose-quill-toolbar button {
             cursor: pointer !important;
             float: none !important;
             margin: 0 !important;
@@ -1683,8 +1733,10 @@ const FloatingCompose = () => {
             box-sizing: border-box !important;
             transition: background-color 0.15s ease, color 0.15s ease !important;
           }
-          #reply-quill-toolbar .font-size-btn,
-          #compose-quill-toolbar .font-size-btn {
+          [id^="reply-quill-toolbar"] .font-size-btn,
+          [id^="compose-quill-toolbar"] .font-size-btn,
+          .reply-quill-toolbar .font-size-btn,
+          .compose-quill-toolbar .font-size-btn {
             width: auto !important;
             min-width: 88px !important;
             max-width: none !important;
@@ -1692,80 +1744,94 @@ const FloatingCompose = () => {
             min-height: 32px !important;
             padding: 0 10px !important;
           }
-          #reply-quill-toolbar button:hover,
-          #compose-quill-toolbar button:hover {
+          [id^="reply-quill-toolbar"] button:hover,
+          [id^="compose-quill-toolbar"] button:hover,
+          .reply-quill-toolbar button:hover,
+          .compose-quill-toolbar button:hover {
             background-color: rgba(0, 0, 0, 0.06) !important;
           }
-          .dark #reply-quill-toolbar button:hover,
-          .dark #compose-quill-toolbar button:hover {
+          .dark [id^="reply-quill-toolbar"] button:hover,
+          .dark [id^="compose-quill-toolbar"] button:hover,
+          .dark .reply-quill-toolbar button:hover,
+          .dark .compose-quill-toolbar button:hover {
             background-color: rgba(255, 255, 255, 0.12) !important;
           }
-          #reply-quill-toolbar button.ql-active,
-          #compose-quill-toolbar button.ql-active {
+          [id^="reply-quill-toolbar"] button.ql-active,
+          [id^="compose-quill-toolbar"] button.ql-active,
+          .reply-quill-toolbar button.ql-active,
+          .compose-quill-toolbar button.ql-active {
             background-color: rgba(59, 130, 246, 0.15) !important;
             color: #2563eb !important;
           }
-          #reply-quill-toolbar button svg,
-          #compose-quill-toolbar button svg {
+          [id^="reply-quill-toolbar"] button svg,
+          [id^="compose-quill-toolbar"] button svg,
+          .reply-quill-toolbar button svg,
+          .compose-quill-toolbar button svg {
             width: 18px !important;
             height: 18px !important;
             flex-shrink: 0 !important;
           }
-          #reply-quill-toolbar button.ql-bold,
-          #compose-quill-toolbar button.ql-bold {
+          [id^="reply-quill-toolbar"] button.ql-bold,
+          [id^="compose-quill-toolbar"] button.ql-bold,
+          .reply-quill-toolbar button.ql-bold,
+          .compose-quill-toolbar button.ql-bold {
             font-size: 16px !important;
             font-weight: 700 !important;
           }
-          #reply-quill-toolbar button.ql-italic,
-          #compose-quill-toolbar button.ql-italic {
+          [id^="reply-quill-toolbar"] button.ql-italic,
+          [id^="compose-quill-toolbar"] button.ql-italic,
+          .reply-quill-toolbar button.ql-italic,
+          .compose-quill-toolbar button.ql-italic {
             font-size: 16px !important;
             font-style: italic !important;
             font-family: serif !important;
           }
-          #reply-quill-toolbar button.ql-underline,
-          #compose-quill-toolbar button.ql-underline {
+          [id^="reply-quill-toolbar"] button.ql-underline,
+          [id^="compose-quill-toolbar"] button.ql-underline,
+          .reply-quill-toolbar button.ql-underline,
+          .compose-quill-toolbar button.ql-underline {
             font-size: 16px !important;
             text-decoration: underline !important;
             font-weight: 600 !important;
           }
-          #reply-quill-toolbar button.ql-strike,
-          #compose-quill-toolbar button.ql-strike {
+          [id^="reply-quill-toolbar"] button.ql-strike,
+          [id^="compose-quill-toolbar"] button.ql-strike,
+          .reply-quill-toolbar button.ql-strike,
+          .compose-quill-toolbar button.ql-strike {
             font-size: 16px !important;
             text-decoration: line-through !important;
           }
-          #reply-quill-toolbar button.ql-blockquote,
-          #compose-quill-toolbar button.ql-blockquote {
+          [id^="reply-quill-toolbar"] button.ql-blockquote,
+          [id^="compose-quill-toolbar"] button.ql-blockquote,
+          .reply-quill-toolbar button.ql-blockquote,
+          .compose-quill-toolbar button.ql-blockquote {
             font-size: 19px !important;
             font-weight: 700 !important;
             line-height: 1 !important;
           }
-          #reply-quill-toolbar .ql-stroke,
-          #compose-quill-toolbar .ql-stroke {
+          [id^="reply-quill-toolbar"] .ql-stroke,
+          [id^="compose-quill-toolbar"] .ql-stroke,
+          .reply-quill-toolbar .ql-stroke,
+          .compose-quill-toolbar .ql-stroke {
             stroke: #4b5563 !important;
             stroke-width: 2 !important;
           }
-          .dark #reply-quill-toolbar .ql-stroke,
-          .dark #compose-quill-toolbar .ql-stroke {
+          .dark [id^="reply-quill-toolbar"] .ql-stroke,
+          .dark [id^="compose-quill-toolbar"] .ql-stroke,
+          .dark .reply-quill-toolbar .ql-stroke,
+          .dark .compose-quill-toolbar .ql-stroke {
             stroke: #d1d5db !important;
           }
-          #reply-quill-toolbar .ql-fill,
-          #compose-quill-toolbar .ql-fill {
+          [id^="reply-quill-toolbar"] .ql-fill,
+          [id^="compose-quill-toolbar"] .ql-fill,
+          .reply-quill-toolbar .ql-fill,
+          .compose-quill-toolbar .ql-fill {
             fill: #4b5563 !important;
           }
-          .dark #reply-quill-toolbar .ql-fill,
-          .dark #compose-quill-toolbar .ql-fill {
-            fill: #d1d5db !important;
-          }
-          .dark #reply-quill-toolbar .ql-stroke,
-          .dark #compose-quill-toolbar .ql-stroke {
-            stroke: #d1d5db !important;
-          }
-          #reply-quill-toolbar .ql-fill,
-          #compose-quill-toolbar .ql-fill {
-            fill: #4b5563 !important;
-          }
-          .dark #reply-quill-toolbar .ql-fill,
-          .dark #compose-quill-toolbar .ql-fill {
+          .dark [id^="reply-quill-toolbar"] .ql-fill,
+          .dark [id^="compose-quill-toolbar"] .ql-fill,
+          .dark .reply-quill-toolbar .ql-fill,
+          .dark .compose-quill-toolbar .ql-fill {
             fill: #d1d5db !important;
           }
           .compose-quill {
@@ -1894,34 +1960,42 @@ const FloatingCompose = () => {
               }
             }}
           >
-            {/* Mode Switch: [ Mail ] [ Casbox ] */}
-            <div 
-              className="inline-flex items-center bg-gray-200/90 dark:bg-neutral-700/80 p-0.5 rounded-lg border border-gray-300/40 dark:border-neutral-600/40"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => setComposeMode("mail")}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                  composeMode === "mail" || composeMode === "email"
-                    ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-                }`}
+            {/* Mode Switch or Minimized Title */}
+            {isComposeMinimized ? (
+              <div className="flex items-center gap-2 overflow-hidden mr-2">
+                <span className="font-semibold text-xs text-gray-800 dark:text-gray-200 truncate">
+                  {formData.subject || (composeMode === "chat" ? "New Casbox Message" : "New Message")}
+                </span>
+              </div>
+            ) : (
+              <div 
+                className="inline-flex items-center bg-gray-200/90 dark:bg-neutral-700/80 p-0.5 rounded-lg border border-gray-300/40 dark:border-neutral-600/40"
+                onClick={(e) => e.stopPropagation()}
               >
-                Mail
-              </button>
-              <button
-                type="button"
-                onClick={() => setComposeMode("chat")}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                  composeMode === "chat" || composeMode === "casbox"
-                    ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-                }`}
-              >
-                Casbox
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setComposeMode("mail")}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                    composeMode === "mail" || composeMode === "email"
+                      ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                >
+                  Mail
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComposeMode("chat")}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                    composeMode === "chat" || composeMode === "casbox"
+                      ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                >
+                  Casbox
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
               {!isMobile && (
                 <button
@@ -2259,9 +2333,9 @@ const FloatingCompose = () => {
           <div className={`flex-1 min-h-0 flex flex-col w-full compose-quill overflow-visible ${isReply ? 'reply-composer-style px-5' : 'mt-2 rounded-md'}`}>
             {!isReply && (
               <div
-                id="compose-quill-toolbar"
+                id={`compose-quill-toolbar-${windowId}`}
                 onMouseDown={(e) => e.preventDefault()}
-                className="flex items-center flex-nowrap gap-2 px-3 py-1.5 border-b border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 shrink-0 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none"
+                className="compose-quill-toolbar flex items-center flex-nowrap gap-2 px-3 py-1.5 border-b border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 shrink-0 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none"
               >
                 <FontSizeDropdown quillRef={quillRef} direction="down" />
                 <button type="button" onMouseDown={(e) => e.preventDefault()} className="ql-bold font-bold hover:bg-black/5 dark:hover:bg-white/10 rounded flex items-center justify-center" title="Bold">B</button>
@@ -2285,7 +2359,7 @@ const FloatingCompose = () => {
               onChange={handleBodyChange}
               onFocus={() => {
                 if (focusedFieldRef.current && focusedFieldRef.current !== 'body') {
-                  const targetInput = document.querySelector(`input[name="${focusedFieldRef.current}"]`);
+                  const targetInput = containerRef.current?.querySelector(`input[name="${focusedFieldRef.current}"]`) || document.querySelector(`input[name="${focusedFieldRef.current}"]`);
                   if (targetInput && document.activeElement !== targetInput) {
                     targetInput.focus();
                     return;
@@ -2468,9 +2542,9 @@ const FloatingCompose = () => {
 
                   {/* CUSTOM INLINE QUILL TOOLBAR */}
                   <div
-                    id="reply-quill-toolbar"
+                    id={`reply-quill-toolbar-${windowId}`}
                     onMouseDown={(e) => e.preventDefault()}
-                    className="flex items-center flex-nowrap gap-2 p-1 bg-white dark:bg-neutral-800 rounded-xl border text-gray-700 dark:text-gray-300 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none"
+                    className="reply-quill-toolbar flex items-center flex-nowrap gap-2 p-1 bg-white dark:bg-neutral-800 rounded-xl border text-gray-700 dark:text-gray-300 relative z-30 max-w-full overflow-x-auto scrollbar-none select-none"
                     style={{ borderColor: theme.border }}
                   >
                     <FontSizeDropdown quillRef={quillRef} direction="up" />
@@ -2908,6 +2982,8 @@ const FloatingCompose = () => {
     return (
       <>
         <div
+          ref={containerRef}
+          onMouseDown={() => onFocusWindow?.()}
           style={{
             position: "fixed",
             bottom: 0,
@@ -2915,7 +2991,7 @@ const FloatingCompose = () => {
             right: 0,
             top: isComposeMinimized ? "auto" : 0,
             height: isComposeMinimized ? "45px" : "100%",
-            zIndex: previewFile ? 3000 : 2000,
+            zIndex: previewFile ? zIndex + 1000 : (isComposeMaximized ? zIndex + 500 : zIndex),
             display: "flex",
             flexDirection: "column",
             borderRadius: isReply ? "20px 20px 0 0" : (isComposeMinimized ? "12px 12px 0 0" : "0"),
@@ -2940,12 +3016,15 @@ const FloatingCompose = () => {
           height: isComposeMinimized ? 45 : size.height 
         }}
         position={position}
+        onDragStart={() => onFocusWindow?.()}
+        onMouseDown={() => onFocusWindow?.()}
         onDragStop={(e, d) => {
           setPosition({ x: d.x, y: d.y });
           if (!isComposeMinimized && !isComposeMaximized) {
             lastNormalPosRef.current = { x: d.x, y: d.y };
           }
         }}
+        onResizeStart={() => onFocusWindow?.()}
         onResizeStop={(e, direction, ref, delta, pos) => {
           const newW = parseInt(ref.style.width, 10);
           const newH = parseInt(ref.style.height, 10);
@@ -2956,18 +3035,18 @@ const FloatingCompose = () => {
             lastNormalPosRef.current = pos;
           }
         }}
-        minWidth={350}
+        minWidth={isComposeMinimized ? 200 : 350}
         minHeight={isComposeMinimized ? 45 : 300}
         maxWidth={window.innerWidth}
         maxHeight={window.innerHeight}
         enableResizing={!isComposeMinimized && !isComposeMaximized}
         disableDragging={isComposeMaximized}
         dragHandleClassName="compose-drag-handle"
-        cancel="input, textarea, button, select, option, .ql-editor, [contenteditable], .compose-quill, #compose-quill-toolbar, #reply-quill-toolbar"
+        cancel="input, textarea, button, select, option, .ql-editor, [contenteditable], .compose-quill, [id^='compose-quill-toolbar'], [id^='reply-quill-toolbar']"
         enableUserSelectHack={false}
         bounds="window"
         style={{
-          zIndex: previewFile ? 3000 : 2000,
+          zIndex: previewFile ? zIndex + 1000 : (isComposeMaximized ? zIndex + 500 : zIndex),
           display: "flex",
           flexDirection: "column",
           borderRadius: isReply ? "20px" : (isComposeMinimized ? "12px 12px 0 0" : "12px 12px 0 0"),
@@ -2977,9 +3056,80 @@ const FloatingCompose = () => {
           overflow: "hidden"
         }}
       >
-        {renderContent()}
+        <div ref={containerRef} className="flex-1 flex flex-col h-full w-full overflow-hidden">
+          {renderContent()}
+        </div>
       </Rnd>
       {renderPreviewModal()}
+    </>
+  );
+};
+
+const FloatingCompose = () => {
+  const { composeWindows = [], closeComposeWindow, isComposeOpen, composeData, closeCompose } = useMail();
+  const [activeWindowId, setActiveWindowId] = useState(null);
+  const [zIndices, setZIndices] = useState({});
+  const topZRef = useRef(2000);
+
+  const bringToFront = useCallback((winId) => {
+    setActiveWindowId(winId);
+    setZIndices((prev) => {
+      topZRef.current += 2;
+      return { ...prev, [winId]: topZRef.current };
+    });
+  }, []);
+
+  // When a new window is opened, bring it to front
+  useEffect(() => {
+    if (composeWindows && composeWindows.length > 0) {
+      const newest = composeWindows[composeWindows.length - 1];
+      bringToFront(newest.id);
+    }
+  }, [composeWindows?.length, bringToFront]);
+
+  // Backward compatibility fallback if legacy isComposeOpen was triggered directly
+  const windowsToRender = useMemo(() => {
+    if (composeWindows && composeWindows.length > 0) {
+      return composeWindows;
+    }
+    if (isComposeOpen) {
+      return [{
+        id: "legacy_compose_window",
+        order: 0,
+        initialData: composeData
+      }];
+    }
+    return [];
+  }, [composeWindows, isComposeOpen, composeData]);
+
+  if (windowsToRender.length === 0) return null;
+
+  return (
+    <>
+      {windowsToRender.map((win, idx) => {
+        const winOrder = win.order !== undefined ? win.order : idx;
+        const defaultBaseZ = 2000 + winOrder * 2;
+        const winZIndex = zIndices[win.id] || defaultBaseZ;
+        return (
+          <ComposeWindow
+            key={win.id}
+            windowId={win.id}
+            order={winOrder}
+            initialData={win.initialData || win.data}
+            onClose={() => {
+              if (closeComposeWindow) {
+                closeComposeWindow(win.id);
+              } else {
+                closeCompose(win.id);
+              }
+            }}
+            onFocusWindow={() => bringToFront(win.id)}
+            isActive={activeWindowId === win.id}
+            zIndex={winZIndex}
+            minimizedIndex={idx}
+          />
+        );
+      })}
     </>
   );
 };

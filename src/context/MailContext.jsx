@@ -1950,28 +1950,65 @@ export const MailProvider = ({ children }) => {
         }
     };
 
+    const nextComposeOrderRef = useRef(0);
+    const [composeWindows, setComposeWindows] = useState([]);
     const [isComposeOpen, setIsComposeOpen] = useState(false);
     const [isComposeMinimized, setIsComposeMinimized] = useState(false);
     const [isComposeMaximized, setIsComposeMaximized] = useState(false);
     const [composeData, setComposeData] = useState(null);
 
     const openCompose = useCallback((data = null) => {
-        if (data && data.replyTo) {
-            const match = data.replyTo.match(/<([^>]+)>/);
+        let cleanData = data ? { ...data } : {};
+        if (cleanData.replyTo) {
+            const match = cleanData.replyTo.match(/<([^>]+)>/);
             if (match) {
-                data.replyTo = match[1];
+                cleanData.replyTo = match[1];
             }
         }
-        setComposeData(data);
+        const order = nextComposeOrderRef.current++;
+        const newWindow = {
+            id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`,
+            data: cleanData,
+            order: order,
+            createdAt: Date.now()
+        };
+        setComposeWindows((prev) => [...prev, newWindow]);
         setIsComposeOpen(true);
         setIsComposeMinimized(false);
         setIsComposeMaximized(false);
+        setComposeData(cleanData);
     }, []);
 
-    const closeCompose = useCallback(() => {
-        setIsComposeOpen(false);
-        setComposeData(null);
+    const closeComposeWindow = useCallback((windowId) => {
+        setComposeWindows((prev) => {
+            const next = prev.filter((w) => w.id !== windowId);
+            if (next.length === 0) {
+                setIsComposeOpen(false);
+                setComposeData(null);
+            } else {
+                setComposeData(next[next.length - 1].data);
+            }
+            return next;
+        });
     }, []);
+
+    const closeCompose = useCallback((windowId) => {
+        if (windowId && typeof windowId === 'string') {
+            closeComposeWindow(windowId);
+        } else {
+            setComposeWindows((prev) => {
+                if (prev.length === 0) return prev;
+                const next = prev.slice(0, prev.length - 1);
+                if (next.length === 0) {
+                    setIsComposeOpen(false);
+                    setComposeData(null);
+                } else {
+                    setComposeData(next[next.length - 1].data);
+                }
+                return next;
+            });
+        }
+    }, [closeComposeWindow]);
 
     const handleEmailSent = useCallback(async ({ draftId, draftUid, imapDraftUid, sentEmail, wasStarred } = {}) => {
         const targetDraftUids = [draftId, draftUid, imapDraftUid].filter(Boolean).map(String);
@@ -2339,13 +2376,15 @@ export const MailProvider = ({ children }) => {
             handleUnsubscribe,
             handleDeleteLabel,
             handleEmailSent,
-            isComposeOpen,
+            composeWindows,
+            closeComposeWindow,
+            isComposeOpen: composeWindows.length > 0 || isComposeOpen,
             setIsComposeOpen,
             isComposeMinimized,
             setIsComposeMinimized,
             isComposeMaximized,
             setIsComposeMaximized,
-            composeData,
+            composeData: composeWindows.length > 0 ? composeWindows[composeWindows.length - 1].data : composeData,
             setComposeData,
             openCompose,
             closeCompose,
@@ -2400,6 +2439,8 @@ export const useMail = () => {
             handleRestoreSpam: async () => {},
             handleRestore: async () => {},
             handleUnsubscribe: async () => {},
+            composeWindows: [],
+            closeComposeWindow: () => {},
             openCompose: () => {},
             closeCompose: () => {},
             isComposeOpen: false,
