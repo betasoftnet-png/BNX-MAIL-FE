@@ -114,7 +114,7 @@ api.interceptors.response.use(
         }
 
         if (error.response?.status === 401 || error.response?.status === 403) {
-            const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/create-mailbox'].includes(window.location.pathname);
+            const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/create-mailbox'].includes(window.location.pathname) || window.location.pathname.startsWith('/signup');
 
             if (!originalRequest._retry && !isAuthPage) {
                 originalRequest._retry = true;
