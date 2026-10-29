@@ -1,4 +1,4 @@
-﻿import { useTranslation } from "../context/LanguageContext";
+import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMail } from "../context/MailContext";
@@ -143,6 +143,7 @@ const Notification = ({ searchQuery }) => {
     handleArchive, 
     handleMarkRead, 
     handleMarkUnread, 
+    isEmailRead,
     handleSnooze,
     handleApplyLabel,
     openCompose 
@@ -263,8 +264,8 @@ const Notification = ({ searchQuery }) => {
 
   const handleSelectEmail = (email) => {
     setSelectedEmailUid(email.uid);
-    if (!email.isRead) {
-      handleMarkRead(email.uid);
+    if (!email.isRead && !email.read) {
+      handleMarkRead(email.uid, true, email);
     }
   };
 
@@ -287,12 +288,17 @@ const Notification = ({ searchQuery }) => {
     });
   };
 
-  const unreadCountTotal = rawNotifications.filter(e => !e.isRead).length;
+  const unreadCountTotal = rawNotifications.filter(e => !(e.isRead || e.read || isEmailRead?.(e.uid ?? e.id))).length;
 
   const detailsComponent = selectedEmail ? (
     <EmailDetails
       emailList={filteredNotifications}
-      onNavigate={(email) => setSelectedEmailUid(email.uid)}
+      onNavigate={(email) => {
+        setSelectedEmailUid(email.uid);
+        if (!email.isRead && !email.read) {
+          handleMarkRead(email.uid, true, email);
+        }
+      }}
       email={selectedEmail}
       onBack={() => setSelectedEmailUid(null)}
       onClose={() => setSelectedEmailUid(null)}

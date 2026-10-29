@@ -20,13 +20,17 @@ const Inbox = ({ searchQuery }) => {
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
-  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter, dateFilter, customDateRange, resetDateFilter } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter, dateFilter, customDateRange, resetDateFilter, isEmailRead } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
   const [activeTab, setActiveTab] = useState('ALL');
-  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid)) ||
-    (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
+  const baseSelectedEmail = emails.find((e) => String(e.uid ?? e.id) === String(selectedEmailUid)) ||
+    (selectedEmailOverride && (String(selectedEmailOverride.uid ?? selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
+  const selectedEmail = baseSelectedEmail ? {
+    ...baseSelectedEmail,
+    isRead: isEmailRead ? (isEmailRead(baseSelectedEmail.uid ?? baseSelectedEmail.id) || baseSelectedEmail.isRead) : baseSelectedEmail.isRead
+  } : null;
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -141,9 +145,10 @@ const Inbox = ({ searchQuery }) => {
   }, [selectedEmailUid, selectedIds, currentFolder, handleMoveToTrash, handleArchive]);
 
   const handleSelectEmail = (email) => {
+    setSelectedEmailOverride(null);
     setSelectedEmailUid(email.uid);
-    if (!email.isRead) {
-      handleMarkRead(email.uid);
+    if (!email.isRead && !email.read) {
+      handleMarkRead(email.uid, true, email);
     }
   };
 
@@ -288,9 +293,18 @@ const Inbox = ({ searchQuery }) => {
   const detailsComponent = selectedEmail ? (
     <EmailDetails
       emailList={visibleEmails}
-      onNavigate={(email) => setSelectedEmailUid(email.uid)}
+      onNavigate={(email) => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(email.uid);
+        if (!email.isRead && !email.read) {
+          handleMarkRead(email.uid, true, email);
+        }
+      }}
       email={selectedEmail}
-      onBack={() => setSelectedEmailUid(null)}
+      onBack={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
       onDelete={(uid) => {
         handleMoveToTrash(uid, currentFolder);
         setSelectedEmailUid(null);

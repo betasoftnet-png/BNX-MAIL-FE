@@ -25,7 +25,7 @@ const EmailList = ({
   const { user } = useAuth();
   const location = useLocation();
   const { theme, emailsPerPage, backgroundImage } = useTheme();
-  const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred } = useMail();
+  const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead } = useMail();
   const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
   const snoozeAction = onSnooze || contextHandleSnooze;
 
@@ -250,7 +250,7 @@ const EmailList = ({
             {displayedEmails.map((email, i) => {
               const isSentByUser = showTo || (user?.email && email.from?.toLowerCase().includes(user.email.toLowerCase()));
               const sender = isSentByUser ? (email.to || email.recipientEmail) : email.from;
-              const isUnread = !email.isRead;
+              const isUnread = !(email.isRead || email.read || isEmailRead?.(email.uid ?? email.id));
               const isSelected = selectedEmailId === email.uid || selectedEmailId === String(email.uid) || selectedEmailId === `${email.uid}__${email.folderName || ''}`;
               const isActuallyArchived = isArchiveFolder || email.folderName?.toLowerCase() === "archive";
               const isChecked = selectedIds.has(`${email.uid}__${email.folderName || ''}`) || selectedIds.has(String(email.uid)) || selectedIds.has(Number(email.uid));

@@ -26,6 +26,24 @@ try {
     }
 } catch (e) {}
 
+// Helper functions for session-scoped read UIDs to preserve read status across in-session refreshes
+const getStoredReadUids = (email) => {
+    if (!email || typeof window === 'undefined') return new Set();
+    try {
+        const raw = sessionStorage.getItem(`bnx_read_uids_${email}`);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+        return new Set();
+    }
+};
+
+const saveStoredReadUids = (email, set) => {
+    if (!email || typeof window === 'undefined') return;
+    try {
+        sessionStorage.setItem(`bnx_read_uids_${email}`, JSON.stringify(Array.from(set)));
+    } catch {}
+};
+
 const sortEmailsByDateDesc = (list) => {
     if (!Array.isArray(list)) return list;
     return list.sort((a, b) => {
@@ -55,6 +73,28 @@ export const MailProvider = ({ children }) => {
     const { user } = useAuth();
     const { emailsPerPage: limit } = useTheme();
     const [emails, setEmails] = useState([]);
+    const emailsRef = useRef(emails);
+    useEffect(() => {
+        emailsRef.current = emails;
+    }, [emails]);
+
+    const readUidsRef = useRef(getStoredReadUids(user?.email));
+    const unreadUidsRef = useRef(new Set());
+
+    useEffect(() => {
+        const stored = getStoredReadUids(user?.email);
+        readUidsRef.current = stored;
+        unreadUidsRef.current = new Set();
+    }, [user?.email]);
+
+    const isEmailRead = useCallback((uid) => {
+        if (uid === undefined || uid === null) return false;
+        const strUid = String(uid);
+        if (unreadUidsRef.current.has(strUid)) return false;
+        if (readUidsRef.current.has(strUid)) return true;
+        const item = emailsRef.current.find(m => String(m.uid ?? m.id) === strUid);
+        return item ? Boolean(item.isRead || item.read) : false;
+    }, []);
     const [dateFilter, setDateFilter] = useState("ALL");
     const [customDateRange, setCustomDateRange] = useState(null);
 
@@ -169,9 +209,13 @@ export const MailProvider = ({ children }) => {
                     if (isStarred) {
                         saveStoredStarredEmail(m, user?.email);
                     }
+                    const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
+                    const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
+                    const isRead = !isMarkedUnread && (isMarkedRead || (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)));
                     return {
                         ...m,
-                        isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
+                        isRead,
+                        read: isRead,
                         starred: isStarred
                     };
                 }).filter(m => {
@@ -566,7 +610,12 @@ export const MailProvider = ({ children }) => {
                         if (res?.data?.success) {
                             const dataObj = res.data.data;
                             const list = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
-                            const unreadItems = list.filter(m => !m.isRead && !m.read);
+                            const unreadItems = list.filter(m => {
+                                const uStr = String(m.uid ?? m.id ?? '');
+                                if (unreadUidsRef.current?.has(uStr)) return true;
+                                if (readUidsRef.current?.has(uStr)) return false;
+                                return !m.isRead && !m.read;
+                            });
                             res = {
                                 data: {
                                     success: true,
@@ -581,7 +630,12 @@ export const MailProvider = ({ children }) => {
                     }
                     if (res?.data?.success && res.data.data) {
                         if (Array.isArray(res.data.data)) {
-                            const unreadItems = res.data.data.filter(m => !m.isRead && !m.read);
+                            const unreadItems = res.data.data.filter(m => {
+                                const uStr = String(m.uid ?? m.id ?? '');
+                                if (unreadUidsRef.current?.has(uStr)) return true;
+                                if (readUidsRef.current?.has(uStr)) return false;
+                                return !m.isRead && !m.read;
+                            });
                             res.data.data = {
                                 emails: unreadItems,
                                 totalCount: unreadItems.length,
@@ -605,9 +659,13 @@ export const MailProvider = ({ children }) => {
                     if (isStarred) {
                         saveStoredStarredEmail(m, user?.email);
                     }
+                    const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
+                    const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
+                    const isRead = !isMarkedUnread && (isMarkedRead || (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)));
                     return {
                         ...m,
-                        isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
+                        isRead,
+                        read: isRead,
                         starred: isStarred
                     };
                 });
@@ -784,7 +842,12 @@ export const MailProvider = ({ children }) => {
                         if (res?.data?.success) {
                             const dataObj = res.data.data;
                             const list = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
-                            const unreadItems = list.filter(m => !m.isRead && !m.read);
+                            const unreadItems = list.filter(m => {
+                                const uStr = String(m.uid ?? m.id ?? '');
+                                if (unreadUidsRef.current?.has(uStr)) return true;
+                                if (readUidsRef.current?.has(uStr)) return false;
+                                return !m.isRead && !m.read;
+                            });
                             res = {
                                 data: {
                                     success: true,
@@ -799,7 +862,12 @@ export const MailProvider = ({ children }) => {
                     }
                     if (res?.data?.success && res.data.data) {
                         if (Array.isArray(res.data.data)) {
-                            const unreadItems = res.data.data.filter(m => !m.isRead && !m.read);
+                            const unreadItems = res.data.data.filter(m => {
+                                const uStr = String(m.uid ?? m.id ?? '');
+                                if (unreadUidsRef.current?.has(uStr)) return true;
+                                if (readUidsRef.current?.has(uStr)) return false;
+                                return !m.isRead && !m.read;
+                            });
                             res.data.data = {
                                 emails: unreadItems,
                                 totalCount: unreadItems.length,
@@ -833,9 +901,13 @@ export const MailProvider = ({ children }) => {
                     if (isStarred) {
                         saveStoredStarredEmail(m, user?.email);
                     }
+                    const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
+                    const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
+                    const isRead = !isMarkedUnread && (isMarkedRead || (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)));
                     return {
                         ...m,
-                        isRead: m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false),
+                        isRead,
+                        read: isRead,
                         starred: isStarred
                     };
                 });
@@ -1166,107 +1238,143 @@ export const MailProvider = ({ children }) => {
         }));
     }, [emails, user]);
 
-    const handleMarkRead = async (uid, silent = false) => {
+    const handleMarkRead = useCallback(async (uid, silent = false, emailObj = null) => {
+        if (uid === undefined || uid === null) return;
         const strUid = String(uid);
-        let wasUnread = false;
-        const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
-        const isSpamFolder = currentFolderLower === 'spam';
 
-        setEmails(prev => prev.map(m => {
-            if ((String(m.uid) === strUid || String(m.id) === strUid) && !m.isRead) {
-                wasUnread = true;
-                return { ...m, isRead: true };
+        // If already marked as read in this session, avoid duplicate decrements
+        if (readUidsRef.current.has(strUid)) {
+            return;
+        }
+
+        // Determine if the email was already read
+        let foundEmail = emailObj || emailsRef.current.find(m => String(m.uid ?? m.id) === strUid);
+        if (!foundEmail && pagesCache.current) {
+            for (const f of Object.keys(pagesCache.current)) {
+                if (!pagesCache.current[f]) continue;
+                for (const p of Object.keys(pagesCache.current[f])) {
+                    const list = pagesCache.current[f][p];
+                    if (Array.isArray(list)) {
+                        foundEmail = list.find(m => String(m.uid ?? m.id) === strUid);
+                        if (foundEmail) break;
+                    }
+                }
+                if (foundEmail) break;
             }
-            return m;
-        }));
+        }
 
+        const wasUnread = foundEmail ? !(foundEmail.isRead || foundEmail.read) : true;
+
+        // Mark in session set
+        readUidsRef.current.add(strUid);
+        unreadUidsRef.current.delete(strUid);
+        saveStoredReadUids(user?.email, readUidsRef.current);
+
+        // 1. Immediately update active emails state
+        setEmails(prev => prev.map(m =>
+            (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: true, read: true } : m
+        ));
+
+        // 2. Immediately update in-memory pagesCache across all folders so returning to inbox stays read
+        if (pagesCache.current) {
+            Object.keys(pagesCache.current).forEach(f => {
+                if (pagesCache.current[f]) {
+                    Object.keys(pagesCache.current[f]).forEach(p => {
+                        if (Array.isArray(pagesCache.current[f][p])) {
+                            pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
+                                (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: true, read: true } : m
+                            );
+                        }
+                    });
+                }
+            });
+        }
+
+        // 3. Immediately decrement unread counts if this email was previously unread
         if (wasUnread) {
+            const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
+            const isSpamFolder = currentFolderLower === 'spam';
             setUnreadCounts(counts => ({
                 ...counts,
                 inbox: !isSpamFolder ? Math.max(0, (counts.inbox || 0) - 1) : counts.inbox,
                 unread: !isSpamFolder ? Math.max(0, (counts.unread || 0) - 1) : counts.unread,
-                spam: isSpamFolder ? Math.max(0, (counts.spam || 0) - 1) : counts.spam
+                allinbox: !isSpamFolder ? Math.max(0, (counts.allinbox || 0) - 1) : counts.allinbox,
+                allmail: !isSpamFolder ? Math.max(0, (counts.allmail || 0) - 1) : counts.allmail,
+                spam: isSpamFolder ? Math.max(0, (counts.spam || 0) - 1) : counts.spam,
+                notification: Math.max(0, (counts.notification || 0) - 1)
             }));
         }
 
         invalidateCache('unread');
-        invalidateCache('inbox');
-        if (currentFolderRef.current) {
-            invalidateCache(currentFolderRef.current);
-        }
-        if (pagesCache.current) {
-            Object.keys(pagesCache.current).forEach(f => {
-                if (pagesCache.current[f]) {
-                    Object.keys(pagesCache.current[f]).forEach(p => {
-                        if (Array.isArray(pagesCache.current[f][p])) {
-                            pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
-                                (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, isRead: true } : m
-                            );
-                        }
-                    });
-                }
-            });
-        }
 
+        // 4. Call backend API
         try {
             await mailAPI.markRead(uid);
         } catch (apiErr) {
             console.warn('Backend markRead API call failed:', apiErr);
-            if (wasUnread) {
-                setEmails(prev => prev.map(m =>
-                    (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, isRead: false } : m
-                ));
-                setUnreadCounts(counts => ({
-                    ...counts,
-                    inbox: !isSpamFolder ? (counts.inbox || 0) + 1 : counts.inbox,
-                    unread: !isSpamFolder ? (counts.unread || 0) + 1 : counts.unread,
-                    spam: isSpamFolder ? (counts.spam || 0) + 1 : counts.spam
-                }));
-            }
         }
-    };
+    }, [user?.email, invalidateCache]);
 
-    const handleMarkUnread = async (uid, silent = false) => {
+    const handleMarkUnread = useCallback(async (uid, silent = false, emailObj = null) => {
+        if (uid === undefined || uid === null) return;
         const strUid = String(uid);
-        let wasRead = false;
-        const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
-        const isSpamFolder = currentFolderLower === 'spam';
 
-        setEmails(prev => prev.map(m => {
-            if ((String(m.uid) === strUid || String(m.id) === strUid) && m.isRead) {
-                wasRead = true;
-                return { ...m, isRead: false };
+        let foundEmail = emailObj || emailsRef.current.find(m => String(m.uid ?? m.id) === strUid);
+        if (!foundEmail && pagesCache.current) {
+            for (const f of Object.keys(pagesCache.current)) {
+                if (!pagesCache.current[f]) continue;
+                for (const p of Object.keys(pagesCache.current[f])) {
+                    const list = pagesCache.current[f][p];
+                    if (Array.isArray(list)) {
+                        foundEmail = list.find(m => String(m.uid ?? m.id) === strUid);
+                        if (foundEmail) break;
+                    }
+                }
+                if (foundEmail) break;
             }
-            return m;
-        }));
-
-        if (wasRead) {
-            setUnreadCounts(counts => ({
-                ...counts,
-                inbox: !isSpamFolder ? (counts.inbox || 0) + 1 : counts.inbox,
-                unread: !isSpamFolder ? (counts.unread || 0) + 1 : counts.unread,
-                spam: isSpamFolder ? (counts.spam || 0) + 1 : counts.spam
-            }));
         }
 
-        invalidateCache('unread');
-        invalidateCache('inbox');
-        if (currentFolderRef.current) {
-            invalidateCache(currentFolderRef.current);
-        }
+        const wasRead = foundEmail
+            ? Boolean(foundEmail.isRead || foundEmail.read || readUidsRef.current.has(strUid))
+            : readUidsRef.current.has(strUid);
+
+        readUidsRef.current.delete(strUid);
+        unreadUidsRef.current.add(strUid);
+        saveStoredReadUids(user?.email, readUidsRef.current);
+
+        setEmails(prev => prev.map(m =>
+            (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: false, read: false } : m
+        ));
+
         if (pagesCache.current) {
             Object.keys(pagesCache.current).forEach(f => {
                 if (pagesCache.current[f]) {
                     Object.keys(pagesCache.current[f]).forEach(p => {
                         if (Array.isArray(pagesCache.current[f][p])) {
                             pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
-                                (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, isRead: false } : m
+                                (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: false, read: false } : m
                             );
                         }
                     });
                 }
             });
         }
+
+        if (wasRead) {
+            const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
+            const isSpamFolder = currentFolderLower === 'spam';
+            setUnreadCounts(counts => ({
+                ...counts,
+                inbox: !isSpamFolder ? (counts.inbox || 0) + 1 : counts.inbox,
+                unread: !isSpamFolder ? (counts.unread || 0) + 1 : counts.unread,
+                allinbox: !isSpamFolder ? (counts.allinbox || 0) + 1 : counts.allinbox,
+                allmail: !isSpamFolder ? (counts.allmail || 0) + 1 : counts.allmail,
+                spam: isSpamFolder ? (counts.spam || 0) + 1 : counts.spam,
+                notification: (counts.notification || 0) + 1
+            }));
+        }
+
+        invalidateCache('unread');
         if (currentFolderRef.current?.toLowerCase() === 'unread') {
             fetchEmails('unread', true, currentPageRef.current);
         }
@@ -1275,19 +1383,8 @@ export const MailProvider = ({ children }) => {
             await mailAPI.markUnread(uid);
         } catch (apiErr) {
             console.warn('Backend markUnread API call failed:', apiErr);
-            if (wasRead) {
-                setEmails(prev => prev.map(m =>
-                    (String(m.uid) === strUid || String(m.id) === strUid) ? { ...m, isRead: true } : m
-                ));
-                setUnreadCounts(counts => ({
-                    ...counts,
-                    inbox: !isSpamFolder ? Math.max(0, (counts.inbox || 0) - 1) : counts.inbox,
-                    unread: !isSpamFolder ? Math.max(0, (counts.unread || 0) - 1) : counts.unread,
-                    spam: isSpamFolder ? Math.max(0, (counts.spam || 0) - 1) : counts.spam
-                }));
-            }
         }
-    };
+    }, [user?.email, invalidateCache, fetchEmails]);
 
     const handleMoveToTrash = async (uid, folder, silent = false) => {
         const strUid = String(uid);
@@ -2105,6 +2202,7 @@ export const MailProvider = ({ children }) => {
             starredIds,
             handleMarkRead,
             handleMarkUnread,
+            isEmailRead,
             totalEmails,
             currentPage,
             handlePageChange,
@@ -2179,6 +2277,7 @@ export const useMail = () => {
             handleDeleteLabel: async () => {},
             handleMarkRead: async () => {},
             handleMarkUnread: async () => {},
+            isEmailRead: () => false,
             handleMarkSpam: async () => {},
             handleRestoreSpam: async () => {},
             handleRestore: async () => {},

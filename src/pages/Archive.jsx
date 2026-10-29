@@ -174,6 +174,9 @@ const Archive = ({ searchQuery }) => {
       onNavigate={(email) => {
         setSelectedEmailOverride(null);
         setSelectedEmailUid(email.uid);
+        if (!email.isRead && !email.read) {
+          handleMarkRead(email.uid, true, email);
+        }
       }}
       email={selectedEmail}
       onBack={() => {

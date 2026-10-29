@@ -15,7 +15,7 @@ const Starred = ({ searchQuery }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
 
@@ -134,7 +134,13 @@ const handleReply = (email) => {
   const detailsComponent = selectedEmail ? (
     <EmailDetails
       emailList={sortedEmails}
-      onNavigate={(email) => setSelectedEmailUid(email.uid)}
+      onNavigate={(email) => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(email.uid);
+        if (!email.isRead && !email.read) {
+          handleMarkRead?.(email.uid, true, email);
+        }
+      }}
       email={selectedEmail}
       onBack={() => setSelectedEmailUid(null)}
       onClose={() => setSelectedEmailUid(null)}

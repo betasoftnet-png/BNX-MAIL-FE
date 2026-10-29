@@ -138,9 +138,18 @@ const EmailDetails = ({
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze, isEmailStarred, handleToggleStar } = useMail();
+  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze, isEmailStarred, handleToggleStar } = useMail();
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id) : Boolean(email?.starred);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (email) {
+      const emailUid = email.uid ?? email.id;
+      if (emailUid !== undefined && emailUid !== null && (!email.isRead && !email.read)) {
+        handleMarkRead?.(emailUid, true, email);
+      }
+    }
+  }, [email?.uid, email?.id, email?.isRead, email?.read, handleMarkRead]);
 
   const snoozeAction = onSnooze || handleSnooze;
   const applyLabelAction = onApplyLabel || handleApplyLabel;
@@ -1883,26 +1892,42 @@ const EmailDetails = ({
         {emailList && emailList.length > 0 && (
           <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
             <span className="font-medium">
-              {emailList.findIndex(e => e.uid === email.uid) + 1} of {emailList.length}
+              {emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) + 1} of {emailList.length}
             </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => {
-                  const idx = emailList.findIndex(e => e.uid === email.uid);
-                  if (idx > 0) onNavigate?.(emailList[idx - 1]);
+                  const idx = emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id));
+                  if (idx > 0) {
+                    const prevEmail = emailList[idx - 1];
+                    if (!prevEmail.isRead && !prevEmail.read) {
+                      handleMarkRead?.(prevEmail.uid ?? prevEmail.id, true, prevEmail);
+                    }
+                    onNavigate?.(prevEmail);
+                  }
                 }}
-                disabled={emailList.findIndex(e => e.uid === email.uid) <= 0}
+                disabled={emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) <= 0}
                 className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                title={t("common.previous", "Previous email")}
+                aria-label="Previous email"
               >
                 <MdChevronLeft size={20} />
               </button>
               <button
                 onClick={() => {
-                  const idx = emailList.findIndex(e => e.uid === email.uid);
-                  if (idx < emailList.length - 1 && idx !== -1) onNavigate?.(emailList[idx + 1]);
+                  const idx = emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id));
+                  if (idx < emailList.length - 1 && idx !== -1) {
+                    const nextEmail = emailList[idx + 1];
+                    if (!nextEmail.isRead && !nextEmail.read) {
+                      handleMarkRead?.(nextEmail.uid ?? nextEmail.id, true, nextEmail);
+                    }
+                    onNavigate?.(nextEmail);
+                  }
                 }}
-                disabled={emailList.findIndex(e => e.uid === email.uid) >= emailList.length - 1 || emailList.findIndex(e => e.uid === email.uid) === -1}
+                disabled={emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) >= emailList.length - 1 || emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) === -1}
                 className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                title={t("common.next", "Next email")}
+                aria-label="Next email"
               >
                 <MdChevronRight size={20} />
               </button>
