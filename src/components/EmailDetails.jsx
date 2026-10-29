@@ -776,7 +776,8 @@ const EmailDetails = ({
         if (handleEmailSent) {
           handleEmailSent({
             draftId: sentDraftId,
-            sentEmail: res.data?.data
+            sentEmail: res.data?.data,
+            wasStarred: isStarred
           });
         } else if (fetchEmails) {
           fetchEmails(currentFolder || "inbox", true);

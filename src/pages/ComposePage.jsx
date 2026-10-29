@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MdSend, MdAttachFile, MdDeleteOutline, MdClose, MdAssignment } from "react-icons/md";
 import { mailAPI, userAPI } from "../services/api";
@@ -93,7 +93,7 @@ const ComposePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme } = useTheme();
-  const { handleEmailSent, invalidateCache, fetchEmailsSilently, updateDraftInState, updateDraftUidInState } = useMail();
+  const { handleEmailSent, invalidateCache, fetchEmailsSilently, updateDraftInState, updateDraftUidInState, isEmailStarred } = useMail();
 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -220,10 +220,26 @@ const ComposePage = () => {
     try {
       setSending(true);
 
+      const targetDraftUid = location.state?.draftUid || location.state?.draft?.uid || location.state?.imapDraftUid;
+      const targetDraftId = location.state?.draftId || location.state?.draft?.id;
+      const isStarredDraft = Boolean(
+        location.state?.draft?.starred ||
+        location.state?.isStarred ||
+        (typeof isEmailStarred === 'function' && (
+          isEmailStarred(targetDraftUid) ||
+          isEmailStarred(targetDraftId)
+        ))
+      );
+
       const payload = {
         to: formData.to,
         subject: formData.subject,
         body: formData.body,
+        draftUid: targetDraftUid || null,
+        draftId: targetDraftId || null,
+        uid: targetDraftUid || null,
+        isStarred: isStarredDraft,
+        starred: isStarredDraft
       };
 
       if (formData.cc) payload.cc = formData.cc;
@@ -235,10 +251,11 @@ const ComposePage = () => {
         setSuccess("Email sent successfully");
         if (handleEmailSent) {
           handleEmailSent({
-            draftId: location.state?.draftId,
-            draftUid: location.state?.draftUid || location.state?.draft?.uid,
-            imapDraftUid: location.state?.imapDraftUid || location.state?.draft?.uid,
-            sentEmail: response.data?.data
+            draftId: targetDraftId,
+            draftUid: targetDraftUid,
+            imapDraftUid: location.state?.imapDraftUid || targetDraftUid,
+            sentEmail: response.data?.data,
+            wasStarred: isStarredDraft
           });
         }
         setTimeout(() => navigate("/inbox"), 1200);

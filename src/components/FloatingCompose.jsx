@@ -248,9 +248,11 @@ const FloatingCompose = () => {
     currentFolder,
     openCompose,
     updateDraftInState,
-    updateDraftUidInState
+    updateDraftUidInState,
+    isEmailStarred
   } = useMail();
 
+  const wasDraftStarredRef = useRef(false);
   const isReply = Boolean(composeData?.replyTo);
   const fileInputRef = useRef(null);
 
@@ -798,6 +800,15 @@ const FloatingCompose = () => {
             const d = composeData.draft;
             isEditingExistingDraftRef.current = true;
             selectedDraftIdRef.current = d.uid !== undefined && d.uid !== null ? String(d.uid) : (d.id !== undefined && d.id !== null ? String(d.id) : null);
+            const isDraftStarred = Boolean(
+              d.starred ||
+              d.isStarred ||
+              (typeof isEmailStarred === 'function' && (
+                isEmailStarred(d.uid) ||
+                isEmailStarred(d.id)
+              ))
+            );
+            wasDraftStarredRef.current = isDraftStarred;
             originalDraftSnapshotRef.current = {
               uid: d.uid,
               id: d.id,
@@ -806,6 +817,7 @@ const FloatingCompose = () => {
               bcc: d.bcc || "",
               subject: d.subject || "",
               body: d.body || d.textPlain || d.htmlBody || "",
+              starred: isDraftStarred
             };
             imapDraftUidRef.current = d.uid;
             if (d.id) setDraftId(d.id);
@@ -833,6 +845,7 @@ const FloatingCompose = () => {
             }
           } else {
             isEditingExistingDraftRef.current = false;
+            wasDraftStarredRef.current = false;
             originalDraftSnapshotRef.current = null;
             const initialForm = {
               to: composeData.to || "",
@@ -1114,11 +1127,33 @@ const FloatingCompose = () => {
 
     const delaySeconds = Number(undoSendDelay);
 
+    const isStarredDraft = Boolean(
+      wasDraftStarredRef.current ||
+      composeData?.draft?.starred ||
+      composeData?.draft?.isStarred ||
+      (typeof isEmailStarred === 'function' && (
+        isEmailStarred(imapDraftUidRef.current) ||
+        isEmailStarred(selectedDraftIdRef.current) ||
+        isEmailStarred(composeData?.draft?.uid) ||
+        isEmailStarred(composeData?.draft?.id) ||
+        isEmailStarred(draftId)
+      ))
+    );
+
+    const currentImapDraftUid = imapDraftUidRef.current;
+    const currentDraftId = draftId;
+    const currentDraftUid = composeData?.draft?.uid || composeData?.draft?.id || selectedDraftIdRef.current;
+
     const payload = {
       to: formData.to,
       subject: formData.subject,
       body: getFinalBody(formData.body),
-      isHtml: true
+      isHtml: true,
+      draftUid: currentImapDraftUid || currentDraftUid || null,
+      draftId: currentDraftId || null,
+      uid: currentImapDraftUid || currentDraftUid || null,
+      isStarred: isStarredDraft,
+      starred: isStarredDraft
     };
     if (formData.cc) payload.cc = formData.cc;
     if (formData.bcc) payload.bcc = formData.bcc;
@@ -1145,9 +1180,6 @@ const FloatingCompose = () => {
             closeCompose();
           }
 
-          const currentImapDraftUid = imapDraftUidRef.current;
-          const currentDraftId = draftId;
-          const currentDraftUid = composeData?.draft?.uid || composeData?.draft?.id;
           imapDraftUidRef.current = null;
           setDraftId(null);
 
@@ -1156,7 +1188,8 @@ const FloatingCompose = () => {
               draftId: currentDraftId,
               draftUid: currentDraftUid,
               imapDraftUid: currentImapDraftUid,
-              sentEmail: response.data?.data
+              sentEmail: response.data?.data,
+              wasStarred: isStarredDraft
             });
           }
         }
