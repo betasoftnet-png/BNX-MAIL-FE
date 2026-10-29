@@ -36,6 +36,7 @@ const BulkActionsToolbar = ({
     handleMarkUnread,
     handleMarkSpam,
     handleRestoreSpam,
+    handleRestore,
     handleUnsubscribe,
     handleSnooze,
     handleApplyLabel,
@@ -188,6 +189,8 @@ const BulkActionsToolbar = ({
       toast.loading("Restoring selected emails...", { id: "bulk-restore" });
       if (folder === "spam") {
         await Promise.all(selectedEmails.map((e) => handleRestoreSpam(e.uid, true)));
+      } else if (folder === "trash") {
+        await Promise.all(selectedEmails.map((e) => handleRestore ? handleRestore(e.uid, true) : mailAPI.restore(e.uid)));
       } else {
         await Promise.all(selectedEmails.map((e) => handleUnarchive(e.uid, true)));
       }

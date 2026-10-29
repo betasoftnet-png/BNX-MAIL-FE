@@ -14,7 +14,7 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 const Trash = ({ searchQuery }) => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleDeletePermanently, handleSnooze, handleApplyLabel, handleToggleStar, handleArchive, matchesDateFilter } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleDeletePermanently, handleSnooze, handleApplyLabel, handleToggleStar, handleArchive, handleRestore: contextRestore, matchesDateFilter } = useMail();
   const [selectedEmail, setSelectedEmail] = useState(null);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -57,9 +57,13 @@ const Trash = ({ searchQuery }) => {
 
   const handleRestore = async (uid) => {
     try {
-      await mailAPI.restore(uid);
-      toast.success("Email restored");
-      fetchEmails('trash', true);
+      if (contextRestore) {
+        await contextRestore(uid);
+      } else {
+        await mailAPI.restore(uid);
+        toast.success("Email restored");
+        fetchEmails('trash', true);
+      }
       setSelectedEmail(null);
     } catch (error) {
       toast.error("Failed to restore email");

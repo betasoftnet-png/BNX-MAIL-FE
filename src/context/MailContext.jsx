@@ -623,9 +623,8 @@ export const MailProvider = ({ children }) => {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
                 }
 
-                if (folderKey === 'starred') {
-                    sortEmailsByDateDesc(normalizedEmails);
-                }
+                // Always sort emails chronologically descending by original date (newest first)
+                sortEmailsByDateDesc(normalizedEmails);
 
                 if (user?.email) {
                     const loginEmail = user.email.trim().toLowerCase();
@@ -852,9 +851,8 @@ export const MailProvider = ({ children }) => {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
                 }
 
-                if (folderKey === 'starred') {
-                    sortEmailsByDateDesc(normalizedEmails);
-                }
+                // Always sort emails chronologically descending by original date (newest first)
+                sortEmailsByDateDesc(normalizedEmails);
 
                 // Filter logic for Inbox and Sent folders based on currently logged-in user's email ID
                 const lowerFolder = folder.toLowerCase();
@@ -1776,6 +1774,45 @@ export const MailProvider = ({ children }) => {
             fetchEmails(currentFolderRef.current, true, currentPageRef.current);
             if (!silent) toast.error('Failed to restore from spam');
         }
+    const handleRestore = async (uid, silent = false) => {
+        const strUid = String(uid);
+        let restoredItem = null;
+        try {
+            setEmails(prev => {
+                restoredItem = prev.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+                return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
+            });
+            if (restoredItem && !restoredItem.isRead) {
+                setUnreadCounts(c => ({
+                    ...c,
+                    trash: Math.max(0, (c.trash || 0) - 1),
+                    inbox: (c.inbox || 0) + 1,
+                    unread: (c.unread || 0) + 1
+                }));
+            }
+            invalidateCache('trash');
+            invalidateCache('inbox');
+            invalidateCache('all-inbox');
+            invalidateCache('allinbox');
+            invalidateCache('unread');
+            invalidateCache('all-mail');
+            invalidateCache('allmail');
+            await mailAPI.restore(uid);
+            if (!silent) toast.success('Email restored');
+            fetchEmailsSilently('inbox');
+        } catch (error) {
+            console.error('Failed to restore from trash:', error);
+            if (restoredItem && !restoredItem.isRead) {
+                setUnreadCounts(c => ({
+                    ...c,
+                    trash: (c.trash || 0) + 1,
+                    inbox: Math.max(0, (c.inbox || 0) - 1),
+                    unread: Math.max(0, (c.unread || 0) - 1)
+                }));
+            }
+            fetchEmails(currentFolderRef.current, true, currentPageRef.current);
+            if (!silent) toast.error('Failed to restore email');
+        }
     };
 
     const handleUnsubscribe = async (senderEmail, silent = false) => {
@@ -2080,6 +2117,7 @@ export const MailProvider = ({ children }) => {
             handleUnarchive,
             handleMarkSpam,
             handleRestoreSpam,
+            handleRestore,
             handleUnsubscribe,
             handleDeleteLabel,
             handleEmailSent,
@@ -2141,6 +2179,7 @@ export const useMail = () => {
             handleMarkUnread: async () => {},
             handleMarkSpam: async () => {},
             handleRestoreSpam: async () => {},
+            handleRestore: async () => {},
             handleUnsubscribe: async () => {},
             openCompose: () => {},
             closeCompose: () => {},
