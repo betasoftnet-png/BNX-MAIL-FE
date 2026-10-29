@@ -22,20 +22,20 @@ export const AuthProvider = ({ children }) => {
         const token = localStorage.getItem('accessToken');
         const profileStr = localStorage.getItem('userProfile');
         const refresh = localStorage.getItem('refreshToken');
-        
+
         let sessions = getStoredSessions();
         let activeEmail = localStorage.getItem('bnx_active_email');
-        
+
         if (token && profileStr) {
             try {
                 const profile = JSON.parse(profileStr);
                 const email = profile.email || 'user@bnxmail.com';
-                
+
                 if (!activeEmail) {
                     activeEmail = email;
                     localStorage.setItem('bnx_active_email', email);
                 }
-                
+
                 if (!sessions[email]) {
                     sessions[email] = {
                         accessToken: token,
@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
                 console.error("Failed to parse user profile on start", e);
             }
         }
-        
+
         if (activeEmail && sessions[activeEmail]) {
             setIsAuthenticated(true);
             setUser(sessions[activeEmail].userProfile);
@@ -56,21 +56,21 @@ export const AuthProvider = ({ children }) => {
             try {
                 setIsAuthenticated(true);
                 setUser(JSON.parse(profileStr));
-            } catch (e) {}
+            } catch (e) { }
         }
         setLoading(false);
     }, []);
 
     const login = (data) => {
         const { accessToken, refreshToken, mailboxes, ...profile } = data;
-        
+
         const primaryMailbox = mailboxes?.find(m => m.isPrimary) || mailboxes?.[0];
         const userEmail = primaryMailbox?.email || '';
 
-        const fullProfile = { 
-            ...profile, 
-            email: userEmail, 
-            mailboxes 
+        const fullProfile = {
+            ...profile,
+            email: userEmail,
+            mailboxes
         };
 
         // Save session in sessions store
@@ -80,15 +80,15 @@ export const AuthProvider = ({ children }) => {
             refreshToken,
             userProfile: fullProfile
         };
-        
+
         localStorage.setItem('bnx_sessions', JSON.stringify(sessions));
         localStorage.setItem('bnx_active_email', userEmail);
-        
+
         // Write active credentials to standard keys
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('userProfile', JSON.stringify(fullProfile));
-        
+
         setIsAuthenticated(true);
         setUser(fullProfile);
     };
@@ -113,7 +113,7 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         const activeEmail = localStorage.getItem('bnx_active_email');
         const sessions = getStoredSessions();
-        
+
         try {
             const refreshToken = localStorage.getItem('refreshToken');
             if (refreshToken) {
@@ -133,12 +133,12 @@ export const AuthProvider = ({ children }) => {
             if (remainingEmails.length > 0) {
                 const nextEmail = remainingEmails[0];
                 const nextSession = sessions[nextEmail];
-                
+
                 localStorage.setItem('bnx_active_email', nextEmail);
                 localStorage.setItem('accessToken', nextSession.accessToken);
                 localStorage.setItem('refreshToken', nextSession.refreshToken || '');
                 localStorage.setItem('userProfile', JSON.stringify(nextSession.userProfile));
-                
+
                 setIsAuthenticated(true);
                 setUser(nextSession.userProfile);
                 window.location.href = "/inbox";
@@ -150,7 +150,7 @@ export const AuthProvider = ({ children }) => {
                 localStorage.removeItem('tempToken');
                 localStorage.removeItem('bnx_active_email');
                 localStorage.removeItem('bnx_sessions');
-                
+
                 setIsAuthenticated(false);
                 setUser(null);
             }
@@ -159,14 +159,14 @@ export const AuthProvider = ({ children }) => {
 
     const logoutAll = async () => {
         const sessions = getStoredSessions();
-        
+
         // Try to call backend logout for all active refresh tokens in parallel
         await Promise.allSettled(
             Object.values(sessions).map(async (sess) => {
                 if (sess.refreshToken) {
                     try {
                         await authAPI.logout(sess.refreshToken);
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             })
         );
@@ -177,7 +177,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('tempToken');
         localStorage.removeItem('bnx_active_email');
         localStorage.removeItem('bnx_sessions');
-        
+
         setIsAuthenticated(false);
         setUser(null);
         window.location.href = "/login";
@@ -189,11 +189,11 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ 
-            isAuthenticated, 
-            user, 
-            loading, 
-            login, 
+        <AuthContext.Provider value={{
+            isAuthenticated,
+            user,
+            loading,
+            login,
             logout,
             logoutAll,
             switchAccount,
@@ -211,12 +211,12 @@ export const useAuth = () => {
             isAuthenticated: false,
             user: null,
             loading: false,
-            login: async () => {},
-            logout: () => {},
-            logoutAll: () => {},
-            switchAccount: () => {},
-            getSessions: () => {}
+            login: async () => { },
+            logout: () => { },
+            logoutAll: () => { },
+            switchAccount: () => { },
+            getSessions: () => { }
         };
     }
     return context;
-};
+};
