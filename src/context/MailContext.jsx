@@ -1774,6 +1774,8 @@ export const MailProvider = ({ children }) => {
             fetchEmails(currentFolderRef.current, true, currentPageRef.current);
             if (!silent) toast.error('Failed to restore from spam');
         }
+    };
+
     const handleRestore = async (uid, silent = false) => {
         const strUid = String(uid);
         let restoredItem = null;
