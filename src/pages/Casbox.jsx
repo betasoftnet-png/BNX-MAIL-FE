@@ -1,4 +1,4 @@
-﻿import { useTranslation } from "../context/LanguageContext";
+import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import MessageUndoToast from "../components/MessageUndoToast";
 import logo from "../assets/bnx-remove.png";
+import { decodeDisplayContent } from "../utils/encodingUtils";
 
 const normalizeEmail = (val) => {
   if (!val) return '';
@@ -4524,8 +4525,8 @@ const Casbox = () => {
       const msg = item.msg;
       const personEmail = item.contact;
       const personName = getDisplayName(personEmail, msg) || personEmail;
-      const subject = typeof msg?.subject === 'string' ? msg.subject : '';
-      const body = typeof msg?.body === 'string' ? msg.body : (typeof msg?.content === 'string' ? msg.content : '');
+      const subject = typeof msg?.subject === 'string' ? decodeDisplayContent(msg.subject) : '';
+      const body = typeof msg?.body === 'string' ? decodeDisplayContent(msg.body) : (typeof msg?.content === 'string' ? decodeDisplayContent(msg.content) : '');
 
       return (
         personName.toLowerCase().includes(q) ||
@@ -4612,9 +4613,9 @@ const Casbox = () => {
       const msg = item.msg;
       const personEmail = item.contact || '';
       const personName = getDisplayName(personEmail, msg) || personEmail;
-      const rawSubject = typeof msg?.subject === 'string' ? msg.subject : '';
+      const rawSubject = typeof msg?.subject === 'string' ? decodeDisplayContent(msg.subject) : '';
       const cleanSubject = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '');
-      const body = typeof msg?.body === 'string' ? msg.body : (typeof msg?.content === 'string' ? msg.content : '');
+      const body = typeof msg?.body === 'string' ? decodeDisplayContent(msg.body) : (typeof msg?.content === 'string' ? decodeDisplayContent(msg.content) : '');
 
       return (
         personName.toLowerCase().includes(q) ||
@@ -4663,8 +4664,8 @@ const Casbox = () => {
         ? (msg?.receiverEmail || msg?.receiver || chat.contact)
         : (msg?.senderEmail || msg?.sender || chat.contact);
       const personName = getDisplayName(personEmail, msg) || personEmail;
-      const subject = typeof msg?.subject === 'string' ? msg.subject : '';
-      const body = typeof msg?.body === 'string' ? msg.body : (typeof msg?.content === 'string' ? msg.content : '');
+      const subject = typeof msg?.subject === 'string' ? decodeDisplayContent(msg.subject) : '';
+      const body = typeof msg?.body === 'string' ? decodeDisplayContent(msg.body) : (typeof msg?.content === 'string' ? decodeDisplayContent(msg.content) : '');
 
       return (
         personName.toLowerCase().includes(q) ||
@@ -5506,7 +5507,7 @@ const Casbox = () => {
 
                   {/* Message Body */}
                   <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate font-normal flex-1 min-w-0">
-                    {msg.body || msg.content || (msg.attachments?.length ? 'Attachment' : '')}
+                    {decodeDisplayContent(msg.body || msg.content) || (msg.attachments?.length ? 'Attachment' : '')}
                   </span>
                 </div>
 
@@ -5729,12 +5730,13 @@ const Casbox = () => {
             // Subject: Show if present and not empty
             const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
             const cleanRaw = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim();
-            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? cleanRaw : '';
+            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? decodeDisplayContent(cleanRaw) : '';
 
             // Body preview
             let bodyPreview = "";
             if (msg?.body || msg?.content) {
-              bodyPreview = String(msg.body || msg.content).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              const rawBodyText = String(msg.body || msg.content).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              bodyPreview = decodeDisplayContent(rawBodyText);
             } else if (msg?.attachmentsJson || (msg?.attachments && msg.attachments.length)) {
               bodyPreview = "Attachment";
             }
@@ -5748,7 +5750,7 @@ const Casbox = () => {
                 }`}
               >
 
-                {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] â€” [Message Preview] */}
+                {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] — [Message Preview] */}
                 <div className="flex items-center min-w-0 flex-1 mr-4">
                   {/* Checkbox */}
                   <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
@@ -5799,7 +5801,7 @@ const Casbox = () => {
                       </span>
                     )}
                     <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
-                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">â€”</span> : null}
+                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
                       {bodyPreview}
                     </span>
                   </div>
@@ -5919,15 +5921,15 @@ const Casbox = () => {
             // Subject: Show if present and not empty, strip [Combine]/[Combined]/[Messages]
             const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
             const cleanRaw = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim();
-            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? cleanRaw : '';
+            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? decodeDisplayContent(cleanRaw) : '';
 
             // Body preview
             let bodyPreview = "";
             const rawBody = msg?.body || msg?.content || '';
             if (typeof rawBody === 'string' && rawBody.trim() && rawBody.trim().toLowerCase() !== 'null' && rawBody.trim().toLowerCase() !== 'undefined') {
-              bodyPreview = rawBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-              if (bodyPreview.toLowerCase() === 'null' || bodyPreview.toLowerCase() === 'undefined') {
-                bodyPreview = "";
+              const stripped = rawBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              if (stripped.toLowerCase() !== 'null' && stripped.toLowerCase() !== 'undefined') {
+                bodyPreview = decodeDisplayContent(stripped);
               }
             } else if (msg?.attachmentsJson || (msg?.attachments && msg.attachments.length)) {
               bodyPreview = "Attachment";
@@ -5953,7 +5955,7 @@ const Casbox = () => {
                   <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
                 )}
 
-                {/* Left side: [Checkbox] [Avatar] [Person Name] [Direction | Subject â€” Preview] */}
+                {/* Left side: [Checkbox] [Avatar] [Person Name] [Direction | Subject — Preview] */}
                 <div className="flex items-center min-w-0 flex-1 mr-4">
                   {/* Checkbox */}
                   <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
@@ -6002,9 +6004,9 @@ const Casbox = () => {
                       </span>
                     )}
 
-                    {/* Dash separator â€” if both subject and bodyPreview exist */}
+                    {/* Dash separator — if both subject and bodyPreview exist */}
                     {subject && bodyPreview && (
-                      <span className="text-gray-400 dark:text-gray-500 opacity-60 mr-1.5 shrink-0 select-none">â€”</span>
+                      <span className="text-gray-400 dark:text-gray-500 opacity-60 mr-1.5 shrink-0 select-none">—</span>
                     )}
 
                     {/* Content Preview */}
@@ -6141,12 +6143,13 @@ const Casbox = () => {
             // Subject: Show if present and not empty
             const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
             const cleanRaw = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim();
-            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? cleanRaw : '';
+            const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? decodeDisplayContent(cleanRaw) : '';
 
             // Body preview
             let bodyPreview = "";
             if (msg?.body || msg?.content) {
-              bodyPreview = String(msg.body || msg.content).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              const rawBodyText = String(msg.body || msg.content).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              bodyPreview = decodeDisplayContent(rawBodyText);
             } else if (msg?.attachmentsJson || (msg?.attachments && msg.attachments.length)) {
               bodyPreview = "Attachment";
             }
@@ -6207,7 +6210,7 @@ const Casbox = () => {
                       </span>
                     )}
                     <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
-                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">â€”</span> : null}
+                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
                       {bodyPreview}
                     </span>
                   </div>
@@ -6547,8 +6550,8 @@ const Casbox = () => {
 
     const rawSubject = typeof msg?.subject === 'string' ? msg.subject.trim() : '';
     const cleanRaw = rawSubject.replace(/^\[(Combine|Combined|Messages)\]\s*/i, '').trim();
-    const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? cleanRaw : '(No subject)';
-    const bodyContent = msg?.body || msg?.content || '';
+    const subject = (cleanRaw && cleanRaw.toLowerCase() !== 'null' && cleanRaw.toLowerCase() !== 'undefined') ? decodeDisplayContent(cleanRaw) : '(No subject)';
+    const bodyContent = decodeDisplayContent(msg?.body || msg?.content || '');
     const timeStr = formatSentDetailDateTime(msg?.timestamp) || formatCashboxTime(msg?.timestamp);
 
     const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';

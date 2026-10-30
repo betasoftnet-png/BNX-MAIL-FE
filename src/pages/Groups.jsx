@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MdChat, MdGroupAdd, MdPersonAdd, MdSearch, MdGroup, MdMoreVert, MdArchive, MdUnarchive, MdDeleteOutline, MdStar, MdStarBorder, MdArrowBack, MdClose } from "react-icons/md";
 import { chatAPI, casboxAPI } from "../services/api";
@@ -516,7 +516,7 @@ const Groups = () => {
                             </span>
                         )}
                         <span className="text-xs sm:text-sm opacity-60 truncate flex-1 min-w-0" style={{ color: theme.subText }}>
-                            {subject && bodyPreview ? <span className="opacity-50 mr-1.5">â€”</span> : null}
+                            {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
                             {bodyPreview || '(No content)'}
                         </span>
                     </div>
