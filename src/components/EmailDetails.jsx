@@ -1319,120 +1319,8 @@ const EmailDetails = ({
 
       {/* CONTENT AREA */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 bg-transparent">
-        {/* 1. SENDER INFO (TOP) */}
-        <div className="flex items-start justify-between gap-4 pb-4 mb-4 border-b border-gray-100 dark:border-gray-800">
-          <div className="flex items-start gap-3 min-w-0">
-            {/* Sender Avatar */}
-            <div
-              className="h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-xs shrink-0 select-none overflow-hidden"
-              style={{ backgroundColor: avatarColor }}
-            >
-              {senderDisplayName.toLowerCase().includes("spotify") ? (
-                <svg className="w-6 h-6 fill-current text-white" viewBox="0 0 24 24">
-                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.503 17.309c-.218.356-.68.47-1.036.252-2.842-1.737-6.42-2.13-10.635-1.168-.407.093-.812-.162-.905-.568-.093-.406.162-.812.568-.905 4.623-1.057 8.577-.615 11.756 1.353.356.218.47.68.252 1.036zm1.47-3.267c-.274.444-.858.587-1.302.313-3.254-2.001-8.214-2.583-12.062-1.413-.497.151-1.025-.136-1.176-.633-.151-.497.136-1.025.633-1.176 4.398-1.336 9.878-.693 13.595 1.595.443.274.586.858.312 1.302zm.126-3.41c-3.903-2.317-10.334-2.53-14.073-1.394-.598.182-1.233-.162-1.415-.76-.182-.598.162-1.233.76-1.415 4.293-1.303 11.393-1.054 15.867 1.602.537.319.715 1.018.396 1.555-.319.537-1.018.715-1.555.396z"/>
-                </svg>
-              ) : (
-                senderDisplayName[0]?.toUpperCase() || "U"
-              )}
-            </div>
-
-            {/* Sender Name & Recipient Info */}
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-snug">
-                <span className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 tracking-tight">
-                  {senderDisplayName}
-                </span>
-                {senderEmailAddress && (
-                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-normal">
-                    &lt;{senderEmailAddress}&gt;
-                  </span>
-                )}
-                {cleanSenderEmail && !isSystemEmail && (
-                  <button
-                    type="button"
-                    onClick={() => handleToggleSubscription()}
-                    disabled={subscriptionLoading}
-                    className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe to this sender") : t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
-                  >
-                    {subscriptionLoading
-                      ? (isUnsubscribed ? "Resubscribing..." : "Unsubscribing...")
-                      : (isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe") : t("bulk_actions.unsubscribe", "Unsubscribe"))}
-                  </button>
-                )}
-              </div>
-
-              {/* Recipient Dropdown Line */}
-              <div className="relative mt-0.5">
-                <button
-                  type="button"
-                  onClick={() => setShowRecipientDetails((prev) => !prev)}
-                  className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer rounded transition-colors group"
-                >
-                  <span>
-                    to{" "}
-                    <span className="text-gray-700 dark:text-gray-300 font-medium">
-                      {email.to || "me"}
-                    </span>
-                  </span>
-                  <MdArrowDropDown
-                    size={16}
-                    className={`text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-transform duration-200 ${
-                      showRecipientDetails ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-
-                {showRecipientDetails && (
-                  <div className="absolute left-0 top-full mt-1.5 w-72 sm:w-80 p-3.5 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
-                    <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
-                      <span className="text-gray-400 font-medium">from:</span>
-                      <span className="font-semibold text-gray-800 dark:text-gray-100 truncate ml-2">
-                        {email.from}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
-                      <span className="text-gray-400 font-medium">to:</span>
-                      <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
-                        {email.to || "me"}
-                      </span>
-                    </div>
-                    {email.cc && (
-                      <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
-                        <span className="text-gray-400 font-medium">cc:</span>
-                        <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
-                          {email.cc}
-                        </span>
-                      </div>
-                    )}
-                    {email.bcc && (
-                      <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
-                        <span className="text-gray-400 font-medium">bcc:</span>
-                        <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
-                          {email.bcc}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between py-0.5">
-                      <span className="text-gray-400 font-medium">date:</span>
-                      <span className="text-gray-600 dark:text-gray-300 ml-2">
-                        {emailDateFormatted}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Date & Time on the right */}
-          <div className="text-xs text-gray-500 dark:text-gray-400 shrink-0 pt-0.5 whitespace-nowrap">
-            {emailDateFormatted}
-          </div>
-        </div>
-
-        {/* 2. EMAIL SUBJECT (BELOW SENDER DETAILS) */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
+        {/* EMAIL SUBJECT & LABELS */}
+        <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6">
           <h1
             className="text-xl sm:text-2xl font-bold leading-tight tracking-tight text-gray-900 dark:text-gray-100"
             style={{ color: theme.text }}
@@ -1469,116 +1357,230 @@ const EmailDetails = ({
           </div>
         </div>
 
-            {/* BODY */}
-            <div
-              className="max-w-none prose prose-slate dark:prose-invert prose-p:leading-relaxed text-[14px] sm:text-[15px] leading-relaxed overflow-x-auto break-words [&_img]:max-w-full [&_img]:h-auto"
-              onClick={handleEmailBodyClick}
-            >
-              {isHtmlContent ? (
-                <div dangerouslySetInnerHTML={{ __html: processedHtmlBody }} style={{ color: theme.text }} />
-              ) : (
-                <div
-                  className="whitespace-pre-wrap text-gray-800 dark:text-gray-200 font-sans"
-                  style={{ color: theme.text }}
-                  dangerouslySetInnerHTML={{ __html: processedPlainBody }}
-                />
-              )}
-              {bounceDetails && (
-                <div className="mt-8 p-4 bg-gray-50 dark:bg-black/20 rounded-xl border border-gray-100 dark:border-gray-800 font-mono text-xs whitespace-pre-wrap text-gray-600 dark:text-gray-400 overflow-x-auto">
-                  <h4 className="font-bold mb-2 text-gray-700 dark:text-gray-300 font-sans">Diagnostic Information & Original Message</h4>
-                  {bounceDetails.trim()}
+        {/* EMAIL MESSAGE CARD CONTAINER */}
+        <div className="bg-white dark:bg-neutral-900 rounded-xl sm:rounded-2xl border border-gray-200/90 dark:border-neutral-800 shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)] p-4 sm:p-6 transition-all">
+          {/* SENDER INFO (EMAIL HEADER) */}
+          <div className="flex items-start justify-between gap-4 pb-4 mb-4 border-b border-gray-100 dark:border-neutral-800">
+            <div className="flex items-start gap-3 min-w-0">
+              {/* Sender Avatar */}
+              <div
+                className="h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-xs shrink-0 select-none overflow-hidden"
+                style={{ backgroundColor: avatarColor }}
+              >
+                {senderDisplayName.toLowerCase().includes("spotify") ? (
+                  <svg className="w-6 h-6 fill-current text-white" viewBox="0 0 24 24">
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.503 17.309c-.218.356-.68.47-1.036.252-2.842-1.737-6.42-2.13-10.635-1.168-.407.093-.812-.162-.905-.568-.093-.406.162-.812.568-.905 4.623-1.057 8.577-.615 11.756 1.353.356.218.47.68.252 1.036zm1.47-3.267c-.274.444-.858.587-1.302.313-3.254-2.001-8.214-2.583-12.062-1.413-.497.151-1.025-.136-1.176-.633-.151-.497.136-1.025.633-1.176 4.398-1.336 9.878-.693 13.595 1.595.443.274.586.858.312 1.302zm.126-3.41c-3.903-2.317-10.334-2.53-14.073-1.394-.598.182-1.233-.162-1.415-.76-.182-.598.162-1.233.76-1.415 4.293-1.303 11.393-1.054 15.867 1.602.537.319.715 1.018.396 1.555-.319.537-1.018.715-1.555.396z"/>
+                  </svg>
+                ) : (
+                  senderDisplayName[0]?.toUpperCase() || "U"
+                )}
+              </div>
+
+              {/* Sender Name & Recipient Info */}
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-snug">
+                  <span className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 tracking-tight">
+                    {senderDisplayName}
+                  </span>
+                  {senderEmailAddress && (
+                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-normal">
+                      &lt;{senderEmailAddress}&gt;
+                    </span>
+                  )}
+                  {cleanSenderEmail && !isSystemEmail && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSubscription()}
+                      disabled={subscriptionLoading}
+                      className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe to this sender") : t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
+                    >
+                      {subscriptionLoading
+                        ? (isUnsubscribed ? "Resubscribing..." : "Unsubscribing...")
+                        : (isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe") : t("bulk_actions.unsubscribe", "Unsubscribe"))}
+                    </button>
+                  )}
                 </div>
-              )}
+
+                {/* Recipient Dropdown Line */}
+                <div className="relative mt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowRecipientDetails((prev) => !prev)}
+                    className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer rounded transition-colors group"
+                  >
+                    <span>
+                      to{" "}
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">
+                        {email.to || "me"}
+                      </span>
+                    </span>
+                    <MdArrowDropDown
+                      size={16}
+                      className={`text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-transform duration-200 ${
+                        showRecipientDetails ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {showRecipientDetails && (
+                    <div className="absolute left-0 top-full mt-1.5 w-72 sm:w-80 p-3.5 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
+                      <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                        <span className="text-gray-400 font-medium">from:</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-100 truncate ml-2">
+                          {email.from}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                        <span className="text-gray-400 font-medium">to:</span>
+                        <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
+                          {email.to || "me"}
+                        </span>
+                      </div>
+                      {email.cc && (
+                        <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                          <span className="text-gray-400 font-medium">cc:</span>
+                          <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
+                            {email.cc}
+                          </span>
+                        </div>
+                      )}
+                      {email.bcc && (
+                        <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                          <span className="text-gray-400 font-medium">bcc:</span>
+                          <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
+                            {email.bcc}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between py-0.5">
+                        <span className="text-gray-400 font-medium">date:</span>
+                        <span className="text-gray-600 dark:text-gray-300 ml-2">
+                          {emailDateFormatted}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-
-        {/* ATTACHMENTS */}
-        {(() => {
-          const isBounce = email.from?.toLowerCase().includes('mailer-daemon') || email.from?.toLowerCase().includes('postmaster');
-          const visibleAttachments = email.attachments?.filter(file => {
-            if (!isBounce) return true;
-            return file !== 'delivery_status.txt' && file !== 'original_message.eml';
-          }) || [];
-          
-          if (visibleAttachments.length === 0) return null;
-          
-          return (
-            <div className="mt-8 pt-6 border-t" style={{ borderColor: theme.border }}>
-              <p className="text-xs font-bold mb-4 text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                {t("email_details.attachments", "Attachments")} ({visibleAttachments.length})
-              </p>
-              <div className="flex flex-wrap gap-4">
-                {visibleAttachments.map((file, i) => {
-                  const fileInfo = getFileIcon(file);
-                return (
-                  <div
-                    key={i}
-                    className="w-[180px] h-[130px] rounded-xl border overflow-hidden flex flex-col hover:shadow-md transition-all relative shadow-sm bg-black/[0.01] dark:bg-white/[0.01] hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
-                    style={{ borderColor: theme.border }}
-                  >
-                    {/* Upper preview / icon block */}
-                    <div 
-                      className="h-[85px] w-full flex flex-col items-center justify-center bg-black/[0.03] dark:bg-white/[0.03] border-b relative overflow-hidden"
-                      style={{ borderColor: theme.border }}
-                    >
-                      {imagePreviews[file] ? (
-                        <img 
-                          src={imagePreviews[file]} 
-                          alt={file} 
-                          className="w-full h-full object-cover select-none" 
-                        />
-                      ) : (
-                        <>
-                          <span className="text-3xl filter drop-shadow-sm select-none">{fileInfo.icon}</span>
-                          <span 
-                            className="text-[9px] font-extrabold uppercase tracking-wider mt-1.5 px-2 py-0.5 rounded-full select-none"
-                            style={{ backgroundColor: `${fileInfo.color}15`, color: fileInfo.color }}
-                          >
-                            {fileInfo.name}
-                          </span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Lower details block */}
-                    <div className="p-2 flex items-center justify-between gap-1 flex-1 min-w-0">
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span 
-                          className="text-[11px] font-semibold truncate select-all text-left" 
-                          style={{ color: theme.text }}
-                          title={file}
-                        >
-                          {file}
-                        </span>
-                        <span className="text-[9px] opacity-50 font-medium select-none truncate text-left">
-                          {fileInfo.name} File
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center gap-0.5 shrink-0">
-                        <button
-                          onClick={() => handlePreviewAttachment(file)}
-                          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
-                          title="Preview file"
-                        >
-                          <MdRemoveRedEye size={15} />
-                        </button>
-                        <button
-                          onClick={() => handleDownloadAttachment(file)}
-                          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
-                          title="Download file"
-                        >
-                          <MdFileDownload size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Date & Time on the right */}
+            <div className="text-xs text-gray-500 dark:text-gray-400 shrink-0 pt-0.5 whitespace-nowrap">
+              {emailDateFormatted}
             </div>
           </div>
-        );
-      })()}
+
+          {/* BODY */}
+          <div
+            className="max-w-none prose prose-slate dark:prose-invert prose-p:leading-relaxed text-[14px] sm:text-[15px] leading-relaxed overflow-x-auto break-words [&_img]:max-w-full [&_img]:h-auto"
+            onClick={handleEmailBodyClick}
+          >
+            {isHtmlContent ? (
+              <div dangerouslySetInnerHTML={{ __html: processedHtmlBody }} style={{ color: theme.text }} />
+            ) : (
+              <div
+                className="whitespace-pre-wrap text-gray-800 dark:text-gray-200 font-sans"
+                style={{ color: theme.text }}
+                dangerouslySetInnerHTML={{ __html: processedPlainBody }}
+              />
+            )}
+            {bounceDetails && (
+              <div className="mt-8 p-4 bg-gray-50 dark:bg-black/20 rounded-xl border border-gray-100 dark:border-gray-800 font-mono text-xs whitespace-pre-wrap text-gray-600 dark:text-gray-400 overflow-x-auto">
+                <h4 className="font-bold mb-2 text-gray-700 dark:text-gray-300 font-sans">Diagnostic Information & Original Message</h4>
+                {bounceDetails.trim()}
+              </div>
+            )}
+          </div>
+
+          {/* ATTACHMENTS */}
+          {(() => {
+            const isBounce = email.from?.toLowerCase().includes('mailer-daemon') || email.from?.toLowerCase().includes('postmaster');
+            const visibleAttachments = email.attachments?.filter(file => {
+              if (!isBounce) return true;
+              return file !== 'delivery_status.txt' && file !== 'original_message.eml';
+            }) || [];
+            
+            if (visibleAttachments.length === 0) return null;
+            
+            return (
+              <div className="mt-8 pt-6 border-t" style={{ borderColor: theme.border }}>
+                <p className="text-xs font-bold mb-4 text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t("email_details.attachments", "Attachments")} ({visibleAttachments.length})
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  {visibleAttachments.map((file, i) => {
+                    const fileInfo = getFileIcon(file);
+                  return (
+                    <div
+                      key={i}
+                      className="w-[180px] h-[130px] rounded-xl border overflow-hidden flex flex-col hover:shadow-md transition-all relative shadow-sm bg-black/[0.01] dark:bg-white/[0.01] hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+                      style={{ borderColor: theme.border }}
+                    >
+                      {/* Upper preview / icon block */}
+                      <div 
+                        className="h-[85px] w-full flex flex-col items-center justify-center bg-black/[0.03] dark:bg-white/[0.03] border-b relative overflow-hidden"
+                        style={{ borderColor: theme.border }}
+                      >
+                        {imagePreviews[file] ? (
+                          <img 
+                            src={imagePreviews[file]} 
+                            alt={file} 
+                            className="w-full h-full object-cover select-none" 
+                          />
+                        ) : (
+                          <>
+                            <span className="text-3xl filter drop-shadow-sm select-none">{fileInfo.icon}</span>
+                            <span 
+                              className="text-[9px] font-extrabold uppercase tracking-wider mt-1.5 px-2 py-0.5 rounded-full select-none"
+                              style={{ backgroundColor: `${fileInfo.color}15`, color: fileInfo.color }}
+                            >
+                              {fileInfo.name}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Lower details block */}
+                      <div className="p-2 flex items-center justify-between gap-1 flex-1 min-w-0">
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span 
+                            className="text-[11px] font-semibold truncate select-all text-left" 
+                            style={{ color: theme.text }}
+                            title={file}
+                          >
+                            {file}
+                          </span>
+                          <span className="text-[9px] opacity-50 font-medium select-none truncate text-left">
+                            {fileInfo.name} File
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            onClick={() => handlePreviewAttachment(file)}
+                            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                            title="Preview file"
+                          >
+                            <MdRemoveRedEye size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDownloadAttachment(file)}
+                            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                            title="Download file"
+                          >
+                            <MdFileDownload size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+        </div>
 
       {/* INLINE REPLY COMPOSER */}
       {showReply && (
