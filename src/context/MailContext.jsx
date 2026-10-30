@@ -660,6 +660,7 @@ export const MailProvider = ({ children }) => {
 
             if (res && res.data?.success) {
                 const data = res.data.data || {};
+                const rawEmails = Array.isArray(data) ? data : (data.emails || []);
                 const isDraftFolder = folderKey === 'draft' || folderKey === 'drafts';
                 let normalizedEmails = rawEmails.map(m => {
                     const uidStr = String(m.uid ?? m.id ?? '');
@@ -915,6 +916,7 @@ export const MailProvider = ({ children }) => {
 
             if (res.data?.success) {
                 const data = res.data.data || {};
+                const rawEmails = Array.isArray(data) ? data : (data.emails || []);
                 const isDraftFolder = folderKey === 'draft' || folderKey === 'drafts';
                 let normalizedEmails = rawEmails.map(m => {
                     const uidStr = String(m.uid ?? m.id ?? '');
