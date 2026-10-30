@@ -161,6 +161,7 @@ const Trash = ({ searchQuery }) => {
                 onDelete={handlePermanentDelete}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
+                isTrash={true}
               />
             )}
     </div>

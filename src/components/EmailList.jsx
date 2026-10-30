@@ -20,6 +20,7 @@ const EmailList = ({
   selectedIds = new Set(),
   onToggleSelect,
   isArchiveFolder = false,
+  isTrash = false,
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -27,6 +28,13 @@ const EmailList = ({
   const { theme, emailsPerPage, backgroundImage } = useTheme();
   const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead } = useMail();
   const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
+  const isTrashFolder = Boolean(
+    isTrash ||
+    currentFolder?.toLowerCase() === 'trash' ||
+    currentFolder?.toLowerCase() === 'deleted' ||
+    location.pathname === '/trash' ||
+    location.pathname?.startsWith('/trash/')
+  );
   const snoozeAction = onSnooze || contextHandleSnooze;
 
   const [snoozeOpenUid, setSnoozeOpenUid] = useState(null);
@@ -254,6 +262,7 @@ const EmailList = ({
               const isSelected = selectedEmailId === email.uid || selectedEmailId === String(email.uid) || selectedEmailId === `${email.uid}__${email.folderName || ''}`;
               const isActuallyArchived = isArchiveFolder || email.folderName?.toLowerCase() === "archive";
               const isChecked = selectedIds.has(`${email.uid}__${email.folderName || ''}`) || selectedIds.has(String(email.uid)) || selectedIds.has(Number(email.uid));
+              const isRowTrash = Boolean(isTrashFolder || email.folderName?.toLowerCase() === 'trash' || email.isTrash === true);
 
               return (
                 <div
@@ -284,38 +293,40 @@ const EmailList = ({
                   </div>
 
                   {/* Star Button */}
-                  <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                    {(() => {
-                      const isDraft = email.folderName?.toLowerCase() === "draft" ||
-                        email.folderName?.toLowerCase() === "drafts" ||
-                        email.isDraft === true ||
-                        email.draft === true ||
-                        currentFolder?.toLowerCase() === "draft" ||
-                        currentFolder?.toLowerCase() === "drafts";
-                      const itemFolder = isDraft ? "draft" : (email.folderName || currentFolder);
-                      const itemUid = email.uid ?? email.id;
-                      const isItemStarred = typeof isEmailStarred === 'function'
-                        ? isEmailStarred(itemUid, itemFolder, email)
-                        : Boolean(email.starred || email.isStarred);
-                      return (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onStar?.(itemUid, itemFolder);
-                          }}
-                          className="p-1 rounded-full cursor-pointer text-gray-400 dark:text-gray-500"
-                          title={isItemStarred ? "Unstar" : "Star"}
-                          aria-label={isItemStarred ? "Unstar email" : "Star email"}
-                        >
-                          {isItemStarred ? (
-                            <MdStar size={18} className="text-yellow-500 fill-current" />
-                          ) : (
-                            <MdStarBorder size={18} className="text-gray-400 dark:text-gray-500" />
-                          )}
-                        </button>
-                      );
-                    })()}
-                  </div>
+                  {!isRowTrash && (
+                    <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {(() => {
+                        const isDraft = email.folderName?.toLowerCase() === "draft" ||
+                          email.folderName?.toLowerCase() === "drafts" ||
+                          email.isDraft === true ||
+                          email.draft === true ||
+                          currentFolder?.toLowerCase() === "draft" ||
+                          currentFolder?.toLowerCase() === "drafts";
+                        const itemFolder = isDraft ? "draft" : (email.folderName || currentFolder);
+                        const itemUid = email.uid ?? email.id;
+                        const isItemStarred = typeof isEmailStarred === 'function'
+                          ? isEmailStarred(itemUid, itemFolder, email)
+                          : Boolean(email.starred || email.isStarred);
+                        return (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStar?.(itemUid, itemFolder);
+                            }}
+                            className="p-1 rounded-full cursor-pointer text-gray-400 dark:text-gray-500"
+                            title={isItemStarred ? "Unstar" : "Star"}
+                            aria-label={isItemStarred ? "Unstar email" : "Star email"}
+                          >
+                            {isItemStarred ? (
+                              <MdStar size={18} className="text-yellow-500 fill-current" />
+                            ) : (
+                              <MdStarBorder size={18} className="text-gray-400 dark:text-gray-500" />
+                            )}
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  )}
 
                   {/* Sender Name */}
                   <div 
@@ -436,21 +447,23 @@ const EmailList = ({
                       className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 ${backgroundImage ? 'bg-transparent' : 'bg-white/90 dark:bg-gray-900/90'} backdrop-blur-sm rounded-lg px-1 transition-opacity duration-150 ${snoozeOpenUid === email.uid ? 'opacity-100 z-50' : 'opacity-0 group-hover:opacity-100 z-10'}`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isActuallyArchived) {
-                            if (onUnarchive) onUnarchive(email.uid, email.folderName);
-                            else onArchive?.(email.uid, email.folderName);
-                          } else {
-                            onArchive?.(email.uid, email.folderName);
-                          }
-                        }}
-                        className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer"
-                        title={isActuallyArchived ? "Unarchive" : "Archive"}
-                      >
-                        {isActuallyArchived ? <MdUnarchive size={18} /> : <MdArchive size={18} />}
-                      </button>
+                      {!isRowTrash && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isActuallyArchived) {
+                              if (onUnarchive) onUnarchive(email.uid, email.folderName);
+                              else onArchive?.(email.uid, email.folderName);
+                            } else {
+                              onArchive?.(email.uid, email.folderName);
+                            }
+                          }}
+                          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer"
+                          title={isActuallyArchived ? "Unarchive" : "Archive"}
+                        >
+                          {isActuallyArchived ? <MdUnarchive size={18} /> : <MdArchive size={18} />}
+                        </button>
+                      )}
                       <button
                         onClick={() => onDelete?.(email.uid, email.folderName)}
                         className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-red-500 cursor-pointer"

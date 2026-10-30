@@ -141,6 +141,12 @@ const EmailDetails = ({
   const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze, isEmailStarred, handleToggleStar } = useMail();
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const isTrashMode = Boolean(
+    isTrash ||
+    email?.folderName?.toLowerCase() === 'trash' ||
+    email?.isTrash === true ||
+    currentFolder?.toLowerCase() === 'trash'
+  );
 
   useEffect(() => {
     if (email) {
@@ -1266,23 +1272,6 @@ const EmailDetails = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {isTrash && (
-            <button
-              onClick={() => {
-                if (isActuallyArchived) {
-                  if (onUnarchive) onUnarchive(email.uid);
-                  else onArchive?.(email.uid);
-                } else {
-                  onArchive?.(email.uid);
-                }
-              }}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
-              title={isActuallyArchived ? "Unarchive" : "Archive"}
-            >
-              {isActuallyArchived ? <MdUnarchive size={20} /> : <MdArchive size={20} />}
-            </button>
-          )}
-
           <button
             onClick={handlePrint}
             className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
@@ -1291,29 +1280,31 @@ const EmailDetails = ({
             <MdPrint size={20} />
           </button>
 
-          <button
-            onClick={() => {
-              const targetUid = email?.uid ?? email?.id;
-              const targetFolder = email?.folderName || currentFolder;
-              if (onStar) {
-                onStar(targetUid, targetFolder);
-              } else if (handleToggleStar) {
-                handleToggleStar(targetUid, targetFolder);
-              }
-            }}
-            className="p-2 rounded-full cursor-pointer"
-            title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
-            aria-label={isStarred ? "Unstar email" : "Star email"}
-          >
-            <MdStar
-              size={20}
-              className={
-                isStarred
-                  ? "text-yellow-500 fill-current drop-shadow-sm"
-                  : "text-gray-400 dark:text-gray-500"
-              }
-            />
-          </button>
+          {!isTrashMode && (
+            <button
+              onClick={() => {
+                const targetUid = email?.uid ?? email?.id;
+                const targetFolder = email?.folderName || currentFolder;
+                if (onStar) {
+                  onStar(targetUid, targetFolder);
+                } else if (handleToggleStar) {
+                  handleToggleStar(targetUid, targetFolder);
+                }
+              }}
+              className="p-2 rounded-full cursor-pointer"
+              title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
+              aria-label={isStarred ? "Unstar email" : "Star email"}
+            >
+              <MdStar
+                size={20}
+                className={
+                  isStarred
+                    ? "text-yellow-500 fill-current drop-shadow-sm"
+                    : "text-gray-400 dark:text-gray-500"
+                }
+              />
+            </button>
+          )}
         </div>
       </div>
 
