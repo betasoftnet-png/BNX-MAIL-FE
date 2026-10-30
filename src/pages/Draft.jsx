@@ -100,7 +100,7 @@ const handleReply = (email) => {
             handleMoveToTrash(uid, "draft");
             setSelectedEmailUid(null);
           }}
-          onStar={(uid) => handleToggleStar(uid, "draft")}
+          onStar={(uid, f) => handleToggleStar(uid, f || "draft")}
           onArchive={(uid) => {
             handleArchive(uid, "draft");
             setSelectedEmailUid(null);
@@ -178,7 +178,7 @@ const handleReply = (email) => {
                 emails={visibleEmails}
                 selectedEmailId={selectedEmail?.uid}
                 onSelectEmail={handleSelectEmail}
-                onStar={(uid) => handleToggleStar(uid, "draft")}
+                onStar={(uid, f) => handleToggleStar(uid, f || "draft")}
                 onArchive={(uid) => handleArchive(uid, "draft")}
                 onDelete={(uid) => handleMoveToTrash(uid, "draft")}
                 onSnooze={handleSnooze}

@@ -15,7 +15,7 @@ const Starred = ({ searchQuery }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter, isEmailStarred } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
 
@@ -53,9 +53,13 @@ const Starred = ({ searchQuery }) => {
     fetchEmails('starred');
   }, [fetchEmails]);
 
-  const visibleEmails = emails.filter(
-    (e) => typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
-  );
+  const visibleEmails = emails.filter((e) => {
+    const isItemStarred = typeof isEmailStarred === 'function'
+      ? isEmailStarred(e.uid ?? e.id, e.folderName || (isDraftEmail(e) ? 'draft' : 'starred'), e)
+      : Boolean(e.starred || e.isStarred);
+    if (!isItemStarred) return false;
+    return typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true;
+  });
 
   const sortedEmails = useMemo(() => {
     const getTimestamp = (item) => {
@@ -99,7 +103,7 @@ const Starred = ({ searchQuery }) => {
 
   const handleUnstar = async (uid, folder) => {
     const email = sortedEmails.find((e) => String(e.uid) === String(uid));
-    const targetFolder = isDraftEmail(email) ? 'draft' : (folder || 'starred');
+    const targetFolder = isDraftEmail(email) ? 'draft' : (email?.folderName || folder || 'starred');
     await handleToggleStar(uid, targetFolder);
     if (String(selectedEmailUid) === String(uid)) {
       setSelectedEmailUid(null);

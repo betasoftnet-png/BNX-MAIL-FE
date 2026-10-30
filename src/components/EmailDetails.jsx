@@ -139,7 +139,7 @@ const EmailDetails = ({
   const { user } = useAuth();
   const { t } = useTranslation();
   const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze, isEmailStarred, handleToggleStar } = useMail();
-  const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id) : Boolean(email?.starred);
+  const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
@@ -1293,10 +1293,12 @@ const EmailDetails = ({
 
           <button
             onClick={() => {
+              const targetUid = email?.uid ?? email?.id;
+              const targetFolder = email?.folderName || currentFolder;
               if (onStar) {
-                onStar(email.uid, email.folderName);
+                onStar(targetUid, targetFolder);
               } else if (handleToggleStar) {
-                handleToggleStar(email.uid, email.folderName);
+                handleToggleStar(targetUid, targetFolder);
               }
             }}
             className="p-2 rounded-full cursor-pointer"

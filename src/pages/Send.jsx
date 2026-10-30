@@ -106,7 +106,7 @@ const Send = ({ searchQuery }) => {
         handleMoveToTrash(uid, "Sent");
         setSelectedEmailUid(null);
       }}
-      onStar={(uid) => handleToggleStar(uid, "Sent")}
+      onStar={(uid, f) => handleToggleStar(uid, f || "Sent")}
       onArchive={(uid) => {
         handleArchive(uid, "Sent");
         setSelectedEmailUid(null);
@@ -163,7 +163,7 @@ const Send = ({ searchQuery }) => {
           emails={visibleEmails}
           selectedEmailId={selectedEmailUid}
           onSelectEmail={handleSelectEmail}
-          onStar={(uid) => handleToggleStar(uid, "Sent")}
+          onStar={(uid, f) => handleToggleStar(uid, f || "Sent")}
           onDelete={(uid) => handleMoveToTrash(uid, "Sent")}
           onArchive={(uid) => handleArchive(uid, "Sent")}
           onSnooze={handleSnooze}

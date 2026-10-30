@@ -286,12 +286,14 @@ const EmailList = ({
                   {/* Star Button */}
                   <div className="flex items-center shrink-0">
                     {(() => {
-                      const isItemStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email.uid ?? email.id) : Boolean(email.starred);
+                      const isItemStarred = typeof isEmailStarred === 'function'
+                        ? isEmailStarred(email.uid ?? email.id, email.folderName || currentFolder, email)
+                        : Boolean(email.starred || email.isStarred);
                       return (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onStar?.(email.uid, email.folderName);
+                            onStar?.(email.uid, email.folderName || currentFolder);
                           }}
                           className="p-1 rounded-full cursor-pointer text-gray-400 dark:text-gray-500"
                           title={isItemStarred ? "Unstar" : "Star"}

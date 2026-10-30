@@ -194,7 +194,7 @@ const Inbox = ({ searchQuery }) => {
         selectedEmailId={selectedEmailUid}
         onSelectEmail={handleSelectEmail}
         onDelete={(uid) => handleMoveToTrash(uid, currentFolder)}
-        onStar={(uid) => handleToggleStar(uid, currentFolder)}
+        onStar={(uid, f) => handleToggleStar(uid, f || currentFolder || "inbox")}
         onArchive={(uid) => handleArchive(uid, currentFolder)}
         onSnooze={handleSnooze}
         selectedIds={selectedIds}
@@ -309,7 +309,7 @@ const Inbox = ({ searchQuery }) => {
         handleMoveToTrash(uid, currentFolder);
         setSelectedEmailUid(null);
       }}
-      onStar={(uid) => handleToggleStar(uid, currentFolder)}
+      onStar={(uid, f) => handleToggleStar(uid, f || currentFolder || "inbox")}
       onArchive={(uid) => {
         handleArchive(uid, currentFolder);
         setSelectedEmailUid(null);
