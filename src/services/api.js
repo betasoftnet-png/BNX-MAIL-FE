@@ -244,6 +244,7 @@ export const authAPI = {
     sendMobileOtp: (data) => api.post('/api/auth/send-mobile-otp', data),
     verifyMobileOtp: (data) => api.post('/api/auth/verify-mobile-otp', data),
     fetchGstins: (pan) => api.get('/api/auth/fetch-gstins', { params: { pan } }),
+    verifyBusiness: (data) => api.post('/api/auth/verify-business', data),
 };
 
 const cleanSenderEmailParam = (input) => {
