@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { mailAPI } from "../services/api";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
@@ -75,7 +75,7 @@ const Outbox = ({ searchQuery }) => {
             className="animate-spin rounded-full h-10 w-10 border-b-2 mx-auto mb-4"
             style={{ borderColor: theme.accent }}
           />
-          <p style={{ color: theme.subText }}>Loading outboxâ€¦</p>
+          <p style={{ color: theme.subText }}>Loading outbox...</p>
         </div>
       </div>
     );
@@ -135,7 +135,7 @@ const Outbox = ({ searchQuery }) => {
                 className="text-base font-bold flex items-center gap-2"
                 style={{ color: theme.text }}
               >
-                ðŸ“¤ Outbox
+                📤 Outbox
                 <span
                   className="ml-2 text-xs font-normal"
                   style={{ color: theme.subText }}
@@ -151,7 +151,7 @@ const Outbox = ({ searchQuery }) => {
     <div className="flex-1 flex flex-col overflow-hidden">
 {emails.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-                <span className="text-5xl mb-3">ðŸ“­</span>
+                <span className="text-5xl mb-3">📬</span>
                 <p className="text-base font-semibold" style={{ color: theme.text }}>Outbox is empty</p>
                 <p className="text-sm" style={{ color: theme.subText }}>
                   Emails waiting to be sent will appear here

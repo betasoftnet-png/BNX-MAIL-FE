@@ -412,7 +412,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
                   Remote Revocation Verification
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Leave this tab open and click <strong>Revoke Access</strong> in BNXmail (Settings â†’ Active Sessions & Logs â†’ Connected Applications). This page will immediately detect revocation and automatically log out.
+                  Leave this tab open and click <strong>Revoke Access</strong> in BNXmail (Settings → Active Sessions & Logs → Connected Applications). This page will immediately detect revocation and automatically log out.
                 </p>
               </div>
 

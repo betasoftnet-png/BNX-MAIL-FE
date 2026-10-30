@@ -88,7 +88,7 @@ const Send = ({ searchQuery }) => {
             className="animate-spin rounded-full h-10 w-10 border-b-2 mx-auto mb-4"
             style={{ borderColor: theme.accent }}
           />
-          <p style={{ color: theme.subText }}>Loading sent mailâ€¦</p>
+          <p style={{ color: theme.subText }}>Loading sent mail...</p>
         </div>
       </div>
     );

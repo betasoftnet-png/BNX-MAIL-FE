@@ -65,13 +65,13 @@ const StorageManagement = () => {
   const categories = [
     {
       name: 'Emails',
-      icon: 'ðŸ“§',
+      icon: '📧',
       size: storageData?.emailsSize !== undefined ? storageData.emailsSize : Math.round(used * 0.45),
       color: theme.accent || '#135bec'
     },
     {
       name: 'Attachments',
-      icon: 'ðŸ“Ž',
+      icon: '📎',
       size: storageData?.attachmentsSize !== undefined ? storageData.attachmentsSize : Math.round(used * 0.30),
       color: '#10b981'
     },
@@ -83,13 +83,13 @@ const StorageManagement = () => {
     },
     {
       name: 'Sent',
-      icon: 'ðŸ“¤',
+      icon: '📤',
       size: storageData?.sentSize !== undefined ? storageData.sentSize : Math.round(used * 0.08),
       color: '#f59e0b'
     },
     {
       name: 'Drafts',
-      icon: 'ðŸ“',
+      icon: '📝',
       size: storageData?.draftsSize !== undefined ? storageData.draftsSize : Math.round(used * 0.05),
       color: '#8b5cf6'
     },
@@ -152,7 +152,7 @@ const StorageManagement = () => {
             </div>
           ) : error ? (
             <div className="p-12 text-center rounded-3xl border bg-white/40 dark:bg-gray-900/40 backdrop-blur-md flex flex-col items-center justify-center gap-3" style={{ borderColor: theme.border }}>
-              <span className="text-2xl">âš ï¸</span>
+              <span className="text-2xl">⚠️ ï¸</span>
               <span className="text-sm font-bold text-red-500">{error}</span>
               <button 
                 onClick={() => window.location.reload()}
@@ -311,7 +311,7 @@ const StorageManagement = () => {
           </div>
         ) : error ? (
           <div className="p-12 text-center rounded-3xl border bg-white/40 dark:bg-gray-900/40 backdrop-blur-md flex flex-col items-center justify-center gap-3" style={{ borderColor: theme.border }}>
-            <span className="text-2xl">âš ï¸</span>
+            <span className="text-2xl">⚠️ ï¸</span>
             <span className="text-sm font-bold text-red-500">{error}</span>
             <button 
               onClick={() => window.location.reload()}

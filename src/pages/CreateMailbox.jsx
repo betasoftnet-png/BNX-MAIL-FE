@@ -109,7 +109,7 @@ const CreateMailbox = () => {
                                 <span>Securing Identity...</span>
                             </div>
                         ) : (
-                            'Claim Email Address â†’'
+                            'Claim Email Address →'
                         )}
                     </button>
                 </form>

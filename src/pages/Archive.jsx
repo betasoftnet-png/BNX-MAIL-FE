@@ -220,7 +220,7 @@ const Archive = ({ searchQuery }) => {
         className="px-4 py-1.5 text-xs font-bold rounded-full shadow-sm text-white tracking-wide flex items-center gap-1.5 uppercase select-none"
         style={{ background: theme.accent }}
       >
-        ðŸ“¦ Archive ({emails.length})
+        📦 Archive ({emails.length})
       </span>
 
       <button
@@ -439,7 +439,7 @@ const Archive = ({ searchQuery }) => {
     <div className="flex-1 flex flex-col overflow-hidden">
       {emails.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-          <span className="text-5xl mb-3">ðŸ“­</span>
+          <span className="text-5xl mb-3">📬</span>
           <p className="text-base font-semibold" style={{ color: theme.text }}>No archived emails</p>
           <p className="text-sm" style={{ color: theme.subText }}>
             Archive emails to keep your inbox clean

@@ -343,7 +343,7 @@ const Register = () => {
                                 <span>Processing...</span>
                             </div>
                         ) : (
-                            'Create Secure Account â†’'
+                            'Create Secure Account →'
                         )}
                     </button>
 

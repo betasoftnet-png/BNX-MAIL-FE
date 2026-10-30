@@ -114,7 +114,7 @@ const Vault = () => {
             <div className="p-6 border-b border-gray-200/50 dark:border-gray-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 dark:bg-gray-900/30 backdrop-blur-md">
                 <div>
                     <h2 className="text-2xl font-bold flex items-center gap-2" style={{ color: theme.text }}>
-                        <span style={{ color: theme.accent || "#135bec" }}>â—</span> Vault
+                        <span style={{ color: theme.accent || "#135bec" }}>●</span> Vault
                     </h2>
                     <p className="text-sm mt-1 opacity-70" style={{ color: theme.subText }}>
                         Securely store your files. Max 5MB per file.
@@ -189,7 +189,7 @@ const Vault = () => {
                                         {file.filename}
                                     </h4>
                                     <p className="text-xs opacity-60 mt-1" style={{ color: theme.subText }}>
-                                        {formatSize(file.size)} â€¢ {new Date(file.uploadedAt).toLocaleDateString()}
+                                        {formatSize(file.size)} • {new Date(file.uploadedAt).toLocaleDateString()}
                                     </p>
                                 </div>
                             </div>

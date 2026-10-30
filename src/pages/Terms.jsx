@@ -104,7 +104,7 @@ const Terms = () => {
 
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-slate-800 dark:text-slate-200">6. Intellectual Property</h2>
-            <p>All content, features, and functionality of BNX Mailâ€”including but not limited to the BNX logo, UI design, and source codeâ€”are the exclusive property of <strong>BETA Softnet</strong> and are protected by international copyright and trademark laws.</p>
+            <p>All content, features, and functionality of BNX Mail—including but not limited to the BNX logo, UI design, and source code—are the exclusive property of <strong>BETA Softnet</strong> and are protected by international copyright and trademark laws.</p>
           </section>
 
           <section>

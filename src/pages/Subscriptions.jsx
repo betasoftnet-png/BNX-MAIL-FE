@@ -483,7 +483,7 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
                           : "bg-white hover:bg-red-50/50 text-red-600 border-red-200 hover:border-red-300 dark:bg-transparent dark:hover:bg-red-950/10 dark:text-red-400 dark:border-red-900/40"
                       }`}
                     >
-                      {isItemLoading && <span className="animate-spin text-xs">â—</span>}
+                      {isItemLoading && <span className="animate-spin text-xs">●</span>}
                       {isBlocked ? t("subscriptions.subscribe", "Subscribe") : t("subscriptions.unsubscribe", "Unsubscribe")}
                     </button>
                   </div>

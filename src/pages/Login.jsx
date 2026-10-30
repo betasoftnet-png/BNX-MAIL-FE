@@ -254,7 +254,7 @@ const Login = () => {
                                         value={formData.password}
                                         onChange={handleChange}
                                         className="w-full px-4 py-3 pr-11 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
-                                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                                        placeholder="••••••••"
                                     />
                                     <button
                                         type="button"
@@ -300,7 +300,7 @@ const Login = () => {
                                     <span>Authenticating...</span>
                                 </div>
                             ) : (
-                                'Sign In â†’'
+                                'Sign In →'
                             )}
                         </button>
 
@@ -329,7 +329,7 @@ const Login = () => {
                                     required
                                     value={otp}
                                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢"
+                                    placeholder="••••••"
                                     className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-center text-2xl font-bold tracking-[0.5em] focus:placeholder-transparent transition-all"
                                     maxLength="6"
                                     autoFocus
@@ -348,7 +348,7 @@ const Login = () => {
                                     <span>Verifying...</span>
                                 </div>
                             ) : (
-                                'Verify Code â†’'
+                                'Verify Code →'
                             )}
                         </button>
 
@@ -398,7 +398,7 @@ const Login = () => {
                                         required
                                         value={otp}
                                         onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢"
+                                        placeholder="••••••"
                                         className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-center text-2xl font-bold tracking-[0.5em] focus:placeholder-transparent transition-all"
                                         maxLength="6"
                                         autoFocus
@@ -430,7 +430,7 @@ const Login = () => {
                                         <span>Verifying...</span>
                                     </div>
                                 ) : (
-                                    'Verify and Login â†’'
+                                    'Verify and Login →'
                                 )}
                             </button>
                         )}

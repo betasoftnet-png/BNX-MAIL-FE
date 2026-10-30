@@ -605,7 +605,7 @@ const ComposePage = () => {
                 value={formData.body || ""}
                 onChange={handleChange}
                 onKeyDown={(e) => handleStandardInputAutoCorrect(e, autoCorrect)}
-                placeholder="Type your messageâ€¦"
+                placeholder="Type your message..."
                 spellCheck={spellingCheck ? "true" : "false"}
                 autoCorrect={autoCorrect ? "on" : "off"}
                 autoCapitalize={autoCorrect ? "sentences" : "off"}
@@ -633,7 +633,7 @@ const ComposePage = () => {
                     className="flex items-center gap-2 px-6 py-2.5 rounded-l-full text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed border-r border-white/20"
                     style={{ background: `linear-gradient(135deg, ${theme.accent || '#135bec'} 0%, #3b82f6 100%)` }}
                   >
-                    {sending ? "Sendingâ€¦" : "Send"}
+                    {sending ? "Sending..." : "Send"}
                     {!sending && <MdSend size={18} />}
                   </button>
                   <button
@@ -666,7 +666,7 @@ const ComposePage = () => {
                         onClick={() => { setShowScheduleMenu(false); setShowCustomSchedule(false); }}
                         className="text-xs p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"
                       >
-                        âœ•
+                        ✕
                       </button>
                     </div>
 

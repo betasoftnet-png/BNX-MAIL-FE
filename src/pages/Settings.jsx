@@ -221,7 +221,7 @@ const Settings = () => {
   });
   const [connectedServices, setConnectedServices] = useState([
     { id: "google", name: "Google Workspace / Gmail", icon: "ðŸŒ", connected: false },
-    { id: "outlook", name: "Microsoft Outlook / Office 365", icon: "ðŸ“«", connected: false },
+    { id: "outlook", name: "Microsoft Outlook / Office 365", icon: "📬", connected: false },
     { id: "custom_imap", name: "Custom IMAP / POP3 Mailbox", icon: "âœ‰ï¸", connected: false }
   ]);
 
@@ -390,8 +390,8 @@ const Settings = () => {
       }
 
       const successMsg = otpTarget === "email"
-        ? `Recovery Email (${maskedContact}) Verified Successfully! âœ“`
-        : `Recovery Phone (${maskedContact}) Verified Successfully! âœ“`;
+        ? `Recovery Email (${maskedContact}) Verified Successfully! ✓`
+        : `Recovery Phone (${maskedContact}) Verified Successfully! ✓`;
 
       toast.success(successMsg, { id: "settings-save-toast", duration: 4000 });
       setShowOtpModal(false);
@@ -1313,7 +1313,7 @@ const Settings = () => {
                   </div>
                   <div className="flex flex-col gap-1 p-4 rounded-xl border" style={{ borderColor: theme.border }}>
                     <span className="text-xs font-semibold text-gray-400 uppercase">{t("settings.account_status", "Account Status")}</span>
-                    <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t("settings.active_verified", "Active & Verified âœ“")}</span>
+                    <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t("settings.active_verified", "Active & Verified ✓")}</span>
                   </div>
                 </div>
               </Section>
@@ -1339,7 +1339,7 @@ const Settings = () => {
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">{t("settings.recovery_email_address", "Recovery Email Address")}</label>
                         {isRecoveryEmailVerified ? (
                           <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                            {t("settings.recovery_email_verified", "Recovery Email Verified âœ“")}
+                            {t("settings.recovery_email_verified", "Recovery Email Verified ✓")}
                           </span>
                         ) : (
                           <span className="px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
@@ -1366,7 +1366,7 @@ const Settings = () => {
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">{t("settings.recovery_phone_number", "Recovery Phone Number")}</label>
                         {isRecoveryPhoneVerified ? (
                           <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                            {t("settings.recovery_phone_verified", "Recovery Phone Verified âœ“")}
+                            {t("settings.recovery_phone_verified", "Recovery Phone Verified ✓")}
                           </span>
                         ) : (
                           <span className="px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
@@ -1790,7 +1790,7 @@ const Settings = () => {
                               onClick={() => setDefaultSignature(sig.id)}
                               className={`text-xs px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${sig.isDefault ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10"}`}
                             >
-                              {sig.isDefault ? t("settings.is_default", "Default âœ“") : t("settings.set_default", "Set Default")}
+                              {sig.isDefault ? t("settings.is_default", "Default ✓") : t("settings.set_default", "Set Default")}
                             </button>
                             <button
                               type="button"
@@ -1803,7 +1803,7 @@ const Settings = () => {
                               className="text-red-500 hover:text-red-700 px-2 py-1 cursor-pointer font-bold"
                               title={t("settings.delete_signature", "Delete Signature")}
                             >
-                              âœ•
+                              ✕
                             </button>
                           </div>
                           <div className="bg-white text-black rounded-md border relative">
@@ -2343,7 +2343,7 @@ const Settings = () => {
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-green-500 uppercase tracking-wider">{t("settings.this_device", "This device")}</span>
                               )}
                             </div>
-                            <p className="text-sm text-gray-500">{s.ipAddress} â€” {device.browser}</p>
+                            <p className="text-sm text-gray-500">{s.ipAddress} — {device.browser}</p>
                             <p className="text-xs text-gray-400 mt-1">{t("settings.logged_in", "Logged in:")} {new Date(s.createdAt).toLocaleString()}</p>
                           </div>
                         </div>
@@ -2379,7 +2379,7 @@ const Settings = () => {
                               {t("settings.authorized_badge", "Authorized")}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-500">{s.ipAddress || "Remote Client"} â€” {t("settings.basic_profile_access", "Basic Profile Access")}</p>
+                          <p className="text-sm text-gray-500">{s.ipAddress || "Remote Client"} — {t("settings.basic_profile_access", "Basic Profile Access")}</p>
                           <p className="text-xs text-gray-400 mt-1">{t("settings.authorized", "Authorized:")} {new Date(s.loggedInAt).toLocaleString()}</p>
                         </div>
                       </div>
@@ -2622,7 +2622,7 @@ const Settings = () => {
                   <div className="mt-4 p-3.5 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-medium transition-all animate-fadeIn">
                     <div className="flex items-center gap-2.5">
                       <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                        âœ“
+                        ✓
                       </span>
                       <span>Invitation link copied successfully!</span>
                     </div>

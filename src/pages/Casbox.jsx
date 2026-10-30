@@ -171,16 +171,16 @@ const getFileIcon = (fileName) => {
   const ext = fileName?.split('.').pop().toLowerCase() || '';
   switch (ext) {
     case 'pdf':
-      return { icon: 'ðŸ“„', color: '#ea4335', name: 'PDF' };
+      return { icon: '📄', color: '#ea4335', name: 'PDF' };
     case 'doc':
     case 'docx':
-      return { icon: 'ðŸ“', color: '#1a73e8', name: 'Word' };
+      return { icon: '📝', color: '#1a73e8', name: 'Word' };
     case 'xls':
     case 'xlsx':
-      return { icon: 'ðŸ“Š', color: '#1e8e3e', name: 'Excel' };
+      return { icon: '📊', color: '#1e8e3e', name: 'Excel' };
     case 'ppt':
     case 'pptx':
-      return { icon: 'ðŸ“ˆ', color: '#f86734', name: 'PowerPoint' };
+      return { icon: '📈', color: '#f86734', name: 'PowerPoint' };
     case 'png':
     case 'jpg':
     case 'jpeg':
@@ -193,31 +193,31 @@ const getFileIcon = (fileName) => {
     case '7z':
     case 'tar':
     case 'gz':
-      return { icon: 'ðŸ“¦', color: '#e37400', name: 'Archive' };
+      return { icon: '📦', color: '#e37400', name: 'Archive' };
     case 'mp3':
     case 'wav':
     case 'ogg':
-      return { icon: 'ðŸŽµ', color: '#aa00ff', name: 'Audio' };
+      return { icon: '🎵', color: '#aa00ff', name: 'Audio' };
     case 'mp4':
     case 'avi':
     case 'mov':
     case 'mkv':
-      return { icon: 'ðŸŽ¥', color: '#d500f9', name: 'Video' };
+      return { icon: '🎥', color: '#d500f9', name: 'Video' };
     default:
-      return { icon: 'ðŸ“Ž', color: '#5f6368', name: 'File' };
+      return { icon: '📎', color: '#5f6368', name: 'File' };
   }
 };
 
 const POPULAR_EMOJIS = [
   "ðŸ˜€", "ðŸ˜ƒ", "ðŸ˜„", "ðŸ˜", "ðŸ˜†", "ðŸ˜…", "ðŸ˜‚", "ðŸ¤£", "ðŸ˜Š", "ðŸ˜‡", "ðŸ™‚", "ðŸ™ƒ", "ðŸ˜‰", "ðŸ˜Œ", "ðŸ˜", "ðŸ¥°", "ðŸ˜˜", "ðŸ˜—", "ðŸ˜™", "ðŸ˜š",
   "ðŸ˜‹", "ðŸ˜›", "ðŸ˜", "ðŸ˜œ", "ðŸ¤ª", "ðŸ¤¨", "ðŸ§", "ðŸ¤“", "ðŸ˜Ž", "ðŸ¥¸", "ðŸ¥³", "ðŸ˜", "ðŸ˜’", "ðŸ˜ž", "ðŸ˜”", "ðŸ˜Ÿ", "ðŸ˜•", "ðŸ™", "â˜¹ï¸", "ðŸ˜£",
-  "ðŸ‘", "ðŸ‘Ž", "ðŸ‘Œ", "âœŒï¸", "ðŸ¤ž", "ðŸ¤Ÿ", "ðŸ¤˜", "ðŸ¤™", "ðŸ‘ˆ", "ðŸ‘‰", "ðŸ‘†", "ðŸ–•", "ðŸ‘‡", "â˜ï¸", "âœŠ", "ðŸ‘Š", "ðŸ¤›", "ðŸ¤œ", "ðŸ‘", "ðŸ™Œ",
+  "ðŸ‘", "ðŸ‘Ž", "ðŸ‘Œ", "âœŒï¸", "ðŸ¤ž", "ðŸ¤Ÿ", "ðŸ¤˜", "ðŸ¤™", "ðŸ‘ˆ", "ðŸ‘‰", "ðŸ‘†", "ðŸ–•", "ðŸ‘‡", "â˜ï¸", "✊", "ðŸ‘Š", "ðŸ¤›", "ðŸ¤œ", "ðŸ‘", "ðŸ™Œ",
   "ðŸ‘", "ðŸ¤²", "ðŸ¤", "ðŸ™", "âœï¸", "ðŸ’…", "ðŸ¤³", "ðŸ’ª", "ðŸ¦¾", "ðŸ¦¿", "ðŸ¦µ", "ðŸ¦¶", "ðŸ‘‚", "ðŸ¦»", "ðŸ‘ƒ", "ðŸ§ ", "ðŸ«€", "ðŸ«", "ðŸ¦·", "ðŸ‘€",
   "â¤ï¸", "ðŸ©·", "ðŸ§¡", "ðŸ’›", "ðŸ’š", "ðŸ’™", "ðŸ©µ", "ðŸ’œ", "ðŸ–¤", "ðŸ©¶", "ðŸ¤", "ðŸ¤Ž", "ðŸ’”", "â¤ï¸â€ðŸ”¥", "â¤ï¸â€ðŸ©¹", "â£ï¸", "ðŸ’•", "ðŸ’ž", "ðŸ’“", "ðŸ’—",
-  "ðŸŽ‰", "âœ¨", "ðŸ”¥", "ðŸ’¡", "ðŸŒŸ", "ðŸŽˆ", "ðŸŽ", "ðŸ’¬", "âœ‰ï¸", "ðŸ“…", "ðŸ’»", "ðŸ“±", "âŒš", "ðŸ“·", "ðŸŽ¨", "ðŸŽµ", "âœˆï¸", "ðŸš—", "ðŸ ", "ðŸ’¼"
+  "ðŸŽ‰", "✨", "ðŸ”¥", "💡", "ðŸŒŸ", "ðŸŽˆ", "ðŸŽ", "ðŸ’¬", "âœ‰ï¸", "ðŸ“…", "ðŸ’»", "ðŸ“±", "⌚", "ðŸ“·", "ðŸŽ¨", "🎵", "âœˆï¸", "ðŸš—", "ðŸ ", "ðŸ’¼"
 ];
 
-const QUICK_REACTIONS = ["ðŸ‘", "â¤ï¸", "ðŸ˜‚", "ðŸ˜®", "ðŸ˜¢", "ðŸ™"];
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 // Helper to sanitize reactions map so each user has at most one reaction per message
 const sanitizeReactionsMap = (rawMap) => {
@@ -308,19 +308,19 @@ const EMOJI_CATEGORIES = [
       { emoji: 'ðŸ”', name: 'hamburger' }, { emoji: 'ðŸŸ', name: 'french fries' }, { emoji: 'ðŸ•', name: 'pizza' }, { emoji: 'ðŸŒ­', name: 'hot dog' },
       { emoji: 'ðŸ¥ª', name: 'sandwich' }, { emoji: 'ðŸŒ®', name: 'taco' }, { emoji: 'ðŸŒ¯', name: 'burrito' }, { emoji: 'ðŸœ', name: 'ramen' },
       { emoji: 'ðŸ£', name: 'sushi' }, { emoji: 'ðŸ¦', name: 'ice cream' }, { emoji: 'ðŸ©', name: 'doughnut' }, { emoji: 'ðŸª', name: 'cookie' },
-      { emoji: 'ðŸŽ‚', name: 'birthday cake' }, { emoji: 'ðŸ°', name: 'shortcake' }, { emoji: 'ðŸ«', name: 'chocolate' }, { emoji: 'â˜•', name: 'coffee' }
+      { emoji: 'ðŸŽ‚', name: 'birthday cake' }, { emoji: 'ðŸ°', name: 'shortcake' }, { emoji: 'ðŸ«', name: 'chocolate' }, { emoji: '☕', name: 'coffee' }
     ]
   },
   {
     id: 'activities',
     name: 'Activities',
-    icon: 'âš½',
+    icon: '⚽',
     emojis: [
-      { emoji: 'âš½', name: 'soccer ball' }, { emoji: 'ðŸ€', name: 'basketball' }, { emoji: 'ðŸˆ', name: 'football' }, { emoji: 'âš¾', name: 'baseball' },
+      { emoji: '⚽', name: 'soccer ball' }, { emoji: 'ðŸ€', name: 'basketball' }, { emoji: 'ðŸˆ', name: 'football' }, { emoji: '⚾', name: 'baseball' },
       { emoji: 'ðŸ¥Ž', name: 'softball' }, { emoji: 'ðŸŽ¾', name: 'tennis' }, { emoji: 'ðŸ', name: 'volleyball' }, { emoji: 'ðŸ‰', name: 'rugby' },
       { emoji: 'ðŸ¥', name: 'frisbee' }, { emoji: 'ðŸŽ±', name: '8 ball pool' }, { emoji: 'ðŸ“', name: 'ping pong' }, { emoji: 'ðŸ¸', name: 'badminton' },
       { emoji: 'ðŸ’', name: 'ice hockey' }, { emoji: 'ðŸ‘', name: 'field hockey' }, { emoji: 'ðŸ¥Š', name: 'boxing glove' }, { emoji: 'ðŸ¥‹', name: 'martial arts' },
-      { emoji: 'ðŸŽ¯', name: 'dart' }, { emoji: 'â›³', name: 'golf' }, { emoji: 'ðŸŽ³', name: 'bowling' }, { emoji: 'ðŸŽ®', name: 'video game' },
+      { emoji: 'ðŸŽ¯', name: 'dart' }, { emoji: '⛳', name: 'golf' }, { emoji: 'ðŸŽ³', name: 'bowling' }, { emoji: 'ðŸŽ®', name: 'video game' },
       { emoji: 'ðŸŽ²', name: 'game die' }, { emoji: 'ðŸ§©', name: 'puzzle' }, { emoji: 'ðŸŽ¨', name: 'art palette' }, { emoji: 'ðŸŽ¬', name: 'clapper board' }
     ]
   },
@@ -334,16 +334,16 @@ const EMOJI_CATEGORIES = [
       { emoji: 'ðŸš’', name: 'fire engine' }, { emoji: 'ðŸš', name: 'minibus' }, { emoji: 'ðŸ›»', name: 'pickup truck' }, { emoji: 'ðŸšš', name: 'delivery truck' },
       { emoji: 'ðŸš›', name: 'semi truck' }, { emoji: 'ðŸšœ', name: 'tractor' }, { emoji: 'ðŸ›µ', name: 'scooter' }, { emoji: 'ðŸï¸', name: 'motorcycle' },
       { emoji: 'ðŸš²', name: 'bicycle' }, { emoji: 'ðŸ›´', name: 'kick scooter' }, { emoji: 'âœˆï¸', name: 'airplane' }, { emoji: 'ðŸš€', name: 'rocket' },
-      { emoji: 'ðŸ›¸', name: 'ufo' }, { emoji: 'ðŸš', name: 'helicopter' }, { emoji: 'â›µ', name: 'sailboat' }, { emoji: 'ðŸš¢', name: 'ship' }
+      { emoji: 'ðŸ›¸', name: 'ufo' }, { emoji: 'ðŸš', name: 'helicopter' }, { emoji: '⛵', name: 'sailboat' }, { emoji: 'ðŸš¢', name: 'ship' }
     ]
   },
   {
     id: 'objects',
     name: 'Objects',
-    icon: 'ðŸ’¡',
+    icon: '💡',
     emojis: [
-      { emoji: 'ðŸ’¡', name: 'light bulb' }, { emoji: 'ðŸ”¦', name: 'flashlight' }, { emoji: 'ðŸ•¯ï¸', name: 'candle' }, { emoji: 'ðŸ“±', name: 'mobile phone' },
-      { emoji: 'ðŸ’»', name: 'laptop' }, { emoji: 'ðŸ–¥ï¸', name: 'desktop computer' }, { emoji: 'ðŸ–¨ï¸', name: 'printer' }, { emoji: 'âŒ¨ï¸', name: 'keyboard' },
+      { emoji: '💡', name: 'light bulb' }, { emoji: 'ðŸ”¦', name: 'flashlight' }, { emoji: 'ðŸ•¯ï¸', name: 'candle' }, { emoji: 'ðŸ“±', name: 'mobile phone' },
+      { emoji: 'ðŸ’»', name: 'laptop' }, { emoji: 'ðŸ–¥ï¸', name: 'desktop computer' }, { emoji: 'ðŸ–¨ï¸', name: 'printer' }, { emoji: '❌¨ï¸', name: 'keyboard' },
       { emoji: 'ðŸ–±ï¸', name: 'computer mouse' }, { emoji: 'ðŸ“·', name: 'camera' }, { emoji: 'ðŸ“¹', name: 'video camera' }, { emoji: 'ðŸ”', name: 'magnifying glass' },
       { emoji: 'ðŸ”Ž', name: 'magnifying glass right' }, { emoji: 'ðŸ”¬', name: 'microscope' }, { emoji: 'ðŸ”­', name: 'telescope' }, { emoji: 'ðŸ“¡', name: 'satellite antenna' },
       { emoji: 'ðŸ“º', name: 'tv' }, { emoji: 'ðŸ“»', name: 'radio' }, { emoji: 'â°', name: 'alarm clock' }, { emoji: 'â±ï¸', name: 'stopwatch' },
@@ -359,8 +359,8 @@ const EMOJI_CATEGORIES = [
       { emoji: 'ðŸ’™', name: 'blue heart' }, { emoji: 'ðŸ’œ', name: 'purple heart' }, { emoji: 'ðŸ–¤', name: 'black heart' }, { emoji: 'ðŸ¤', name: 'white heart' },
       { emoji: 'ðŸ’”', name: 'broken heart' }, { emoji: 'â£ï¸', name: 'heart exclamation' }, { emoji: 'ðŸ’•', name: 'two hearts' }, { emoji: 'ðŸ’ž', name: 'revolving hearts' },
       { emoji: 'ðŸ’“', name: 'beating heart' }, { emoji: 'ðŸ’—', name: 'growing heart' }, { emoji: 'ðŸ’–', name: 'sparkling heart' }, { emoji: 'ðŸ’˜', name: 'heart arrow' },
-      { emoji: 'âœ¨', name: 'sparkles' }, { emoji: 'â­', name: 'star' }, { emoji: 'ðŸŒŸ', name: 'glowing star' }, { emoji: 'ðŸ”¥', name: 'fire' },
-      { emoji: 'ðŸ’¯', name: '100' }, { emoji: 'âœ…', name: 'check mark' }, { emoji: 'âŒ', name: 'cross mark' }, { emoji: 'âš ï¸', name: 'warning' },
+      { emoji: '✨', name: 'sparkles' }, { emoji: 'â­', name: 'star' }, { emoji: 'ðŸŒŸ', name: 'glowing star' }, { emoji: 'ðŸ”¥', name: 'fire' },
+      { emoji: 'ðŸ’¯', name: '100' }, { emoji: '✅', name: 'check mark' }, { emoji: 'âŒ', name: 'cross mark' }, { emoji: '⚠️ ï¸', name: 'warning' },
       { emoji: 'ðŸ³ï¸', name: 'white flag' }, { emoji: 'ðŸš©', name: 'triangular flag' }, { emoji: 'ðŸ', name: 'chequered flag' }, { emoji: 'ðŸŽ‰', name: 'party popper' }
     ]
   }
@@ -8215,7 +8215,7 @@ const Casbox = () => {
                 </pre>
               ) : (
                 <div className="flex flex-col items-center justify-center bg-zinc-900/60 text-white p-8 rounded-2xl border border-zinc-800 max-w-sm text-center shadow-xl">
-                  <span className="text-5xl mb-4 select-none">ðŸ“Ž</span>
+                  <span className="text-5xl mb-4 select-none">📎</span>
                   <p className="font-semibold text-sm mb-1 truncate max-w-[280px]">{previewFile.fileName}</p>
                   <p className="text-[11px] text-gray-400 mb-6">No inline preview available for this file type</p>
                   <button

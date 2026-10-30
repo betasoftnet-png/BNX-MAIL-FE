@@ -384,7 +384,7 @@ const Notification = ({ searchQuery }) => {
       {showSmartFilter && rawNotifications.length > 0 && (
         <div className="px-4 py-2 bg-blue-50/30 dark:bg-blue-950/10 border-b border-gray-100/50 dark:border-gray-800/50 flex flex-wrap items-center justify-between text-[11px] gap-3 shrink-0">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-blue-500">ðŸ’¡</span>
+            <span className="text-blue-500">💡</span>
             <span className="font-semibold text-blue-600 dark:text-blue-400">Smart Filter:</span>
             <span>Smart filter classifies notification emails and alerts automatically to this NotifyHub folder.</span>
           </div>

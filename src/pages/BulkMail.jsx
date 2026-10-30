@@ -253,7 +253,7 @@ const BulkMail = ({ searchQuery }) => {
       {showSmartFilter && (
         <div className="px-4 py-2 bg-blue-50/30 dark:bg-blue-950/10 border-b border-gray-100/50 dark:border-gray-800/50 flex flex-wrap items-center justify-between text-xs gap-3">
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <span className="text-blue-500">ðŸ’¡</span>
+            <span className="text-blue-500">💡</span>
             <span className="font-semibold text-blue-600 dark:text-blue-400">Smart Filter:</span>
             <span>Mass-mail, newsletters, and promotional alerts are automatically redirected here to keep your primary inbox uncluttered.</span>
           </div>

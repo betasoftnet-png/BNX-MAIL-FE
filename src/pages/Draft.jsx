@@ -155,7 +155,7 @@ const handleReply = (email) => {
     <div className="flex-1 flex flex-col overflow-hidden">
 {emails.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-                <span className="text-5xl mb-3">ðŸ“</span>
+                <span className="text-5xl mb-3">📝</span>
                 <p
                   className="text-base font-semibold mb-1"
                   style={{ color: theme.text }}

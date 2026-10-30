@@ -107,7 +107,7 @@ const MailBackupViewer = () => {
         ) : error ? (
           // Error state
           <div className="flex flex-col items-center justify-center p-8 text-center my-auto">
-            <span className="text-4xl mb-4 opacity-50">âš ï¸</span>
+            <span className="text-4xl mb-4 opacity-50">⚠️ ï¸</span>
             <h3 className="text-base font-bold mb-1" style={{ color: theme.text }}>
               Unable to load backup email
             </h3>
@@ -125,7 +125,7 @@ const MailBackupViewer = () => {
         ) : !backup ? (
           // Empty / Not Found state
           <div className="flex flex-col items-center justify-center p-8 text-center my-auto">
-            <span className="text-4xl mb-4 opacity-55">ðŸ“¦</span>
+            <span className="text-4xl mb-4 opacity-55">📦</span>
             <h3 className="text-base font-bold mb-1" style={{ color: theme.text }}>
               Backup copy not found
             </h3>
@@ -243,7 +243,7 @@ const MailBackupViewer = () => {
                               {file.filename}
                             </span>
                             <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                              {getFileExtensionLabel(file.filename, file.contentType)} â€¢ {formatFileSize(file.size)}
+                              {getFileExtensionLabel(file.filename, file.contentType)} • {formatFileSize(file.size)}
                             </span>
                           </div>
                         </div>

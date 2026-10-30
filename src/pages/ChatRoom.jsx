@@ -46,10 +46,10 @@ import { DEFAULT_TEMPLATES } from "./Templates";
 const POPULAR_EMOJIS = [
   "ðŸ˜€", "ðŸ˜ƒ", "ðŸ˜„", "ðŸ˜", "ðŸ˜†", "ðŸ˜…", "ðŸ˜‚", "ðŸ¤£", "ðŸ˜Š", "ðŸ˜‡", "ðŸ™‚", "ðŸ™ƒ", "ðŸ˜‰", "ðŸ˜Œ", "ðŸ˜", "ðŸ¥°", "ðŸ˜˜", "ðŸ˜—", "ðŸ˜™", "ðŸ˜š",
   "ðŸ˜‹", "ðŸ˜›", "ðŸ˜", "ðŸ˜œ", "ðŸ¤ª", "ðŸ¤¨", "ðŸ§", "ðŸ¤“", "ðŸ˜Ž", "ðŸ¥¸", "ðŸ¥³", "ðŸ˜", "ðŸ˜’", "ðŸ˜ž", "ðŸ˜”", "ðŸ˜Ÿ", "ðŸ˜•", "ðŸ™", "â˜¹ï¸", "ðŸ˜£",
-  "ðŸ‘", "ðŸ‘Ž", "ðŸ‘Œ", "âœŒï¸", "ðŸ¤ž", "ðŸ¤Ÿ", "ðŸ¤˜", "ðŸ¤™", "ðŸ‘ˆ", "ðŸ‘‰", "ðŸ‘†", "ðŸ–•", "ðŸ‘‡", "â˜ï¸", "âœŠ", "ðŸ‘Š", "ðŸ¤›", "ðŸ¤œ", "ðŸ‘", "ðŸ™Œ",
+  "ðŸ‘", "ðŸ‘Ž", "ðŸ‘Œ", "âœŒï¸", "ðŸ¤ž", "ðŸ¤Ÿ", "ðŸ¤˜", "ðŸ¤™", "ðŸ‘ˆ", "ðŸ‘‰", "ðŸ‘†", "ðŸ–•", "ðŸ‘‡", "â˜ï¸", "✊", "ðŸ‘Š", "ðŸ¤›", "ðŸ¤œ", "ðŸ‘", "ðŸ™Œ",
   "ðŸ‘", "ðŸ¤²", "ðŸ¤", "ðŸ™", "âœï¸", "ðŸ’…", "ðŸ¤³", "ðŸ’ª", "ðŸ¦¾", "ðŸ¦¿", "ðŸ¦µ", "ðŸ¦¶", "ðŸ‘‚", "ðŸ¦»", "ðŸ‘ƒ", "ðŸ§ ", "ðŸ«€", "ðŸ«", "ðŸ¦·", "ðŸ‘€",
   "â¤ï¸", "ðŸ©·", "ðŸ§¡", "ðŸ’›", "ðŸ’š", "ðŸ’™", "ðŸ©µ", "ðŸ’œ", "ðŸ–¤", "ðŸ©¶", "ðŸ¤", "ðŸ¤Ž", "ðŸ’”", "â¤ï¸â€ðŸ”¥", "â¤ï¸â€ðŸ©¹", "â£ï¸", "ðŸ’•", "ðŸ’ž", "ðŸ’“", "ðŸ’—",
-  "ðŸŽ‰", "âœ¨", "ðŸ”¥", "ðŸ’¡", "ðŸŒŸ", "ðŸŽˆ", "ðŸŽ", "ðŸ’¬", "âœ‰ï¸", "ðŸ“…", "ðŸ’»", "ðŸ“±", "âŒš", "ðŸ“·", "ðŸŽ¨", "ðŸŽµ", "âœˆï¸", "ðŸš—", "ðŸ ", "ðŸ’¼"
+  "ðŸŽ‰", "✨", "ðŸ”¥", "💡", "ðŸŒŸ", "ðŸŽˆ", "ðŸŽ", "ðŸ’¬", "âœ‰ï¸", "ðŸ“…", "ðŸ’»", "ðŸ“±", "⌚", "ðŸ“·", "ðŸŽ¨", "🎵", "âœˆï¸", "ðŸš—", "ðŸ ", "ðŸ’¼"
 ];
 
 const getFileMeta = (fileName = "", fileType = "") => {
@@ -385,7 +385,7 @@ const CommentAttachmentItem = React.memo(({ att, isMe, onOpenImage, handleDownlo
           <span className="font-bold uppercase tracking-wider">{meta.extLabel}</span>
           {fileSize > 0 && (
             <>
-              <span>â€¢</span>
+              <span>•</span>
               <span>{formatFileSize(fileSize)}</span>
             </>
           )}
@@ -685,7 +685,7 @@ const CommentMessageItem = React.memo(({
             className="text-[9px] mt-1 opacity-60 font-medium select-none text-gray-500 dark:text-gray-400 self-end mr-2 text-right print:opacity-100 print:text-gray-500"
           >
             {formatTime(msg.timestamp)}
-            {msg.isOptimistic && " â€¢ sending..."}
+            {msg.isOptimistic && " • sending..."}
           </div>
         </div>
       </div>
@@ -2279,7 +2279,7 @@ const ChatRoom = () => {
                 {chat?.type === 'GROUP' && <MdInfoOutline size={14} className="opacity-60 text-gray-500 dark:text-gray-400" />}
               </div>
               <p className="text-[10px] uppercase tracking-widest font-bold text-primary opacity-80">
-                {chat?.type || 'CONVERSATION'} â€¢ {isConnected ? 'Online' : 'Reconnecting...'}
+                {chat?.type || 'CONVERSATION'} • {isConnected ? 'Online' : 'Reconnecting...'}
               </p>
             </div>
           </div>
@@ -2585,7 +2585,7 @@ const ChatRoom = () => {
                         </span>
                         <div className="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500">
                           <span className="font-semibold uppercase tracking-wider">{meta.extLabel}</span>
-                          <span>â€¢</span>
+                          <span>•</span>
                           <span>{formatFileSize(att.size)}</span>
                         </div>
                       </div>
