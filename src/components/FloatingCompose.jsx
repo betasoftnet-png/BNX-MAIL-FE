@@ -873,7 +873,9 @@ const ComposeWindow = ({
           } else if (composeData.draft) {
             const d = composeData.draft;
             isEditingExistingDraftRef.current = true;
-            selectedDraftIdRef.current = d.uid !== undefined && d.uid !== null ? String(d.uid) : (d.id !== undefined && d.id !== null ? String(d.id) : null);
+            const draftUidVal = d.uid !== undefined && d.uid !== null ? String(d.uid) : null;
+            const draftIdVal = d.id !== undefined && d.id !== null ? String(d.id) : null;
+            selectedDraftIdRef.current = draftUidVal || draftIdVal;
             const isDraftStarred = Boolean(
               d.starred ||
               d.isStarred ||
@@ -883,17 +885,18 @@ const ComposeWindow = ({
               ))
             );
             wasDraftStarredRef.current = isDraftStarred;
+            const loadedBody = (d.htmlBody && d.htmlBody.trim()) ? d.htmlBody : (d.body || d.textPlain || "");
             originalDraftSnapshotRef.current = {
               uid: d.uid,
               id: d.id,
-              to: d.to || d.recipientEmail || "",
+              to: d.to || d.recipientEmail || d.recipient || "",
               cc: d.cc || "",
               bcc: d.bcc || "",
               subject: d.subject || "",
-              body: d.body || d.textPlain || d.htmlBody || "",
+              body: loadedBody,
               starred: isDraftStarred
             };
-            imapDraftUidRef.current = d.uid;
+            imapDraftUidRef.current = draftUidVal;
             if (d.id) setDraftId(d.id);
             const draftForm = {
               to: originalDraftSnapshotRef.current.to,
@@ -904,8 +907,8 @@ const ComposeWindow = ({
             };
             setFormData(draftForm);
             initialFormDataRef.current = { ...draftForm };
-            if (d.cc) setShowCc(true);
-            if (d.bcc) setShowBcc(true);
+            if (draftForm.cc && draftForm.cc.trim()) setShowCc(true);
+            if (draftForm.bcc && draftForm.bcc.trim()) setShowBcc(true);
             let loadedAttachments = [];
             if (Array.isArray(d.attachments) && d.attachments.length > 0) {
               loadedAttachments = d.attachments.map(att => typeof att === 'string' ? { fileName: att, size: 0 } : att);
@@ -1226,16 +1229,23 @@ const ComposeWindow = ({
     const currentImapDraftUid = imapDraftUidRef.current;
     const currentDraftId = draftId;
     const currentDraftUid = composeData?.draft?.uid || composeData?.draft?.id || selectedDraftIdRef.current;
+    const activeDraftUid = currentImapDraftUid || currentDraftUid || (currentDraftId ? String(currentDraftId) : null);
 
     const payload = {
       to: formData.to,
       subject: formData.subject,
       body: getFinalBody(formData.body),
       isHtml: true,
+      draftUid: activeDraftUid,
+      uid: activeDraftUid,
     };
     if (formData.cc) payload.cc = formData.cc;
     if (formData.bcc) payload.bcc = formData.bcc;
     if (attachments && attachments.length > 0) payload.attachments = attachments;
+    if (isStarredDraft) {
+      payload.isStarred = true;
+      payload.starred = true;
+    }
 
     const executeSend = async (tid) => {
       try {
@@ -1261,6 +1271,8 @@ const ComposeWindow = ({
 
           imapDraftUidRef.current = null;
           setDraftId(null);
+          selectedDraftIdRef.current = null;
+          isEditingExistingDraftRef.current = false;
 
           if (handleEmailSent) {
             handleEmailSent({
@@ -1268,13 +1280,23 @@ const ComposeWindow = ({
               draftUid: currentDraftUid,
               imapDraftUid: currentImapDraftUid,
               sentEmail: response.data?.data,
-              wasStarred: isStarredDraft
+              wasStarred: isStarredDraft,
+              emailData: {
+                to: formData.to,
+                cc: formData.cc,
+                bcc: formData.bcc,
+                subject: formData.subject,
+                body: formData.body,
+                attachments: attachments
+              }
             });
           }
         }
       } catch (err) {
-        setError(err.response?.data?.message || "Failed to send email");
-        toast.error("Failed to send email", { id: tid });
+        console.error("Draft send error:", err);
+        const errorMsg = err.response?.data?.message || err.message || "Failed to send email";
+        setError(errorMsg);
+        toast.error(errorMsg, { id: tid });
       } finally {
         sendingRef.current = false;
         setSending(false);
