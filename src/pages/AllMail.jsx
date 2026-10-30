@@ -2,7 +2,7 @@ import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMail } from "../context/MailContext";
-import { MdMail, MdFilterList, MdLabel, MdRefresh } from "react-icons/md";
+import { MdMail, MdFilterList, MdLabel, MdRefresh, MdArrowDropDown } from "react-icons/md";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
@@ -535,7 +535,7 @@ const FilterButton = ({ label, open, setOpen, children, active = false, align = 
         `}
       >
         <span>{label}</span>
-        <span className="text-[10px]">â–¼</span>
+        <MdArrowDropDown size={16} className="-mr-0.5 text-gray-500 dark:text-gray-400" />
       </button>
 
       {open && (

@@ -1,7 +1,7 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMail } from "../context/MailContext";
-import { MdMailOutline, MdRefresh, MdMoreVert } from "react-icons/md";
+import { MdMailOutline, MdRefresh, MdMoreVert, MdArrowDropDown, MdAttachFile } from "react-icons/md";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
@@ -138,7 +138,7 @@ const BulkMail = ({ searchQuery }) => {
               style={{ borderColor: theme.border, color: theme.text }}
             >
               <span>View: {activeView}</span>
-              <span className="text-[10px] opacity-75">â–¼</span>
+              <MdArrowDropDown size={16} className="-mr-0.5 opacity-75" />
             </button>
             {showViewsDropdown && (
               <>
@@ -172,8 +172,9 @@ const BulkMail = ({ searchQuery }) => {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
               style={{ borderColor: theme.border, color: theme.text }}
             >
-              <span>ðŸ“Ž Attachments: {activeAttachmentFilter}</span>
-              <span className="text-[10px] opacity-75">â–¼</span>
+              <MdAttachFile size={15} className="-rotate-45" />
+              <span>Attachments: {activeAttachmentFilter}</span>
+              <MdArrowDropDown size={16} className="-mr-0.5 opacity-75" />
             </button>
             {showAttachmentDropdown && (
               <>
