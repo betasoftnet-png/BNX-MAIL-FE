@@ -199,7 +199,7 @@ export const matchesFolderScope = (email, activeFolder, user) => {
   const isStarred = Boolean(
     email.starred === true ||
     email.isStarred === true ||
-    isEmailIdStarred(email.uid ?? email.id, user?.email)
+    isEmailIdStarred(email.uid ?? email.id, user?.email, isDraft ? 'draft' : (email.folderName || folder), email)
   );
   const isSnoozed = Boolean(
     email.snoozedUntil || email.isSnoozed || email.folderName?.toLowerCase() === 'snoozed'

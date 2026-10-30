@@ -54,8 +54,9 @@ const Starred = ({ searchQuery }) => {
   }, [fetchEmails]);
 
   const visibleEmails = emails.filter((e) => {
+    const targetFolder = isDraftEmail(e) ? 'draft' : (e.folderName || 'starred');
     const isItemStarred = typeof isEmailStarred === 'function'
-      ? isEmailStarred(e.uid ?? e.id, e.folderName || (isDraftEmail(e) ? 'draft' : 'starred'), e)
+      ? isEmailStarred(e.uid ?? e.id, targetFolder, e)
       : Boolean(e.starred || e.isStarred);
     if (!isItemStarred) return false;
     return typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true;

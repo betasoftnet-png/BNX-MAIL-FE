@@ -7,7 +7,7 @@
 const STORAGE_KEY_IDS = 'bnx_starred_email_ids';
 const STORAGE_KEY_DATA = 'bnx_starred_emails_data';
 
-const getUserKey = (prefix, userEmail) => {
+export const getUserKey = (prefix, userEmail) => {
   if (!userEmail) return prefix;
   const clean = String(userEmail).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
   return `${prefix}_${clean}`;
@@ -61,9 +61,13 @@ export const getStoredStarredIds = (userEmail) => {
       }
     };
 
-    // 1. Check user-scoped key
+    // 1. Check user-scoped key first
     if (userEmail) {
-      parseIds(localStorage.getItem(getUserKey(STORAGE_KEY_IDS, userEmail)));
+      const userRaw = localStorage.getItem(getUserKey(STORAGE_KEY_IDS, userEmail));
+      if (userRaw !== null) {
+        parseIds(userRaw);
+        return ids;
+      }
     }
     // 2. Also check global key for compatibility
     parseIds(localStorage.getItem(STORAGE_KEY_IDS));
@@ -98,8 +102,7 @@ export const saveStoredStarredIds = (idSetOrArr, userEmail) => {
 export const getStoredStarredEmailsMap = (userEmail) => {
   const map = new Map();
   try {
-    const readFromKey = (key) => {
-      const raw = localStorage.getItem(key);
+    const readFromRaw = (raw) => {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
@@ -116,9 +119,13 @@ export const getStoredStarredEmailsMap = (userEmail) => {
     };
 
     if (userEmail) {
-      readFromKey(getUserKey(STORAGE_KEY_DATA, userEmail));
+      const userRaw = localStorage.getItem(getUserKey(STORAGE_KEY_DATA, userEmail));
+      if (userRaw !== null) {
+        readFromRaw(userRaw);
+        return map;
+      }
     }
-    readFromKey(STORAGE_KEY_DATA);
+    readFromRaw(localStorage.getItem(STORAGE_KEY_DATA));
   } catch (err) {
     console.error("Failed to read starred emails data from localStorage:", err);
   }
@@ -130,12 +137,21 @@ export const getStoredStarredEmailsMap = (userEmail) => {
  */
 export const saveStoredStarredEmail = (email, userEmail, folder = '') => {
   if (!email) return;
-  const canonicalKey = getEmailStarKey(email.uid ?? email.id, folder || email.folderName, email);
+  const isDraft = folder === 'draft' || folder === 'drafts' || email.isDraft === true || email.draft === true || email.folderName?.toLowerCase()?.includes('draft');
+  const normFolder = isDraft ? 'draft' : normalizeFolderName(folder || email.folderName, email);
+  const canonicalKey = getEmailStarKey(email.uid ?? email.id, normFolder, email);
   if (!canonicalKey) return;
 
   try {
     const map = getStoredStarredEmailsMap(userEmail);
-    map.set(canonicalKey, { ...email, starred: true, isStarred: true });
+    map.set(canonicalKey, {
+      ...email,
+      folderName: isDraft ? 'Drafts' : (email.folderName || normFolder),
+      isDraft: isDraft ? true : Boolean(email.isDraft || email.draft),
+      draft: isDraft ? true : Boolean(email.isDraft || email.draft),
+      starred: true,
+      isStarred: true
+    });
     
     const obj = {};
     map.forEach((val, key) => { obj[key] = val; });
@@ -157,7 +173,9 @@ export const removeStoredStarredEmail = (uid, userEmail, folder = '', email = nu
   if (!uid && uid !== 0 && !email) return;
 
   try {
-    const canonicalKey = getEmailStarKey(uid, folder, email);
+    const isDraft = folder === 'draft' || folder === 'drafts' || email?.isDraft === true || email?.draft === true || email?.folderName?.toLowerCase()?.includes('draft');
+    const normFolder = isDraft ? 'draft' : normalizeFolderName(folder || email?.folderName, email);
+    const canonicalKey = getEmailStarKey(uid, normFolder, email);
     const bareUid = String(uid ?? email?.uid ?? email?.id ?? '').trim();
 
     const map = getStoredStarredEmailsMap(userEmail);
@@ -165,6 +183,7 @@ export const removeStoredStarredEmail = (uid, userEmail, folder = '', email = nu
     if (bareUid) {
       map.delete(bareUid);
       map.delete(`draft:${bareUid}`);
+      map.delete(`drafts:${bareUid}`);
       map.delete(`inbox:${bareUid}`);
       map.delete(`sent:${bareUid}`);
     }
@@ -191,25 +210,17 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
   const uidStr = String(rawUid).trim();
   if (!uidStr) return false;
 
-  const currentFolder = normalizeFolderName(folder || email?.folderName, email);
+  const isDraft = folder === 'draft' || folder === 'drafts' || email?.isDraft === true || email?.draft === true || email?.folderName?.toLowerCase()?.includes('draft');
+  const currentFolder = isDraft ? 'draft' : normalizeFolderName(folder || email?.folderName, email);
   const canonicalKey = currentFolder ? `${currentFolder}:${uidStr}` : uidStr;
 
-  const idSet = getStoredStarredIds(userEmail);
-
-  // 1. Direct canonical match (e.g. 'draft:5' in idSet)
-  if (idSet.has(canonicalKey)) {
-    return true;
-  }
-
-  // 2. Draft-specific aliases
+  // 1. Check draft-specific overrides first if folder is draft
   if (currentFolder === 'draft') {
-    if (idSet.has(`draft:${uidStr}`) || idSet.has(`drafts:${uidStr}`)) {
-      return true;
-    }
     try {
-      const storedOverrides = localStorage.getItem('bnx_draft_star_overrides');
-      if (storedOverrides) {
-        const overrides = JSON.parse(storedOverrides);
+      const userKey = userEmail ? getUserKey('bnx_draft_star_overrides', userEmail) : null;
+      const stored = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('bnx_draft_star_overrides');
+      if (stored) {
+        const overrides = JSON.parse(stored);
         if (overrides[uidStr] === true || overrides[`draft:${uidStr}`] === true) {
           return true;
         }
@@ -220,13 +231,29 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
     } catch (e) {}
   }
 
-  // 3. Message-ID matching if available
+  const idSet = getStoredStarredIds(userEmail);
+
+  // 2. Direct canonical match (e.g. 'draft:5' in idSet)
+  if (idSet.has(canonicalKey)) {
+    return true;
+  }
+
+  // 3. Draft-specific aliases in idSet
+  if (currentFolder === 'draft') {
+    if (idSet.has(`draft:${uidStr}`) || idSet.has(`drafts:${uidStr}`)) {
+      return true;
+    }
+    // For drafts, never fall back to bare numeric IDs or inbox matches!
+    return false;
+  }
+
+  // 4. Message-ID matching if available
   const messageId = email?.messageId ? String(email.messageId).trim().toLowerCase() : '';
   if (messageId && idSet.has(`mid:${messageId}`)) {
     return true;
   }
 
-  // 4. Fallback check for bare numeric IDs:
+  // 5. Fallback check for bare numeric IDs:
   // If idSet contains a bare numeric ID (e.g. '5'), verify against stored emails map
   // to ensure that this ID actually belongs to the requested folder, rather than another folder!
   if (idSet.has(uidStr)) {

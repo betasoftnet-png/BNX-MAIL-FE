@@ -878,8 +878,8 @@ const ComposeWindow = ({
               d.starred ||
               d.isStarred ||
               (typeof isEmailStarred === 'function' && (
-                isEmailStarred(d.uid) ||
-                isEmailStarred(d.id)
+                isEmailStarred(d.uid, 'draft', d) ||
+                isEmailStarred(d.id, 'draft', d)
               ))
             );
             wasDraftStarredRef.current = isDraftStarred;
@@ -1215,11 +1215,11 @@ const ComposeWindow = ({
       composeData?.draft?.starred ||
       composeData?.draft?.isStarred ||
       (typeof isEmailStarred === 'function' && (
-        isEmailStarred(imapDraftUidRef.current) ||
-        isEmailStarred(selectedDraftIdRef.current) ||
-        isEmailStarred(composeData?.draft?.uid) ||
-        isEmailStarred(composeData?.draft?.id) ||
-        isEmailStarred(draftId)
+        isEmailStarred(imapDraftUidRef.current, 'draft') ||
+        isEmailStarred(selectedDraftIdRef.current, 'draft') ||
+        isEmailStarred(composeData?.draft?.uid, 'draft') ||
+        isEmailStarred(composeData?.draft?.id, 'draft') ||
+        isEmailStarred(draftId, 'draft')
       ))
     );
 

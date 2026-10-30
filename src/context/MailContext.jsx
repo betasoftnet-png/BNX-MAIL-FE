@@ -14,7 +14,8 @@ import {
     removeStoredStarredEmail,
     isEmailIdStarred,
     normalizeFolderName,
-    getEmailStarKey
+    getEmailStarKey,
+    getUserKey
 } from '../utils/starredStorage';
 
 // Clean up any legacy persisted read UIDs from previous sessions to prevent stale overrides
@@ -163,7 +164,12 @@ export const MailProvider = ({ children }) => {
     const isEmailStarred = useCallback((uid, folder = '', email = null) => {
         if (!uid && uid !== 0 && !email) return false;
         const u = uid ?? email?.uid ?? email?.id;
-        const f = folder || email?.folderName || (email?.isDraft ? 'draft' : '');
+        const isDraft = folder === 'draft' || folder === 'drafts' ||
+            email?.isDraft === true || email?.draft === true ||
+            email?.folderName?.toLowerCase()?.includes('draft') ||
+            currentFolderRef.current?.toLowerCase() === 'draft' ||
+            currentFolderRef.current?.toLowerCase() === 'drafts';
+        const f = isDraft ? 'draft' : (folder || email?.folderName || '');
         return isEmailIdStarred(u, user?.email, f, email);
     }, [user?.email]);
 
@@ -270,9 +276,17 @@ export const MailProvider = ({ children }) => {
 
         // 1. Gather all emails explicitly starred in storedMap
         storedMap.forEach((email, key) => {
-            const f = email.folderName || (email.isDraft ? 'draft' : '');
+            const isDraft = email.isDraft === true || email.draft === true || email.folderName?.toLowerCase()?.includes('draft');
+            const f = isDraft ? 'draft' : (email.folderName || '');
             if (isEmailIdStarred(email.uid ?? email.id, user?.email, f, email)) {
-                allKnownMap.set(key, { ...email, starred: true, isStarred: true });
+                allKnownMap.set(key, {
+                    ...email,
+                    folderName: isDraft ? 'Drafts' : (email.folderName || ''),
+                    isDraft: isDraft ? true : Boolean(email.isDraft),
+                    draft: isDraft ? true : Boolean(email.draft),
+                    starred: true,
+                    isStarred: true
+                });
             }
         });
 
@@ -284,11 +298,19 @@ export const MailProvider = ({ children }) => {
                         if (Array.isArray(pageList)) {
                             pageList.forEach(m => {
                                 const uidStr = String(m.uid ?? m.id ?? '');
-                                const mFolder = m.folderName || fKey;
+                                const isMDraft = m.isDraft === true || m.draft === true || fKey === 'draft' || fKey === 'drafts' || m.folderName?.toLowerCase()?.includes('draft');
+                                const mFolder = isMDraft ? 'draft' : (m.folderName || fKey);
                                 if (uidStr && isEmailIdStarred(uidStr, user?.email, mFolder, m)) {
                                     const key = getEmailStarKey(uidStr, mFolder, m);
                                     if (!allKnownMap.has(key) || Object.keys(m).length > Object.keys(allKnownMap.get(key) || {}).length) {
-                                        allKnownMap.set(key, { ...m, starred: true, isStarred: true });
+                                        allKnownMap.set(key, {
+                                            ...m,
+                                            folderName: isMDraft ? 'Drafts' : (m.folderName || fKey),
+                                            isDraft: isMDraft ? true : Boolean(m.isDraft),
+                                            draft: isMDraft ? true : Boolean(m.draft),
+                                            starred: true,
+                                            isStarred: true
+                                        });
                                     }
                                 }
                             });
@@ -301,7 +323,8 @@ export const MailProvider = ({ children }) => {
         // 3. Filter only emails whose isStarred status is explicitly true and not in trash
         const finalEmails = Array.from(allKnownMap.values()).filter(e => {
             const uidStr = String(e.uid ?? e.id ?? '');
-            const eFolder = e.folderName || (e.isDraft ? 'draft' : '');
+            const isEDraft = e.isDraft === true || e.draft === true || e.folderName?.toLowerCase()?.includes('draft');
+            const eFolder = isEDraft ? 'draft' : (e.folderName || '');
             if (!isEmailIdStarred(uidStr, user?.email, eFolder, e)) return false;
             const isTrash = e.folderName?.toLowerCase() === 'trash' || e.isTrash === true || e.deleted === true;
             return !isTrash;
@@ -309,6 +332,12 @@ export const MailProvider = ({ children }) => {
 
         // 4. Ensure all have starred: true, isStarred: true and sort descending by date
         finalEmails.forEach(e => { 
+            const isDraft = e.isDraft === true || e.draft === true || e.folderName?.toLowerCase()?.includes('draft');
+            if (isDraft) {
+                e.folderName = 'Drafts';
+                e.isDraft = true;
+                e.draft = true;
+            }
             e.starred = true; 
             e.isStarred = true; 
         });
@@ -631,19 +660,28 @@ export const MailProvider = ({ children }) => {
 
             if (res && res.data?.success) {
                 const data = res.data.data || {};
-                const rawEmails = data.emails || (Array.isArray(data) ? data : (data.unreadEmails || []));
+                const isDraftFolder = folderKey === 'draft' || folderKey === 'drafts';
                 let normalizedEmails = rawEmails.map(m => {
                     const uidStr = String(m.uid ?? m.id ?? '');
-                    const f = m.folderName || folderKey;
+                    const isDraftItem = isDraftFolder || Boolean(m.isDraft || m.draft || m.folderName?.toLowerCase()?.includes('draft'));
+                    const f = isDraftItem ? 'draft' : (m.folderName || folderKey);
                     const isStarred = isEmailStarred(uidStr, f, m);
                     if (isStarred) {
-                        saveStoredStarredEmail(m, user?.email, f);
+                        saveStoredStarredEmail({
+                            ...m,
+                            folderName: isDraftItem ? 'Drafts' : (m.folderName || f),
+                            isDraft: isDraftItem,
+                            draft: isDraftItem
+                        }, user?.email, f);
                     }
                     const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
                     const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
                     const isRead = !isMarkedUnread && (isMarkedRead || (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)));
                     return {
                         ...m,
+                        folderName: isDraftItem ? 'Drafts' : (m.folderName || folderKey),
+                        isDraft: isDraftItem,
+                        draft: isDraftItem,
                         isRead,
                         read: isRead,
                         starred: isStarred,
@@ -877,19 +915,28 @@ export const MailProvider = ({ children }) => {
 
             if (res.data?.success) {
                 const data = res.data.data || {};
-                const rawEmails = data.emails || (Array.isArray(data) ? data : (data.unreadEmails || []));
+                const isDraftFolder = folderKey === 'draft' || folderKey === 'drafts';
                 let normalizedEmails = rawEmails.map(m => {
                     const uidStr = String(m.uid ?? m.id ?? '');
-                    const f = m.folderName || folderKey;
+                    const isDraftItem = isDraftFolder || Boolean(m.isDraft || m.draft || m.folderName?.toLowerCase()?.includes('draft'));
+                    const f = isDraftItem ? 'draft' : (m.folderName || folderKey);
                     const isStarred = isEmailStarred(uidStr, f, m);
                     if (isStarred) {
-                        saveStoredStarredEmail(m, user?.email, f);
+                        saveStoredStarredEmail({
+                            ...m,
+                            folderName: isDraftItem ? 'Drafts' : (m.folderName || f),
+                            isDraft: isDraftItem,
+                            draft: isDraftItem
+                        }, user?.email, f);
                     }
                     const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
                     const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
                     const isRead = !isMarkedUnread && (isMarkedRead || (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)));
                     return {
                         ...m,
+                        folderName: isDraftItem ? 'Drafts' : (m.folderName || folderKey),
+                        isDraft: isDraftItem,
+                        draft: isDraftItem,
                         isRead,
                         read: isRead,
                         starred: isStarred,
@@ -1099,18 +1146,20 @@ export const MailProvider = ({ children }) => {
     const handleToggleStar = useCallback(async (uid, folder) => {
         if (!uid && uid !== 0) return;
         const strUid = String(uid);
-        const targetFolder = normalizeFolderName(folder || currentFolderRef.current || 'inbox');
+        const isCurrentDraftFolder = currentFolderRef.current?.toLowerCase() === 'draft' || currentFolderRef.current?.toLowerCase() === 'drafts';
+        const isTargetDraft = folder === 'draft' || folder === 'drafts' || isCurrentDraftFolder;
+        const targetFolder = isTargetDraft ? 'draft' : normalizeFolderName(folder || currentFolderRef.current || 'inbox');
 
         // 1. Determine target email object matching UID and folder
         let targetEmail = emails.find(m => 
             String(m.uid ?? m.id) === strUid && 
-            (!targetFolder || normalizeFolderName(m.folderName, m) === targetFolder)
+            (!targetFolder || (isTargetDraft ? (m.isDraft || m.draft || m.folderName?.toLowerCase()?.includes('draft') || isCurrentDraftFolder) : normalizeFolderName(m.folderName, m) === targetFolder))
         );
         if (!targetEmail) {
             targetEmail = emails.find(m => String(m.uid ?? m.id) === strUid);
         }
         if (!targetEmail && pagesCache.current) {
-            const folderCachesToCheck = targetFolder ? [targetFolder, ...(targetFolder === 'draft' ? ['drafts'] : [])] : [];
+            const folderCachesToCheck = isTargetDraft ? ['draft', 'drafts'] : (targetFolder ? [targetFolder] : []);
             for (const f of folderCachesToCheck) {
                 if (pagesCache.current[f]) {
                     for (const p of Object.values(pagesCache.current[f])) {
@@ -1128,6 +1177,8 @@ export const MailProvider = ({ children }) => {
             const starKey = getEmailStarKey(strUid, targetFolder);
             if (storedMap.has(starKey)) {
                 targetEmail = storedMap.get(starKey);
+            } else if (storedMap.has(`draft:${strUid}`)) {
+                targetEmail = storedMap.get(`draft:${strUid}`);
             } else if (storedMap.has(strUid)) {
                 targetEmail = storedMap.get(strUid);
             }
@@ -1147,7 +1198,7 @@ export const MailProvider = ({ children }) => {
         }
 
         // 2. Toggle star status in frontend localStorage
-        const emailFolder = normalizeFolderName(targetEmail?.folderName || targetFolder, targetEmail);
+        const emailFolder = isTargetDraft ? 'draft' : normalizeFolderName(targetEmail?.folderName || targetFolder, targetEmail);
         const starKey = getEmailStarKey(strUid, emailFolder, targetEmail);
         const isCurrentlyStarred = isEmailStarred(strUid, emailFolder, targetEmail);
         const nextStarred = !isCurrentlyStarred;
@@ -1159,11 +1210,23 @@ export const MailProvider = ({ children }) => {
             if (emailFolder === 'draft') {
                 nextSet.add(`draft:${strUid}`);
             }
-            if (targetEmail) {
-                saveStoredStarredEmail({ ...targetEmail, starred: true, isStarred: true, folderName: targetEmail.folderName || emailFolder }, user?.email, emailFolder);
-            } else {
-                saveStoredStarredEmail({ uid: strUid, folderName: emailFolder, starred: true, isStarred: true }, user?.email, emailFolder);
-            }
+            const emailToSave = targetEmail ? {
+                ...targetEmail,
+                folderName: emailFolder === 'draft' ? 'Drafts' : (targetEmail.folderName || emailFolder),
+                isDraft: emailFolder === 'draft' ? true : Boolean(targetEmail.isDraft || targetEmail.draft),
+                draft: emailFolder === 'draft' ? true : Boolean(targetEmail.isDraft || targetEmail.draft),
+                starred: true,
+                isStarred: true
+            } : {
+                uid: strUid,
+                id: strUid,
+                folderName: emailFolder === 'draft' ? 'Drafts' : emailFolder,
+                isDraft: emailFolder === 'draft',
+                draft: emailFolder === 'draft',
+                starred: true,
+                isStarred: true
+            };
+            saveStoredStarredEmail(emailToSave, user?.email, emailFolder);
         } else {
             nextSet.delete(starKey);
             if (emailFolder === 'draft') {
@@ -1182,18 +1245,25 @@ export const MailProvider = ({ children }) => {
         const isDraft = emailFolder === 'draft' || targetEmail?.isDraft === true || targetEmail?.draft === true;
         if (isDraft) {
             try {
-                const stored = localStorage.getItem('bnx_draft_star_overrides');
-                const overrides = stored ? JSON.parse(stored) : {};
-                overrides[strUid] = nextStarred;
-                overrides[`draft:${strUid}`] = nextStarred;
-                localStorage.setItem('bnx_draft_star_overrides', JSON.stringify(overrides));
+                const saveOverride = (key) => {
+                    const stored = localStorage.getItem(key);
+                    const overrides = stored ? JSON.parse(stored) : {};
+                    overrides[strUid] = nextStarred;
+                    overrides[`draft:${strUid}`] = nextStarred;
+                    localStorage.setItem(key, JSON.stringify(overrides));
+                };
+                saveOverride('bnx_draft_star_overrides');
+                if (user?.email) {
+                    saveOverride(getUserKey('bnx_draft_star_overrides', user.email));
+                }
             } catch (e) {}
         }
 
         const isTargetMatch = (m) => {
             const mUid = String(m.uid ?? m.id ?? '');
             if (mUid !== strUid) return false;
-            const mFolder = normalizeFolderName(m.folderName, m);
+            const isMDraft = isDraft || m.isDraft === true || m.draft === true || m.folderName?.toLowerCase()?.includes('draft') || isCurrentDraftFolder;
+            const mFolder = isMDraft ? 'draft' : normalizeFolderName(m.folderName, m);
             if (emailFolder && mFolder && mFolder !== emailFolder) return false;
             return true;
         };
@@ -1206,11 +1276,25 @@ export const MailProvider = ({ children }) => {
                 }
                 const exists = prev.some(m => isTargetMatch(m));
                 if (!exists && targetEmail) {
-                    return [{ ...targetEmail, starred: true, isStarred: true }, ...prev];
+                    return [{
+                        ...targetEmail,
+                        folderName: isDraft ? 'Drafts' : (targetEmail.folderName || 'starred'),
+                        isDraft: isDraft ? true : Boolean(targetEmail.isDraft || targetEmail.draft),
+                        draft: isDraft ? true : Boolean(targetEmail.isDraft || targetEmail.draft),
+                        starred: true,
+                        isStarred: true
+                    }, ...prev];
                 }
                 return prev;
             }
-            return prev.map(m => isTargetMatch(m) ? { ...m, starred: nextStarred, isStarred: nextStarred } : m);
+            return prev.map(m => isTargetMatch(m) ? {
+                ...m,
+                folderName: isDraft ? 'Drafts' : (m.folderName || emailFolder),
+                isDraft: isDraft ? true : Boolean(m.isDraft || m.draft),
+                draft: isDraft ? true : Boolean(m.isDraft || m.draft),
+                starred: nextStarred,
+                isStarred: nextStarred
+            } : m);
         });
 
         if (currentFolderRef.current?.toLowerCase() === 'starred') {
@@ -1224,17 +1308,25 @@ export const MailProvider = ({ children }) => {
         // 4. Update memory caches across folders - ONLY update the matching folder!
         if (pagesCache.current) {
             // Update starred cache
+            if (!pagesCache.current['starred']) {
+                pagesCache.current['starred'] = { 1: [] };
+            }
             if (pagesCache.current['starred']) {
                 if (nextStarred) {
-                    const p1 = pagesCache.current['starred'][1];
-                    if (Array.isArray(p1)) {
-                        const exists = p1.some(m => isTargetMatch(m));
-                        if (!exists && targetEmail) {
-                            pagesCache.current['starred'][1] = [
-                                { ...targetEmail, starred: true, isStarred: true },
-                                ...p1
-                            ];
-                        }
+                    const p1 = pagesCache.current['starred'][1] || [];
+                    const exists = p1.some(m => isTargetMatch(m));
+                    if (!exists && targetEmail) {
+                        pagesCache.current['starred'][1] = [
+                            {
+                                ...targetEmail,
+                                folderName: isDraft ? 'Drafts' : (targetEmail.folderName || 'starred'),
+                                isDraft: isDraft ? true : Boolean(targetEmail.isDraft || targetEmail.draft),
+                                draft: isDraft ? true : Boolean(targetEmail.isDraft || targetEmail.draft),
+                                starred: true,
+                                isStarred: true
+                            },
+                            ...p1
+                        ];
                     }
                 } else {
                     Object.keys(pagesCache.current['starred']).forEach(p => {
@@ -1254,7 +1346,14 @@ export const MailProvider = ({ children }) => {
                     Object.keys(pagesCache.current[f]).forEach(p => {
                         if (Array.isArray(pagesCache.current[f][p])) {
                             pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
-                                isTargetMatch(m) ? { ...m, starred: nextStarred, isStarred: nextStarred } : m
+                                isTargetMatch(m) ? {
+                                    ...m,
+                                    folderName: isDraft ? 'Drafts' : (m.folderName || emailFolder),
+                                    isDraft: isDraft ? true : Boolean(m.isDraft || m.draft),
+                                    draft: isDraft ? true : Boolean(m.isDraft || m.draft),
+                                    starred: nextStarred,
+                                    isStarred: nextStarred
+                                } : m
                             );
                         }
                     });
@@ -2231,15 +2330,23 @@ export const MailProvider = ({ children }) => {
                 const emailUid = email.uid !== undefined && email.uid !== null ? String(email.uid) : null;
                 const emailId = email.id !== undefined && email.id !== null ? String(email.id) : null;
                 if (emailUid === strTargetId || emailId === strTargetId) {
-                    return {
+                    const isStarred = Boolean(email.starred || email.isStarred);
+                    const updatedEmail = {
                         ...email,
                         ...updatedFields,
                         uid: email.uid,
                         id: email.id,
-                        starred: email.starred,
+                        folderName: 'Drafts',
+                        isDraft: true,
+                        draft: true,
+                        starred: isStarred,
+                        isStarred: isStarred,
                         labels: email.labels,
-                        folderName: email.folderName,
                     };
+                    if (isStarred) {
+                        saveStoredStarredEmail(updatedEmail, user?.email, 'draft');
+                    }
+                    return updatedEmail;
                 }
                 return email;
             });
@@ -2255,14 +2362,18 @@ export const MailProvider = ({ children }) => {
                             const emailUid = email.uid !== undefined && email.uid !== null ? String(email.uid) : null;
                             const emailId = email.id !== undefined && email.id !== null ? String(email.id) : null;
                             if (emailUid === strTargetId || emailId === strTargetId) {
+                                const isStarred = Boolean(email.starred || email.isStarred);
                                 return {
                                     ...email,
                                     ...updatedFields,
                                     uid: email.uid,
                                     id: email.id,
-                                    starred: email.starred,
+                                    folderName: 'Drafts',
+                                    isDraft: true,
+                                    draft: true,
+                                    starred: isStarred,
+                                    isStarred: isStarred,
                                     labels: email.labels,
-                                    folderName: email.folderName,
                                 };
                             }
                             return email;
@@ -2271,49 +2382,97 @@ export const MailProvider = ({ children }) => {
                 });
             }
         });
-    }, []);
+    }, [user?.email]);
 
     const updateDraftUidInState = useCallback((oldTargetId, newUid) => {
         if (!oldTargetId || !newUid) return;
         const strOld = String(oldTargetId);
+        const strNew = String(newUid);
+
+        // Check if old draft was starred
+        const currentSet = getStoredStarredIds(user?.email);
+        const wasStarred = isEmailStarred(strOld, 'draft') ||
+            currentSet.has(`draft:${strOld}`) ||
+            currentSet.has(`drafts:${strOld}`) ||
+            currentSet.has(strOld);
+
         setEmails(prev => prev.map(m => {
             const mUid = m.uid !== undefined && m.uid !== null ? String(m.uid) : null;
             const mId = m.id !== undefined && m.id !== null ? String(m.id) : null;
             if (mUid === strOld || mId === strOld) {
-                return { ...m, uid: newUid };
+                return {
+                    ...m,
+                    uid: newUid,
+                    folderName: 'Drafts',
+                    isDraft: true,
+                    draft: true,
+                    starred: wasStarred ? true : m.starred,
+                    isStarred: wasStarred ? true : m.isStarred
+                };
             }
             return m;
         }));
 
         try {
-            const stored = localStorage.getItem('bnx_draft_star_overrides');
-            if (stored) {
-                const overrides = JSON.parse(stored);
-                if (overrides[strOld] !== undefined) {
-                    overrides[String(newUid)] = overrides[strOld];
-                    delete overrides[strOld];
-                    localStorage.setItem('bnx_draft_star_overrides', JSON.stringify(overrides));
+            const migrateOverride = (key) => {
+                const stored = localStorage.getItem(key);
+                if (stored) {
+                    const overrides = JSON.parse(stored);
+                    if (overrides[strOld] !== undefined || overrides[`draft:${strOld}`] !== undefined) {
+                        const val = overrides[strOld] ?? overrides[`draft:${strOld}`];
+                        overrides[strNew] = val;
+                        overrides[`draft:${strNew}`] = val;
+                        delete overrides[strOld];
+                        delete overrides[`draft:${strOld}`];
+                        localStorage.setItem(key, JSON.stringify(overrides));
+                    }
                 }
+            };
+            migrateOverride('bnx_draft_star_overrides');
+            if (user?.email) {
+                migrateOverride(getUserKey('bnx_draft_star_overrides', user.email));
             }
         } catch (e) {}
 
         // Migrate starred IDs and stored full email data if the draft was starred
-        const strNew = String(newUid);
-        const currentSet = getStoredStarredIds(user?.email);
-        if (currentSet.has(strOld)) {
+        if (wasStarred) {
             const nextSet = new Set(currentSet);
             nextSet.delete(strOld);
-            nextSet.add(strNew);
+            nextSet.delete(`draft:${strOld}`);
+            nextSet.delete(`drafts:${strOld}`);
+            nextSet.add(`draft:${strNew}`);
             saveStoredStarredIds(nextSet, user?.email);
             setStarredIds(nextSet);
             starredIdsRef.current = nextSet;
 
             const storedMap = getStoredStarredEmailsMap(user?.email);
-            if (storedMap.has(strOld)) {
-                const oldEmail = storedMap.get(strOld);
-                removeStoredStarredEmail(strOld, user?.email);
-                saveStoredStarredEmail({ ...oldEmail, uid: strNew, starred: true }, user?.email);
+            const oldEmail = storedMap.get(`draft:${strOld}`) || storedMap.get(strOld);
+            removeStoredStarredEmail(strOld, user?.email, 'draft');
+            if (oldEmail) {
+                saveStoredStarredEmail({
+                    ...oldEmail,
+                    uid: strNew,
+                    folderName: 'Drafts',
+                    isDraft: true,
+                    draft: true,
+                    starred: true,
+                    isStarred: true
+                }, user?.email, 'draft');
+            } else {
+                saveStoredStarredEmail({
+                    uid: strNew,
+                    id: strNew,
+                    folderName: 'Drafts',
+                    isDraft: true,
+                    draft: true,
+                    starred: true,
+                    isStarred: true
+                }, user?.email, 'draft');
             }
+
+            mailAPI.toggleStar(strNew, 'Drafts').catch(err => {
+                console.warn('[Star] Failed to sync updated draft UID to backend:', err?.message || err);
+            });
         }
 
         ['draft', 'drafts', 'starred'].forEach(folderKey => {
@@ -2325,7 +2484,15 @@ export const MailProvider = ({ children }) => {
                             const mUid = m.uid !== undefined && m.uid !== null ? String(m.uid) : null;
                             const mId = m.id !== undefined && m.id !== null ? String(m.id) : null;
                             if (mUid === strOld || mId === strOld) {
-                                return { ...m, uid: newUid };
+                                return {
+                                    ...m,
+                                    uid: newUid,
+                                    folderName: 'Drafts',
+                                    isDraft: true,
+                                    draft: true,
+                                    starred: wasStarred ? true : m.starred,
+                                    isStarred: wasStarred ? true : m.isStarred
+                                };
                             }
                             return m;
                         });
@@ -2333,7 +2500,7 @@ export const MailProvider = ({ children }) => {
                 });
             }
         });
-    }, [user?.email]);
+    }, [user?.email, isEmailStarred]);
 
     const getFolderEmails = useCallback((folder) => {
         let folderKey = (folder || currentFolderRef.current || 'inbox').toLowerCase();

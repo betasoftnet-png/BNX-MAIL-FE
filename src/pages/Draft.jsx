@@ -176,6 +176,7 @@ const handleReply = (email) => {
             ) : (
               <EmailList
                 emails={visibleEmails}
+                currentFolder="draft"
                 selectedEmailId={selectedEmail?.uid}
                 onSelectEmail={handleSelectEmail}
                 onStar={(uid, f) => handleToggleStar(uid, f || "draft")}

@@ -284,16 +284,24 @@ const EmailList = ({
                   </div>
 
                   {/* Star Button */}
-                  <div className="flex items-center shrink-0">
+                  <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
                     {(() => {
+                      const isDraft = email.folderName?.toLowerCase() === "draft" ||
+                        email.folderName?.toLowerCase() === "drafts" ||
+                        email.isDraft === true ||
+                        email.draft === true ||
+                        currentFolder?.toLowerCase() === "draft" ||
+                        currentFolder?.toLowerCase() === "drafts";
+                      const itemFolder = isDraft ? "draft" : (email.folderName || currentFolder);
+                      const itemUid = email.uid ?? email.id;
                       const isItemStarred = typeof isEmailStarred === 'function'
-                        ? isEmailStarred(email.uid ?? email.id, email.folderName || currentFolder, email)
+                        ? isEmailStarred(itemUid, itemFolder, email)
                         : Boolean(email.starred || email.isStarred);
                       return (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onStar?.(email.uid, email.folderName || currentFolder);
+                            onStar?.(itemUid, itemFolder);
                           }}
                           className="p-1 rounded-full cursor-pointer text-gray-400 dark:text-gray-500"
                           title={isItemStarred ? "Unstar" : "Star"}
@@ -320,7 +328,12 @@ const EmailList = ({
                         : "font-medium text-gray-600 dark:text-gray-300"
                         }`}
                     >
-                      {email.folderName?.toLowerCase() === "draft" || email.folderName?.toLowerCase() === "drafts" ? (
+                      {email.folderName?.toLowerCase() === "draft" ||
+                      email.folderName?.toLowerCase() === "drafts" ||
+                      email.isDraft === true ||
+                      email.draft === true ||
+                      currentFolder?.toLowerCase() === "draft" ||
+                      currentFolder?.toLowerCase() === "drafts" ? (
                         <span className="text-red-500 font-bold italic tracking-wide">Draft</span>
                       ) : isSentByUser ? (
                         <span className="flex items-center gap-1">
