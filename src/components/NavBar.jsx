@@ -457,7 +457,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <div
             className={`flex items-center gap-1.5 sm:gap-2 shrink-0 transition-all duration-300 ${
               isDesktopSidebarOpen
-                ? "md:w-[14.1875rem] lg:w-[13.9375rem]"
+                ? "md:w-44 lg:w-[13.9375rem]"
                 : "w-auto mr-2 sm:mr-4"
             }`}
           >
@@ -490,16 +490,18 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           </button>
         </div>
 
-        {/* CENTER: SEGMENTED CONTROL */}
-        <div className="flex items-center justify-center shrink-0">
+        {/* CENTER: SEGMENTED CONTROL (Permanently Horizontally Centered) */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto z-10 flex items-center justify-center">
           <div className="flex items-center bg-white/10 backdrop-blur-sm shadow-sm rounded-full p-0.5 sm:p-1 border border-white/10 shrink-0">
             <button
+              type="button"
               onClick={() => navigate('/inbox')}
               className={`px-2.5 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.mail', 'Mail')}
             </button>
             <button
+              type="button"
               onClick={() => navigate('/casbox')}
               className={`px-2.5 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
             >
@@ -509,11 +511,11 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         </div>
 
         {/* RIGHT */}
-        <div className="flex items-center justify-end gap-1.5 sm:gap-2 md:gap-2.5 shrink-0">
+        <div className="flex items-center justify-end gap-1.5 sm:gap-2 md:gap-2.5 shrink-0 z-0">
 
           {/* DESKTOP SEARCH (md+ screens) */}
-          <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-36 lg:w-48 xl:w-56 focus-within:w-48 lg:focus-within:w-64 xl:focus-within:w-72 transition-all duration-200" ref={searchContainerRef}>
-            <div className="relative group w-full">
+          <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-40 lg:w-52 xl:w-60 focus-within:w-48 lg:focus-within:w-64 xl:focus-within:w-72 transition-all duration-200" ref={searchContainerRef}>
+            <div className="relative group w-full flex items-center">
               <input
                 id="mail-search-input"
                 type="text"
@@ -525,29 +527,121 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
-                className="w-full px-2 py-1.5 pl-7 sm:pl-8 pr-7 rounded-full text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white/20 active:bg-white/20 focus-visible:bg-white/20 text-white focus:text-white focus:shadow-sm border border-transparent focus:border-white/30 outline-none transition-all duration-200 truncate placeholder:truncate"
+                className={`w-full px-2 py-1.5 pl-8 rounded-full text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white/20 active:bg-white/20 focus-visible:bg-white/20 text-white focus:text-white focus:shadow-sm border border-transparent focus:border-white/30 outline-none transition-all duration-200 truncate placeholder:truncate ${
+                  searchQuery ? "pr-16" : "pr-9"
+                }`}
               />
               <Search
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 transition-colors text-white/60 group-focus-within:text-white/90 pointer-events-none"
               />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSearchQuery("");
-                    setShowSearchResults(false);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-0.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Clear search"
-                >
-                  <X size={13} />
-                </button>
-              )}
+
+              {/* Action buttons inside search bar: Clear (X) + Filter Button */}
+              <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSearchQuery("");
+                      setShowSearchResults(false);
+                    }}
+                    className="text-white/70 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+
+                <div className="relative" ref={dateFilterRef}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDateFilterDropdown((prev) => !prev);
+                    }}
+                    className={`p-1 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${
+                      showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
+                        ? "bg-white/25 text-white shadow-xs"
+                        : "text-white/75 hover:text-white hover:bg-white/10"
+                    }`}
+                    title={t('navbar.filter_by_date', 'Filter options')}
+                    aria-label="Filter options"
+                    aria-expanded={showDateFilterDropdown}
+                  >
+                    <SlidersHorizontal size={14} className="text-white" />
+                    {dateFilter && dateFilter !== "ALL" && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full ring-1 ring-[#195bac]" />
+                    )}
+                  </button>
+
+                  {showDateFilterDropdown && (
+                    <div
+                      className="absolute right-0 top-full mt-2 w-48 sm:w-52 rounded-2xl shadow-xl border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900 py-1.5 px-1.5"
+                      style={{ borderColor: theme.border || "#e2e8f0" }}
+                    >
+                      {/* Header */}
+                      <div className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none">
+                        <Calendar size={15} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                        <span>{t('navbar.filter_by_date', 'Filter by date')}</span>
+                      </div>
+
+                      <div className="flex flex-col gap-0.5 mt-0.5">
+                        {[
+                          { id: "ALL", label: t('navbar.all_time', 'All Time') },
+                          { id: "1_DAY", label: t('navbar.last_1_day', 'Last 1 Day') },
+                          { id: "1_WEEK", label: t('navbar.last_1_week', 'Last 1 Week') },
+                          { id: "1_MONTH", label: t('navbar.last_1_month', 'Last 1 Month') },
+                          { id: "CUSTOM", label: t('navbar.custom_date', 'Custom Date'), isCustom: true },
+                        ].map((opt) => {
+                          const isSelected = (dateFilter || "ALL") === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => {
+                                if (opt.isCustom) {
+                                  setShowDateFilterDropdown(false);
+                                  setShowCustomCalendar(true);
+                                } else {
+                                  setDateFilter(opt.id);
+                                  if (setCustomDateRange) setCustomDateRange(null);
+                                  setShowDateFilterDropdown(false);
+                                }
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer text-left ${
+                                isSelected
+                                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 truncate">
+                                <Calendar
+                                  size={15}
+                                  className={`shrink-0 ${
+                                    isSelected
+                                      ? "text-blue-600 dark:text-blue-400"
+                                      : "text-gray-500 dark:text-gray-400"
+                                  }`}
+                                />
+                                <span className="truncate">{opt.label}</span>
+                              </div>
+                              {isSelected ? (
+                                <Check size={15} className="text-blue-600 dark:text-blue-400 shrink-0 ml-2" />
+                              ) : opt.isCustom ? (
+                                <ChevronRight size={15} className="text-gray-400 shrink-0 ml-2" />
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {showSearchResults && searchQuery.trim().length > 0 && (
                 <div 
-                  className="absolute right-0 mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 sm:p-3 max-h-[500px] sm:max-h-[540px] overflow-y-auto z-[9999] w-[360px] sm:w-[460px] md:w-[520px] max-w-[95vw] animate-fade-in"
+                  className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 sm:p-3 max-h-[500px] sm:max-h-[540px] overflow-y-auto z-[9999] w-[360px] sm:w-[460px] md:w-[520px] max-w-[95vw] animate-fade-in"
                   style={{ borderColor: theme.border || '#e2e8f0' }}
                 >
                   {renderSearchResults(() => setShowSearchResults(false))}
@@ -591,18 +685,34 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
-                    className="w-full pl-8 pr-7 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1.5 focus:ring-blue-500 border border-transparent"
+                    className={`w-full pl-8 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1.5 focus:ring-blue-500 border border-transparent ${
+                      searchQuery ? "pr-16" : "pr-9"
+                    }`}
                   />
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                  {searchQuery && (
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery("")}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 cursor-pointer"
+                        title="Clear search"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDateFilterDropdown((prev) => !prev);
+                      }}
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                      title="Filter options"
                     >
-                      <X size={14} />
+                      <SlidersHorizontal size={14} />
                     </button>
-                  )}
+                  </div>
                 </form>
 
                 {searchQuery.trim().length > 0 && (
@@ -613,92 +723,6 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
               </div>
             )}
           </div>
-
-          {/* DATE FILTER (Mail section only) */}
-          {currentTab === 'mail' && (
-            <div className="relative shrink-0" ref={dateFilterRef}>
-              <button
-                type="button"
-                onClick={() => setShowDateFilterDropdown((prev) => !prev)}
-                className={`p-1.5 sm:p-2 rounded-xl flex items-center justify-center transition-all cursor-pointer relative ${
-                  showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
-                    ? "bg-white/20 text-white shadow-sm border border-white/30"
-                    : "bg-white/10 hover:bg-white/20 text-white/90 hover:text-white border border-white/10"
-                }`}
-                title={t('navbar.filter_by_date', 'Filter by date')}
-                aria-label="Filter by date"
-                aria-expanded={showDateFilterDropdown}
-              >
-                <SlidersHorizontal size={17} className="text-white" />
-                {dateFilter && dateFilter !== "ALL" && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-[#195bac]" />
-                )}
-              </button>
-
-              {showDateFilterDropdown && (
-                <div
-                  className="absolute right-0 mt-2 w-48 sm:w-52 rounded-2xl shadow-xl border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900 py-1.5 px-1.5"
-                  style={{ borderColor: theme.border || "#e2e8f0" }}
-                >
-                  {/* Header */}
-                  <div className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none">
-                    <Calendar size={15} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                    <span>{t('navbar.filter_by_date', 'Filter by date')}</span>
-                  </div>
-
-                  <div className="flex flex-col gap-0.5 mt-0.5">
-                    {[
-                      { id: "ALL", label: t('navbar.all_time', 'All Time') },
-                      { id: "1_DAY", label: t('navbar.last_1_day', 'Last 1 Day') },
-                      { id: "1_WEEK", label: t('navbar.last_1_week', 'Last 1 Week') },
-                      { id: "1_MONTH", label: t('navbar.last_1_month', 'Last 1 Month') },
-                      { id: "CUSTOM", label: t('navbar.custom_date', 'Custom Date'), isCustom: true },
-                    ].map((opt) => {
-                      const isSelected = (dateFilter || "ALL") === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => {
-                            if (opt.isCustom) {
-                              setShowDateFilterDropdown(false);
-                              setShowCustomCalendar(true);
-                            } else {
-                              setDateFilter(opt.id);
-                              if (setCustomDateRange) setCustomDateRange(null);
-                              setShowDateFilterDropdown(false);
-                            }
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer text-left ${
-                            isSelected
-                              ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 truncate">
-                            <Calendar
-                              size={15}
-                              className={`shrink-0 ${
-                                isSelected
-                                  ? "text-blue-600 dark:text-blue-400"
-                                  : "text-gray-500 dark:text-gray-400"
-                              }`}
-                            />
-                            <span className="truncate">{opt.label}</span>
-                          </div>
-                          {isSelected ? (
-                            <Check size={15} className="text-blue-600 dark:text-blue-400 shrink-0 ml-2" />
-                          ) : opt.isCustom ? (
-                            <ChevronRight size={15} className="text-gray-400 shrink-0 ml-2" />
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* USER */}
           <div className="relative shrink-0" ref={dropdownRef}>

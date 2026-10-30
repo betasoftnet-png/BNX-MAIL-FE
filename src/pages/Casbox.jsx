@@ -5378,77 +5378,82 @@ const Casbox = () => {
   const listComponent = isCombineTab ? (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent relative">
       {/* Search Bar & Filter */}
-      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center gap-3 bg-transparent shrink-0">
-        <div className="flex-1 flex items-center gap-2.5 bg-gray-100/70 dark:bg-gray-800/60 px-4 py-2.5 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
-          <MdSearch size={20} className="text-gray-400 shrink-0" />
+      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center bg-transparent shrink-0">
+        <div className="relative flex-1 flex items-center bg-gray-100/70 dark:bg-gray-800/60 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
+          <MdSearch size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none shrink-0" />
           <input
             type="text"
             value={combineSearch}
             onChange={(e) => setCombineSearch(e.target.value)}
             placeholder="Search all messages..."
-            className="bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full"
-          />
-          {combineSearch && (
-            <button
-              type="button"
-              onClick={() => setCombineSearch("")}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs p-0.5"
-            >
-              <MdClose size={16} />
-            </button>
-          )}
-        </div>
-
-        {/* Filter Button */}
-        <div className="relative" ref={filterMenuRef}>
-          <button
-            type="button"
-            onClick={() => setShowFilterMenu(prev => !prev)}
-            className={`p-2.5 rounded-xl transition-colors shrink-0 flex items-center justify-center cursor-pointer ${
-              combineFilter !== 'all' || showFilterMenu
-                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
-                : 'bg-gray-100/70 dark:bg-gray-800/60 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full py-2.5 pl-10 ${
+              combineSearch ? 'pr-20' : 'pr-12'
             }`}
-            title="Filter messages"
-            aria-label="Filter messages"
-          >
-            <MdFilterList size={20} />
-          </button>
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {combineSearch && (
+              <button
+                type="button"
+                onClick={() => setCombineSearch("")}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
+                title="Clear search"
+              >
+                <MdClose size={16} />
+              </button>
+            )}
 
-          {showFilterMenu && (
-            <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+            {/* Filter Button */}
+            <div className="relative" ref={filterMenuRef}>
               <button
                 type="button"
-                onClick={() => { setCombineFilter('all'); setShowFilterMenu(false); }}
-                className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
-                  combineFilter === 'all' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                onClick={() => setShowFilterMenu(prev => !prev)}
+                className={`p-1.5 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${
+                  combineFilter !== 'all' || showFilterMenu
+                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
                 }`}
+                title="Filter messages"
+                aria-label="Filter messages"
               >
-                All Messages
-                {combineFilter === 'all' && <MdCheck size={16} />}
+                <MdFilterList size={18} />
               </button>
-              <button
-                type="button"
-                onClick={() => { setCombineFilter('received'); setShowFilterMenu(false); }}
-                className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
-                  combineFilter === 'received' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
-                }`}
-              >
-                Received Only
-                {combineFilter === 'received' && <MdCheck size={16} />}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setCombineFilter('sent'); setShowFilterMenu(false); }}
-                className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
-                  combineFilter === 'sent' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
-                }`}
-              >
-                Sent Only
-                {combineFilter === 'sent' && <MdCheck size={16} />}
-              </button>
+
+              {showFilterMenu && (
+                <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                  <button
+                    type="button"
+                    onClick={() => { setCombineFilter('all'); setShowFilterMenu(false); }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                      combineFilter === 'all' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                    }`}
+                  >
+                    All Messages
+                    {combineFilter === 'all' && <MdCheck size={16} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCombineFilter('received'); setShowFilterMenu(false); }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                      combineFilter === 'received' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                    }`}
+                  >
+                    Received Only
+                    {combineFilter === 'received' && <MdCheck size={16} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCombineFilter('sent'); setShowFilterMenu(false); }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                      combineFilter === 'sent' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                    }`}
+                  >
+                    Sent Only
+                    {combineFilter === 'sent' && <MdCheck size={16} />}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 
@@ -5602,84 +5607,93 @@ const Casbox = () => {
   ) : (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent relative">
       {/* Search Bar & Filter for Messages */}
-      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center gap-3 bg-transparent shrink-0">
-        <div className="flex-1 flex items-center gap-2.5 bg-gray-100/70 dark:bg-gray-800/60 px-4 py-2.5 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
-          <MdSearch size={20} className="text-gray-400 shrink-0" />
+      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center bg-transparent shrink-0">
+        <div className="relative flex-1 flex items-center bg-gray-100/70 dark:bg-gray-800/60 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
+          <MdSearch size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none shrink-0" />
           <input
             type="text"
             value={messagesSearch}
             onChange={(e) => setMessagesSearch(e.target.value)}
             placeholder="Search messages..."
-            className="bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full"
+            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full py-2.5 pl-10 ${
+              messagesSearch ? 'pr-20' : 'pr-12'
+            }`}
           />
-          {messagesSearch && (
-            <button
-              type="button"
-              onClick={() => setMessagesSearch("")}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs p-0.5"
-            >
-              <MdClose size={16} />
-            </button>
-          )}
-        </div>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {messagesSearch && (
+              <button
+                type="button"
+                onClick={() => setMessagesSearch("")}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
+                title="Clear search"
+              >
+                <MdClose size={16} />
+              </button>
+            )}
 
-        {/* Filter Button & Dropdown */}
-        <div className="relative" ref={messagesFilterMenuRef}>
-          <button
-            type="button"
-            onClick={() => setShowMessagesFilterMenu((prev) => !prev)}
-            className="p-2.5 rounded-xl transition-colors shrink-0 flex items-center justify-center cursor-pointer bg-blue-100/80 hover:bg-blue-100 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400"
-            title="Filter messages"
-            aria-label="Filter messages"
-          >
-            <MdFilterAlt size={20} />
-          </button>
+            {/* Filter Button & Dropdown */}
+            <div className="relative" ref={messagesFilterMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowMessagesFilterMenu((prev) => !prev)}
+                className={`p-1.5 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${
+                  messagesFilter !== 'all' || showMessagesFilterMenu
+                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+                }`}
+                title="Filter messages"
+                aria-label="Filter messages"
+              >
+                <MdFilterAlt size={18} />
+              </button>
 
-          {showMessagesFilterMenu && (
-            <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl z-30 py-2 animate-in fade-in duration-150">
-              {CASBOX_MESSAGE_FILTERS.map((opt) => {
-                if (opt.isDivider) {
-                  return <div key={opt.id} className="border-t border-gray-100 dark:border-gray-700/60 my-1.5" />;
-                }
+              {showMessagesFilterMenu && (
+                <div className="absolute right-0 top-full mt-2 w-52 sm:w-56 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl z-30 py-2 animate-in fade-in duration-150">
+                  {CASBOX_MESSAGE_FILTERS.map((opt) => {
+                    if (opt.isDivider) {
+                      return <div key={opt.id} className="border-t border-gray-100 dark:border-gray-700/60 my-1.5" />;
+                    }
 
-                const isSelected = messagesFilter === opt.id;
-                const IconComponent = opt.icon;
+                    const isSelected = messagesFilter === opt.id;
+                    const IconComponent = opt.icon;
 
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      setMessagesFilter(opt.id);
-                      setShowMessagesFilterMenu(false);
-                    }}
-                    className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm flex items-center gap-3 transition-colors cursor-pointer ${
-                      isSelected
-                        ? "bg-blue-50/70 dark:bg-blue-900/25 text-blue-600 dark:text-blue-400 font-semibold"
-                        : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 font-medium"
-                    }`}
-                  >
-                    {IconComponent ? (
-                      <IconComponent
-                        size={17}
-                        className={isSelected ? "text-blue-600 dark:text-blue-400 shrink-0" : "text-gray-700 dark:text-gray-300 shrink-0"}
-                      />
-                    ) : opt.number ? (
-                      <CalendarNumberIcon
-                        number={opt.number}
-                        size={17}
-                        className={isSelected ? "text-blue-600 dark:text-blue-400 shrink-0" : "text-gray-700 dark:text-gray-300 shrink-0"}
-                      />
-                    ) : null}
-                    <span className="flex-1 truncate">{opt.label}</span>
-                    {isSelected && (
-                      <MdCheck size={18} className="text-blue-600 dark:text-blue-400 shrink-0 ml-auto" />
-                    )}
-                  </button>
-                );
-              })}
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setMessagesFilter(opt.id);
+                          setShowMessagesFilterMenu(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm flex items-center gap-3 transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-blue-50/70 dark:bg-blue-900/25 text-blue-600 dark:text-blue-400 font-semibold"
+                            : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 font-medium"
+                        }`}
+                      >
+                        {IconComponent ? (
+                          <IconComponent
+                            size={17}
+                            className={isSelected ? "text-blue-600 dark:text-blue-400 shrink-0" : "text-gray-700 dark:text-gray-300 shrink-0"}
+                          />
+                        ) : opt.number ? (
+                          <CalendarNumberIcon
+                            number={opt.number}
+                            size={17}
+                            className={isSelected ? "text-blue-600 dark:text-blue-400 shrink-0" : "text-gray-700 dark:text-gray-300 shrink-0"}
+                          />
+                        ) : null}
+                        <span className="flex-1 truncate">{opt.label}</span>
+                        {isSelected && (
+                          <MdCheck size={18} className="text-blue-600 dark:text-blue-400 shrink-0 ml-auto" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 
