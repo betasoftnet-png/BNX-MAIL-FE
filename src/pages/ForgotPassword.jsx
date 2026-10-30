@@ -3,13 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import logo from "../assets/bnx-remove.png";
-import { 
-    MdEmail, 
-    MdPhone, 
-    MdArrowBack, 
-    MdLock, 
-    MdCheckCircle, 
-    MdVisibility, 
+import {
+    MdEmail,
+    MdPhone,
+    MdArrowBack,
+    MdLock,
+    MdCheckCircle,
+    MdVisibility,
     MdVisibilityOff,
     MdErrorOutline,
     MdRefresh
@@ -52,7 +52,7 @@ const ForgotPassword = () => {
             toast.error(msg);
             return;
         }
-        
+
         setLoading(true);
         try {
             const res = await authAPI.getForgotPasswordOptions(identifier.trim());
@@ -62,7 +62,7 @@ const ForgotPassword = () => {
                 toast.error(msg);
                 return;
             }
-            
+
             if (res.data.success || res.status === 200) {
                 const data = res.data.data || res.data;
                 const { recoveryEmail, phoneNumber } = data;
@@ -119,9 +119,9 @@ const ForgotPassword = () => {
         setError('');
         setResending(true);
         try {
-            const res = await authAPI.sendOTP({ 
-                identifier: identifier.trim(), 
-                method: selectedMethod || 'EMAIL' 
+            const res = await authAPI.sendOTP({
+                identifier: identifier.trim(),
+                method: selectedMethod || 'EMAIL'
             });
             if (res.data && res.data.success === false) {
                 const errMsg = res.data.message || 'Failed to resend OTP';
@@ -164,19 +164,19 @@ const ForgotPassword = () => {
 
         setLoading(true);
         try {
-            const res = await authAPI.verifyOTP({ 
-                identifier: identifier.trim(), 
-                otp: cleanOtp 
+            const res = await authAPI.verifyOTP({
+                identifier: identifier.trim(),
+                otp: cleanOtp
             });
 
             if (res.data && (res.data.success === false || res.data.valid === false)) {
                 const serverMsg = res.data.message || '';
                 const msg = (
-                    serverMsg.toLowerCase().includes('invalid') || 
-                    serverMsg.toLowerCase().includes('incorrect') || 
-                    serverMsg.toLowerCase().includes('wrong') || 
-                    serverMsg.toLowerCase().includes('mismatch') || 
-                    serverMsg.toLowerCase().includes('expired') || 
+                    serverMsg.toLowerCase().includes('invalid') ||
+                    serverMsg.toLowerCase().includes('incorrect') ||
+                    serverMsg.toLowerCase().includes('wrong') ||
+                    serverMsg.toLowerCase().includes('mismatch') ||
+                    serverMsg.toLowerCase().includes('expired') ||
                     !serverMsg
                 )
                     ? 'Invalid OTP. Please enter the correct OTP.'
@@ -192,11 +192,11 @@ const ForgotPassword = () => {
         } catch (err) {
             const serverMsg = err.response?.data?.message || err.message || '';
             const msg = (
-                serverMsg.toLowerCase().includes('invalid') || 
-                serverMsg.toLowerCase().includes('incorrect') || 
-                serverMsg.toLowerCase().includes('wrong') || 
-                serverMsg.toLowerCase().includes('mismatch') || 
-                serverMsg.toLowerCase().includes('expired') || 
+                serverMsg.toLowerCase().includes('invalid') ||
+                serverMsg.toLowerCase().includes('incorrect') ||
+                serverMsg.toLowerCase().includes('wrong') ||
+                serverMsg.toLowerCase().includes('mismatch') ||
+                serverMsg.toLowerCase().includes('expired') ||
                 !serverMsg
             )
                 ? 'Invalid OTP. Please enter the correct OTP.'
@@ -267,9 +267,8 @@ const ForgotPassword = () => {
                                     setIdentifier(e.target.value);
                                     if (error) setError('');
                                 }}
-                                className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border ${
-                                    error ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-slate-600 focus:ring-indigo-500'
-                                } rounded-xl focus:ring-2 outline-none dark:text-white transition-all`}
+                                className={`w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-slate-600 focus:ring-indigo-500'
+                                    } rounded-xl focus:ring-2 outline-none dark:text-white transition-all`}
                                 placeholder="Enter your email or username"
                                 required
                             />
@@ -352,11 +351,10 @@ const ForgotPassword = () => {
                                     setOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
                                     if (error) setError('');
                                 }}
-                                className={`w-48 text-center text-3xl tracking-widest px-4 py-3 bg-gray-50 dark:bg-slate-700 border ${
-                                    error
+                                className={`w-48 text-center text-3xl tracking-widest px-4 py-3 bg-gray-50 dark:bg-slate-700 border ${error
                                         ? 'border-red-500 ring-2 ring-red-500/20 text-red-600 dark:text-red-400'
                                         : 'border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white'
-                                } rounded-xl outline-none transition-all font-mono shadow-sm`}
+                                    } rounded-xl outline-none transition-all font-mono shadow-sm`}
                                 placeholder="000000"
                                 required
                                 autoFocus
@@ -396,7 +394,7 @@ const ForgotPassword = () => {
                             {loading ? "Verifying..." : "Verify Code →"}
                         </button>
 
-                        <button 
+                        <button
                             type="button"
                             onClick={() => {
                                 setError('');
@@ -421,7 +419,7 @@ const ForgotPassword = () => {
                                         type={showNewPassword ? "text" : "password"}
                                         value={passwords.newPassword}
                                         onChange={(e) => {
-                                            setPasswords({...passwords, newPassword: e.target.value});
+                                            setPasswords({ ...passwords, newPassword: e.target.value });
                                             if (error) setError('');
                                         }}
                                         className="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
@@ -448,7 +446,7 @@ const ForgotPassword = () => {
                                         type={showConfirmPassword ? "text" : "password"}
                                         value={passwords.confirmPassword}
                                         onChange={(e) => {
-                                            setPasswords({...passwords, confirmPassword: e.target.value});
+                                            setPasswords({ ...passwords, confirmPassword: e.target.value });
                                             if (error) setError('');
                                         }}
                                         className="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
