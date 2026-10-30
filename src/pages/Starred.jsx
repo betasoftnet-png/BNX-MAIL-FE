@@ -10,6 +10,12 @@ import { useTheme } from "../context/ThemeContext";
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 
+const isDraftEmail = (email) => {
+  if (!email) return false;
+  const folder = email.folderName?.toLowerCase();
+  return folder === 'draft' || folder === 'drafts' || email.isDraft === true || email.draft === true;
+};
+
 const Starred = ({ searchQuery }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -87,12 +93,6 @@ const Starred = ({ searchQuery }) => {
 
   const selectedEmail = sortedEmails.find((e) => String(e.uid) === String(selectedEmailUid)) ||
     (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
-
-  const isDraftEmail = (email) => {
-    if (!email) return false;
-    const folder = email.folderName?.toLowerCase();
-    return folder === 'draft' || folder === 'drafts' || email.isDraft === true || email.draft === true;
-  };
 
   const handleSelectEmail = (email) => {
     if (isDraftEmail(email)) {
