@@ -131,6 +131,7 @@ const EmailDetails = ({
   onClose,
   isArchiveFolder = false,
   isTrash = false,
+  isScheduled = false,
   onRestore,
   emailList = [],
   onNavigate,
@@ -146,6 +147,11 @@ const EmailDetails = ({
     email?.folderName?.toLowerCase() === 'trash' ||
     email?.isTrash === true ||
     currentFolder?.toLowerCase() === 'trash'
+  );
+  const isScheduledMode = Boolean(
+    isScheduled ||
+    email?.folderName?.toLowerCase() === 'scheduled' ||
+    currentFolder?.toLowerCase() === 'scheduled'
   );
 
   useEffect(() => {
@@ -232,7 +238,7 @@ const EmailDetails = ({
           onForward(email);
         }
       } else if (action === "archive") {
-        if (onArchive) {
+        if (onArchive && !isScheduledMode) {
           e.detail.handled = true;
           onArchive(email.uid);
         }
@@ -1242,20 +1248,22 @@ const EmailDetails = ({
               
               <div className="h-5 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
 
-              <button
-                onClick={() => {
-                  if (isActuallyArchived) {
-                    if (onUnarchive) onUnarchive(email.uid);
-                    else onArchive?.(email.uid);
-                  } else {
-                    onArchive?.(email.uid);
-                  }
-                }}
-                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
-                title={isActuallyArchived ? "Unarchive" : "Archive"}
-              >
-                {isActuallyArchived ? <MdUnarchive size={20} /> : <MdArchive size={20} />}
-              </button>
+              {!isScheduledMode && (
+                <button
+                  onClick={() => {
+                    if (isActuallyArchived) {
+                      if (onUnarchive) onUnarchive(email.uid);
+                      else onArchive?.(email.uid);
+                    } else {
+                      onArchive?.(email.uid);
+                    }
+                  }}
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
+                  title={isActuallyArchived ? "Unarchive" : "Archive"}
+                >
+                  {isActuallyArchived ? <MdUnarchive size={20} /> : <MdArchive size={20} />}
+                </button>
+              )}
 
               <button
                 onClick={() => {

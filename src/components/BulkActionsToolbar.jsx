@@ -131,8 +131,10 @@ const BulkActionsToolbar = ({
         e.detail.handled = true;
         handleBulkDelete();
       } else if (action === "archive") {
-        e.detail.handled = true;
-        handleBulkArchive();
+        if (folder !== "scheduled") {
+          e.detail.handled = true;
+          handleBulkArchive();
+        }
       } else if (action === "reply") {
         if (selectedEmails.length === 1) {
           const targetEmail = selectedEmails[0];
@@ -337,7 +339,7 @@ const BulkActionsToolbar = ({
           >
             <MdUnarchive size={19} />
           </button>
-        ) : (
+        ) : folder !== "scheduled" ? (
           <button
             onClick={handleBulkArchive}
             className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all cursor-pointer text-gray-600 dark:text-gray-300 flex items-center justify-center"
@@ -345,7 +347,7 @@ const BulkActionsToolbar = ({
           >
             <MdArchive size={19} />
           </button>
-        )}
+        ) : null}
 
         {/* Report Spam (not shown in spam/trash) */}
         {folder !== "spam" && folder !== "trash" && (

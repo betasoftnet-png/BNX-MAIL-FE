@@ -21,6 +21,7 @@ const EmailList = ({
   onToggleSelect,
   isArchiveFolder = false,
   isTrash = false,
+  isScheduled = false,
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -34,6 +35,12 @@ const EmailList = ({
     currentFolder?.toLowerCase() === 'deleted' ||
     location.pathname === '/trash' ||
     location.pathname?.startsWith('/trash/')
+  );
+  const isScheduledFolder = Boolean(
+    isScheduled ||
+    currentFolder?.toLowerCase() === 'scheduled' ||
+    location.pathname === '/scheduled' ||
+    location.pathname?.startsWith('/scheduled/')
   );
   const snoozeAction = onSnooze || contextHandleSnooze;
 
@@ -263,6 +270,7 @@ const EmailList = ({
               const isActuallyArchived = isArchiveFolder || email.folderName?.toLowerCase() === "archive";
               const isChecked = selectedIds.has(`${email.uid}__${email.folderName || ''}`) || selectedIds.has(String(email.uid)) || selectedIds.has(Number(email.uid));
               const isRowTrash = Boolean(isTrashFolder || email.folderName?.toLowerCase() === 'trash' || email.isTrash === true);
+              const isScheduledRow = Boolean(isScheduledFolder || email.folderName?.toLowerCase() === 'scheduled');
 
               return (
                 <div
@@ -447,7 +455,7 @@ const EmailList = ({
                       className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 ${backgroundImage ? 'bg-transparent' : 'bg-white/90 dark:bg-gray-900/90'} backdrop-blur-sm rounded-lg px-1 transition-opacity duration-150 ${snoozeOpenUid === email.uid ? 'opacity-100 z-50' : 'opacity-0 group-hover:opacity-100 z-10'}`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {!isRowTrash && (
+                      {!isRowTrash && !isScheduledRow && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

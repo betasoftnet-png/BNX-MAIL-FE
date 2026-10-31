@@ -276,13 +276,6 @@ const Scheduled = ({ searchQuery }) => {
     }
   };
 
-  const handleArchive = (uid) => {
-    setEmails((prev) =>
-      prev.map((e) => (e.uid === uid ? { ...e, folder: "archive" } : e))
-    );
-    setSelectedEmail(null);
-  };
-
   /* ---------------- MAIN UI ---------------- */
   const detailsComponent = selectedEmail ? (
     <EmailDetails
@@ -292,7 +285,7 @@ const Scheduled = ({ searchQuery }) => {
       onClose={() => setSelectedEmail(null)}
       onDelete={handleDelete}
       onStar={handleStar}
-      onArchive={handleArchive}
+      isScheduled={true}
     />
   ) : null;
 
@@ -381,7 +374,7 @@ const Scheduled = ({ searchQuery }) => {
           onSelectEmail={setSelectedEmail}
           onDelete={handleDelete}
           onStar={handleStar}
-          onArchive={handleArchive}
+          isScheduled={true}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
           showTo={true}
