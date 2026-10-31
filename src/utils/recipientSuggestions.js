@@ -449,3 +449,67 @@ export const getRecipientFullTooltip = (email) => {
   return email.to || email.recipientEmail || email.recipient || '';
 };
 
+/**
+ * Expands a single sent email into separate display rows for each recipient (To, Cc, Bcc).
+ * Each row retains the original email object, but specifies:
+ * - _displayRecipient: the individual recipient address (e.g. "recipient1@gmail.com")
+ * - _displayRecipientType: "TO", "CC", or "BCC"
+ * - _rowKey: unique string key for this recipient row
+ */
+export const expandEmailByRecipients = (email) => {
+  if (!email) return [];
+  const groups = getParsedRecipientGroups(email);
+  const rows = [];
+  const uid = email.uid ?? email.id ?? Math.random().toString(36).substring(2);
+
+  // 1. Process To recipients
+  if (groups.to && groups.to.length > 0) {
+    groups.to.forEach((addr, idx) => {
+      rows.push({
+        ...email,
+        _displayRecipient: addr,
+        _displayRecipientType: 'TO',
+        _rowKey: `${uid}__to__${addr}__${idx}`,
+      });
+    });
+  }
+
+  // 2. Process Cc recipients
+  if (groups.cc && groups.cc.length > 0) {
+    groups.cc.forEach((addr, idx) => {
+      rows.push({
+        ...email,
+        _displayRecipient: addr,
+        _displayRecipientType: 'CC',
+        _rowKey: `${uid}__cc__${addr}__${idx}`,
+      });
+    });
+  }
+
+  // 3. Process Bcc recipients
+  if (groups.bcc && groups.bcc.length > 0) {
+    groups.bcc.forEach((addr, idx) => {
+      rows.push({
+        ...email,
+        _displayRecipient: addr,
+        _displayRecipientType: 'BCC',
+        _rowKey: `${uid}__bcc__${addr}__${idx}`,
+      });
+    });
+  }
+
+  // Fallback if no recipients parsed
+  if (rows.length === 0) {
+    const fallbackAddr = email.to || email.recipientEmail || email.recipient || 'Unknown';
+    rows.push({
+      ...email,
+      _displayRecipient: fallbackAddr,
+      _displayRecipientType: 'TO',
+      _rowKey: `${uid}__fallback__0`,
+    });
+  }
+
+  return rows;
+};
+
+

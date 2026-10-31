@@ -15,6 +15,7 @@ import {
 const EmailList = ({
   emails,
   selectedEmailId,
+  selectedRowKey = null,
   onSelectEmail,
   onDelete,
   onRestore,
@@ -57,6 +58,12 @@ const EmailList = ({
     location.pathname?.startsWith('/spam') ||
     location.pathname?.includes('spam')
   );
+  const isSentFolder = Boolean(
+    showTo ||
+    currentFolder?.toLowerCase() === 'sent' ||
+    location.pathname === '/sent' ||
+    location.pathname?.startsWith('/sent/')
+  );
   const snoozeAction = onSnooze || contextHandleSnooze;
 
   const [snoozeOpenUid, setSnoozeOpenUid] = useState(null);
@@ -65,13 +72,13 @@ const EmailList = ({
   const [snoozeCoords, setSnoozeCoords] = useState({ top: 0, right: 0 });
 
   // Pagination logic
-  const effectiveTotal = isScheduledFolder
+  const effectiveTotal = (isScheduledFolder || isSentFolder)
     ? emails.length
     : Math.max(totalEmails || 0, emails.length);
   const totalPages = Math.ceil(effectiveTotal / emailsPerPage) || 1;
   const safeCurrentPage = Math.min(Math.max(1, currentPage || 1), totalPages);
   const startIndex = (safeCurrentPage - 1) * emailsPerPage;
-  const displayedEmails = isScheduledFolder
+  const displayedEmails = (isScheduledFolder || isSentFolder)
     ? emails.slice(startIndex, startIndex + emailsPerPage)
     : emails;
 
@@ -292,14 +299,26 @@ const EmailList = ({
               const isSentFolder = location.pathname === '/sent' || currentFolder?.toLowerCase() === 'sent' || email.folderName?.toLowerCase() === 'sent';
               const isSentByUser = showTo || isSentFolder || (user?.email && email.from?.toLowerCase().includes(user.email.toLowerCase()));
               const recipientGroups = isSentByUser ? getParsedRecipientGroups(email) : null;
-              const recipientBadge = recipientGroups?.to?.length > 0 ? 'TO' : (recipientGroups?.cc?.length > 0 ? 'CC' : (recipientGroups?.bcc?.length > 0 ? 'BCC' : 'TO'));
-              const recipientText = isSentByUser ? formatRecipientsDisplay(email) : '';
+              const recipientBadge = email._displayRecipientType || (recipientGroups?.to?.length > 0 ? 'TO' : (recipientGroups?.cc?.length > 0 ? 'CC' : (recipientGroups?.bcc?.length > 0 ? 'BCC' : 'TO')));
+              const recipientText = email._displayRecipient || (isSentByUser ? formatRecipientsDisplay(email) : '');
               const sender = isSentByUser ? recipientText : email.from;
-              const recipientTooltip = isSentByUser ? (getRecipientFullTooltip(email) || recipientText) : sender;
+              const recipientTooltip = isSentByUser
+                ? (email._displayRecipient
+                    ? `${recipientBadge}: ${email._displayRecipient}`
+                    : (getRecipientFullTooltip(email) || recipientText))
+                : sender;
               const isUnread = !(email.isRead || email.read || isEmailRead?.(email.uid ?? email.id));
-              const isSelected = selectedEmailId === email.uid || selectedEmailId === String(email.uid) || selectedEmailId === `${email.uid}__${email.folderName || ''}`;
+              const isSelected = selectedRowKey
+                ? selectedRowKey === email._rowKey
+                : (selectedEmailId === email._rowKey || selectedEmailId === email.uid || selectedEmailId === String(email.uid) || selectedEmailId === `${email.uid}__${email.folderName || ''}`);
               const isActuallyArchived = isArchiveFolder || email.folderName?.toLowerCase() === "archive";
-              const isChecked = selectedIds.has(`${email.uid}__${email.folderName || ''}`) || selectedIds.has(String(email.uid)) || selectedIds.has(Number(email.uid));
+              const isChecked = Boolean(
+                (email._rowKey && selectedIds.has(email._rowKey)) ||
+                (email._rowKey && selectedIds.has(`${email._rowKey}__${email.folderName || ''}`)) ||
+                selectedIds.has(`${email.uid}__${email.folderName || ''}`) ||
+                selectedIds.has(String(email.uid)) ||
+                selectedIds.has(Number(email.uid))
+              );
               const isRowTrash = Boolean(
                 isTrashFolder ||
                 email.folderName?.toLowerCase() === 'trash' ||
@@ -316,7 +335,7 @@ const EmailList = ({
 
               return (
                 <div
-                  key={`${email.uid !== undefined && email.uid !== null ? email.uid : (email.id || i)}__${email.folderName || ''}__${i}`}
+                  key={email._rowKey || `${email.uid !== undefined && email.uid !== null ? email.uid : (email.id || i)}__${email.folderName || ''}__${i}`}
                   onClick={() => onSelectEmail(email)}
                   className={`group flex items-center gap-1.5 sm:gap-3 py-2 sm:py-2.5 px-2 sm:px-4 cursor-pointer relative transition-colors duration-150 select-none ${snoozeOpenUid === email.uid ? 'z-50' : 'z-10'}
                     ${isChecked
@@ -336,7 +355,7 @@ const EmailList = ({
                       checked={isChecked}
                       onChange={(e) => {
                         e.stopPropagation();
-                        onToggleSelect?.(`${email.uid}__${email.folderName || ''}`);
+                        onToggleSelect?.(email._rowKey || `${email.uid}__${email.folderName || ''}`);
                       }}
                       onClick={(e) => e.stopPropagation()}
                     />

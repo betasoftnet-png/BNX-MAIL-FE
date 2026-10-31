@@ -1,5 +1,5 @@
 import { useTranslation } from "../context/LanguageContext";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { MdSend, MdRefresh } from "react-icons/md";
@@ -9,7 +9,7 @@ import { useTheme } from "../context/ThemeContext";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
-import { formatRecipientsDisplay } from "../utils/recipientSuggestions";
+import { formatRecipientsDisplay, expandEmailByRecipients } from "../utils/recipientSuggestions";
 
 const Send = ({ searchQuery }) => {
   const { t } = useTranslation();
@@ -18,23 +18,37 @@ const Send = ({ searchQuery }) => {
   const { theme, readingPaneMode } = useTheme();
   const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
+  const [selectedRowKey, setSelectedRowKey] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
-  const selectedEmail = emails.find((e) => String(e.uid) === String(selectedEmailUid)) ||
-    (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
+
+  // Expand each email into separate display rows per recipient (To, Cc, Bcc)
+  const visibleEmails = useMemo(() => {
+    const filtered = emails.filter(
+      (e) => typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
+    );
+    return filtered.flatMap((e) => expandEmailByRecipients(e));
+  }, [emails, matchesDateFilter]);
+
+  const selectedEmail = useMemo(() => {
+    if (!selectedEmailUid) return null;
+    return emails.find((e) => String(e.uid) === String(selectedEmailUid) || (e.id && String(e.id) === String(selectedEmailUid))) ||
+      (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
+  }, [emails, selectedEmailUid, selectedEmailOverride]);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const handleToggleSelect = (uid) => {
-    const strUid = String(uid);
+  const handleToggleSelect = (rowId) => {
+    const strId = String(rowId);
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(strUid)) next.delete(strUid);
-      else next.add(strUid);
+      if (next.has(strId)) next.delete(strId);
+      else next.add(strId);
       return next;
     });
   };
 
   useEffect(() => {
     setSelectedEmailUid(null);
+    setSelectedRowKey(null);
     setSelectedEmailOverride(null);
     setSelectedIds(new Set());
   }, [location.pathname]);
@@ -45,6 +59,7 @@ const Send = ({ searchQuery }) => {
       const uid = e.detail?.uid;
       if (uid !== undefined && uid !== null) {
         setSelectedEmailUid(uid);
+        setSelectedRowKey(email?._rowKey || null);
         if (email) setSelectedEmailOverride(email);
       }
     };
@@ -56,17 +71,16 @@ const Send = ({ searchQuery }) => {
     fetchEmails('sent');
   }, [fetchEmails]);
 
-  const visibleEmails = emails.filter(
-    (e) => typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
-  );
-
   const handleSelectEmail = (email) => {
-    setSelectedEmailUid(email.uid);
+    setSelectedEmailUid(email.uid ?? email.id);
+    setSelectedRowKey(email._rowKey || null);
+    setSelectedEmailOverride(email);
   };
 
   const handleDelete = (uid) => {
     handleMoveToTrash(uid, 'Sent');
     setSelectedEmailUid(null);
+    setSelectedRowKey(null);
   };
 
   const handleReply = (email) => {
@@ -99,18 +113,26 @@ const Send = ({ searchQuery }) => {
   const detailsComponent = selectedEmail ? (
     <EmailDetails
       emailList={visibleEmails}
-      onNavigate={(email) => setSelectedEmailUid(email.uid)}
+      onNavigate={(email) => handleSelectEmail(email)}
       email={selectedEmail}
-      onBack={() => setSelectedEmailUid(null)}
-      onClose={() => setSelectedEmailUid(null)}
+      onBack={() => {
+        setSelectedEmailUid(null);
+        setSelectedRowKey(null);
+      }}
+      onClose={() => {
+        setSelectedEmailUid(null);
+        setSelectedRowKey(null);
+      }}
       onDelete={(uid) => {
         handleMoveToTrash(uid, "Sent");
         setSelectedEmailUid(null);
+        setSelectedRowKey(null);
       }}
       onStar={(uid, f) => handleToggleStar(uid, f || "Sent")}
       onArchive={(uid) => {
         handleArchive(uid, "Sent");
         setSelectedEmailUid(null);
+        setSelectedRowKey(null);
       }}
       onApplyLabel={handleApplyLabel}
       onSnooze={handleSnooze}
@@ -138,7 +160,7 @@ const Send = ({ searchQuery }) => {
           className="ml-2 text-xs font-normal"
           style={{ color: theme.subText }}
         >
-          ({emails.length})
+          ({visibleEmails.length})
         </span>
       </h2>
       <button
@@ -163,10 +185,19 @@ const Send = ({ searchQuery }) => {
         <EmailList
           emails={visibleEmails}
           selectedEmailId={selectedEmailUid}
+          selectedRowKey={selectedRowKey}
           onSelectEmail={handleSelectEmail}
           onStar={(uid, f) => handleToggleStar(uid, f || "Sent")}
-          onDelete={(uid) => handleMoveToTrash(uid, "Sent")}
-          onArchive={(uid) => handleArchive(uid, "Sent")}
+          onDelete={(uid) => {
+            handleMoveToTrash(uid, "Sent");
+            setSelectedEmailUid(null);
+            setSelectedRowKey(null);
+          }}
+          onArchive={(uid) => {
+            handleArchive(uid, "Sent");
+            setSelectedEmailUid(null);
+            setSelectedRowKey(null);
+          }}
           onSnooze={handleSnooze}
           showTo={true}
           selectedIds={selectedIds}

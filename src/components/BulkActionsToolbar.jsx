@@ -66,6 +66,7 @@ const BulkActionsToolbar = ({
 
   // Helper to check if an email is selected
   const isEmailSelected = useCallback((e) =>
+    (e._rowKey && (selectedIds.has(e._rowKey) || selectedIds.has(`${e._rowKey}__${e.folderName || ''}`))) ||
     selectedIds.has(`${e.uid}__${e.folderName || ''}`) ||
     selectedIds.has(String(e.uid)) ||
     selectedIds.has(Number(e.uid)), [selectedIds]);
@@ -75,26 +76,37 @@ const BulkActionsToolbar = ({
     visibleEmails ? visibleEmails.filter(isEmailSelected) : [],
     [visibleEmails, isEmailSelected]);
 
+  // Deduplicate emails by UID for bulk operations to prevent duplicate API requests
+  const uniqueSelectedEmails = useMemo(() => {
+    const seen = new Set();
+    return selectedEmails.filter((e) => {
+      const key = String(e.uid ?? e.id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [selectedEmails]);
+
   // Bulk Archive
   const handleBulkArchive = useCallback(async () => {
-    if (!selectedEmails.length) return;
+    if (!uniqueSelectedEmails.length) return;
     try {
       toast.loading("Archiving selected emails...", { id: "bulk-archive" });
-      await Promise.all(selectedEmails.map((e) => handleArchive(e.uid, e.folderName || folder, true)));
+      await Promise.all(uniqueSelectedEmails.map((e) => handleArchive(e.uid, e.folderName || folder, true)));
       setSelectedIds(new Set());
       toast.success("Emails archived", { id: "bulk-archive" });
     } catch (err) {
       toast.error("Failed to archive some emails", { id: "bulk-archive" });
     }
-  }, [selectedEmails, handleArchive, folder, setSelectedIds]);
+  }, [uniqueSelectedEmails, handleArchive, folder, setSelectedIds]);
 
   // Bulk Trash or Permanent Delete
   const handleBulkDelete = useCallback(async () => {
-    if (!selectedEmails.length) return;
+    if (!uniqueSelectedEmails.length) return;
     try {
       if (folder === "trash" && handleDeletePermanently) {
         toast.loading("Permanently deleting selected emails...", { id: "bulk-delete" });
-        for (const e of selectedEmails) {
+        for (const e of uniqueSelectedEmails) {
           try {
             await handleDeletePermanently(e.uid, true);
           } catch (err) {
@@ -105,7 +117,7 @@ const BulkActionsToolbar = ({
         toast.success("Emails permanently deleted", { id: "bulk-delete" });
       } else {
         toast.loading("Deleting selected emails...", { id: "bulk-delete" });
-        for (const e of selectedEmails) {
+        for (const e of uniqueSelectedEmails) {
           try {
             await handleMoveToTrash(e.uid, e.folderName || folder, true);
           } catch (err) {
@@ -118,7 +130,7 @@ const BulkActionsToolbar = ({
     } catch (err) {
       toast.error("Failed to delete some emails", { id: "bulk-delete" });
     }
-  }, [selectedEmails, folder, handleDeletePermanently, handleMoveToTrash, setSelectedIds]);
+  }, [uniqueSelectedEmails, folder, handleDeletePermanently, handleMoveToTrash, setSelectedIds]);
 
   // Global Keyboard Shortcuts integration for selected emails in any folder
   useEffect(() => {
@@ -181,7 +193,7 @@ const BulkActionsToolbar = ({
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(visibleEmails.map((e) => `${e.uid}__${e.folderName || ''}`)));
+      setSelectedIds(new Set(visibleEmails.map((e) => e._rowKey || `${e.uid}__${e.folderName || ''}`)));
     }
   };
 
