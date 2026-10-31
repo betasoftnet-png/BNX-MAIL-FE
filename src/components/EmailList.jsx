@@ -6,6 +6,11 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { getEmailPreviewSnippet } from "../utils/htmlUtils";
+import {
+  formatRecipientsDisplay,
+  getRecipientFullTooltip,
+  getParsedRecipientGroups
+} from "../utils/recipientSuggestions";
 
 const EmailList = ({
   emails,
@@ -284,8 +289,13 @@ const EmailList = ({
         ) : (
           <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800/60">
             {displayedEmails.map((email, i) => {
-              const isSentByUser = showTo || (user?.email && email.from?.toLowerCase().includes(user.email.toLowerCase()));
-              const sender = isSentByUser ? (email.to || email.recipientEmail) : email.from;
+              const isSentFolder = location.pathname === '/sent' || currentFolder?.toLowerCase() === 'sent' || email.folderName?.toLowerCase() === 'sent';
+              const isSentByUser = showTo || isSentFolder || (user?.email && email.from?.toLowerCase().includes(user.email.toLowerCase()));
+              const recipientGroups = isSentByUser ? getParsedRecipientGroups(email) : null;
+              const recipientBadge = recipientGroups?.to?.length > 0 ? 'TO' : (recipientGroups?.cc?.length > 0 ? 'CC' : (recipientGroups?.bcc?.length > 0 ? 'BCC' : 'TO'));
+              const recipientText = isSentByUser ? formatRecipientsDisplay(email) : '';
+              const sender = isSentByUser ? recipientText : email.from;
+              const recipientTooltip = isSentByUser ? (getRecipientFullTooltip(email) || recipientText) : sender;
               const isUnread = !(email.isRead || email.read || isEmailRead?.(email.uid ?? email.id));
               const isSelected = selectedEmailId === email.uid || selectedEmailId === String(email.uid) || selectedEmailId === `${email.uid}__${email.folderName || ''}`;
               const isActuallyArchived = isArchiveFolder || email.folderName?.toLowerCase() === "archive";
@@ -368,10 +378,10 @@ const EmailList = ({
                     </div>
                   )}
 
-                  {/* Sender Name */}
+                  {/* Sender Name / Recipient Names */}
                   <div 
-                    className="w-24 sm:w-32 md:w-36 lg:w-44 shrink-0 truncate pr-1 sm:pr-2.5"
-                    title={isSentByUser ? (email.to || email.recipientEmail) : sender}
+                    className={`${isSentByUser ? 'w-36 sm:w-48 md:w-56 lg:w-64 max-w-[280px]' : 'w-24 sm:w-32 md:w-36 lg:w-44'} shrink-0 truncate pr-1 sm:pr-2.5`}
+                    title={recipientTooltip}
                   >
                     <span
                       className={`text-xs sm:text-sm ${isUnread
@@ -387,9 +397,9 @@ const EmailList = ({
                       currentFolder?.toLowerCase() === "drafts" ? (
                         <span className="text-red-500 font-bold italic tracking-wide">Draft</span>
                       ) : isSentByUser ? (
-                        <span className="flex items-center gap-1">
-                          <span className="text-[9px] font-bold border border-current px-0.5 rounded-sm opacity-50">TO</span>
-                          {(email.to || email.recipientEmail)?.split("@")[0]}
+                        <span className="flex items-center gap-1 min-w-0" title={recipientTooltip}>
+                          <span className="text-[9px] font-bold border border-current px-0.5 rounded-sm opacity-50 shrink-0">{recipientBadge}</span>
+                          <span className="truncate">{recipientText || "Unknown"}</span>
                         </span>
                       ) : (() => {
                         if (!sender) return "Unknown";

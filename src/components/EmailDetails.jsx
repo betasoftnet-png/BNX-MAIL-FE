@@ -59,6 +59,12 @@ import toast from "react-hot-toast";
 import logo from "../assets/bnx-remove.png";
 import html2pdf from "html2pdf.js";
 import { sanitizeAndTargetEmailLinks, linkifyPlainText } from "../utils/htmlUtils";
+import {
+  formatRecipientsDisplay,
+  formatRecipientGroupDisplay,
+  getRecipientFullTooltip,
+  getParsedRecipientGroups
+} from "../utils/recipientSuggestions";
 
 const getMimeType = (fileName) => {
   const ext = fileName.split('.').pop().toLowerCase();
@@ -1423,63 +1429,76 @@ const EmailDetails = ({
 
                 {/* Recipient Dropdown Line */}
                 <div className="relative mt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowRecipientDetails((prev) => !prev)}
-                    className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer rounded transition-colors group"
-                  >
-                    <span>
-                      to{" "}
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">
-                        {email.to || "me"}
-                      </span>
-                    </span>
-                    <MdArrowDropDown
-                      size={16}
-                      className={`text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-transform duration-200 ${
-                        showRecipientDetails ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
+                  {(() => {
+                    const toDisplay = formatRecipientsDisplay(email) || email.to || email.recipientEmail || email.recipient || "me";
+                    const tooltip = getRecipientFullTooltip(email) || toDisplay;
+                    const toRecipients = formatRecipientGroupDisplay(email, 'to') || email.to || email.recipientEmail || email.recipient || "me";
+                    const ccRecipients = formatRecipientGroupDisplay(email, 'cc') || email.cc;
+                    const bccRecipients = formatRecipientGroupDisplay(email, 'bcc') || email.bcc;
 
-                  {showRecipientDetails && (
-                    <div className="absolute left-0 top-full mt-1.5 w-72 sm:w-80 p-3.5 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
-                      <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
-                        <span className="text-gray-400 font-medium">from:</span>
-                        <span className="font-semibold text-gray-800 dark:text-gray-100 truncate ml-2">
-                          {email.from}
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
-                        <span className="text-gray-400 font-medium">to:</span>
-                        <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
-                          {email.to || "me"}
-                        </span>
-                      </div>
-                      {email.cc && (
-                        <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
-                          <span className="text-gray-400 font-medium">cc:</span>
-                          <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
-                            {email.cc}
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setShowRecipientDetails((prev) => !prev)}
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer rounded transition-colors group max-w-full"
+                          title={tooltip}
+                        >
+                          <span className="inline-flex items-center gap-1 min-w-0">
+                            <span className="shrink-0">to</span>{" "}
+                            <span className="text-gray-700 dark:text-gray-300 font-medium max-w-[200px] sm:max-w-md md:max-w-lg lg:max-w-xl truncate">
+                              {toDisplay}
+                            </span>
                           </span>
-                        </div>
-                      )}
-                      {email.bcc && (
-                        <div className="flex justify-between py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
-                          <span className="text-gray-400 font-medium">bcc:</span>
-                          <span className="font-medium text-gray-800 dark:text-gray-100 truncate ml-2">
-                            {email.bcc}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between py-0.5">
-                        <span className="text-gray-400 font-medium">date:</span>
-                        <span className="text-gray-600 dark:text-gray-300 ml-2">
-                          {emailDateFormatted}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                          <MdArrowDropDown
+                            size={16}
+                            className={`text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-transform duration-200 shrink-0 ${
+                              showRecipientDetails ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {showRecipientDetails && (
+                          <div className="absolute left-0 top-full mt-1.5 w-80 sm:w-96 p-3.5 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
+                            <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                              <span className="text-gray-400 font-medium shrink-0">from:</span>
+                              <span className="font-semibold text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={email.from}>
+                                {email.from}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                              <span className="text-gray-400 font-medium shrink-0">to:</span>
+                              <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={toRecipients}>
+                                {toRecipients}
+                              </span>
+                            </div>
+                            {ccRecipients && (
+                              <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                                <span className="text-gray-400 font-medium shrink-0">cc:</span>
+                                <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={ccRecipients}>
+                                  {ccRecipients}
+                                </span>
+                              </div>
+                            )}
+                            {bccRecipients && (
+                              <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                                <span className="text-gray-400 font-medium shrink-0">bcc:</span>
+                                <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={bccRecipients}>
+                                  {bccRecipients}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between py-0.5">
+                              <span className="text-gray-400 font-medium shrink-0">date:</span>
+                              <span className="text-gray-600 dark:text-gray-300 ml-2 text-right">
+                                {emailDateFormatted}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

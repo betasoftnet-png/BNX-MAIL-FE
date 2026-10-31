@@ -328,3 +328,124 @@ export const applyRecipientSuggestion = (currentValue, suggestionEmail) => {
   cleaned.push(suggestionEmail.trim());
   return cleaned.join(', ') + ', ';
 };
+
+/**
+ * Extracts and normalizes an array of recipient email strings from any input format
+ * (comma/semicolon-separated string, array of strings, object, etc.)
+ */
+export const extractRecipientAddresses = (field) => {
+  if (!field) return [];
+  if (Array.isArray(field)) {
+    return field.flatMap(item => extractRecipientAddresses(item));
+  }
+  if (typeof field === 'object') {
+    if (field.email) return [field.email.trim()];
+    if (field.address) return [field.address.trim()];
+    if (field.value) return extractRecipientAddresses(field.value);
+    return [];
+  }
+  if (typeof field !== 'string') return [];
+  return splitAddresses(field).map(addrStr => {
+    const parsed = parseAddress(addrStr);
+    return parsed?.email || addrStr.trim();
+  }).filter(Boolean);
+};
+
+/**
+ * Returns distinct recipient groups (to, cc, bcc, all) for an email object.
+ */
+export const getParsedRecipientGroups = (email) => {
+  if (!email) return { to: [], cc: [], bcc: [], all: [] };
+
+  const dedupe = (arr) => {
+    const seen = new Set();
+    const result = [];
+    arr.forEach(item => {
+      if (!item) return;
+      const k = item.toLowerCase().trim();
+      if (!seen.has(k)) {
+        seen.add(k);
+        result.push(item.trim());
+      }
+    });
+    return result;
+  };
+
+  const toList = [
+    ...extractRecipientAddresses(email.to),
+    ...extractRecipientAddresses(email.recipientEmail),
+    ...extractRecipientAddresses(email.recipient),
+    ...extractRecipientAddresses(email.recipients),
+  ];
+  const ccList = extractRecipientAddresses(email.cc);
+  const bccList = extractRecipientAddresses(email.bcc);
+
+  const cleanTo = dedupe(toList);
+  const cleanCc = dedupe(ccList);
+  const cleanBcc = dedupe(bccList);
+
+  const allSeen = new Set();
+  const all = [];
+  [...cleanTo, ...cleanCc, ...cleanBcc].forEach(addr => {
+    const k = addr.toLowerCase();
+    if (!allSeen.has(k)) {
+      allSeen.add(k);
+      all.push(addr);
+    }
+  });
+
+  return { to: cleanTo, cc: cleanCc, bcc: cleanBcc, all };
+};
+
+/**
+ * Formats a specific recipient group (e.g. 'to', 'cc', 'bcc') as a comma-separated string.
+ */
+export const formatRecipientGroupDisplay = (email, group = 'to') => {
+  if (!email) return '';
+  const groups = getParsedRecipientGroups(email);
+  if (groups[group] && groups[group].length > 0) {
+    return groups[group].join(', ');
+  }
+  if (group === 'to') {
+    return email.to || email.recipientEmail || email.recipient || '';
+  }
+  if (group === 'cc') return email.cc || '';
+  if (group === 'bcc') return email.bcc || '';
+  return '';
+};
+
+/**
+ * Formats all recipient addresses (To, Cc, Bcc) for display in email rows and summary views.
+ * If multiple recipients exist, joins them with commas.
+ */
+export const formatRecipientsDisplay = (email) => {
+  if (!email) return '';
+  const { all, to } = getParsedRecipientGroups(email);
+  if (all.length > 0) {
+    return all.join(', ');
+  }
+  return email.to || email.recipientEmail || email.recipient || '';
+};
+
+/**
+ * Formats a complete tooltip with To, Cc, and Bcc breakdown for hovering.
+ */
+export const getRecipientFullTooltip = (email) => {
+  if (!email) return '';
+  const { to, cc, bcc } = getParsedRecipientGroups(email);
+  const parts = [];
+  if (to.length > 0) {
+    parts.push(`To: ${to.join(', ')}`);
+  }
+  if (cc.length > 0) {
+    parts.push(`Cc: ${cc.join(', ')}`);
+  }
+  if (bcc.length > 0) {
+    parts.push(`Bcc: ${bcc.join(', ')}`);
+  }
+  if (parts.length > 0) {
+    return parts.join(' | ');
+  }
+  return email.to || email.recipientEmail || email.recipient || '';
+};
+

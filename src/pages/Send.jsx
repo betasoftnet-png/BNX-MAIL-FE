@@ -9,6 +9,7 @@ import { useTheme } from "../context/ThemeContext";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
+import { formatRecipientsDisplay } from "../utils/recipientSuggestions";
 
 const Send = ({ searchQuery }) => {
   const { t } = useTranslation();
@@ -70,7 +71,7 @@ const Send = ({ searchQuery }) => {
 
   const handleReply = (email) => {
     openCompose({
-      replyTo: email.to || email.senderEmail || email.from, // For sent mail, reply to the recipient
+      replyTo: formatRecipientsDisplay(email) || email.to || email.recipientEmail || email.senderEmail || email.from, // For sent mail, reply to the recipient(s)
       subject: `Re: ${email.subject || ""}`,
       originalBody: email.body,
     });
