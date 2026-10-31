@@ -9,6 +9,7 @@ import { useTheme } from "../context/ThemeContext";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
+import { matchesScheduledAndSentEmail } from "../utils/starredStorage";
 
 const isDraftEmail = (email) => {
   if (!email) return false;
@@ -69,9 +70,18 @@ const Starred = ({ searchQuery }) => {
   });
 
   const sortedEmails = useMemo(() => {
+    const sentEmails = visibleEmails.filter(e => e.folderName?.toLowerCase() === 'sent');
+    const filteredVisible = visibleEmails.filter(e => {
+      if (e.folderName?.toLowerCase() === 'scheduled') {
+        const hasSentMatch = sentEmails.some(sent => matchesScheduledAndSentEmail(e, sent));
+        if (hasSentMatch) return false;
+      }
+      return true;
+    });
+
     const seen = new Set();
     const uniqueEmails = [];
-    for (const e of visibleEmails) {
+    for (const e of filteredVisible) {
       const uidStr = String(e.uid ?? e.id ?? '');
       const folderKey = e.folderName?.toLowerCase() || '';
       const dedupeKey = `${folderKey}:${uidStr}`;

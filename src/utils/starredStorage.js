@@ -189,6 +189,24 @@ export const removeStoredStarredEmail = (uid, userEmail, folder = '', email = nu
       map.delete(`sent:${bareUid}`);
       map.delete(`scheduled:${bareUid}`);
     }
+    if (normFolder === 'sent') {
+      for (const [k, item] of map.entries()) {
+        if (k.startsWith('scheduled:') && matchesScheduledAndSentEmail(item, email || { uid, folderName: 'sent' })) {
+          map.delete(k);
+          const sUid = String(item.uid ?? item.id ?? '');
+          if (sUid) map.delete(`scheduled:${sUid}`);
+        }
+      }
+    }
+    if (normFolder === 'scheduled') {
+      for (const [k, item] of map.entries()) {
+        if (k.startsWith('sent:') && matchesScheduledAndSentEmail(email || { uid, folderName: 'scheduled' }, item)) {
+          map.delete(k);
+          const sUid = String(item.uid ?? item.id ?? '');
+          if (sUid) map.delete(`sent:${sUid}`);
+        }
+      }
+    }
 
     const obj = {};
     map.forEach((val, key) => { obj[key] = val; });
@@ -201,6 +219,143 @@ export const removeStoredStarredEmail = (uid, userEmail, folder = '', email = nu
   } catch (err) {
     console.error("Failed to remove starred email data from localStorage:", err);
   }
+};
+
+export const extractCleanEmail = (str) => {
+  if (!str) return '';
+  const match = String(str).match(/<([^>]+)>/);
+  const raw = match ? match[1] : str;
+  return raw.toLowerCase().trim().replace(/['"]/g, '');
+};
+
+export const extractAllCleanEmails = (str) => {
+  if (!str) return [];
+  return String(str)
+    .split(/[,;]/)
+    .map(extractCleanEmail)
+    .filter(Boolean);
+};
+
+export const getCleanTextSnippet = (content, length = 80) => {
+  if (!content) return '';
+  return String(content)
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .slice(0, length);
+};
+
+const getEmailTimestamp = (m) => {
+  if (!m) return 0;
+  const raw = m.sentDate || m.date || m.receivedDate || m.scheduledAt || m.createdAt || m.timestamp;
+  if (!raw) return 0;
+  const t = new Date(raw).getTime();
+  return isNaN(t) ? 0 : t;
+};
+
+export const matchesScheduledAndSentEmail = (sched, sent) => {
+  if (!sched || !sent) return false;
+
+  // 1. Subject match (must match)
+  const schedSub = String(sched.subject || '').trim().toLowerCase();
+  const sentSub = String(sent.subject || '').trim().toLowerCase();
+  if (!schedSub || schedSub !== sentSub) return false;
+
+  // 2. Recipient match (must match at least one recipient if available)
+  const schedRecipients = extractAllCleanEmails(sched.to || sched.recipientEmail || sched.toRecipient || sched.recipient);
+  const sentRecipients = extractAllCleanEmails(sent.to || sent.recipientEmail || sent.toRecipient || sent.recipient || sent.recipients);
+  if (schedRecipients.length > 0 && sentRecipients.length > 0) {
+    const hasRecipientMatch = schedRecipients.some(r => sentRecipients.includes(r));
+    if (!hasRecipientMatch) return false;
+  }
+
+  // 3. Body snippet match if both available
+  const schedText = getCleanTextSnippet(sched.body || sched.htmlBody);
+  const sentText = getCleanTextSnippet(sent.body || sent.htmlBody || sent.textPlain);
+  if (schedText && sentText) {
+    const minLen = Math.min(25, Math.min(schedText.length, sentText.length));
+    if (minLen >= 10 && !schedText.includes(sentText.slice(0, minLen)) && !sentText.includes(schedText.slice(0, minLen))) {
+      return false;
+    }
+  }
+
+  // 4. Timing sanity check: sent time should not be significantly before the scheduled time
+  const schedTime = getEmailTimestamp(sched);
+  const sentTime = getEmailTimestamp(sent);
+  if (schedTime > 0 && sentTime > 0) {
+    if (sentTime < schedTime - 300000) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+export const linkScheduledStarToSentEmail = (sentEmail, userEmail) => {
+  if (!sentEmail) return false;
+  const sentUid = String(sentEmail.uid ?? sentEmail.id ?? '').trim();
+  if (!sentUid) return false;
+
+  const currentSet = getStoredStarredIds(userEmail);
+  const sentCanonicalKey = `sent:${sentUid}`;
+
+  if (currentSet.has(sentCanonicalKey)) {
+    return true;
+  }
+
+  const storedMap = getStoredStarredEmailsMap(userEmail);
+  let matchedKey = null;
+  let matchedScheduled = null;
+
+  for (const [key, item] of storedMap.entries()) {
+    const isSched = item.folderName?.toLowerCase() === 'scheduled' || key.startsWith('scheduled:');
+    if (isSched) {
+      const schedUid = String(item.uid ?? item.id ?? '');
+      const isStarredInSet = currentSet.has(key) || currentSet.has(`scheduled:${schedUid}`) || currentSet.has(schedUid) || item.starred === true || item.isStarred === true;
+      if (isStarredInSet) {
+        if (matchesScheduledAndSentEmail(item, sentEmail)) {
+          matchedKey = key;
+          matchedScheduled = item;
+          break;
+        }
+      }
+    }
+  }
+
+  if (matchedKey && matchedScheduled) {
+    const schedUid = String(matchedScheduled.uid ?? matchedScheduled.id ?? '');
+
+    currentSet.add(sentCanonicalKey);
+    currentSet.delete(matchedKey);
+    currentSet.delete(`scheduled:${schedUid}`);
+    currentSet.delete(schedUid);
+    saveStoredStarredIds(currentSet, userEmail);
+
+    removeStoredStarredEmail(schedUid, userEmail, 'scheduled', matchedScheduled);
+    saveStoredStarredEmail({
+      ...matchedScheduled,
+      ...sentEmail,
+      folderName: 'Sent',
+      starred: true,
+      isStarred: true,
+      uid: sentUid,
+      id: sentEmail.id ?? sentUid,
+    }, userEmail, 'sent');
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bnx-starred-updated', {
+        detail: { uid: sentUid, folder: 'sent', starred: true }
+      }));
+    }
+
+    return true;
+  }
+
+  return false;
 };
 
 /**
@@ -253,6 +408,13 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
   const messageId = email?.messageId ? String(email.messageId).trim().toLowerCase() : '';
   if (messageId && idSet.has(`mid:${messageId}`)) {
     return true;
+  }
+
+  // 4b. Check if this is a sent email that corresponds to a previously starred scheduled email
+  if (currentFolder === 'sent' && email) {
+    if (linkScheduledStarToSentEmail(email, userEmail)) {
+      return true;
+    }
   }
 
   // 5. Fallback check for bare numeric IDs:

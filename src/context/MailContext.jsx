@@ -15,7 +15,9 @@ import {
     isEmailIdStarred,
     normalizeFolderName,
     getEmailStarKey,
-    getUserKey
+    getUserKey,
+    matchesScheduledAndSentEmail,
+    linkScheduledStarToSentEmail
 } from '../utils/starredStorage';
 
 // Clean up any legacy persisted read UIDs from previous sessions to prevent stale overrides
@@ -158,10 +160,22 @@ export const MailProvider = ({ children }) => {
     }, [user?.email]);
 
     useEffect(() => {
-        const handleSync = () => {
+        const handleSync = (e) => {
             const loaded = getStoredStarredIds(user?.email);
             setStarredIds(loaded);
             starredIdsRef.current = loaded;
+
+            if (e?.detail) {
+                const { uid, starred } = e.detail;
+                const uidStr = String(uid);
+                setEmails(prev => prev.map(m => {
+                    const mUid = String(m.uid ?? m.id ?? '');
+                    if (mUid === uidStr) {
+                        return { ...m, starred: Boolean(starred), isStarred: Boolean(starred) };
+                    }
+                    return m;
+                }));
+            }
         };
         window.addEventListener('storage', handleSync);
         window.addEventListener('bnx-starred-updated', handleSync);
@@ -266,9 +280,9 @@ export const MailProvider = ({ children }) => {
     }, [user, limit, updateCurrentPage]);
 
     const getStarredWithDrafts = useCallback(async (targetPage = 1, pageLimit = limit) => {
-        const currentStarredIds = getStoredStarredIds(user?.email);
+        const initialStarredIds = getStoredStarredIds(user?.email);
 
-        if (currentStarredIds.size === 0) {
+        if (initialStarredIds.size === 0) {
             return {
                 data: {
                     success: true,
@@ -279,6 +293,33 @@ export const MailProvider = ({ children }) => {
                     }
                 }
             };
+        }
+
+        // Check if there are any starred scheduled emails whose delivery time has passed
+        const initialStoredMap = getStoredStarredEmailsMap(user?.email);
+        const now = Date.now();
+        let hasPastDueScheduled = false;
+        for (const [k, item] of initialStoredMap.entries()) {
+            if (k.startsWith('scheduled:') || item?.folderName?.toLowerCase() === 'scheduled') {
+                const sTime = new Date(item.scheduledAt || item.date || item.createdAt || 0).getTime();
+                if (sTime <= now) {
+                    hasPastDueScheduled = true;
+                    break;
+                }
+            }
+        }
+        if (hasPastDueScheduled) {
+            try {
+                const sentRes = await mailAPI.getSent(1, 50);
+                const sentList = sentRes?.data?.data?.emails || sentRes?.data?.emails || (Array.isArray(sentRes?.data?.data) ? sentRes?.data?.data : []);
+                if (Array.isArray(sentList) && sentList.length > 0) {
+                    sentList.forEach(sMail => {
+                        linkScheduledStarToSentEmail(sMail, user?.email);
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to link sent emails in getStarredWithDrafts:', e);
+            }
         }
 
         const allKnownMap = new Map();
@@ -358,10 +399,21 @@ export const MailProvider = ({ children }) => {
             return !isTrash;
         });
 
+        // Deduplicate scheduled emails against matching sent emails to prevent duplicate entries
+        const sentEmailsList = finalEmails.filter(e => normalizeFolderName(e.folderName, e) === 'sent');
+        const emailsWithoutDuplicateScheduled = finalEmails.filter(e => {
+            const f = normalizeFolderName(e.folderName, e);
+            if (f === 'scheduled') {
+                const hasSentMatch = sentEmailsList.some(sent => matchesScheduledAndSentEmail(e, sent));
+                if (hasSentMatch) return false;
+            }
+            return true;
+        });
+
         // Deduplicate final emails by canonical key to prevent any duplicate entries
         const seenStarKeys = new Set();
         const deduplicatedEmails = [];
-        for (const e of finalEmails) {
+        for (const e of emailsWithoutDuplicateScheduled) {
             const uidStr = String(e.uid ?? e.id ?? '');
             const folderNorm = normalizeFolderName(e.folderName, e);
             const dedupeKey = `${folderNorm}:${uidStr}`;
@@ -1215,6 +1267,23 @@ export const MailProvider = ({ children }) => {
             if (cur !== 'unread') {
                 fetchEmailsSilently('unread');
             }
+
+            // If there are starred scheduled emails that have reached delivery time, fetch sent emails to migrate stars
+            const map = getStoredStarredEmailsMap(user?.email);
+            let hasPastDueScheduled = false;
+            const now = Date.now();
+            for (const [k, item] of map.entries()) {
+                if (k.startsWith('scheduled:') || item?.folderName?.toLowerCase() === 'scheduled') {
+                    const sTime = new Date(item.scheduledAt || item.date || item.createdAt || 0).getTime();
+                    if (sTime <= now) {
+                        hasPastDueScheduled = true;
+                        break;
+                    }
+                }
+            }
+            if (hasPastDueScheduled && cur !== 'sent') {
+                fetchEmailsSilently('sent');
+            }
         };
 
         const interval = setInterval(syncAllMailStatus, 15000);
@@ -1315,6 +1384,35 @@ export const MailProvider = ({ children }) => {
             if (emailFolder === 'draft') {
                 nextSet.delete(`draft:${strUid}`);
                 nextSet.delete(`drafts:${strUid}`);
+            }
+            if (emailFolder === 'sent') {
+                nextSet.delete(`sent:${strUid}`);
+                const map = getStoredStarredEmailsMap(user?.email);
+                for (const [k, item] of map.entries()) {
+                    if (k.startsWith('scheduled:') && matchesScheduledAndSentEmail(item, targetEmail || { uid: strUid, folderName: 'sent' })) {
+                        nextSet.delete(k);
+                        const sUid = String(item.uid ?? item.id ?? '');
+                        if (sUid) {
+                            nextSet.delete(`scheduled:${sUid}`);
+                            nextSet.delete(sUid);
+                        }
+                    }
+                }
+            }
+            if (emailFolder === 'scheduled') {
+                nextSet.delete(`scheduled:${strUid}`);
+                const map = getStoredStarredEmailsMap(user?.email);
+                for (const [k, item] of map.entries()) {
+                    if (k.startsWith('sent:') && matchesScheduledAndSentEmail(targetEmail || { uid: strUid, folderName: 'scheduled' }, item)) {
+                        nextSet.delete(k);
+                        const sUid = String(item.uid ?? item.id ?? '');
+                        if (sUid) {
+                            nextSet.delete(`sent:${sUid}`);
+                            nextSet.delete(sUid);
+                        }
+                        removeStoredStarredEmail(sUid, user?.email, 'sent', item);
+                    }
+                }
             }
             nextSet.delete(strUid);
             removeStoredStarredEmail(strUid, user?.email, emailFolder, targetEmail);
