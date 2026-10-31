@@ -4,9 +4,18 @@ import { MdSend, MdAttachFile, MdDeleteOutline, MdClose, MdAssignment } from "re
 import { mailAPI, userAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
+import { useAuth } from "../context/AuthContext";
 import { DEFAULT_TEMPLATES } from "./Templates";
 import { handleStandardInputAutoCorrect } from "../utils/autoCorrect";
 import { extractPlainTextFromHtml } from "../utils/htmlUtils";
+import RecipientAutocomplete from "../components/RecipientAutocomplete";
+import {
+  getStoredContacts,
+  fetchAndSyncContacts,
+  filterRecipientSuggestions,
+  applyRecipientSuggestion,
+  recordSentRecipient
+} from "../utils/recipientSuggestions";
 
 
 const getFontFamilyCss = (font) => {
@@ -93,7 +102,100 @@ const ComposePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const { handleEmailSent, invalidateCache, fetchEmailsSilently, updateDraftInState, updateDraftUidInState, isEmailStarred } = useMail();
+
+  // Recipient autocomplete state
+  const [contacts, setContacts] = useState(() => getStoredContacts(user?.email));
+  const [toSuggestions, setToSuggestions] = useState([]);
+  const [showToSuggestions, setShowToSuggestions] = useState(false);
+  const [toHighlightedIndex, setToHighlightedIndex] = useState(0);
+  const toDropdownRef = useRef(null);
+  const toInputRef = useRef(null);
+
+  useEffect(() => {
+    if (user?.email) {
+      fetchAndSyncContacts(user.email, mailAPI).then((synced) => {
+        if (synced && synced.length > 0) {
+          setContacts(synced);
+        }
+      });
+    }
+  }, [user?.email]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        toDropdownRef.current &&
+        !toDropdownRef.current.contains(e.target) &&
+        toInputRef.current &&
+        !toInputRef.current.contains(e.target)
+      ) {
+        setShowToSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleToInputChange = (e) => {
+    handleChange(e);
+    const val = e.target.value;
+    const { suggestions } = filterRecipientSuggestions(contacts, val);
+    setToSuggestions(suggestions);
+    setShowToSuggestions(suggestions.length > 0);
+    setToHighlightedIndex(0);
+  };
+
+  const handleToInputFocus = () => {
+    const { suggestions } = filterRecipientSuggestions(contacts, formData.to || "");
+    setToSuggestions(suggestions);
+    setShowToSuggestions(suggestions.length > 0);
+    setToHighlightedIndex(0);
+  };
+
+  const handleToInputBlur = () => {
+    setTimeout(() => {
+      setShowToSuggestions(false);
+    }, 150);
+  };
+
+  const handleSelectToSuggestion = (suggestion) => {
+    const updatedVal = applyRecipientSuggestion(formData.to || "", suggestion.email);
+    setFormData((prev) => ({ ...prev, to: updatedVal }));
+    setShowToSuggestions(false);
+    setToSuggestions([]);
+    if (toInputRef.current) {
+      toInputRef.current.focus();
+    }
+  };
+
+  const handleToInputKeyDown = (e) => {
+    if (showToSuggestions && toSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setToHighlightedIndex((prev) => (prev + 1) % toSuggestions.length);
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setToHighlightedIndex((prev) => (prev - 1 + toSuggestions.length) % toSuggestions.length);
+        return;
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        if (toSuggestions[toHighlightedIndex]) {
+          handleSelectToSuggestion(toSuggestions[toHighlightedIndex]);
+        }
+        return;
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowToSuggestions(false);
+        return;
+      }
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+    }
+  };
 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -245,6 +347,9 @@ const ComposePage = () => {
 
       if (response.data?.success) {
         setSuccess("Email sent successfully");
+        recordSentRecipient(user?.email, formData.to);
+        if (formData.cc) recordSentRecipient(user?.email, formData.cc);
+        if (formData.bcc) recordSentRecipient(user?.email, formData.bcc);
         if (handleEmailSent) {
           handleEmailSent({
             draftId: targetDraftId,
@@ -544,7 +649,17 @@ const ComposePage = () => {
                 label="To"
                 name="to"
                 value={formData.to}
-                onChange={handleChange}
+                onChange={handleToInputChange}
+                onFocus={handleToInputFocus}
+                onBlur={handleToInputBlur}
+                onKeyDown={handleToInputKeyDown}
+                inputRef={toInputRef}
+                suggestions={toSuggestions}
+                showSuggestions={showToSuggestions}
+                highlightedIndex={toHighlightedIndex}
+                onSelectSuggestion={handleSelectToSuggestion}
+                onHoverIndex={setToHighlightedIndex}
+                dropdownRef={toDropdownRef}
                 theme={theme}
                 extra={
                   <>
@@ -817,27 +932,61 @@ const ComposePage = () => {
 };
 
 /* ---------------- FIELD COMPONENT ---------------- */
-const Field = ({ label, name, value, onChange, extra, theme, spellCheck = false, autoCorrect = "off" }) => {
+const Field = ({
+  label,
+  name,
+  value,
+  onChange,
+  onFocus,
+  onBlur,
+  onKeyDown,
+  inputRef,
+  suggestions,
+  showSuggestions,
+  highlightedIndex,
+  onSelectSuggestion,
+  onHoverIndex,
+  dropdownRef,
+  extra,
+  theme,
+  spellCheck = false,
+  autoCorrect = "off"
+}) => {
   return (
     <div
-      className="flex items-center gap-3 border-b py-2 sm:py-3 transition-colors focus-within:border-primary/50"
+      className="flex items-center gap-3 border-b py-2 sm:py-3 transition-colors focus-within:border-primary/50 relative"
       style={{ borderColor: theme?.border || '#e5e7eb' }}
     >
       <span className="w-16 text-sm font-medium text-gray-500 shrink-0">{label}:</span>
-      <input
-        type="text"
-        name={name}
-        value={value || ""}
-        onChange={onChange}
-        onKeyDown={(e) => {
-          handleStandardInputAutoCorrect(e, autoCorrect === "on" || autoCorrect === true);
-          if (e.key === 'Enter') e.preventDefault();
-        }}
-        className="flex-1 outline-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 group"
-        placeholder={`Enter ${label.toLowerCase()}...`}
-        spellCheck={spellCheck ? "true" : "false"}
-        autoCorrect={autoCorrect}
-      />
+      <div className="flex-1 relative flex items-center min-w-0">
+        <input
+          ref={inputRef}
+          type="text"
+          name={name}
+          value={value || ""}
+          onChange={onChange}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          onKeyDown={(e) => {
+            handleStandardInputAutoCorrect(e, autoCorrect === "on" || autoCorrect === true);
+            if (onKeyDown) onKeyDown(e);
+            else if (e.key === 'Enter') e.preventDefault();
+          }}
+          className="w-full outline-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 group"
+          placeholder={`Enter ${label.toLowerCase()}...`}
+          spellCheck={spellCheck ? "true" : "false"}
+          autoCorrect={autoCorrect}
+        />
+        {showSuggestions && suggestions && suggestions.length > 0 && (
+          <RecipientAutocomplete
+            suggestions={suggestions}
+            highlightedIndex={highlightedIndex}
+            onSelectSuggestion={onSelectSuggestion}
+            onHoverIndex={onHoverIndex}
+            dropdownRef={dropdownRef}
+          />
+        )}
+      </div>
       {extra && <div className="flex gap-2 shrink-0">{extra}</div>}
     </div>
   );

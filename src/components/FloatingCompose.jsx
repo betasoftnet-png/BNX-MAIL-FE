@@ -23,8 +23,15 @@ import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../context/LanguageContext";
-import { DEFAULT_TEMPLATES } from "../pages/Templates";
 import toast from "react-hot-toast";
+import RecipientAutocomplete from "./RecipientAutocomplete";
+import {
+  getStoredContacts,
+  fetchAndSyncContacts,
+  filterRecipientSuggestions,
+  applyRecipientSuggestion,
+  recordSentRecipient
+} from "../utils/recipientSuggestions";
 
 const extractFormattedPlainText = (content) => {
   if (!content) return "";
@@ -320,6 +327,101 @@ const ComposeWindow = ({
   const signatureInjectedRef = useRef(false);
   const quillRef = useRef(null);
   const focusedFieldRef = useRef(null);
+
+  // Recipient autocomplete state
+  const [contacts, setContacts] = useState(() => getStoredContacts(user?.email));
+  const [toSuggestions, setToSuggestions] = useState([]);
+  const [showToSuggestions, setShowToSuggestions] = useState(false);
+  const [toHighlightedIndex, setToHighlightedIndex] = useState(0);
+  const toDropdownRef = useRef(null);
+  const toInputRef = useRef(null);
+
+  useEffect(() => {
+    if (user?.email) {
+      fetchAndSyncContacts(user.email, mailAPI).then((synced) => {
+        if (synced && synced.length > 0) {
+          setContacts(synced);
+        }
+      });
+    }
+  }, [user?.email]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        toDropdownRef.current &&
+        !toDropdownRef.current.contains(e.target) &&
+        toInputRef.current &&
+        !toInputRef.current.contains(e.target)
+      ) {
+        setShowToSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleToInputChange = (e) => {
+    handleChange(e);
+    const val = e.target.value;
+    const { suggestions } = filterRecipientSuggestions(contacts, val);
+    setToSuggestions(suggestions);
+    setShowToSuggestions(suggestions.length > 0);
+    setToHighlightedIndex(0);
+  };
+
+  const handleToInputFocus = () => {
+    focusedFieldRef.current = 'to';
+    const { suggestions } = filterRecipientSuggestions(contacts, formData.to || "");
+    setToSuggestions(suggestions);
+    setShowToSuggestions(suggestions.length > 0);
+    setToHighlightedIndex(0);
+  };
+
+  const handleToInputBlur = () => {
+    if (focusedFieldRef.current === 'to') focusedFieldRef.current = null;
+    setTimeout(() => {
+      setShowToSuggestions(false);
+    }, 150);
+  };
+
+  const handleSelectToSuggestion = (suggestion) => {
+    const updatedVal = applyRecipientSuggestion(formData.to || "", suggestion.email);
+    setFormData((prev) => ({ ...prev, to: updatedVal }));
+    setShowToSuggestions(false);
+    setToSuggestions([]);
+    if (toInputRef.current) {
+      toInputRef.current.focus();
+    }
+  };
+
+  const handleToInputKeyDown = (e) => {
+    e.stopPropagation();
+    if (showToSuggestions && toSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setToHighlightedIndex((prev) => (prev + 1) % toSuggestions.length);
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setToHighlightedIndex((prev) => (prev - 1 + toSuggestions.length) % toSuggestions.length);
+        return;
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        if (toSuggestions[toHighlightedIndex]) {
+          handleSelectToSuggestion(toSuggestions[toHighlightedIndex]);
+        }
+        return;
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowToSuggestions(false);
+        return;
+      }
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+    }
+  };
 
   const dynamicQuillModules = useMemo(() => ({
     toolbar: {
@@ -1269,6 +1371,10 @@ const ComposeWindow = ({
             closeCompose();
           }
 
+          recordSentRecipient(user?.email, formData.to);
+          if (formData.cc) recordSentRecipient(user?.email, formData.cc);
+          if (formData.bcc) recordSentRecipient(user?.email, formData.bcc);
+
           imapDraftUidRef.current = null;
           setDraftId(null);
           selectedDraftIdRef.current = null;
@@ -2090,21 +2196,30 @@ const ComposeWindow = ({
                       </button>
                     </div>
                   ) : (
-                    <input
-                      type="text"
-                      name="to"
-                      autoFocus
-                      className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm"
-                      placeholder="Recipient email..."
-                      value={formData.to || ""}
-                      onChange={handleChange}
-                      onFocus={() => { focusedFieldRef.current = 'to'; }}
-                      onBlur={() => { if (focusedFieldRef.current === 'to') focusedFieldRef.current = null; }}
-                      onKeyDown={(e) => {
-                        e.stopPropagation();
-                        if (e.key === 'Enter') e.preventDefault();
-                      }}
-                    />
+                    <div className="flex-1 relative flex items-center min-w-0">
+                      <input
+                        ref={toInputRef}
+                        type="text"
+                        name="to"
+                        autoFocus
+                        className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm"
+                        placeholder="Recipient email..."
+                        value={formData.to || ""}
+                        onChange={handleToInputChange}
+                        onFocus={handleToInputFocus}
+                        onBlur={handleToInputBlur}
+                        onKeyDown={handleToInputKeyDown}
+                      />
+                      {showToSuggestions && toSuggestions.length > 0 && (
+                        <RecipientAutocomplete
+                          suggestions={toSuggestions}
+                          highlightedIndex={toHighlightedIndex}
+                          onSelectSuggestion={handleSelectToSuggestion}
+                          onHoverIndex={setToHighlightedIndex}
+                          dropdownRef={toDropdownRef}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0 text-sm font-medium">
@@ -2213,23 +2328,32 @@ const ComposeWindow = ({
               {/* Cc & Bcc toggles */}
               {(composeMode === "mail" || composeMode === "email") && (
                 <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
-                  <div className="text-gray-400 dark:text-gray-500 w-10">{t('compose.to', 'To')}</div>
-                  <input
-                    type="text"
-                    name="to"
-                    autoFocus
-                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                    placeholder={t('compose.recipients', 'Recipients')}
-                    value={formData.to || ""}
-                    onChange={handleChange}
-                    onFocus={() => { focusedFieldRef.current = 'to'; }}
-                    onBlur={() => { if (focusedFieldRef.current === 'to') focusedFieldRef.current = null; }}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      if (e.key === 'Enter') e.preventDefault();
-                    }}
-                  />
-                  <div className="flex gap-2 text-gray-500 font-medium">
+                  <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">{t('compose.to', 'To')}</div>
+                  <div className="flex-1 relative flex items-center min-w-0">
+                    <input
+                      ref={toInputRef}
+                      type="text"
+                      name="to"
+                      autoFocus
+                      className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
+                      placeholder={t('compose.recipients', 'Recipients')}
+                      value={formData.to || ""}
+                      onChange={handleToInputChange}
+                      onFocus={handleToInputFocus}
+                      onBlur={handleToInputBlur}
+                      onKeyDown={handleToInputKeyDown}
+                    />
+                    {showToSuggestions && toSuggestions.length > 0 && (
+                      <RecipientAutocomplete
+                        suggestions={toSuggestions}
+                        highlightedIndex={toHighlightedIndex}
+                        onSelectSuggestion={handleSelectToSuggestion}
+                        onHoverIndex={setToHighlightedIndex}
+                        dropdownRef={toDropdownRef}
+                      />
+                    )}
+                  </div>
+                  <div className="flex gap-2 text-gray-500 font-medium ml-2 shrink-0">
                     <button type="button" onClick={() => setShowCc(!showCc)} className="hover:underline">
                       Cc
                     </button>
@@ -2241,25 +2365,34 @@ const ComposeWindow = ({
               )}
               {(composeMode === "chat" || composeMode === "casbox") && (
                 <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
-                  <div className="text-gray-400 dark:text-gray-500 w-10">To</div>
-                  <input
-                    type="text"
-                    name="to"
-                    autoFocus
-                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                    placeholder="Chat / Casbox Recipient (Email or Username)"
-                    value={formData.to || ""}
-                    onChange={handleChange}
-                    onFocus={() => { focusedFieldRef.current = 'to'; }}
-                    onBlur={(e) => {
-                      if (focusedFieldRef.current === 'to') focusedFieldRef.current = null;
-                      handleCasboxRecipientBlur(e);
-                    }}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      if (e.key === 'Enter') e.preventDefault();
-                    }}
-                  />
+                  <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">To</div>
+                  <div className="flex-1 relative flex items-center min-w-0">
+                    <input
+                      ref={toInputRef}
+                      type="text"
+                      name="to"
+                      autoFocus
+                      className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
+                      placeholder="Chat / Casbox Recipient (Email or Username)"
+                      value={formData.to || ""}
+                      onChange={handleToInputChange}
+                      onFocus={handleToInputFocus}
+                      onBlur={(e) => {
+                        handleToInputBlur();
+                        handleCasboxRecipientBlur(e);
+                      }}
+                      onKeyDown={handleToInputKeyDown}
+                    />
+                    {showToSuggestions && toSuggestions.length > 0 && (
+                      <RecipientAutocomplete
+                        suggestions={toSuggestions}
+                        highlightedIndex={toHighlightedIndex}
+                        onSelectSuggestion={handleSelectToSuggestion}
+                        onHoverIndex={setToHighlightedIndex}
+                        dropdownRef={toDropdownRef}
+                      />
+                    )}
+                  </div>
                 </div>
               )}
 
