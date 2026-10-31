@@ -128,7 +128,7 @@ const Inbox = ({ searchQuery }) => {
       } else if (action === "delete") {
         if (!selectedEmailUid && selectedIds.size > 0) {
           e.detail.handled = true;
-          selectedIds.forEach((uid) => handleMoveToTrash(uid, currentFolder));
+          handleMoveToTrash(Array.from(selectedIds), currentFolder);
           setSelectedIds(new Set());
         }
       } else if (action === "archive") {

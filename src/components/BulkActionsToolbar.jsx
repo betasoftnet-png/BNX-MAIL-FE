@@ -116,16 +116,12 @@ const BulkActionsToolbar = ({
         setSelectedIds(new Set());
         toast.success("Emails permanently deleted", { id: "bulk-delete" });
       } else {
-        toast.loading("Deleting selected emails...", { id: "bulk-delete" });
-        for (const e of uniqueSelectedEmails) {
-          try {
-            await handleMoveToTrash(e.uid, e.folderName || folder, true);
-          } catch (err) {
-            console.warn(`Failed to move ${e.uid} to trash:`, err);
-          }
-        }
+        const itemsToTrash = uniqueSelectedEmails.map(e => ({
+          uid: e.uid,
+          folder: e.folderName || folder
+        }));
+        await handleMoveToTrash(itemsToTrash, folder, true);
         setSelectedIds(new Set());
-        toast.success("Emails moved to trash", { id: "bulk-delete" });
       }
     } catch (err) {
       toast.error("Failed to delete some emails", { id: "bulk-delete" });

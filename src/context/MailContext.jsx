@@ -6,6 +6,7 @@ import { useTheme } from './ThemeContext';
 import { filterDuplicateSpamEmails } from '../utils/spamFilter';
 import { matchesDateRange } from '../utils/dateFilter';
 import toast from 'react-hot-toast';
+import UndoDeleteToast from '../components/UndoDeleteToast';
 import {
     getStoredStarredIds,
     saveStoredStarredIds,
@@ -129,6 +130,9 @@ export const MailProvider = ({ children }) => {
     const [unreadCounts, setUnreadCounts] = useState({ inbox: 0, unread: 0, spam: 0, trash: 0 });
     const [labels, setLabels] = useState([]);
     const [totalEmails, setTotalEmails] = useState(0);
+    const [pendingUndoDelete, setPendingUndoDelete] = useState(null);
+    const pendingUndoDeleteRef = useRef(null);
+    const undoCountdownTimerRef = useRef(null);
     const [currentPage, setCurrentPage] = useState(1);
     const currentPageRef = useRef(1);
 
@@ -897,7 +901,11 @@ export const MailProvider = ({ children }) => {
                 // Only update active screen if it matches the current folder
                 if (currentFolderRef.current.toLowerCase() === folderKey) {
                     setTotalEmails(calculatedTotal);
-                    setEmails(normalizedEmails);
+                    const pendingUids = new Set((pendingUndoDeleteRef.current?.items || []).map(it => String(it.uid)));
+                    const filteredScreen = pendingUids.size > 0
+                        ? normalizedEmails.filter(e => !pendingUids.has(String(e.uid)) && !pendingUids.has(String(e.id)))
+                        : normalizedEmails;
+                    setEmails(filteredScreen);
                 }
             }
         } catch (e) {
@@ -1179,7 +1187,11 @@ export const MailProvider = ({ children }) => {
                         }
                     }
 
-                    setEmails(normalizedEmails);
+                    const pendingUids = new Set((pendingUndoDeleteRef.current?.items || []).map(it => String(it.uid)));
+                    const filteredScreen = pendingUids.size > 0
+                        ? normalizedEmails.filter(e => !pendingUids.has(String(e.uid)) && !pendingUids.has(String(e.id)))
+                        : normalizedEmails;
+                    setEmails(filteredScreen);
                 }
             }
         } catch (error) {
@@ -1726,58 +1738,236 @@ export const MailProvider = ({ children }) => {
         }
     }, [user?.email, invalidateCache, fetchEmails]);
 
-    const handleMoveToTrash = async (uid, folder, silent = false) => {
-        const strUid = String(uid);
-        const targetFolder = folder || currentFolderRef.current || 'inbox';
-        const fKey = targetFolder.toLowerCase();
+    const commitPendingDelete = useCallback(async () => {
+        const pending = pendingUndoDeleteRef.current;
+        if (!pending) return;
 
-        let removedEmail = null;
-        setEmails(prev => {
-            removedEmail = prev.find(m => String(m.uid) === strUid || String(m.id) === strUid);
-            return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
-        });
+        if (pending.timerId) clearTimeout(pending.timerId);
+        if (undoCountdownTimerRef.current) clearInterval(undoCountdownTimerRef.current);
+        pendingUndoDeleteRef.current = null;
+        setPendingUndoDelete(null);
 
-        if (removedEmail && !removedEmail.isRead) {
-            if (fKey === 'spam') {
-                setUnreadCounts(c => ({ ...c, spam: Math.max(0, (c.spam || 0) - 1) }));
-            } else {
-                setUnreadCounts(c => ({
-                    ...c,
-                    inbox: Math.max(0, (c.inbox || 0) - 1),
-                    unread: Math.max(0, (c.unread || 0) - 1)
-                }));
+        const items = pending.items || [];
+        for (const item of items) {
+            try {
+                await mailAPI.trash(item.uid, item.folder);
+            } catch (err) {
+                console.warn(`Failed to commit move-to-trash for email ${item.uid}:`, err);
             }
         }
-        setTotalEmails(prev => Math.max(0, prev - 1));
+
         invalidateCache('trash');
         invalidateCache('unread');
         invalidateCache('inbox');
-        if (folder) invalidateCache(folder);
+        if (pending.folder) invalidateCache(pending.folder);
         if (currentFolderRef.current) invalidateCache(currentFolderRef.current);
+    }, [invalidateCache]);
 
-        try {
-            await mailAPI.trash(uid, targetFolder);
-            if (!silent) toast.success('Moved to trash');
-        } catch (error) {
-            if (removedEmail) {
-                setEmails(prev => [removedEmail, ...prev]);
-                if (!removedEmail.isRead) {
-                    if (fKey === 'spam') {
-                        setUnreadCounts(c => ({ ...c, spam: (c.spam || 0) + 1 }));
-                    } else {
-                        setUnreadCounts(c => ({
-                            ...c,
-                            inbox: (c.inbox || 0) + 1,
-                            unread: (c.unread || 0) + 1
-                        }));
-                    }
+    const handleUndoDelete = useCallback(() => {
+        const pending = pendingUndoDeleteRef.current;
+        if (!pending) return;
+
+        if (pending.timerId) clearTimeout(pending.timerId);
+        if (undoCountdownTimerRef.current) clearInterval(undoCountdownTimerRef.current);
+        pendingUndoDeleteRef.current = null;
+        setPendingUndoDelete(null);
+
+        const itemsToRestore = pending.items || [];
+        if (!itemsToRestore.length) return;
+
+        // Sort items by original index ascending so restoring them in order preserves exact positions
+        const sortedItems = [...itemsToRestore].sort((a, b) => a.index - b.index);
+
+        setEmails(prev => {
+            const next = [...prev];
+            sortedItems.forEach(item => {
+                const sUid = String(item.email.uid ?? item.email.id);
+                const exists = next.some(m => String(m.uid ?? m.id) === sUid);
+                if (!exists) {
+                    const insertAt = Math.min(Math.max(0, item.index), next.length);
+                    next.splice(insertAt, 0, item.email);
                 }
-                setTotalEmails(prev => prev + 1);
+            });
+            return next;
+        });
+
+        // Restore unread counts and total count
+        let unreadRestored = 0;
+        let spamUnreadRestored = 0;
+        sortedItems.forEach(item => {
+            if (item.wasUnread) {
+                if (item.fKey === 'spam') {
+                    spamUnreadRestored++;
+                } else {
+                    unreadRestored++;
+                }
             }
-            if (!silent) toast.error('Failed to move to trash');
-            throw error;
+        });
+
+        if (unreadRestored > 0) {
+            setUnreadCounts(c => ({
+                ...c,
+                inbox: (c.inbox || 0) + unreadRestored,
+                unread: (c.unread || 0) + unreadRestored
+            }));
         }
-    };
+        if (spamUnreadRestored > 0) {
+            setUnreadCounts(c => ({
+                ...c,
+                spam: (c.spam || 0) + spamUnreadRestored
+            }));
+        }
+
+        setTotalEmails(prev => prev + sortedItems.length);
+    }, []);
+
+    const handleDismissUndo = useCallback(() => {
+        commitPendingDelete();
+    }, [commitPendingDelete]);
+
+    const handleMoveToTrash = useCallback(async (target, folder, silent = false) => {
+        const now = Date.now();
+        const existing = pendingUndoDeleteRef.current;
+        const isRapidBatch = existing && (now - existing.createdAt < 150);
+
+        if (existing && !isRapidBatch) {
+            commitPendingDelete();
+        }
+
+        // Normalize target into array of { uid, folder }
+        let targetList = [];
+        if (Array.isArray(target)) {
+            targetList = target.map(t => {
+                if (typeof t === 'object' && t !== null) {
+                    return { uid: t.uid ?? t.id, folder: t.folder || folder };
+                }
+                return { uid: t, folder };
+            });
+        } else if (typeof target === 'object' && target !== null && (target.uid !== undefined || target.id !== undefined)) {
+            targetList = [{ uid: target.uid ?? target.id, folder: target.folder || folder }];
+        } else {
+            targetList = [{ uid: target, folder }];
+        }
+
+        const targetFolder = folder || currentFolderRef.current || 'inbox';
+        const fKey = targetFolder.toLowerCase();
+
+        // Extract and remove emails optimistically, recording original index
+        const itemsToTrash = [];
+
+        setEmails(prev => {
+            const next = [...prev];
+            targetList.forEach(tItem => {
+                const sUid = String(tItem.uid);
+                const idx = next.findIndex(m => String(m.uid) === sUid || String(m.id) === sUid);
+                if (idx !== -1) {
+                    const removed = next[idx];
+                    itemsToTrash.push({
+                        email: removed,
+                        uid: tItem.uid,
+                        folder: tItem.folder || targetFolder,
+                        fKey: (tItem.folder || targetFolder).toLowerCase(),
+                        index: idx,
+                        wasUnread: removed && !removed.isRead
+                    });
+                    next.splice(idx, 1);
+                } else {
+                    itemsToTrash.push({
+                        email: { uid: tItem.uid },
+                        uid: tItem.uid,
+                        folder: tItem.folder || targetFolder,
+                        fKey: (tItem.folder || targetFolder).toLowerCase(),
+                        index: prev.length,
+                        wasUnread: false
+                    });
+                }
+            });
+            return next;
+        });
+
+        if (!itemsToTrash.length) return;
+
+        // Decrement unread counts and total count
+        let unreadRemoved = 0;
+        let spamUnreadRemoved = 0;
+        itemsToTrash.forEach(item => {
+            if (item.wasUnread) {
+                if (item.fKey === 'spam') spamUnreadRemoved++;
+                else unreadRemoved++;
+            }
+        });
+
+        if (unreadRemoved > 0) {
+            setUnreadCounts(c => ({
+                ...c,
+                inbox: Math.max(0, (c.inbox || 0) - unreadRemoved),
+                unread: Math.max(0, (c.unread || 0) - unreadRemoved)
+            }));
+        }
+        if (spamUnreadRemoved > 0) {
+            setUnreadCounts(c => ({
+                ...c,
+                spam: Math.max(0, (c.spam || 0) - spamUnreadRemoved)
+            }));
+        }
+
+        setTotalEmails(prev => Math.max(0, prev - itemsToTrash.length));
+
+        // If part of rapid batch (< 150ms), append items to existing pending undo
+        if (isRapidBatch && pendingUndoDeleteRef.current) {
+            pendingUndoDeleteRef.current.items.push(...itemsToTrash);
+            return;
+        }
+
+        // Create new pending undo operation
+        const opId = `undo_delete_${now}_${Math.random().toString(36).substring(2, 7)}`;
+        let countdown = 5;
+
+        const timerId = setTimeout(() => {
+            commitPendingDelete();
+        }, 5000);
+
+        const newPending = {
+            opId,
+            items: itemsToTrash,
+            folder: targetFolder,
+            timerId,
+            countdown: 5,
+            createdAt: now,
+            label: "Conversation moved to Trash"
+        };
+
+        pendingUndoDeleteRef.current = newPending;
+        setPendingUndoDelete({ ...newPending });
+
+        if (undoCountdownTimerRef.current) clearInterval(undoCountdownTimerRef.current);
+        undoCountdownTimerRef.current = setInterval(() => {
+            countdown -= 1;
+            if (countdown <= 0) {
+                if (undoCountdownTimerRef.current) clearInterval(undoCountdownTimerRef.current);
+            } else {
+                setPendingUndoDelete(prev => {
+                    if (!prev || prev.opId !== opId) return prev;
+                    return { ...prev, countdown };
+                });
+            }
+        }, 1000);
+    }, [commitPendingDelete]);
+
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (pendingUndoDeleteRef.current) {
+                commitPendingDelete();
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            if (pendingUndoDeleteRef.current) {
+                commitPendingDelete();
+            }
+        };
+    }, [commitPendingDelete]);
 
     const handleDeletePermanently = async (uid, silent = false) => {
         try {
@@ -2828,9 +3018,18 @@ export const MailProvider = ({ children }) => {
             resetDateFilter,
             matchesDateFilter,
             updateDraftInState,
-            updateDraftUidInState
+            updateDraftUidInState,
+            pendingUndoDelete,
+            handleUndoDelete,
+            handleDismissUndo,
+            commitPendingDelete
         }}>
             {children}
+            <UndoDeleteToast
+                pending={pendingUndoDelete}
+                onUndo={handleUndoDelete}
+                onDismiss={handleDismissUndo}
+            />
         </MailContext.Provider>
     );
 };
