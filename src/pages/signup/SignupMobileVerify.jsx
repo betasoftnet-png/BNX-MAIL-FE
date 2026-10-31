@@ -54,7 +54,7 @@ const SignupMobileVerify = () => {
         setLoading(true);
         try {
             const response = await authAPI.sendMobileOtp({ mobile });
-            
+
             // Handle if backend returns 200 OK but success is false
             if (response.data && response.data.success === false) {
                 const rawMsg = response.data.message || '';
@@ -150,22 +150,22 @@ const SignupMobileVerify = () => {
                 toast.error(msg);
                 return;
             }
-            
-            updateFormData({ 
-                mobileVerified: true, 
-                recoveryPhone: formData.mobileNumber 
+
+            updateFormData({
+                mobileVerified: true,
+                recoveryPhone: formData.mobileNumber
             });
-            
+
             toast.success('Mobile number verified successfully');
             navigate('/signup/password-setup');
         } catch (err) {
             const serverMsg = err.response?.data?.message || '';
             const msg = (
-                serverMsg.toLowerCase().includes('invalid') || 
-                serverMsg.toLowerCase().includes('incorrect') || 
-                serverMsg.toLowerCase().includes('wrong') || 
-                serverMsg.toLowerCase().includes('mismatch') || 
-                serverMsg.toLowerCase().includes('expired') || 
+                serverMsg.toLowerCase().includes('invalid') ||
+                serverMsg.toLowerCase().includes('incorrect') ||
+                serverMsg.toLowerCase().includes('wrong') ||
+                serverMsg.toLowerCase().includes('mismatch') ||
+                serverMsg.toLowerCase().includes('expired') ||
                 !serverMsg
             )
                 ? 'Invalid OTP. Please enter the correct OTP.'
@@ -183,7 +183,7 @@ const SignupMobileVerify = () => {
             setStep('MOBILE');
             return;
         }
-        
+
         navigate('/signup/mail');
     };
 
@@ -201,9 +201,9 @@ const SignupMobileVerify = () => {
             {error && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm font-medium animate-fadeIn flex items-center justify-between">
                     <span>{error}</span>
-                    <button 
-                        type="button" 
-                        onClick={() => setError('')} 
+                    <button
+                        type="button"
+                        onClick={() => setError('')}
                         className="text-red-400 hover:text-red-600 dark:hover:text-red-200 ml-2 font-bold"
                     >
                         ✕
@@ -280,18 +280,18 @@ const SignupMobileVerify = () => {
                                 Code sent to <span className="font-semibold text-gray-700 dark:text-gray-300">{formData.mobileNumber}</span>.
                             </span>
                             <div className="flex items-center gap-2">
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     disabled={resending}
-                                    onClick={handleResendOtp} 
+                                    onClick={handleResendOtp}
                                     className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium disabled:opacity-50"
                                 >
                                     {resending ? 'Resending...' : 'Resend OTP'}
                                 </button>
                                 <span>•</span>
-                                <button 
-                                    type="button" 
-                                    onClick={() => { setError(''); setStep('MOBILE'); }} 
+                                <button
+                                    type="button"
+                                    onClick={() => { setError(''); setStep('MOBILE'); }}
                                     className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
                                 >
                                     Change number

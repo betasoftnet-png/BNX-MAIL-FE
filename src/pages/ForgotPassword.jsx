@@ -352,8 +352,8 @@ const ForgotPassword = () => {
                                     if (error) setError('');
                                 }}
                                 className={`w-48 text-center text-3xl tracking-widest px-4 py-3 bg-gray-50 dark:bg-slate-700 border ${error
-                                        ? 'border-red-500 ring-2 ring-red-500/20 text-red-600 dark:text-red-400'
-                                        : 'border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white'
+                                    ? 'border-red-500 ring-2 ring-red-500/20 text-red-600 dark:text-red-400'
+                                    : 'border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white'
                                     } rounded-xl outline-none transition-all font-mono shadow-sm`}
                                 placeholder="000000"
                                 required
