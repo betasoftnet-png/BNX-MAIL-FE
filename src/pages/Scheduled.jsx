@@ -5,6 +5,13 @@ import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
+import { useAuth } from "../context/AuthContext";
+import {
+  isEmailIdStarred,
+  removeStoredStarredEmail,
+  getStoredStarredIds,
+  saveStoredStarredIds,
+} from "../utils/starredStorage";
 import { MdRefresh } from "react-icons/md";
 import toast from "react-hot-toast";
 
@@ -17,15 +24,31 @@ let isScheduledFetchInFlight = false;
 
 export const invalidateScheduledCache = () => {
   scheduledMemoryCache = null;
+  if (typeof window !== "undefined") {
+    delete window.__bnx_scheduled_cache;
+  }
 };
 
 const Scheduled = ({ searchQuery }) => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
-  const { matchesDateFilter, unreadCounts, setUnreadCounts } = useMail();
+  const { user } = useAuth();
+  const { matchesDateFilter, unreadCounts, setUnreadCounts, handleToggleStar, isEmailStarred } = useMail();
 
   // Instant render: initialize from in-memory cache if available
-  const [emails, setEmails] = useState(() => scheduledMemoryCache?.emails || []);
+  const [emails, setEmails] = useState(() => {
+    const cached = scheduledMemoryCache?.emails || [];
+    return cached.map((m) => {
+      const uidStr = String(m.uid ?? m.id ?? "");
+      const isStarred = isEmailIdStarred(uidStr, user?.email, "scheduled", m);
+      return {
+        ...m,
+        starred: isStarred,
+        isStarred: isStarred,
+        folderName: "scheduled",
+      };
+    });
+  });
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [loading, setLoading] = useState(() => !scheduledMemoryCache?.emails);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -59,17 +82,29 @@ const Scheduled = ({ searchQuery }) => {
       if (res.data?.success) {
         const data = res.data.data;
         const rawList = Array.isArray(data) ? data : (data?.emails || []);
-        const normalized = rawList.map((m) => ({
-          ...m,
-          isRead: true,
-          starred: Boolean(m.starred),
-          folderName: "scheduled",
-        }));
+        const normalized = rawList.map((m) => {
+          const uidStr = String(m.uid ?? m.id ?? "");
+          const isStarred = typeof isEmailStarred === "function"
+            ? isEmailStarred(uidStr, "scheduled", m)
+            : isEmailIdStarred(uidStr, user?.email, "scheduled", m);
+          return {
+            ...m,
+            uid: uidStr,
+            id: m.id ?? uidStr,
+            isRead: true,
+            starred: isStarred,
+            isStarred: isStarred,
+            folderName: "scheduled",
+          };
+        });
 
         scheduledMemoryCache = {
           emails: normalized,
           timestamp: Date.now(),
         };
+        if (typeof window !== "undefined") {
+          window.__bnx_scheduled_cache = scheduledMemoryCache;
+        }
 
         setEmails(normalized);
         setError("");
@@ -94,7 +129,7 @@ const Scheduled = ({ searchQuery }) => {
       setIsRefreshing(false);
       isScheduledFetchInFlight = false;
     }
-  }, [setUnreadCounts]);
+  }, [setUnreadCounts, user?.email, isEmailStarred]);
 
   useEffect(() => {
     // If we have cached emails, refresh silently in the background; otherwise fetch with loader
@@ -105,9 +140,37 @@ const Scheduled = ({ searchQuery }) => {
       fetchScheduled(true);
     };
 
+    const handleStarUpdated = (e) => {
+      const { uid, folder, starred } = e.detail || {};
+      if (folder === "scheduled" || !folder) {
+        const strUid = String(uid);
+        setEmails((prev) => {
+          const next = prev.map((item) =>
+            String(item.uid ?? item.id) === strUid
+              ? { ...item, starred: Boolean(starred), isStarred: Boolean(starred) }
+              : item
+          );
+          if (scheduledMemoryCache) {
+            scheduledMemoryCache.emails = next;
+          }
+          if (typeof window !== "undefined") {
+            window.__bnx_scheduled_cache = scheduledMemoryCache;
+          }
+          return next;
+        });
+        setSelectedEmail((prev) =>
+          prev && String(prev.uid ?? prev.id) === strUid
+            ? { ...prev, starred: Boolean(starred), isStarred: Boolean(starred) }
+            : prev
+        );
+      }
+    };
+
     window.addEventListener("bnx_scheduled_changed", handleScheduledChange);
+    window.addEventListener("bnx-starred-updated", handleStarUpdated);
     return () => {
       window.removeEventListener("bnx_scheduled_changed", handleScheduledChange);
+      window.removeEventListener("bnx-starred-updated", handleStarUpdated);
     };
   }, [fetchScheduled]);
 
@@ -146,6 +209,19 @@ const Scheduled = ({ searchQuery }) => {
       }));
     }
 
+    // Clean up stored star if cancelled email was starred
+    removeStoredStarredEmail(targetId, user?.email, "scheduled");
+    const currentSet = getStoredStarredIds(user?.email);
+    if (currentSet.has(`scheduled:${targetId}`) || currentSet.has(String(targetId))) {
+      const nextSet = new Set(currentSet);
+      nextSet.delete(`scheduled:${targetId}`);
+      nextSet.delete(String(targetId));
+      saveStoredStarredIds(nextSet, user?.email);
+      window.dispatchEvent(new CustomEvent("bnx-starred-updated", {
+        detail: { uid: String(targetId), folder: "scheduled", starred: false }
+      }));
+    }
+
     try {
       toast.loading("Cancelling scheduled email...", { id: "cancel-schedule" });
       await mailAPI.cancelScheduled(targetId);
@@ -163,9 +239,41 @@ const Scheduled = ({ searchQuery }) => {
   };
 
   const handleStar = (uid) => {
-    setEmails((prev) =>
-      prev.map((e) => (e.uid === uid ? { ...e, starred: !e.starred } : e))
+    const strUid = String(uid);
+    const target = emails.find((e) => String(e.uid ?? e.id) === strUid);
+    const currentlyStarred = target
+      ? (typeof isEmailStarred === "function"
+          ? isEmailStarred(strUid, "scheduled", target)
+          : Boolean(target.starred || target.isStarred))
+      : isEmailIdStarred(strUid, user?.email, "scheduled");
+    const nextStarred = !currentlyStarred;
+
+    // 1. Immediately update local state and memory cache for zero latency
+    setEmails((prev) => {
+      const next = prev.map((e) =>
+        String(e.uid ?? e.id) === strUid
+          ? { ...e, starred: nextStarred, isStarred: nextStarred }
+          : e
+      );
+      if (scheduledMemoryCache) {
+        scheduledMemoryCache.emails = next;
+      }
+      if (typeof window !== "undefined") {
+        window.__bnx_scheduled_cache = scheduledMemoryCache;
+      }
+      return next;
+    });
+
+    setSelectedEmail((prev) =>
+      prev && String(prev.uid ?? prev.id) === strUid
+        ? { ...prev, starred: nextStarred, isStarred: nextStarred }
+        : prev
     );
+
+    // 2. Delegate to MailContext handleToggleStar with full email object
+    if (typeof handleToggleStar === "function") {
+      handleToggleStar(strUid, "scheduled", target ? { ...target, folderName: "scheduled" } : null);
+    }
   };
 
   const handleArchive = (uid) => {

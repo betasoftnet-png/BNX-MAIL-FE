@@ -69,6 +69,18 @@ const Starred = ({ searchQuery }) => {
   });
 
   const sortedEmails = useMemo(() => {
+    const seen = new Set();
+    const uniqueEmails = [];
+    for (const e of visibleEmails) {
+      const uidStr = String(e.uid ?? e.id ?? '');
+      const folderKey = e.folderName?.toLowerCase() || '';
+      const dedupeKey = `${folderKey}:${uidStr}`;
+      if (!seen.has(dedupeKey)) {
+        seen.add(dedupeKey);
+        uniqueEmails.push(e);
+      }
+    }
+
     const getTimestamp = (item) => {
       if (!item) return 0;
       const raw = item.receivedDate || item.sentDate || item.date || item.createdAt || item.timestamp;
@@ -77,7 +89,7 @@ const Starred = ({ searchQuery }) => {
       return isNaN(t) ? 0 : t;
     };
 
-    return [...visibleEmails].sort((a, b) => {
+    return uniqueEmails.sort((a, b) => {
       const timeA = getTimestamp(a);
       const timeB = getTimestamp(b);
       if (timeA === 0 && timeB === 0) return 0;

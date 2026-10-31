@@ -27,6 +27,7 @@ export const normalizeFolderName = (folder, email = null) => {
   if (f.includes('spam') || f.includes('junk')) return 'spam';
   if (f.includes('archive')) return 'archive';
   if (f.includes('snooze')) return 'snoozed';
+  if (f.includes('schedule')) return 'scheduled';
   return f;
 };
 
@@ -186,6 +187,7 @@ export const removeStoredStarredEmail = (uid, userEmail, folder = '', email = nu
       map.delete(`drafts:${bareUid}`);
       map.delete(`inbox:${bareUid}`);
       map.delete(`sent:${bareUid}`);
+      map.delete(`scheduled:${bareUid}`);
     }
 
     const obj = {};

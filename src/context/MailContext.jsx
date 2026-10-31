@@ -329,6 +329,24 @@ export const MailProvider = ({ children }) => {
                 }
             });
         }
+        // Check scheduled memory cache if available
+        if (typeof window !== 'undefined' && window.__bnx_scheduled_cache) {
+            const sList = window.__bnx_scheduled_cache.emails || [];
+            sList.forEach(m => {
+                const uidStr = String(m.uid ?? m.id ?? '');
+                if (uidStr && isEmailIdStarred(uidStr, user?.email, 'scheduled', m)) {
+                    const key = getEmailStarKey(uidStr, 'scheduled', m);
+                    if (!allKnownMap.has(key) || Object.keys(m).length > Object.keys(allKnownMap.get(key) || {}).length) {
+                        allKnownMap.set(key, {
+                            ...m,
+                            folderName: 'scheduled',
+                            starred: true,
+                            isStarred: true
+                        });
+                    }
+                }
+            });
+        }
 
         // 3. Filter only emails whose isStarred status is explicitly true and not in trash
         const finalEmails = Array.from(allKnownMap.values()).filter(e => {
@@ -340,8 +358,21 @@ export const MailProvider = ({ children }) => {
             return !isTrash;
         });
 
+        // Deduplicate final emails by canonical key to prevent any duplicate entries
+        const seenStarKeys = new Set();
+        const deduplicatedEmails = [];
+        for (const e of finalEmails) {
+            const uidStr = String(e.uid ?? e.id ?? '');
+            const folderNorm = normalizeFolderName(e.folderName, e);
+            const dedupeKey = `${folderNorm}:${uidStr}`;
+            if (!seenStarKeys.has(dedupeKey)) {
+                seenStarKeys.add(dedupeKey);
+                deduplicatedEmails.push(e);
+            }
+        }
+
         // 4. Ensure all have starred: true, isStarred: true and sort descending by date
-        finalEmails.forEach(e => { 
+        deduplicatedEmails.forEach(e => { 
             const isDraft = e.isDraft === true || e.draft === true || e.folderName?.toLowerCase()?.includes('draft');
             if (isDraft) {
                 e.folderName = 'Drafts';
@@ -351,16 +382,16 @@ export const MailProvider = ({ children }) => {
             e.starred = true; 
             e.isStarred = true; 
         });
-        sortEmailsByDateDesc(finalEmails);
+        sortEmailsByDateDesc(deduplicatedEmails);
 
-        const unreadCount = finalEmails.filter(e => !e.isRead && !e.read && !e.isDraft).length;
+        const unreadCount = deduplicatedEmails.filter(e => !e.isRead && !e.read && !e.isDraft).length;
 
         return {
             data: {
                 success: true,
                 data: {
-                    emails: finalEmails,
-                    totalCount: finalEmails.length,
+                    emails: deduplicatedEmails,
+                    totalCount: deduplicatedEmails.length,
                     unreadCount: unreadCount
                 }
             }
@@ -1191,7 +1222,7 @@ export const MailProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, [user, fetchEmails, fetchEmailsSilently, fetchLabelEmails]);
 
-    const handleToggleStar = useCallback(async (uid, folder) => {
+    const handleToggleStar = useCallback(async (uid, folder, emailObj = null) => {
         if (!uid && uid !== 0) return;
         const strUid = String(uid);
         const isCurrentDraftFolder = currentFolderRef.current?.toLowerCase() === 'draft' || currentFolderRef.current?.toLowerCase() === 'drafts';
@@ -1199,12 +1230,16 @@ export const MailProvider = ({ children }) => {
         const targetFolder = isTargetDraft ? 'draft' : normalizeFolderName(folder || currentFolderRef.current || 'inbox');
 
         // 1. Determine target email object matching UID and folder
-        let targetEmail = emails.find(m => 
+        let targetEmail = emailObj || emails.find(m => 
             String(m.uid ?? m.id) === strUid && 
             (!targetFolder || (isTargetDraft ? (m.isDraft || m.draft || m.folderName?.toLowerCase()?.includes('draft') || isCurrentDraftFolder) : normalizeFolderName(m.folderName, m) === targetFolder))
         );
         if (!targetEmail) {
             targetEmail = emails.find(m => String(m.uid ?? m.id) === strUid);
+        }
+        if (!targetEmail && targetFolder === 'scheduled' && typeof window !== 'undefined' && window.__bnx_scheduled_cache) {
+            const list = window.__bnx_scheduled_cache.emails || [];
+            targetEmail = list.find(m => String(m.uid ?? m.id) === strUid);
         }
         if (!targetEmail && pagesCache.current) {
             const folderCachesToCheck = isTargetDraft ? ['draft', 'drafts'] : (targetFolder ? [targetFolder] : []);
@@ -1427,11 +1462,13 @@ export const MailProvider = ({ children }) => {
             detail: { uid: strUid, folder: emailFolder, starred: nextStarred }
         }));
 
-        // 6. Persist star status in backend database via existing API
-        const backendFolder = targetFolder === 'draft' ? 'Drafts' : (targetEmail?.folderName || targetFolder || 'INBOX');
-        mailAPI.toggleStar(strUid, backendFolder).catch(err => {
-            console.warn('[Star] Failed to sync star status to backend:', err?.message || err);
-        });
+        // 6. Persist star status in backend database via existing API (skip frontend-only scheduled folder)
+        if (targetFolder !== 'scheduled' && emailFolder !== 'scheduled') {
+            const backendFolder = targetFolder === 'draft' ? 'Drafts' : (targetEmail?.folderName || targetFolder || 'INBOX');
+            mailAPI.toggleStar(strUid, backendFolder).catch(err => {
+                console.warn('[Star] Failed to sync star status to backend:', err?.message || err);
+            });
+        }
     }, [emails, user, isEmailStarred]);
 
     const handleMarkRead = useCallback(async (uid, silent = false, emailObj = null) => {
