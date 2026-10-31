@@ -334,31 +334,28 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
           <div className="flex gap-2 text-sm font-medium border-b border-transparent">
             <button
               onClick={() => setActiveFilter("all")}
-              className={`py-2 px-4 rounded-lg transition-all cursor-pointer ${
-                activeFilter === "all"
+              className={`py-2 px-4 rounded-lg transition-all cursor-pointer ${activeFilter === "all"
                   ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold"
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
+                }`}
             >
               {t("subscriptions.all_senders", "All Senders")}
             </button>
             <button
               onClick={() => setActiveFilter("subscribed")}
-              className={`py-2 px-4 rounded-lg transition-all cursor-pointer ${
-                activeFilter === "subscribed"
+              className={`py-2 px-4 rounded-lg transition-all cursor-pointer ${activeFilter === "subscribed"
                   ? "bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 font-semibold"
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
+                }`}
             >
               {t("subscriptions.subscribed", "Subscribed")}
             </button>
             <button
               onClick={() => setActiveFilter("unsubscribed")}
-              className={`py-2 px-4 rounded-lg transition-all cursor-pointer ${
-                activeFilter === "unsubscribed"
+              className={`py-2 px-4 rounded-lg transition-all cursor-pointer ${activeFilter === "unsubscribed"
                   ? "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-semibold"
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
+                }`}
             >
               {t("subscriptions.unsubscribed", "Unsubscribed")}
             </button>
@@ -407,17 +404,17 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
               {effectiveSearch
                 ? t("subscriptions.no_matching_senders", "No senders match your search")
                 : activeFilter === "subscribed"
-                ? t("subscriptions.no_subscribed", "No active subscriptions found")
-                : activeFilter === "unsubscribed"
-                ? t("subscriptions.no_unsubscribed", "No unsubscribed senders found")
-                : t("subscriptions.no_senders", "No senders found")}
+                  ? t("subscriptions.no_subscribed", "No active subscriptions found")
+                  : activeFilter === "unsubscribed"
+                    ? t("subscriptions.no_unsubscribed", "No unsubscribed senders found")
+                    : t("subscriptions.no_senders", "No senders found")}
             </p>
             <p className="text-xs opacity-60 mt-1">
               {effectiveSearch
                 ? t("subscriptions.try_different_search", "Try refining your search keyword")
                 : activeFilter !== "all"
-                ? t("subscriptions.try_other_tabs", "Check other tabs or refresh to view senders")
-                : t("subscriptions.empty_subtitle", "Emails received in your inbox will appear here")}
+                  ? t("subscriptions.try_other_tabs", "Check other tabs or refresh to view senders")
+                  : t("subscriptions.empty_subtitle", "Emails received in your inbox will appear here")}
             </p>
           </div>
         ) : (
@@ -444,7 +441,7 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
                     >
                       {initialLetter}
                     </div>
-                    
+
                     <div className="min-w-0">
                       <h4 className={`text-sm font-semibold truncate ${isBlocked ? "text-gray-400 dark:text-gray-500 line-through" : "text-gray-800 dark:text-gray-200"}`}>
                         {displayName}
@@ -463,11 +460,10 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
                   <div className="flex items-center gap-3">
                     {/* Status Badge */}
                     <span
-                      className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        isBlocked
+                      className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${isBlocked
                           ? "bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30"
                           : "bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 border border-green-100 dark:border-green-900/30"
-                      }`}
+                        }`}
                     >
                       {isBlocked ? <MdBlock size={13} /> : <MdMarkEmailRead size={13} />}
                       {isBlocked ? t("subscriptions.unsubscribed", "Unsubscribed") : t("subscriptions.subscribed", "Subscribed")}
@@ -477,11 +473,10 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
                     <button
                       onClick={() => handleToggleBlock(sender.email, isBlocked)}
                       disabled={isItemLoading}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer disabled:opacity-50 flex items-center gap-1.5 ${
-                        isBlocked
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer disabled:opacity-50 flex items-center gap-1.5 ${isBlocked
                           ? "bg-white hover:bg-green-50/50 text-green-600 border-green-200 hover:border-green-300 dark:bg-transparent dark:hover:bg-green-950/10 dark:text-green-400 dark:border-green-900/40"
                           : "bg-white hover:bg-red-50/50 text-red-600 border-red-200 hover:border-red-300 dark:bg-transparent dark:hover:bg-red-950/10 dark:text-red-400 dark:border-red-900/40"
-                      }`}
+                        }`}
                     >
                       {isItemLoading && <span className="animate-spin text-xs">●</span>}
                       {isBlocked ? t("subscriptions.subscribe", "Subscribe") : t("subscriptions.unsubscribe", "Unsubscribe")}

@@ -708,7 +708,7 @@ const Settings = () => {
             timestamp: Date.now()
           });
           bc.close();
-        } catch (e) {}
+        } catch (e) { }
 
         try {
           localStorage.setItem('bnx_revoked_session', JSON.stringify({
@@ -717,7 +717,7 @@ const Settings = () => {
             appName: sessionToRevoke.appName,
             timestamp: Date.now()
           }));
-        } catch (e) {}
+        } catch (e) { }
 
         setConfirmRevokeModal(null);
         fetchExternalSessions();
@@ -1000,9 +1000,9 @@ const Settings = () => {
           console.warn("Failed to save composing preferences to endpoint:", err);
         }
 
-        await saveBackendSettings({ 
-          undoSendDelay, 
-          bulkMailEnabled, 
+        await saveBackendSettings({
+          undoSendDelay,
+          bulkMailEnabled,
           notificationEnabled,
           language: targetLang,
           spellingCheckEnabled: spellingCheck,
@@ -1598,11 +1598,10 @@ const Settings = () => {
                             type="button"
                             disabled={resendTimer > 0}
                             onClick={() => sendOtp(otpTarget)}
-                            className={`font-semibold cursor-pointer transition-colors ${
-                              resendTimer > 0
+                            className={`font-semibold cursor-pointer transition-colors ${resendTimer > 0
                                 ? "text-gray-400 cursor-not-allowed"
                                 : "text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                            }`}
+                              }`}
                           >
                             {resendTimer > 0 ? `${t("settings.resend_code_in", "Resend code in")} ${resendTimer}s` : t("settings.resend_code", "Resend OTP")}
                           </button>
@@ -1627,7 +1626,7 @@ const Settings = () => {
           {activeTab === "composing" && (
             <Section title={t("settings.general_composing", "General & Composing")} theme={theme}>
               <form onSubmit={handleSaveComposingSettings} className="flex flex-col gap-6 w-full">
-                
+
                 {/* Display Language Selection (Very Top of Card) */}
                 <div className="flex flex-col gap-2 pb-3">
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("settings.display_language", "Display Language")}</label>
@@ -1843,24 +1842,24 @@ const Settings = () => {
                 {Object.keys({ ...DEFAULT_SIDEBAR_PREFS, ...(sidebarPreferences || {}) })
                   .filter((itemName) => itemName !== "Bulk Mail" && itemName.toLowerCase() !== "bulk mail" && itemName.toLowerCase() !== "bulk")
                   .map((itemName) => (
-                  <div key={itemName} className="flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-transparent" style={{ borderColor: theme.border }}>
-                    <span className="font-medium text-sm" style={{ color: theme.text }}>{getSidebarItemLabel(itemName)}</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={sidebarPreferences?.[itemName] !== false}
-                        onChange={(e) => {
-                          const newPrefs = { ...DEFAULT_SIDEBAR_PREFS, ...sidebarPreferences, [itemName]: e.target.checked };
-                          if (setSidebarPreferences) {
-                            setSidebarPreferences(newPrefs);
-                          }
-                        }}
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                ))}
+                    <div key={itemName} className="flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-transparent" style={{ borderColor: theme.border }}>
+                      <span className="font-medium text-sm" style={{ color: theme.text }}>{getSidebarItemLabel(itemName)}</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={sidebarPreferences?.[itemName] !== false}
+                          onChange={(e) => {
+                            const newPrefs = { ...DEFAULT_SIDEBAR_PREFS, ...sidebarPreferences, [itemName]: e.target.checked };
+                            if (setSidebarPreferences) {
+                              setSidebarPreferences(newPrefs);
+                            }
+                          }}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  ))}
               </div>
             </Section>
           )}
@@ -2757,189 +2756,189 @@ const Settings = () => {
                 {(!shortcutFilter || [
                   "go to inbox", "go to sent", "go to drafts", "go to starred", "go to trash", "navigation", "inbox", "sent", "drafts", "starred", "trash"
                 ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
-                  <div
-                    className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
-                    style={{ background: theme.cardBg, borderColor: theme.border }}
-                  >
-                    <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                        <MdInbox size={22} />
+                    <div
+                      className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
+                      style={{ background: theme.cardBg, borderColor: theme.border }}
+                    >
+                      <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                          <MdInbox size={22} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-base" style={{ color: theme.text }}>
+                            Mail Navigation
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Jump between folders
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-base" style={{ color: theme.text }}>
-                          Mail Navigation
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Jump between folders
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="flex flex-col gap-2.5 flex-1">
-                      {[
-                        { action: "Go to Inbox", desc: "Open your Inbox folder", keys: ["Ctrl + G", "then", "I"] },
-                        { action: "Go to Sent", desc: "Open sent messages", keys: ["Ctrl + G", "then", "S"] },
-                        { action: "Go to Drafts", desc: "Open saved drafts", keys: ["Ctrl + G", "then", "D"] },
-                        { action: "Go to Starred", desc: "Open starred messages", keys: ["Ctrl + G", "then", "T"] },
-                        { action: "Go to Trash", desc: "Open deleted messages", keys: ["Ctrl + G", "then", "T", "then", "R"] },
-                      ]
-                        .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
-                        .map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="flex flex-col gap-2 p-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition border border-gray-100 dark:border-gray-800"
-                            style={{ background: theme.mode === "dark" ? "rgba(255, 255, 255, 0.02)" : "#fcfcfd" }}
-                          >
-                            <div>
-                              <div className="text-sm font-semibold" style={{ color: theme.text }}>
-                                {item.action}
+                      <div className="flex flex-col gap-2.5 flex-1">
+                        {[
+                          { action: "Go to Inbox", desc: "Open your Inbox folder", keys: ["Ctrl + G", "then", "I"] },
+                          { action: "Go to Sent", desc: "Open sent messages", keys: ["Ctrl + G", "then", "S"] },
+                          { action: "Go to Drafts", desc: "Open saved drafts", keys: ["Ctrl + G", "then", "D"] },
+                          { action: "Go to Starred", desc: "Open starred messages", keys: ["Ctrl + G", "then", "T"] },
+                          { action: "Go to Trash", desc: "Open deleted messages", keys: ["Ctrl + G", "then", "T", "then", "R"] },
+                        ]
+                          .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
+                          .map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="flex flex-col gap-2 p-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition border border-gray-100 dark:border-gray-800"
+                              style={{ background: theme.mode === "dark" ? "rgba(255, 255, 255, 0.02)" : "#fcfcfd" }}
+                            >
+                              <div>
+                                <div className="text-sm font-semibold" style={{ color: theme.text }}>
+                                  {item.action}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {item.desc}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                {item.desc}
+                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                {item.keys.map((k, kIdx) =>
+                                  k === "then" ? (
+                                    <span key={kIdx} className="text-xs text-gray-400 dark:text-gray-500 font-medium px-0.5 select-none">
+                                      then
+                                    </span>
+                                  ) : (
+                                    <kbd
+                                      key={kIdx}
+                                      className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap"
+                                    >
+                                      {k}
+                                    </kbd>
+                                  )
+                                )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                              {item.keys.map((k, kIdx) =>
-                                k === "then" ? (
-                                  <span key={kIdx} className="text-xs text-gray-400 dark:text-gray-500 font-medium px-0.5 select-none">
-                                    then
-                                  </span>
-                                ) : (
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Section 2: Email Actions */}
+                {(!shortcutFilter || [
+                  "compose a new email", "reply to an email", "forward an email", "search emails", "archive selected email", "delete selected email", "actions", "compose", "reply", "forward", "search", "archive", "delete"
+                ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
+                    <div
+                      className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
+                      style={{ background: theme.cardBg, borderColor: theme.border }}
+                    >
+                      <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
+                        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                          <MdFlashOn size={22} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-base" style={{ color: theme.text }}>
+                            Email Actions
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Create, reply & manage mail
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2.5 flex-1">
+                        {[
+                          { action: "Compose a new email", desc: "Open message composer", keys: ["Ctrl + C"] },
+                          { action: "Reply to an email", desc: "Reply to active message", keys: ["Ctrl + R"] },
+                          { action: "Forward an email", desc: "Forward active message", keys: ["Ctrl + F"] },
+                          { action: "Search emails", desc: "Focus search input field", keys: ["Ctrl + /"] },
+                          { action: "Archive selected email", desc: "Move active message to archive", keys: ["Ctrl + E"] },
+                          { action: "Delete selected email", desc: "Move message to trash", keys: ["Ctrl + Delete"] },
+                        ]
+                          .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
+                          .map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="flex flex-col gap-2 p-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition border border-gray-100 dark:border-gray-800"
+                              style={{ background: theme.mode === "dark" ? "rgba(255, 255, 255, 0.02)" : "#fcfcfd" }}
+                            >
+                              <div>
+                                <div className="text-sm font-semibold" style={{ color: theme.text }}>
+                                  {item.action}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {item.desc}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                {item.keys.map((k, kIdx) => (
                                   <kbd
                                     key={kIdx}
                                     className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap"
                                   >
                                     {k}
                                   </kbd>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Section 2: Email Actions */}
-                {(!shortcutFilter || [
-                  "compose a new email", "reply to an email", "forward an email", "search emails", "archive selected email", "delete selected email", "actions", "compose", "reply", "forward", "search", "archive", "delete"
-                ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
-                  <div
-                    className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
-                    style={{ background: theme.cardBg, borderColor: theme.border }}
-                  >
-                    <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
-                      <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                        <MdFlashOn size={22} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-base" style={{ color: theme.text }}>
-                          Email Actions
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Create, reply & manage mail
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2.5 flex-1">
-                      {[
-                        { action: "Compose a new email", desc: "Open message composer", keys: ["Ctrl + C"] },
-                        { action: "Reply to an email", desc: "Reply to active message", keys: ["Ctrl + R"] },
-                        { action: "Forward an email", desc: "Forward active message", keys: ["Ctrl + F"] },
-                        { action: "Search emails", desc: "Focus search input field", keys: ["Ctrl + /"] },
-                        { action: "Archive selected email", desc: "Move active message to archive", keys: ["Ctrl + E"] },
-                        { action: "Delete selected email", desc: "Move message to trash", keys: ["Ctrl + Delete"] },
-                      ]
-                        .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
-                        .map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="flex flex-col gap-2 p-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition border border-gray-100 dark:border-gray-800"
-                            style={{ background: theme.mode === "dark" ? "rgba(255, 255, 255, 0.02)" : "#fcfcfd" }}
-                          >
-                            <div>
-                              <div className="text-sm font-semibold" style={{ color: theme.text }}>
-                                {item.action}
-                              </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                {item.desc}
+                                ))}
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                              {item.keys.map((k, kIdx) => (
-                                <kbd
-                                  key={kIdx}
-                                  className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap"
-                                >
-                                  {k}
-                                </kbd>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Section 3: General */}
                 {(!shortcutFilter || [
                   "close the current popup", "return to the previous view", "open keyboard shortcuts help", "general", "close", "escape", "esc", "help", "back"
                 ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
-                  <div
-                    className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
-                    style={{ background: theme.cardBg, borderColor: theme.border }}
-                  >
-                    <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
-                      <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                        <MdTune size={22} />
+                    <div
+                      className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
+                      style={{ background: theme.cardBg, borderColor: theme.border }}
+                    >
+                      <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                          <MdTune size={22} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-base" style={{ color: theme.text }}>
+                            General
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Global controls & dialogs
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-base" style={{ color: theme.text }}>
-                          General
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Global controls & dialogs
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="flex flex-col gap-2.5 flex-1">
-                      {[
-                        { action: "Close the current popup", desc: "Dismiss compose or modal", keys: ["Esc"] },
-                        { action: "Return to the previous view", desc: "Go back to message list", keys: ["Esc"] },
-                        { action: "Open Keyboard Shortcuts help", desc: "Show this help panel", keys: ["?"] },
-                      ]
-                        .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
-                        .map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="flex flex-col gap-2 p-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition border border-gray-100 dark:border-gray-800"
-                            style={{ background: theme.mode === "dark" ? "rgba(255, 255, 255, 0.02)" : "#fcfcfd" }}
-                          >
-                            <div>
-                              <div className="text-sm font-semibold" style={{ color: theme.text }}>
-                                {item.action}
+                      <div className="flex flex-col gap-2.5 flex-1">
+                        {[
+                          { action: "Close the current popup", desc: "Dismiss compose or modal", keys: ["Esc"] },
+                          { action: "Return to the previous view", desc: "Go back to message list", keys: ["Esc"] },
+                          { action: "Open Keyboard Shortcuts help", desc: "Show this help panel", keys: ["?"] },
+                        ]
+                          .filter(item => !shortcutFilter || item.action.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.desc.toLowerCase().includes(shortcutFilter.toLowerCase()) || item.keys.join(" ").toLowerCase().includes(shortcutFilter.toLowerCase()))
+                          .map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="flex flex-col gap-2 p-3 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition border border-gray-100 dark:border-gray-800"
+                              style={{ background: theme.mode === "dark" ? "rgba(255, 255, 255, 0.02)" : "#fcfcfd" }}
+                            >
+                              <div>
+                                <div className="text-sm font-semibold" style={{ color: theme.text }}>
+                                  {item.action}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {item.desc}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                {item.desc}
+                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                {item.keys.map((k, kIdx) => (
+                                  <kbd
+                                    key={kIdx}
+                                    className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap"
+                                  >
+                                    {k}
+                                  </kbd>
+                                ))}
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                              {item.keys.map((k, kIdx) => (
-                                <kbd
-                                  key={kIdx}
-                                  className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-xs font-mono font-semibold rounded-md border shadow-sm select-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700 whitespace-nowrap"
-                                >
-                                  {k}
-                                </kbd>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
 
               {/* Tips Card */}
