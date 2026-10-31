@@ -50,10 +50,21 @@ const EmailList = ({
   const [snoozeCoords, setSnoozeCoords] = useState({ top: 0, right: 0 });
 
   // Pagination logic
-  const effectiveTotal = Math.max(totalEmails || 0, emails.length);
+  const effectiveTotal = isScheduledFolder
+    ? emails.length
+    : Math.max(totalEmails || 0, emails.length);
   const totalPages = Math.ceil(effectiveTotal / emailsPerPage) || 1;
-  const startIndex = (currentPage - 1) * emailsPerPage;
-  const displayedEmails = emails;
+  const safeCurrentPage = Math.min(Math.max(1, currentPage || 1), totalPages);
+  const startIndex = (safeCurrentPage - 1) * emailsPerPage;
+  const displayedEmails = isScheduledFolder
+    ? emails.slice(startIndex, startIndex + emailsPerPage)
+    : emails;
+
+  useEffect(() => {
+    if (isScheduledFolder && currentPage > totalPages && typeof handlePageChange === 'function') {
+      handlePageChange(totalPages);
+    }
+  }, [isScheduledFolder, currentPage, totalPages, handlePageChange]);
 
   const getSnoozeOptions = () => {
     const now = new Date();
@@ -107,11 +118,11 @@ const EmailList = ({
     ];
   };
 
-  const paginationControls = emails.length > 0 && (
+  const paginationControls = effectiveTotal > 0 && (
     <div className="flex items-center justify-between gap-2 pl-4 pr-4 lg:px-6 py-4 border-t border-gray-100 dark:border-gray-800/60 bg-transparent shrink-0">
       <div className="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400 shrink-0">
         <span className="hidden sm:inline">Showing </span>
-        <span className="font-medium text-gray-700 dark:text-gray-300">{startIndex + 1}</span>
+        <span className="font-medium text-gray-700 dark:text-gray-300">{effectiveTotal > 0 ? startIndex + 1 : 0}</span>
         <span className="hidden sm:inline"> to </span>
         <span className="sm:hidden">-</span>
         <span className="font-medium text-gray-700 dark:text-gray-300">{Math.min(startIndex + emailsPerPage, effectiveTotal)}</span>
@@ -120,18 +131,18 @@ const EmailList = ({
       </div>
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <button
-          onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
+          onClick={() => handlePageChange(Math.max(1, safeCurrentPage - 1))}
+          disabled={safeCurrentPage <= 1}
           className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         >
           <MdKeyboardArrowLeft size={20} />
         </button>
         <span className="text-sm font-medium text-gray-600 dark:text-gray-400 px-2">
-          {currentPage} / {totalPages}
+          {safeCurrentPage} / {totalPages}
         </span>
         <button
-          onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
+          onClick={() => handlePageChange(Math.min(totalPages, safeCurrentPage + 1))}
+          disabled={safeCurrentPage >= totalPages}
           className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         >
           <MdKeyboardArrowRight size={20} />

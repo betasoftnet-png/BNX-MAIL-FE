@@ -448,3 +448,38 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
 
   return false;
 };
+
+/**
+ * Validates that an email object is genuinely a scheduled email, preventing inclusion of
+ * emails from Inbox, Sent, Draft, Trash, Spam, or past/processed emails.
+ */
+export const isEmailValidScheduled = (m) => {
+  if (!m) return false;
+
+  // 1. Prevent emails from Inbox, Sent, Draft, Trash, Spam, or other folders
+  const folder = String(m.folderName || m.folder || '').trim().toLowerCase();
+  if (folder && folder !== 'scheduled') {
+    return false;
+  }
+  if (m.isDraft === true || m.draft === true || m.isTrash === true || m.deleted === true || m.isSpam === true) {
+    return false;
+  }
+
+  // 2. Status check: if status is present, must be 'SCHEDULED' (or not processed/cancelled)
+  if (m.status && String(m.status).trim().toUpperCase() !== 'SCHEDULED') {
+    return false;
+  }
+  if (m.processed === true) {
+    return false;
+  }
+
+  // 3. Scheduled-send time must still be in the future
+  const schedTimeRaw = m.scheduledAt || m.scheduledTime || m.sendAt || m.receivedDate || m.date;
+  if (!schedTimeRaw) return false;
+  const schedTime = new Date(schedTimeRaw).getTime();
+  if (isNaN(schedTime) || schedTime <= Date.now()) {
+    return false;
+  }
+
+  return true;
+};

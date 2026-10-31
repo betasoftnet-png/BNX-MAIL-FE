@@ -11,6 +11,7 @@ import {
   removeStoredStarredEmail,
   getStoredStarredIds,
   saveStoredStarredIds,
+  isEmailValidScheduled
 } from "../utils/starredStorage";
 import { MdRefresh } from "react-icons/md";
 import toast from "react-hot-toast";
@@ -33,11 +34,11 @@ const Scheduled = ({ searchQuery }) => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
-  const { matchesDateFilter, unreadCounts, setUnreadCounts, handleToggleStar, isEmailStarred } = useMail();
+  const { matchesDateFilter, unreadCounts, setUnreadCounts, handleToggleStar, isEmailStarred, setCurrentFolder, setTotalEmails, handlePageChange } = useMail();
 
   // Instant render: initialize from in-memory cache if available
   const [emails, setEmails] = useState(() => {
-    const cached = scheduledMemoryCache?.emails || [];
+    const cached = (scheduledMemoryCache?.emails || []).filter(isEmailValidScheduled);
     return cached.map((m) => {
       const uidStr = String(m.uid ?? m.id ?? "");
       const isStarred = isEmailIdStarred(uidStr, user?.email, "scheduled", m);
@@ -82,7 +83,8 @@ const Scheduled = ({ searchQuery }) => {
       if (res.data?.success) {
         const data = res.data.data;
         const rawList = Array.isArray(data) ? data : (data?.emails || []);
-        const normalized = rawList.map((m) => {
+        const validList = rawList.filter(isEmailValidScheduled);
+        const normalized = validList.map((m) => {
           const uidStr = String(m.uid ?? m.id ?? "");
           const isStarred = typeof isEmailStarred === "function"
             ? isEmailStarred(uidStr, "scheduled", m)
@@ -115,6 +117,9 @@ const Scheduled = ({ searchQuery }) => {
             scheduled: normalized.length,
           }));
         }
+        if (typeof setTotalEmails === "function") {
+          setTotalEmails(normalized.length);
+        }
       } else {
         throw new Error(res.data?.message || "Failed to retrieve scheduled emails");
       }
@@ -130,6 +135,15 @@ const Scheduled = ({ searchQuery }) => {
       isScheduledFetchInFlight = false;
     }
   }, [setUnreadCounts, user?.email, isEmailStarred]);
+
+  useEffect(() => {
+    if (typeof setCurrentFolder === "function") {
+      setCurrentFolder("scheduled");
+    }
+    if (typeof handlePageChange === "function") {
+      handlePageChange(1);
+    }
+  }, [setCurrentFolder, handlePageChange]);
 
   useEffect(() => {
     // If we have cached emails, refresh silently in the background; otherwise fetch with loader
@@ -174,8 +188,32 @@ const Scheduled = ({ searchQuery }) => {
     };
   }, [fetchScheduled]);
 
+  // Periodic check to remove scheduled emails once their send time arrives
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setEmails((prev) => {
+        const stillValid = prev.filter(isEmailValidScheduled);
+        if (stillValid.length !== prev.length) {
+          if (scheduledMemoryCache) {
+            scheduledMemoryCache.emails = stillValid;
+          }
+          if (typeof setUnreadCounts === "function") {
+            setUnreadCounts((c) => ({ ...c, scheduled: stillValid.length }));
+          }
+          if (typeof setTotalEmails === "function") {
+            setTotalEmails(stillValid.length);
+          }
+          return stillValid;
+        }
+        return prev;
+      });
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [setUnreadCounts, setTotalEmails]);
+
   const visibleEmails = emails.filter(
     (e) =>
+      isEmailValidScheduled(e) &&
       (typeof matchesDateFilter === "function" ? matchesDateFilter(e) : true) &&
       (!searchQuery ||
         e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -186,6 +224,12 @@ const Scheduled = ({ searchQuery }) => {
         e.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.textPlain?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  useEffect(() => {
+    if (typeof setTotalEmails === "function") {
+      setTotalEmails(visibleEmails.length);
+    }
+  }, [visibleEmails.length, setTotalEmails]);
 
   const handleDelete = async (uid) => {
     const targetId = uid;
@@ -207,6 +251,9 @@ const Scheduled = ({ searchQuery }) => {
         ...prev,
         scheduled: nextEmails.length,
       }));
+    }
+    if (typeof setTotalEmails === "function") {
+      setTotalEmails(nextEmails.length);
     }
 
     // Clean up stored star if cancelled email was starred
@@ -311,7 +358,7 @@ const Scheduled = ({ searchQuery }) => {
             className="ml-2 text-xs font-normal"
             style={{ color: theme.subText }}
           >
-            ({emails.length})
+            ({visibleEmails.length})
           </span>
           {isRefreshing && (
             <span

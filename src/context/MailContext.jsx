@@ -17,7 +17,8 @@ import {
     getEmailStarKey,
     getUserKey,
     matchesScheduledAndSentEmail,
-    linkScheduledStarToSentEmail
+    linkScheduledStarToSentEmail,
+    isEmailValidScheduled
 } from '../utils/starredStorage';
 
 // Clean up any legacy persisted read UIDs from previous sessions to prevent stale overrides
@@ -812,6 +813,10 @@ export const MailProvider = ({ children }) => {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
                 }
 
+                if (folderKey === 'scheduled') {
+                    normalizedEmails = normalizedEmails.filter(isEmailValidScheduled);
+                }
+
                 // Always sort emails chronologically descending by original date (newest first)
                 sortEmailsByDateDesc(normalizedEmails);
 
@@ -1086,6 +1091,10 @@ export const MailProvider = ({ children }) => {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
                 }
 
+                if (folderKey === 'scheduled') {
+                    normalizedEmails = normalizedEmails.filter(isEmailValidScheduled);
+                }
+
                 // Always sort emails chronologically descending by original date (newest first)
                 sortEmailsByDateDesc(normalizedEmails);
 
@@ -1123,7 +1132,7 @@ export const MailProvider = ({ children }) => {
                 
                 // Calculate dynamic total count reflecting actual filtered unique emails
                 let calculatedTotal = normalizedEmails.length;
-                if (['all-inbox', 'allinbox', 'spam', 'all-mail', 'allmail'].includes(folderKey)) {
+                if (['all-inbox', 'allinbox', 'spam', 'all-mail', 'allmail', 'scheduled'].includes(folderKey)) {
                     calculatedTotal = normalizedEmails.length;
                 } else if (data.totalCount !== undefined && data.totalCount !== null) {
                     const rawCount = rawEmails.length;
@@ -2782,6 +2791,7 @@ export const MailProvider = ({ children }) => {
             handleMarkUnread,
             isEmailRead,
             totalEmails,
+            setTotalEmails,
             currentPage,
             handlePageChange,
             handleMoveToTrash,
