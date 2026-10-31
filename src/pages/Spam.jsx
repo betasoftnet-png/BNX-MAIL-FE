@@ -157,16 +157,11 @@ const Spam = ({ searchQuery }) => {
         setSelectedEmailOverride(null);
         setSelectedEmailUid(null);
       }}
-      onStar={(uid) => handleToggleStar(uid, "spam")}
-      onArchive={(uid) => {
-        handleArchive(uid, "spam");
-        setSelectedEmailOverride(null);
-        setSelectedEmailUid(null);
-      }}
       onReply={handleReply}
       onForward={handleForward}
       onApplyLabel={handleApplyLabel}
       onSnooze={handleSnooze}
+      isSpam={true}
     />
   ) : null;
 
@@ -243,10 +238,9 @@ const Spam = ({ searchQuery }) => {
           selectedEmailId={selectedEmail?.uid}
           onSelectEmail={handleSelectEmail}
           onDelete={(uid) => handleMoveToTrash(uid, "spam")}
-          onStar={(uid) => handleToggleStar(uid, "spam")}
-          onArchive={(uid) => handleArchive(uid, "spam")}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
+          isSpam={true}
         />
       )}
     </div>

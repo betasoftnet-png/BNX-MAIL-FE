@@ -132,6 +132,7 @@ const EmailDetails = ({
   isArchiveFolder = false,
   isTrash = false,
   isScheduled = false,
+  isSpam = false,
   onRestore,
   emailList = [],
   onNavigate,
@@ -160,6 +161,17 @@ const EmailDetails = ({
     isScheduled ||
     email?.folderName?.toLowerCase() === 'scheduled' ||
     currentFolder?.toLowerCase() === 'scheduled'
+  );
+  const isSpamMode = Boolean(
+    isSpam ||
+    email?.folderName?.toLowerCase() === 'spam' ||
+    email?.isSpam === true ||
+    currentFolder?.toLowerCase() === 'spam' ||
+    (typeof window !== 'undefined' && (
+      window.location.pathname === '/spam' ||
+      window.location.pathname?.startsWith('/spam') ||
+      window.location.pathname?.includes('spam')
+    ))
   );
 
   useEffect(() => {
@@ -246,7 +258,7 @@ const EmailDetails = ({
           onForward(email);
         }
       } else if (action === "archive") {
-        if (onArchive && !isScheduledMode && !isTrashMode) {
+        if (onArchive && !isScheduledMode && !isTrashMode && !isSpamMode) {
           e.detail.handled = true;
           onArchive(email.uid);
         }
@@ -1256,7 +1268,7 @@ const EmailDetails = ({
               
               <div className="h-5 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
 
-              {!isScheduledMode && !isTrashMode && (
+              {!isScheduledMode && !isTrashMode && !isSpamMode && (
                 <button
                   onClick={() => {
                     if (isActuallyArchived) {
@@ -1296,7 +1308,7 @@ const EmailDetails = ({
             <MdPrint size={20} />
           </button>
 
-          {!isTrashMode && (
+          {!isTrashMode && !isSpamMode && (
             <button
               onClick={() => {
                 const targetUid = email?.uid ?? email?.id;

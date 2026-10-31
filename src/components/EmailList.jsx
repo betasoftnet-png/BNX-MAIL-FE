@@ -23,6 +23,7 @@ const EmailList = ({
   isArchiveFolder = false,
   isTrash = false,
   isScheduled = false,
+  isSpam = false,
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -43,6 +44,13 @@ const EmailList = ({
     currentFolder?.toLowerCase() === 'scheduled' ||
     location.pathname === '/scheduled' ||
     location.pathname?.startsWith('/scheduled/')
+  );
+  const isSpamFolder = Boolean(
+    isSpam ||
+    currentFolder?.toLowerCase() === 'spam' ||
+    location.pathname === '/spam' ||
+    location.pathname?.startsWith('/spam') ||
+    location.pathname?.includes('spam')
   );
   const snoozeAction = onSnooze || contextHandleSnooze;
 
@@ -290,6 +298,11 @@ const EmailList = ({
                 email.deleted === true
               );
               const isScheduledRow = Boolean(isScheduledFolder || email.folderName?.toLowerCase() === 'scheduled');
+              const isRowSpam = Boolean(
+                isSpamFolder ||
+                email.folderName?.toLowerCase() === 'spam' ||
+                email.isSpam === true
+              );
 
               return (
                 <div
@@ -320,7 +333,7 @@ const EmailList = ({
                   </div>
 
                   {/* Star Button */}
-                  {!isRowTrash && (
+                  {!isRowTrash && !isRowSpam && (
                     <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
                       {(() => {
                         const isDraft = email.folderName?.toLowerCase() === "draft" ||
@@ -474,7 +487,7 @@ const EmailList = ({
                       className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 ${backgroundImage ? 'bg-transparent' : 'bg-white/90 dark:bg-gray-900/90'} backdrop-blur-sm rounded-lg px-1 transition-opacity duration-150 ${snoozeOpenUid === email.uid ? 'opacity-100 z-50' : 'opacity-0 group-hover:opacity-100 z-10'}`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {!isRowTrash && !isScheduledRow && (
+                      {!isRowTrash && !isScheduledRow && !isRowSpam && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
