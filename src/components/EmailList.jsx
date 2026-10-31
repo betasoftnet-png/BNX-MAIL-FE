@@ -1,7 +1,7 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile } from "react-icons/md";
+import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile, MdRestore } from "react-icons/md";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
@@ -12,6 +12,7 @@ const EmailList = ({
   selectedEmailId,
   onSelectEmail,
   onDelete,
+  onRestore,
   onStar,
   onArchive,
   onUnarchive,
@@ -34,7 +35,8 @@ const EmailList = ({
     currentFolder?.toLowerCase() === 'trash' ||
     currentFolder?.toLowerCase() === 'deleted' ||
     location.pathname === '/trash' ||
-    location.pathname?.startsWith('/trash/')
+    location.pathname?.startsWith('/trash') ||
+    location.pathname?.includes('trash')
   );
   const isScheduledFolder = Boolean(
     isScheduled ||
@@ -280,7 +282,13 @@ const EmailList = ({
               const isSelected = selectedEmailId === email.uid || selectedEmailId === String(email.uid) || selectedEmailId === `${email.uid}__${email.folderName || ''}`;
               const isActuallyArchived = isArchiveFolder || email.folderName?.toLowerCase() === "archive";
               const isChecked = selectedIds.has(`${email.uid}__${email.folderName || ''}`) || selectedIds.has(String(email.uid)) || selectedIds.has(Number(email.uid));
-              const isRowTrash = Boolean(isTrashFolder || email.folderName?.toLowerCase() === 'trash' || email.isTrash === true);
+              const isRowTrash = Boolean(
+                isTrashFolder ||
+                email.folderName?.toLowerCase() === 'trash' ||
+                email.folderName?.toLowerCase() === 'deleted' ||
+                email.isTrash === true ||
+                email.deleted === true
+              );
               const isScheduledRow = Boolean(isScheduledFolder || email.folderName?.toLowerCase() === 'scheduled');
 
               return (
@@ -483,10 +491,22 @@ const EmailList = ({
                           {isActuallyArchived ? <MdUnarchive size={18} /> : <MdArchive size={18} />}
                         </button>
                       )}
+                      {isRowTrash && onRestore && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRestore(email.uid, email.folderName);
+                          }}
+                          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-green-500 cursor-pointer"
+                          title="Restore"
+                        >
+                          <MdRestore size={18} />
+                        </button>
+                      )}
                       <button
                         onClick={() => onDelete?.(email.uid, email.folderName)}
                         className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-red-500 cursor-pointer"
-                        title="Delete"
+                        title={isRowTrash ? "Delete permanently" : "Delete"}
                       >
                         <MdDelete size={18} />
                       </button>

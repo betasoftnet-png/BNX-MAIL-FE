@@ -145,8 +145,16 @@ const EmailDetails = ({
   const isTrashMode = Boolean(
     isTrash ||
     email?.folderName?.toLowerCase() === 'trash' ||
+    email?.folderName?.toLowerCase() === 'deleted' ||
     email?.isTrash === true ||
-    currentFolder?.toLowerCase() === 'trash'
+    email?.deleted === true ||
+    currentFolder?.toLowerCase() === 'trash' ||
+    currentFolder?.toLowerCase() === 'deleted' ||
+    (typeof window !== 'undefined' && (
+      window.location.pathname === '/trash' ||
+      window.location.pathname?.startsWith('/trash') ||
+      window.location.pathname?.includes('trash')
+    ))
   );
   const isScheduledMode = Boolean(
     isScheduled ||
@@ -238,7 +246,7 @@ const EmailDetails = ({
           onForward(email);
         }
       } else if (action === "archive") {
-        if (onArchive && !isScheduledMode) {
+        if (onArchive && !isScheduledMode && !isTrashMode) {
           e.detail.handled = true;
           onArchive(email.uid);
         }
@@ -1248,7 +1256,7 @@ const EmailDetails = ({
               
               <div className="h-5 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
 
-              {!isScheduledMode && (
+              {!isScheduledMode && !isTrashMode && (
                 <button
                   onClick={() => {
                     if (isActuallyArchived) {

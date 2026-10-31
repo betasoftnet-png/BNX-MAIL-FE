@@ -94,8 +94,6 @@ const Trash = ({ searchQuery }) => {
       onBack={() => setSelectedEmail(null)}
       onRestore={() => handleRestore(currentSelectedEmail.uid)}
       onDelete={handlePermanentDelete}
-      onStar={handleStar}
-      onArchive={handleArchiveEmail}
       onApplyLabel={handleApplyLabel}
       onSnooze={handleSnooze}
       isTrash={true}
@@ -159,6 +157,7 @@ const Trash = ({ searchQuery }) => {
                 selectedEmailId={selectedEmail?.uid}
                 onSelectEmail={handleSelectEmail}
                 onDelete={handlePermanentDelete}
+                onRestore={handleRestore}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
                 isTrash={true}
