@@ -767,7 +767,9 @@ const Casbox = () => {
   const { openCompose, handleArchive, handleSnooze, handleMoveToTrash, handleToggleStar, handleUnsubscribe } = useMail();
   const [showToolbarMoreMenu, setShowToolbarMoreMenu] = useState(false);
   const toolbarMoreMenuRef = useRef(null);
+  const mobileToolbarMoreMenuRef = useRef(null);
   const connectionsModalRef = useRef(null);
+  const desktopConnectionsRef = useRef(null);
 
   const isCurrentUser = useCallback((e) => isCurrentUserEmail(e, user), [user?.email, user?.username]);
   const isCurrentUserRef = React.useRef(isCurrentUser);
@@ -1069,14 +1071,18 @@ const Casbox = () => {
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
-      if (toolbarMoreMenuRef.current && !toolbarMoreMenuRef.current.contains(e.target)) {
+      if (
+        toolbarMoreMenuRef.current &&
+        !toolbarMoreMenuRef.current.contains(e.target) &&
+        (!mobileToolbarMoreMenuRef.current || !mobileToolbarMoreMenuRef.current.contains(e.target))
+      ) {
         setShowToolbarMoreMenu(false);
       }
       if (
         connectionsModalRef.current &&
         !connectionsModalRef.current.contains(e.target) &&
-        connectionsRef.current &&
-        !connectionsRef.current.contains(e.target)
+        (!connectionsRef.current || !connectionsRef.current.contains(e.target)) &&
+        (!desktopConnectionsRef.current || !desktopConnectionsRef.current.contains(e.target))
       ) {
         setShowConnectionsModal(false);
       }
@@ -1634,7 +1640,11 @@ const Casbox = () => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (connectionsRef.current && !connectionsRef.current.contains(event.target)) {
+      const isInsideConnectionsBtn =
+        (connectionsRef.current && connectionsRef.current.contains(event.target)) ||
+        (desktopConnectionsRef.current && desktopConnectionsRef.current.contains(event.target));
+      const isInsideModal = connectionsModalRef.current && connectionsModalRef.current.contains(event.target);
+      if (!isInsideConnectionsBtn && !isInsideModal) {
         setShowConnectionsModal(false);
       }
     };
@@ -5193,15 +5203,165 @@ const Casbox = () => {
   }, [unifiedCombineMessages, combineFilter, combineSearch, contactAliases]);
 
   const headerComponent = (
-    <div className="flex flex-col shrink-0 relative min-w-0">
-      <div className="px-3 sm:px-5 py-3 sm:py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2 sm:gap-3 shrink-0 bg-transparent min-w-0">
+    <div className="flex flex-col shrink-0 relative min-w-0 border-b border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-transparent backdrop-blur-xs">
+      
+      {/* Container: On desktop (sm: and up), single line with tabs on left and actions on right.
+          On mobile (< sm, 360px - 430px): Two cleanly separated, properly aligned responsive rows */}
+      <div className="px-3 sm:px-5 py-2.5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 min-w-0">
         
-        {/* Left: Scrollable Tabs Container with smooth touch scrolling */}
+        {/* ROW 1 on mobile: Dedicated Top Action Bar with prominent Connections button and toolbar actions */}
+        <div className="flex sm:hidden items-center justify-between gap-2 min-w-0 w-full">
+          {/* Prominent Connections button on mobile - 100% visible, fully readable, never clipped */}
+          <div className="relative shrink-0" ref={connectionsRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowConnectionsModal(prev => !prev);
+                if (!showConnectionsModal) fetchConnections();
+              }}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-sm hover:opacity-90 active:scale-95 bg-[#195bac] shrink-0 ${
+                showConnectionsModal ? 'ring-2 ring-blue-400 ring-offset-1' : ''
+              }`}
+              style={{ backgroundColor: "#195bac" }}
+              title="Connections"
+              aria-label="Connections"
+            >
+              <MdPersonAdd size={16} className="text-white shrink-0" />
+              <span className="whitespace-nowrap font-bold">Connections</span>
+              {connections.length > 0 && (
+                <span className="text-[11px] opacity-80 font-normal">
+                  ({connections.filter(c => c.status === 'ACCEPTED').length || connections.length})
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Right Toolbar Actions on Mobile */}
+          <div className="flex items-center gap-1 shrink-0 ml-auto">
+            {/* Selected message actions if any */}
+            {(activeTab === 'messages' || activeTab === 'archive') && selectedRowIds.size > 0 && (
+              <div className="flex items-center gap-1 mr-1">
+                {activeTab === 'archive' ? (
+                  <button
+                    type="button"
+                    onClick={handleUnarchiveSelectedMessages}
+                    className="p-1.5 rounded-full text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 cursor-pointer shadow-xs"
+                    title={`Unarchive ${selectedRowIds.size} selected`}
+                  >
+                    <MdUnarchive size={17} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleArchiveSelectedMessages}
+                    className="p-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 cursor-pointer shadow-xs"
+                    title={`Archive ${selectedRowIds.size} selected`}
+                  >
+                    <MdArchive size={17} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDeleteSelectedMessagesWithUndo}
+                  className="p-1.5 rounded-full text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 cursor-pointer shadow-xs"
+                  title={`Delete ${selectedRowIds.size} selected`}
+                >
+                  <MdDeleteOutline size={17} />
+                </button>
+              </div>
+            )}
+
+            {/* Refresh Button */}
+            <button
+              onClick={fetchMessages}
+              className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+              title={t('common.refresh', 'Refresh')}
+            >
+              <MdRefresh size={19} className={loading ? "animate-spin" : ""} />
+            </button>
+
+            {/* More (Three-Dot) Dropdown on mobile */}
+            <div className="relative shrink-0" ref={mobileToolbarMoreMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowToolbarMoreMenu(prev => !prev)}
+                className={`p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer ${
+                  showToolbarMoreMenu ? 'bg-black/10 dark:bg-white/15 text-gray-800 dark:text-white' : ''
+                }`}
+                title="More actions"
+                aria-label="More actions"
+              >
+                <MdMoreVert size={19} />
+              </button>
+
+              {showToolbarMoreMenu && (
+                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-50 py-1 overflow-hidden animate-in fade-in duration-150">
+                  {/* Blocked Users */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolbarMoreMenu(false);
+                      setShowBlockedModal(true);
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <MdBlock size={16} className="text-gray-500 shrink-0" />
+                    <span>{t('casbox.blocked_users', 'Blocked Users')}</span>
+                  </button>
+
+                  {/* Insights / Analytics */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolbarMoreMenu(false);
+                      navigate('/analytics');
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <BarChart2 size={16} className="text-gray-500 shrink-0" />
+                    <span>{t('sidebar.analytics', 'Insights')}</span>
+                  </button>
+
+                  {/* Connections shortcut in More menu */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolbarMoreMenu(false);
+                      setShowConnectionsModal(true);
+                      fetchConnections();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <MdPersonAdd size={16} className="text-blue-500 shrink-0" />
+                    <span>Connections</span>
+                  </button>
+
+                  <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+
+                  {/* Refresh */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolbarMoreMenu(false);
+                      fetchMessages();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <MdRefresh size={16} className={`text-gray-500 shrink-0 ${loading ? 'animate-spin' : ''}`} />
+                    <span>{t('common.refresh', 'Refresh')}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* TABS CONTAINER: Full width scrollable on mobile; left-aligned on desktop */}
         <div 
-          className="flex-1 min-w-0 overflow-x-auto scroll-smooth hidden-scrollbar py-0.5 pr-2" 
+          className="w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto scroll-smooth hidden-scrollbar py-0.5" 
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <div className="flex items-center gap-2 min-w-max">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-max">
             {/* Pill Tabs Group */}
             <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg shrink-0">
               <button
@@ -5294,30 +5454,31 @@ const Casbox = () => {
               )}
             </div>
 
-            {/* Connections Button in the scrollable tabs track */}
-            <div className="relative shrink-0" ref={connectionsRef}>
+            {/* Connections tab button in the track on mobile */}
+            <div className="flex sm:hidden relative shrink-0">
               <button
                 type="button"
                 onClick={() => {
                   setShowConnectionsModal(prev => !prev);
                   if (!showConnectionsModal) fetchConnections();
                 }}
-                className={`px-3.5 sm:px-4 py-1.5 rounded-lg sm:rounded-full text-xs sm:text-sm font-bold text-white transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shadow-sm hover:opacity-90 active:scale-95 shrink-0 ${
-                  showConnectionsModal ? 'ring-2 ring-blue-400 ring-offset-1' : ''
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  showConnectionsModal
+                    ? 'bg-[#195bac] text-white shadow-sm'
+                    : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50'
                 }`}
-                style={{ backgroundColor: "#195bac" }}
                 title="Connections"
-                aria-label="Connections"
+                aria-label="Connections Tab"
               >
-                <MdPersonAdd size={17} className="text-white shrink-0" />
-                <span className="whitespace-nowrap">Connections</span>
+                <MdPersonAdd size={15} className="shrink-0" />
+                <span>Connections</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Right: Toolbar Actions */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
+        {/* Desktop-only Right Toolbar Actions (sm: and up) */}
+        <div className="hidden sm:flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
           {/* Selected Messages Actions */}
           {(activeTab === 'messages' || activeTab === 'archive') && selectedRowIds.size > 0 && (
             <div className="flex items-center gap-1 sm:gap-1.5 mr-1">
@@ -5357,10 +5518,30 @@ const Casbox = () => {
             </div>
           )}
 
+          {/* Connections Button on Desktop */}
+          <div className="relative shrink-0" ref={desktopConnectionsRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowConnectionsModal(prev => !prev);
+                if (!showConnectionsModal) fetchConnections();
+              }}
+              className={`px-3.5 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold text-white transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shadow-sm hover:opacity-90 active:scale-95 bg-[#195bac] shrink-0 ${
+                showConnectionsModal ? 'ring-2 ring-blue-400 ring-offset-1' : ''
+              }`}
+              style={{ backgroundColor: "#195bac" }}
+              title="Connections"
+              aria-label="Connections"
+            >
+              <MdPersonAdd size={17} className="text-white shrink-0" />
+              <span className="whitespace-nowrap font-bold">Connections</span>
+            </button>
+          </div>
+
           {/* Blocked Users Button (desktop/tablet) */}
           <button
             onClick={() => setShowBlockedModal(true)}
-            className="hidden sm:flex p-1.5 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
             title={t('casbox.blocked_users', 'Blocked Users')}
           >
             <MdBlock size={18} />
@@ -5375,7 +5556,7 @@ const Casbox = () => {
             <BarChart2 size={18} />
           </button>
 
-          {/* Refresh Button - Always accessible! */}
+          {/* Refresh Button */}
           <button
             onClick={fetchMessages}
             className="p-1.5 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
@@ -5384,7 +5565,7 @@ const Casbox = () => {
             <MdRefresh size={20} className={loading ? "animate-spin" : ""} />
           </button>
 
-          {/* More (Three-Dot) Dropdown for secondary actions on compact screens */}
+          {/* More (Three-Dot) Dropdown on Desktop */}
           <div className="relative shrink-0" ref={toolbarMoreMenuRef}>
             <button
               type="button"
@@ -5426,7 +5607,7 @@ const Casbox = () => {
                   <span>{t('sidebar.analytics', 'Insights')}</span>
                 </button>
 
-                {/* Connections shortcut */}
+                {/* Connections shortcut in More menu */}
                 <button
                   type="button"
                   onClick={() => {
