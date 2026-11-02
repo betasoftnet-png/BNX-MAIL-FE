@@ -1,4 +1,4 @@
-﻿import { useTranslation } from "../context/LanguageContext";
+import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect, useCallback } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { mailAPI, blockedContactsAPI } from "../services/api";
@@ -331,10 +331,10 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
         {/* SEARCH BAR & CATEGORIES */}
         <div className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between bg-transparent">
           {/* Tabs */}
-          <div className="flex gap-2 text-sm font-medium border-b border-transparent">
+          <div className="flex gap-2 text-xs sm:text-sm font-medium border-b border-transparent overflow-x-auto scroll-smooth hidden-scrollbar w-full md:w-auto py-0.5 min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
             <button
               onClick={() => setActiveFilter("all")}
-              className={`py-2 px-4 rounded-lg transition-all cursor-pointer ${activeFilter === "all"
+              className={`py-2 px-3 sm:px-4 rounded-lg transition-all cursor-pointer shrink-0 whitespace-nowrap ${activeFilter === "all"
                   ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold"
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}
@@ -343,7 +343,7 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
             </button>
             <button
               onClick={() => setActiveFilter("subscribed")}
-              className={`py-2 px-4 rounded-lg transition-all cursor-pointer ${activeFilter === "subscribed"
+              className={`py-2 px-3 sm:px-4 rounded-lg transition-all cursor-pointer shrink-0 whitespace-nowrap ${activeFilter === "subscribed"
                   ? "bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 font-semibold"
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}
@@ -352,7 +352,7 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
             </button>
             <button
               onClick={() => setActiveFilter("unsubscribed")}
-              className={`py-2 px-4 rounded-lg transition-all cursor-pointer ${activeFilter === "unsubscribed"
+              className={`py-2 px-3 sm:px-4 rounded-lg transition-all cursor-pointer shrink-0 whitespace-nowrap ${activeFilter === "unsubscribed"
                   ? "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-semibold"
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}

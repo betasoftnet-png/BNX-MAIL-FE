@@ -311,7 +311,7 @@ const BulkActionsToolbar = ({
 
   return (
     <div 
-      className="flex items-center gap-3 px-4 py-2.5 rounded-t-2xl shrink-0 transition-all border-b"
+      className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-t-2xl shrink-0 transition-all border-b overflow-x-auto hidden-scrollbar min-w-0"
       style={{ 
         backgroundColor: theme.bg || "rgba(19, 91, 236, 0.05)", 
         borderColor: theme.border,
@@ -326,18 +326,18 @@ const BulkActionsToolbar = ({
         className="w-4 h-4 rounded border-gray-300 dark:border-gray-700 text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer shrink-0"
       />
 
-      <span className="text-xs font-bold shrink-0">{selectedIds.size} {t("bulk_actions.selected", "selected")}</span>
+      <span className="text-xs font-bold shrink-0 whitespace-nowrap">{selectedIds.size} {t("bulk_actions.selected", "selected")}</span>
 
       <button 
         onClick={() => setSelectedIds(new Set())}
-        className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer flex items-center justify-center"
+        className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer flex items-center justify-center shrink-0"
         title={t("bulk_actions.clear_selection", "Clear Selection")}
       >
         <MdClose size={18} />
       </button>
 
       {/* Bulk Action Buttons Row */}
-      <div className="flex items-center gap-1.5 ml-auto">
+      <div className="flex items-center gap-1 sm:gap-1.5 ml-auto shrink-0">
         {/* Archive/Unarchive */}
         {folder === "archive" || folder === "spam" || folder === "trash" ? (
           <button
