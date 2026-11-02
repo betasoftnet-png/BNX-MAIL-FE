@@ -501,83 +501,6 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                   </div>
                 </div>
               </div>
-
-              {/* Quick Mail & Insights Navigation while in Chat/Casbox */}
-              <div className="pt-2">
-                <div className="my-2 px-3">
-                  <div className="h-px bg-blue-100/70 dark:bg-gray-800" />
-                </div>
-                <div className="px-4 mb-1 hide-on-collapse">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b9cb5] dark:text-gray-400">
-                    Navigation
-                  </span>
-                </div>
-                <div className="space-y-0.5">
-                  {/* Inbox */}
-                  <button
-                    onClick={() => handleNavigation('/inbox')}
-                    className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2 rounded-xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium cursor-pointer group btn-collapse relative shrink-0"
-                  >
-                    <div className="w-5 flex items-center justify-center shrink-0">
-                      <LucideInbox size={18} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
-                    </div>
-                    <span className="ml-3.5 text-[14px] truncate whitespace-nowrap hide-on-collapse">
-                      {t('sidebar.inbox', 'Inbox')}
-                    </span>
-                    {unreadCounts['inbox'] > 0 && (
-                      <span className="ml-auto text-xs px-2.5 py-0.5 rounded-full hide-on-collapse font-sans bg-blue-100/80 dark:bg-gray-700 text-[#1a56db] dark:text-blue-300 font-semibold shrink-0">
-                        {unreadCounts['inbox']}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Analytics / Insights */}
-                  <button
-                    onClick={() => handleNavigation('/analytics')}
-                    className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2 rounded-xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] cursor-pointer group btn-collapse relative shrink-0 ${
-                      location.pathname === '/analytics'
-                        ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
-                        : "text-[#2d3f59] dark:text-slate-200 font-medium"
-                    }`}
-                  >
-                    {location.pathname === '/analytics' && (
-                      <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
-                    )}
-                    <div className="w-5 flex items-center justify-center shrink-0">
-                      <BarChart2 size={18} strokeWidth={1.8} className={location.pathname === '/analytics' ? "text-[#1a56db] dark:text-blue-400" : "text-[#2d3f59] dark:text-slate-300"} />
-                    </div>
-                    <span className="ml-3.5 text-[14px] truncate whitespace-nowrap hide-on-collapse">
-                      {t('sidebar.analytics', 'Analytics')}
-                    </span>
-                  </button>
-
-                  {/* Starred */}
-                  <button
-                    onClick={() => handleNavigation('/starred')}
-                    className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2 rounded-xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium cursor-pointer group btn-collapse relative shrink-0"
-                  >
-                    <div className="w-5 flex items-center justify-center shrink-0">
-                      <Star size={18} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
-                    </div>
-                    <span className="ml-3.5 text-[14px] truncate whitespace-nowrap hide-on-collapse">
-                      {t('sidebar.starred', 'Starred')}
-                    </span>
-                  </button>
-
-                  {/* Sent */}
-                  <button
-                    onClick={() => handleNavigation('/sent')}
-                    className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2 rounded-xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium cursor-pointer group btn-collapse relative shrink-0"
-                  >
-                    <div className="w-5 flex items-center justify-center shrink-0">
-                      <Send size={18} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
-                    </div>
-                    <span className="ml-3.5 text-[14px] truncate whitespace-nowrap hide-on-collapse">
-                      {t('sidebar.sent', 'Sent')}
-                    </span>
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
@@ -694,7 +617,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
         </nav>
 
         {/* BOTTOM SECTION: STORAGE + SETTINGS + SUPPORT */}
-        <div className="space-y-1 mb-4 shrink-0 pt-2 border-t border-blue-100/70 dark:border-gray-800">
+        <div className={`mt-auto space-y-1 mb-4 shrink-0 pt-2 ${isChatMode ? '' : 'border-t border-blue-100/70 dark:border-gray-800'}`}>
           <StorageWidget isDesktopOpen={isDesktopOpen} isExpanded={isMobileOpen || isDesktopOpen} />
 
           {/* Settings */}
