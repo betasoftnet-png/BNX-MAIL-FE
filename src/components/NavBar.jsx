@@ -7,7 +7,7 @@ import { useMail } from "../context/MailContext";
 import { MdSettings, MdEmail, MdLogout, MdLightMode, MdDarkMode, MdNotifications, MdCheckCircle, MdManageAccounts, MdPersonAdd, MdPhotoCamera, MdMenu, MdAdd, MdApps, MdOutlineNoteAlt } from "react-icons/md";
 import { userAPI, casboxAPI, chatAPI } from "../services/api";
 import toast from "react-hot-toast";
-import { SlidersHorizontal, Calendar, Check, ChevronRight, Search, X } from "lucide-react";
+import { SlidersHorizontal, Calendar, Check, ChevronRight, Search, X, Pencil } from "lucide-react";
 // import logo from "../assets/bnx.jpeg";
 
 import logo from "../assets/bnx-remove.png";
@@ -473,12 +473,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <button
             type="button"
             onClick={() => openCompose({ mode: currentTab === 'chat' ? 'chat' : 'mail' })}
-            className="flex items-center justify-center gap-2 h-9 sm:h-10 px-3 sm:px-4 lg:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-2 sm:ml-4 md:ml-8 lg:ml-[100px] xl:ml-[115px] 2xl:ml-[120px]"
+            className="flex items-center justify-center gap-2 sm:gap-2.5 h-9 sm:h-10 px-3 sm:px-4 lg:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-2 sm:ml-4 md:ml-8 lg:ml-[100px] xl:ml-[115px] 2xl:ml-[120px]"
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
-            <svg className="h-4 w-4 shrink-0 text-[#195bac]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
+            <Pencil size={16} className="text-[#195bac] shrink-0" />
             <span className="text-xs sm:text-[13px] md:text-sm font-semibold text-gray-900 leading-none whitespace-nowrap">
               {t('navbar.compose', t('common.compose', 'Compose'))}
             </span>
