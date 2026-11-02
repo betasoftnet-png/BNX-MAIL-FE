@@ -487,7 +487,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     >
       <div className="flex items-center justify-between w-full max-w-full relative gap-1.5 sm:gap-2 lg:gap-4 box-border min-w-0">
         {/* LEFT: Logo + Compose Button grouped together */}
-        <div className="flex items-center shrink-0 min-w-0 gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3">
+        <div className="flex-initial sm:flex-1 min-w-0 flex items-center justify-start gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3">
           {/* Mobile/Tablet Menu Button */}
           <button
             type="button"
@@ -537,7 +537,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         </div>
 
         {/* CENTER: SEGMENTED CONTROL */}
-        <div className="shrink-0 flex items-center justify-center z-10">
+        <div className="shrink-0 flex items-center justify-center mx-1 sm:mx-2 lg:mx-3 z-10">
           <div className="flex items-center bg-white/10 backdrop-blur-sm shadow-sm rounded-full p-0.5 sm:p-1 border border-white/10 shrink-0">
             <button
               type="button"
@@ -557,7 +557,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         </div>
 
         {/* RIGHT */}
-        <div className="shrink-0 min-w-0 flex items-center justify-end gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5 z-0">
+        <div className="flex-initial sm:flex-1 min-w-0 flex items-center justify-end gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5 z-0">
 
           {/* DESKTOP SEARCH (xl+ screens) */}
           <form onSubmit={handleSearch} className="hidden xl:flex shrink items-center w-36 lg:w-48 xl:w-56 2xl:w-64 focus-within:w-48 xl:focus-within:w-64 transition-all duration-200" ref={searchContainerRef}>
