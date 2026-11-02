@@ -468,6 +468,21 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
               BNX<span className="font-normal text-white/90">mail</span>
             </span>
           </div>
+
+          {/* Compose Button */}
+          <button
+            type="button"
+            onClick={() => openCompose({ mode: currentTab === 'chat' ? 'chat' : 'mail' })}
+            className="flex items-center justify-center gap-2 h-9 sm:h-10 px-3 sm:px-4 lg:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-2 sm:ml-4 md:ml-10 lg:ml-16 xl:ml-20"
+            title={t('navbar.compose', t('common.compose', 'Compose'))}
+          >
+            <svg className="h-4 w-4 shrink-0 text-[#195bac]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            <span className="text-xs sm:text-[13px] md:text-sm font-semibold text-gray-900 leading-none whitespace-nowrap">
+              {t('navbar.compose', t('common.compose', 'Compose'))}
+            </span>
+          </button>
         </div>
 
         {/* CENTER: SEGMENTED CONTROL */}

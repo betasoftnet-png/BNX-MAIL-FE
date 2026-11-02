@@ -282,25 +282,8 @@ const Inbox = ({ searchQuery }) => {
           <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
         </button>
 
-        {/* Compose Button */}
-        <button
-          type="button"
-          onClick={() => openCompose({ mode: 'mail' })}
-          className="h-[42px] sm:h-[44px] flex items-center justify-center gap-2 px-3.5 sm:px-4.5 rounded-full font-semibold shadow-xs sm:shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/90 dark:border-gray-700 text-gray-800 dark:text-gray-100 shrink-0 cursor-pointer select-none ml-1 sm:ml-2"
-          title={t('navbar.compose', t('common.compose', 'Compose'))}
-        >
-          <svg className="h-4 w-4 shrink-0 text-[#195bac] dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-          </svg>
-          <span className="text-xs sm:text-[13px] font-semibold leading-none whitespace-nowrap">
-            {t('navbar.compose', t('common.compose', 'Compose'))}
-          </span>
-        </button>
-
-        <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 shrink-0 mx-1 hidden sm:block" />
-
         {/* All Tabs */}
-        <div className="flex gap-2 sm:gap-6 overflow-x-auto hidden-scrollbar flex-1 items-center">
+        <div className="flex gap-2 sm:gap-6 overflow-x-auto hidden-scrollbar flex-1">
           {availableTabs.filter(t => activeTabs.includes(t.id)).map(tab => renderTab(tab))}
         </div>
       </div>
