@@ -443,7 +443,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     >
       <div className="flex items-center justify-between w-full relative gap-1.5 sm:gap-3">
         {/* LEFT */}
-        <div className="flex items-center shrink-0">
+        <div className="flex-1 min-w-0 flex items-center justify-start shrink-0">
           {/* Mobile Menu Toggle Button */}
           <button
             onClick={onOpenMenu}
@@ -478,7 +478,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           {/* COMPOSE */}
           <button
             onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
-            className={`h-8 sm:h-9 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ${
+            className={`h-8 sm:h-9 flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ${
               !isDesktopSidebarOpen ? "ml-1 sm:ml-2" : ""
             }`}
             title={t('navbar.compose', t('common.compose', 'Compose'))}
@@ -486,12 +486,12 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent || "#135bec" }}>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
-            <span className="text-xs sm:text-[13px] font-semibold leading-none whitespace-nowrap">{t('navbar.compose', t('common.compose', 'Compose'))}</span>
+            <span className="text-xs sm:text-[13px] font-semibold leading-none whitespace-nowrap hidden sm:inline">{t('navbar.compose', t('common.compose', 'Compose'))}</span>
           </button>
         </div>
 
-        {/* CENTER: SEGMENTED CONTROL (Permanently Horizontally Centered) */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto z-10 flex items-center justify-center">
+        {/* CENTER: SEGMENTED CONTROL */}
+        <div className="shrink-0 flex items-center justify-center mx-1 sm:mx-2 z-10">
           <div className="flex items-center bg-white/10 backdrop-blur-sm shadow-sm rounded-full p-0.5 sm:p-1 border border-white/10 shrink-0">
             <button
               type="button"
@@ -511,7 +511,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         </div>
 
         {/* RIGHT */}
-        <div className="flex items-center justify-end gap-1.5 sm:gap-2 md:gap-2.5 shrink-0 z-0">
+        <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5 sm:gap-2 md:gap-2.5 shrink-0 z-0">
 
           {/* DESKTOP SEARCH (md+ screens) */}
           <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-40 lg:w-52 xl:w-60 focus-within:w-48 lg:focus-within:w-64 xl:focus-within:w-72 transition-all duration-200" ref={searchContainerRef}>

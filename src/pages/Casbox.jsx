@@ -5178,11 +5178,12 @@ const Casbox = () => {
 
   const headerComponent = (
     <div className="flex flex-col shrink-0">
-      <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2 shrink-0 bg-transparent">
-        <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-1 rounded-lg shrink-0">
+      <div className="p-3 sm:p-5 border-b border-gray-100 dark:border-gray-800 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-2 shrink-0 bg-transparent">
+        {/* Tabs Group */}
+        <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-0.5 sm:p-1 rounded-lg shrink-0 max-w-full overflow-x-auto hidden-scrollbar">
           <button
             onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
-            className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'messages' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`px-2.5 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'messages' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.messages', 'Messages')}
             {unreadMessagesCount > 0 && (
@@ -5193,7 +5194,7 @@ const Casbox = () => {
           </button>
           <button
             onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`px-2.5 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 shrink-0 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.combine', 'Combine')}
             {unreadCombinedCount > 0 && (
@@ -5204,7 +5205,7 @@ const Casbox = () => {
           </button>
           <button
             onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`px-2.5 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.requests', 'Requests')}
             {unreadRequestsCount > 0 ? (
@@ -5228,7 +5229,7 @@ const Casbox = () => {
               }
               setShowArchive(prev => !prev);
             }}
-            className="p-1.5 rounded-md transition-all flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-700/60"
+            className="p-1.5 rounded-md transition-all flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-700/60 shrink-0"
             title={showArchive ? t('common.collapse', 'Collapse') : t('sidebar.archive', 'Archive')}
             aria-label={showArchive ? "Collapse Archive" : "Expand Archive"}
           >
@@ -5237,7 +5238,7 @@ const Casbox = () => {
           {showArchive && (
             <button
               onClick={() => { setActiveTab('archive'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); }}
-              className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 animate-in fade-in duration-150 ${activeTab === 'archive' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              className={`px-2.5 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 shrink-0 animate-in fade-in duration-150 ${activeTab === 'archive' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
               title={t('sidebar.archive', 'Archive')}
             >
               {t('sidebar.archive', 'Archive')}
@@ -5250,127 +5251,129 @@ const Casbox = () => {
           )}
         </div>
 
-        <div className="flex-1"></div>
-
-        {/* Selected Messages Actions */}
-        {(activeTab === 'messages' || activeTab === 'archive') && selectedRowIds.size > 0 && (
-          <div className="flex items-center gap-1.5 mr-2">
-            {activeTab === 'archive' ? (
-              <button
-                type="button"
-                onClick={handleUnarchiveSelectedMessages}
-                className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
-                title={`Unarchive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
-                aria-label="Unarchive selected messages"
-              >
-                <MdUnarchive size={18} />
-                <span className="hidden sm:inline">Unarchive</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleArchiveSelectedMessages}
-                className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
-                title={`Archive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
-                aria-label="Archive selected messages"
-              >
-                <MdArchive size={18} className="text-gray-600 dark:text-gray-300" />
-                <span className="hidden sm:inline">Archive</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleDeleteSelectedMessagesWithUndo}
-              className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
-              title={`Delete ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
-              aria-label="Delete selected messages"
-            >
-              <MdDeleteOutline size={18} />
-              <span className="hidden sm:inline">Delete</span>
-            </button>
-          </div>
-        )}
-
-        {/* Connections Button */}
-        <div className="relative mr-1.5" ref={connectionsRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setShowConnectionsModal(prev => !prev);
-              if (!showConnectionsModal) fetchConnections();
-            }}
-            className="px-4 py-1.5 rounded-full text-sm font-bold text-white transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:opacity-90 active:scale-95 bg-[#195bac]"
-            style={{ backgroundColor: "#195bac" }}
-            title="Connections"
-            aria-label="Connections"
-          >
-            <MdPersonAdd size={18} className="text-white shrink-0" />
-            <span>Connections</span>
-          </button>
-
-          {/* Connections Popover */}
-          {showConnectionsModal && (
-            <div className="absolute right-0 mt-2 w-max min-w-[340px] sm:min-w-[440px] max-w-[calc(100vw-2rem)] sm:max-w-[580px] bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
-              <div className="p-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-black/20">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                    <MdPersonAdd size={18} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-gray-900 dark:text-white leading-none">Connections</h3>
-                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-                      {displayedConnections.length} accepted contact{displayedConnections.length === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                </div>
+        {/* Actions Group (Connections, Block, Refresh, and Selected Actions) */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
+          {/* Selected Messages Actions */}
+          {(activeTab === 'messages' || activeTab === 'archive') && selectedRowIds.size > 0 && (
+            <div className="flex items-center gap-1.5 mr-1.5">
+              {activeTab === 'archive' ? (
                 <button
                   type="button"
-                  onClick={() => setShowConnectionsModal(false)}
-                  className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                  onClick={handleUnarchiveSelectedMessages}
+                  className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+                  title={`Unarchive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
+                  aria-label="Unarchive selected messages"
                 >
-                  <MdClose size={18} />
+                  <MdUnarchive size={18} />
+                  <span className="hidden sm:inline">Unarchive</span>
                 </button>
-              </div>
-
-              <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
-                {loadingConnections && connections.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-gray-400 dark:text-gray-500">
-                    <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    Loading connections...
-                  </div>
-                ) : displayedConnections.length === 0 ? (
-                  <div className="p-8 text-center text-gray-400 dark:text-gray-500 text-xs">
-                    No accepted connections found.
-                  </div>
-                ) : (
-                  displayedConnections.map((conn) => (
-                    <ConnectionRow
-                      key={conn.id || conn.contactEmail || conn.contactUsername}
-                      conn={conn}
-                      isUpdatingConnection={isUpdatingConnection}
-                      onReconnect={handleReconnect}
-                      onDisconnect={setConnectionToDisconnect}
-                    />
-                  ))
-                )}
-              </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleArchiveSelectedMessages}
+                  className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+                  title={`Archive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
+                  aria-label="Archive selected messages"
+                >
+                  <MdArchive size={18} className="text-gray-600 dark:text-gray-300" />
+                  <span className="hidden sm:inline">Archive</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleDeleteSelectedMessagesWithUndo}
+                className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+                title={`Delete ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
+                aria-label="Delete selected messages"
+              >
+                <MdDeleteOutline size={18} />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
             </div>
           )}
+
+          {/* Connections Button */}
+          <div className="relative mr-0.5 sm:mr-1" ref={connectionsRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowConnectionsModal(prev => !prev);
+                if (!showConnectionsModal) fetchConnections();
+              }}
+              className="px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold text-white transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shadow-sm hover:opacity-90 active:scale-95 bg-[#195bac] shrink-0"
+              style={{ backgroundColor: "#195bac" }}
+              title="Connections"
+              aria-label="Connections"
+            >
+              <MdPersonAdd size={17} className="text-white shrink-0" />
+              <span>Connections</span>
+            </button>
+
+            {/* Connections Popover */}
+            {showConnectionsModal && (
+              <div className="absolute right-0 mt-2 w-max min-w-[280px] sm:min-w-[440px] max-w-[calc(100vw-2rem)] sm:max-w-[580px] bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="p-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-black/20">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                      <MdPersonAdd size={18} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-white leading-none">Connections</h3>
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+                        {displayedConnections.length} accepted contact{displayedConnections.length === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowConnectionsModal(false)}
+                    className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                  >
+                    <MdClose size={18} />
+                  </button>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+                  {loadingConnections && connections.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-gray-400 dark:text-gray-500">
+                      <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      Loading connections...
+                    </div>
+                  ) : displayedConnections.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400 dark:text-gray-500 text-xs">
+                      No accepted connections found.
+                    </div>
+                  ) : (
+                    displayedConnections.map((conn) => (
+                      <ConnectionRow
+                        key={conn.id || conn.contactEmail || conn.contactUsername}
+                        conn={conn}
+                        isUpdatingConnection={isUpdatingConnection}
+                        onReconnect={handleReconnect}
+                        onDisconnect={setConnectionToDisconnect}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setShowBlockedModal(true)}
+            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+            title={t('casbox.blocked_users', 'Blocked Users')}
+          >
+            <MdBlock size={18} />
+          </button>
+          <button
+            onClick={fetchMessages}
+            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+            title={t('common.refresh', 'Refresh')}
+          >
+            <MdRefresh size={20} className={loading ? "animate-spin" : ""} />
+          </button>
         </div>
-        <button
-          onClick={() => setShowBlockedModal(true)}
-          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 ml-1"
-          title={t('casbox.blocked_users', 'Blocked Users')}
-        >
-          <MdBlock size={18} />
-        </button>
-        <button
-          onClick={fetchMessages}
-          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-          title={t('common.refresh', 'Refresh')}
-        >
-          <MdRefresh size={20} className={loading ? "animate-spin" : ""} />
-        </button>
       </div>
     </div>
   );
