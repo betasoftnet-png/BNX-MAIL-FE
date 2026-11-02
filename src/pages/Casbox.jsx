@@ -5224,96 +5224,87 @@ const Casbox = () => {
   const headerComponent = (
     <div className="flex flex-col shrink-0 w-full max-w-full">
       <div className="px-2 sm:px-5 py-2 sm:py-3.5 border-b border-gray-100 dark:border-gray-800 flex flex-nowrap items-center justify-between gap-1 sm:gap-2 shrink-0 bg-transparent w-full min-w-0 overflow-x-hidden">
-        {/* Left Toolbar: Tabs + Compose */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink overflow-x-auto hidden-scrollbar py-0.5">
-          {/* Tabs Group */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-0.5 sm:p-1 rounded-lg shrink-0">
-            <button
-              onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
-              className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 ${activeTab === 'messages' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-            >
-              {t('casbox.messages', 'Messages')}
-              {unreadMessagesCount > 0 && (
-                <span className={`font-normal hidden sm:inline ${activeTab === 'messages' ? 'opacity-80' : 'opacity-60'}`}>
-                  ({unreadMessagesCount})
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-              className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-            >
-              {t('casbox.combine', 'Combine')}
-              {unreadCombinedCount > 0 && (
-                <span className={`font-normal hidden sm:inline ${isCombineTab ? 'opacity-80' : 'opacity-60'}`}>
-                  ({unreadCombinedCount})
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-              className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-            >
-              {t('casbox.requests', 'Requests')}
-              {unreadRequestsCount > 0 ? (
-                <span className={`font-normal hidden sm:inline ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
-                  ({unreadRequestsCount})
-                </span>
-              ) : requestsConversations.length > 0 ? (
-                <span className={`font-normal hidden sm:inline ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
-                  ({requestsConversations.length})
-                </span>
-              ) : null}
-              {requestMessages.length > 0 && <span className="flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500"></span>}
-            </button>
-            <button
-              onClick={() => {
-                if (showArchive && activeTab === 'archive') {
-                  setActiveTab('messages');
-                  setSelectedMessage(null);
-                  setSelectedSentDetail(null);
-                  setSelectedRowIds(new Set());
-                }
-                setShowArchive(prev => !prev);
-              }}
-              className="p-1 sm:p-1.5 rounded-md transition-all flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-700/60 shrink-0"
-              title={showArchive ? t('common.collapse', 'Collapse') : t('sidebar.archive', 'Archive')}
-              aria-label={showArchive ? "Collapse Archive" : "Expand Archive"}
-            >
-              {showArchive ? <MdChevronLeft size={16} className="sm:w-[18px] sm:h-[18px]" /> : <MdChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />}
-            </button>
-            {showArchive && (
-              <button
-                onClick={() => { setActiveTab('archive'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); }}
-                className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 animate-in fade-in duration-150 ${activeTab === 'archive' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                title={t('sidebar.archive', 'Archive')}
-              >
-                {t('sidebar.archive', 'Archive')}
-                {unreadArchivedCount > 0 && (
-                  <span className={`font-normal hidden sm:inline ${activeTab === 'archive' ? 'opacity-80' : 'opacity-60'}`}>
-                    ({unreadArchivedCount})
-                  </span>
-                )}
-              </button>
-            )}
-          </div>
-
-          {/* COMPOSE BUTTON */}
+        {/* Tabs Group */}
+        <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-0.5 sm:p-1 rounded-lg shrink min-w-0 overflow-x-auto hidden-scrollbar">
           <button
-            type="button"
-            onClick={() => openCompose?.({ mode: 'chat' })}
-            className="h-7 sm:h-8 lg:h-9 flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 lg:px-4 rounded-full font-semibold shadow-xs sm:shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/80 dark:border-gray-700/80 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none"
-            title={t('navbar.compose', t('common.compose', 'Compose'))}
-            aria-label={t('navbar.compose', t('common.compose', 'Compose'))}
+            onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
+            className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 ${activeTab === 'messages' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
-            <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-[#195bac] dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-            <span className="text-[11px] sm:text-xs lg:text-[13px] font-semibold leading-none whitespace-nowrap">
-              {t('navbar.compose', t('common.compose', 'Compose'))}
-            </span>
+            {t('casbox.messages', 'Messages')}
+            {unreadMessagesCount > 0 && (
+              <span className={`font-normal hidden sm:inline ${activeTab === 'messages' ? 'opacity-80' : 'opacity-60'}`}>
+                ({unreadMessagesCount})
+              </span>
+            )}
           </button>
+          <button
+            onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
+            className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            {t('casbox.combine', 'Combine')}
+            {unreadCombinedCount > 0 && (
+              <span className={`font-normal hidden sm:inline ${isCombineTab ? 'opacity-80' : 'opacity-60'}`}>
+                ({unreadCombinedCount})
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
+            className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            {t('casbox.requests', 'Requests')}
+            {unreadRequestsCount > 0 ? (
+              <span className={`font-normal hidden sm:inline ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
+                ({unreadRequestsCount})
+              </span>
+            ) : requestsConversations.length > 0 ? (
+              <span className={`font-normal hidden sm:inline ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
+                ({requestsConversations.length})
+              </span>
+            ) : null}
+            {requestMessages.length > 0 && <span className="flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500"></span>}
+          </button>
+          <button
+            onClick={() => {
+              if (showArchive && activeTab === 'archive') {
+                setActiveTab('messages');
+                setSelectedMessage(null);
+                setSelectedSentDetail(null);
+                setSelectedRowIds(new Set());
+              }
+              setShowArchive(prev => !prev);
+            }}
+            className="p-1 sm:p-1.5 rounded-md transition-all flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-700/60 shrink-0"
+            title={showArchive ? t('common.collapse', 'Collapse') : t('sidebar.archive', 'Archive')}
+            aria-label={showArchive ? "Collapse Archive" : "Expand Archive"}
+          >
+            {showArchive ? <MdChevronLeft size={16} className="sm:w-[18px] sm:h-[18px]" /> : <MdChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />}
+          </button>
+          {showArchive && (
+            <button
+              onClick={() => { setActiveTab('archive'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); }}
+              className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 animate-in fade-in duration-150 ${activeTab === 'archive' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              title={t('sidebar.archive', 'Archive')}
+            >
+              {t('sidebar.archive', 'Archive')}
+              {unreadArchivedCount > 0 && (
+                <span className={`font-normal hidden sm:inline ${activeTab === 'archive' ? 'opacity-80' : 'opacity-60'}`}>
+                  ({unreadArchivedCount})
+                </span>
+              )}
+            </button>
+          )}
         </div>
+
+
+
+
+
+
+
+
+
+
 
         {/* Actions Group (Connections, Block, Refresh, and Selected Actions) */}
         <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-1 sm:ml-auto">
