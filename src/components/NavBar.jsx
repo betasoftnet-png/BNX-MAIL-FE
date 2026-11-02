@@ -438,38 +438,32 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
   return (
     <nav
-      className="sticky top-0 z-50 px-2 sm:px-4 lg:px-5 py-2 sm:py-2.5 transition-colors duration-300 shrink-0 shadow-md w-full relative"
+      className="sticky top-0 z-50 px-2 sm:px-3 lg:px-5 py-2 sm:py-2.5 transition-colors duration-300 shrink-0 shadow-md w-full max-w-full box-border relative"
       style={{ backgroundColor: backgroundImage ? "transparent" : "#195bac" }}
     >
-      <div className="flex items-center justify-between w-full relative gap-1.5 sm:gap-3">
+      <div className="flex items-center justify-between w-full max-w-full relative gap-1.5 sm:gap-2 lg:gap-4 box-border min-w-0">
         {/* LEFT */}
-        <div className="flex-1 min-w-0 flex items-center justify-start shrink-0">
+        <div className="flex-1 md:flex-initial lg:flex-1 min-w-0 flex items-center justify-start gap-1 sm:gap-1.5 lg:gap-2">
           {/* Mobile Menu Toggle Button */}
           <button
             onClick={onOpenMenu}
-            className="p-1 sm:p-1.5 mr-1.5 sm:mr-2 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer shrink-0"
+            className="p-1 sm:p-1.5 mr-0.5 sm:mr-1 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer shrink-0"
             title="Open Menu"
           >
             <MdMenu size={22} />
           </button>
 
           {/* Logo & Brand Name */}
-          <div
-            className={`flex items-center gap-1.5 sm:gap-2 shrink-0 transition-all duration-300 ${
-              isDesktopSidebarOpen
-                ? "md:w-44 lg:w-[13.9375rem]"
-                : "w-auto mr-2 sm:mr-4"
-            }`}
-          >
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <img
               src={logo}
               alt="BNX Mail"
-              className="h-7 sm:h-9 cursor-pointer drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0"
+              className="h-7 sm:h-8 lg:h-9 cursor-pointer drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0"
               onClick={() => onToggleDesktopSidebar()}
             />
             <span
               onClick={() => onToggleDesktopSidebar()}
-              className="text-base sm:text-lg lg:text-xl font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden sm:block select-none"
+              className="text-sm sm:text-base lg:text-lg font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden md:inline select-none whitespace-nowrap"
             >
               BNX<span className="font-normal text-white/90">mail</span>
             </span>
@@ -478,32 +472,32 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           {/* COMPOSE */}
           <button
             onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
-            className={`h-8 sm:h-9 flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ${
-              !isDesktopSidebarOpen ? "ml-1 sm:ml-2" : ""
-            }`}
+            className="h-8 sm:h-9 flex items-center justify-center gap-1.5 px-2.5 sm:px-3 lg:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ml-1 sm:ml-2"
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent || "#135bec" }}>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
-            <span className="text-xs sm:text-[13px] font-semibold leading-none whitespace-nowrap hidden sm:inline">{t('navbar.compose', t('common.compose', 'Compose'))}</span>
+            <span className="text-xs sm:text-[13px] font-semibold leading-none whitespace-nowrap hidden lg:inline">
+              {t('navbar.compose', t('common.compose', 'Compose'))}
+            </span>
           </button>
         </div>
 
         {/* CENTER: SEGMENTED CONTROL */}
-        <div className="shrink-0 flex items-center justify-center mx-1 sm:mx-2 z-10">
+        <div className="shrink-0 flex items-center justify-center mx-1 sm:mx-2 lg:mx-3 z-10">
           <div className="flex items-center bg-white/10 backdrop-blur-sm shadow-sm rounded-full p-0.5 sm:p-1 border border-white/10 shrink-0">
             <button
               type="button"
               onClick={() => navigate('/inbox')}
-              className={`px-2.5 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.mail', 'Mail')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/casbox')}
-              className={`px-2.5 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.casbox', 'Casbox')}
             </button>
@@ -511,10 +505,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         </div>
 
         {/* RIGHT */}
-        <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5 sm:gap-2 md:gap-2.5 shrink-0 z-0">
+        <div className="flex-1 md:flex-initial lg:flex-1 min-w-0 flex items-center justify-end gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5 z-0">
 
           {/* DESKTOP SEARCH (md+ screens) */}
-          <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-40 lg:w-52 xl:w-60 focus-within:w-48 lg:focus-within:w-64 xl:focus-within:w-72 transition-all duration-200" ref={searchContainerRef}>
+          <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-32 lg:w-48 xl:w-56 focus-within:w-44 lg:focus-within:w-56 xl:focus-within:w-64 transition-all duration-200" ref={searchContainerRef}>
             <div className="relative group w-full flex items-center">
               <input
                 id="mail-search-input"
