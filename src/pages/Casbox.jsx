@@ -5177,13 +5177,13 @@ const Casbox = () => {
   }, [unifiedCombineMessages, combineFilter, combineSearch, contactAliases]);
 
   const headerComponent = (
-    <div className="flex flex-col shrink-0">
-      <div className="p-3 sm:p-5 border-b border-gray-100 dark:border-gray-800 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-2 shrink-0 bg-transparent">
+    <div className="flex flex-col shrink-0 w-full max-w-full">
+      <div className="px-2 sm:px-5 py-2 sm:py-3.5 border-b border-gray-100 dark:border-gray-800 flex flex-nowrap items-center justify-between gap-1 sm:gap-2 shrink-0 bg-transparent w-full min-w-0 overflow-x-hidden">
         {/* Tabs Group */}
-        <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-0.5 sm:p-1 rounded-lg shrink-0 max-w-full overflow-x-auto hidden-scrollbar">
+        <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-0.5 sm:p-1 rounded-lg shrink min-w-0 overflow-x-auto hidden-scrollbar">
           <button
             onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
-            className={`px-2.5 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'messages' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 ${activeTab === 'messages' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.messages', 'Messages')}
             {unreadMessagesCount > 0 && (
@@ -5194,7 +5194,7 @@ const Casbox = () => {
           </button>
           <button
             onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-2.5 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 shrink-0 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.combine', 'Combine')}
             {unreadCombinedCount > 0 && (
@@ -5205,7 +5205,7 @@ const Casbox = () => {
           </button>
           <button
             onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-2.5 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 shrink-0 ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             {t('casbox.requests', 'Requests')}
             {unreadRequestsCount > 0 ? (
@@ -5217,7 +5217,7 @@ const Casbox = () => {
                 ({requestsConversations.length})
               </span>
             ) : null}
-            {requestMessages.length > 0 && <span className="flex h-2 w-2 rounded-full bg-red-500"></span>}
+            {requestMessages.length > 0 && <span className="flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500"></span>}
           </button>
           <button
             onClick={() => {
@@ -5229,16 +5229,16 @@ const Casbox = () => {
               }
               setShowArchive(prev => !prev);
             }}
-            className="p-1.5 rounded-md transition-all flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-700/60 shrink-0"
+            className="p-1 sm:p-1.5 rounded-md transition-all flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-700/60 shrink-0"
             title={showArchive ? t('common.collapse', 'Collapse') : t('sidebar.archive', 'Archive')}
             aria-label={showArchive ? "Collapse Archive" : "Expand Archive"}
           >
-            {showArchive ? <MdChevronLeft size={18} /> : <MdChevronRight size={18} />}
+            {showArchive ? <MdChevronLeft size={16} className="sm:w-[18px] sm:h-[18px]" /> : <MdChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />}
           </button>
           {showArchive && (
             <button
               onClick={() => { setActiveTab('archive'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); }}
-              className={`px-2.5 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 shrink-0 animate-in fade-in duration-150 ${activeTab === 'archive' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              className={`px-1.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 animate-in fade-in duration-150 ${activeTab === 'archive' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
               title={t('sidebar.archive', 'Archive')}
             >
               {t('sidebar.archive', 'Archive')}
@@ -5252,60 +5252,60 @@ const Casbox = () => {
         </div>
 
         {/* Actions Group (Connections, Block, Refresh, and Selected Actions) */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
+        <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-1 sm:ml-auto">
           {/* Selected Messages Actions */}
           {(activeTab === 'messages' || activeTab === 'archive') && selectedRowIds.size > 0 && (
-            <div className="flex items-center gap-1.5 mr-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 mr-0.5 sm:mr-1.5">
               {activeTab === 'archive' ? (
                 <button
                   type="button"
                   onClick={handleUnarchiveSelectedMessages}
-                  className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+                  className="p-1 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150 shrink-0"
                   title={`Unarchive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
                   aria-label="Unarchive selected messages"
                 >
-                  <MdUnarchive size={18} />
+                  <MdUnarchive size={16} className="sm:w-[18px] sm:h-[18px]" />
                   <span className="hidden sm:inline">Unarchive</span>
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={handleArchiveSelectedMessages}
-                  className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+                  className="p-1 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150 shrink-0"
                   title={`Archive ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
                   aria-label="Archive selected messages"
                 >
-                  <MdArchive size={18} className="text-gray-600 dark:text-gray-300" />
+                  <MdArchive size={16} className="text-gray-600 dark:text-gray-300 sm:w-[18px] sm:h-[18px]" />
                   <span className="hidden sm:inline">Archive</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleDeleteSelectedMessagesWithUndo}
-                className="p-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150"
+                className="p-1 sm:px-3 sm:py-1.5 rounded-full text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs animate-in fade-in duration-150 shrink-0"
                 title={`Delete ${selectedRowIds.size} selected message${selectedRowIds.size > 1 ? 's' : ''}`}
                 aria-label="Delete selected messages"
               >
-                <MdDeleteOutline size={18} />
+                <MdDeleteOutline size={16} className="sm:w-[18px] sm:h-[18px]" />
                 <span className="hidden sm:inline">Delete</span>
               </button>
             </div>
           )}
 
           {/* Connections Button */}
-          <div className="relative mr-0.5 sm:mr-1" ref={connectionsRef}>
+          <div className="relative mr-0.5 sm:mr-1 shrink-0" ref={connectionsRef}>
             <button
               type="button"
               onClick={() => {
                 setShowConnectionsModal(prev => !prev);
                 if (!showConnectionsModal) fetchConnections();
               }}
-              className="px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold text-white transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shadow-sm hover:opacity-90 active:scale-95 bg-[#195bac] shrink-0"
+              className="px-2 sm:px-4 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-bold text-white transition-all flex items-center gap-1 sm:gap-2 cursor-pointer shadow-sm hover:opacity-90 active:scale-95 bg-[#195bac] shrink-0"
               style={{ backgroundColor: "#195bac" }}
               title="Connections"
               aria-label="Connections"
             >
-              <MdPersonAdd size={17} className="text-white shrink-0" />
+              <MdPersonAdd size={15} className="text-white shrink-0 sm:w-[17px] sm:h-[17px]" />
               <span>Connections</span>
             </button>
 
@@ -5361,17 +5361,17 @@ const Casbox = () => {
 
           <button
             onClick={() => setShowBlockedModal(true)}
-            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+            className="p-1 sm:p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
             title={t('casbox.blocked_users', 'Blocked Users')}
           >
-            <MdBlock size={18} />
+            <MdBlock size={16} className="sm:w-[18px] sm:h-[18px]" />
           </button>
           <button
             onClick={fetchMessages}
-            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+            className="p-1 sm:p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
             title={t('common.refresh', 'Refresh')}
           >
-            <MdRefresh size={20} className={loading ? "animate-spin" : ""} />
+            <MdRefresh size={18} className={`sm:w-5 sm:h-5 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
@@ -5381,7 +5381,7 @@ const Casbox = () => {
   const listComponent = isCombineTab ? (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent relative">
       {/* Search Bar & Filter */}
-      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center bg-transparent shrink-0">
+      <div className="px-2.5 sm:px-6 py-2 sm:py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center bg-transparent shrink-0">
         <div className="relative flex-1 flex items-center bg-gray-100/70 dark:bg-gray-800/60 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
           <MdSearch size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none shrink-0" />
           <input
@@ -5485,33 +5485,33 @@ const Casbox = () => {
               <div
                 key={id}
                 onClick={() => handleCombineRowClick(item)}
-                className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors bg-white dark:bg-[#121212] cursor-pointer"
+                className="flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors bg-white dark:bg-[#121212] cursor-pointer"
               >
                 {/* Left side: Avatar, Name, Badge, Divider, Text */}
-                <div className="flex items-center min-w-0 flex-1 mr-4">
+                <div className="flex items-center min-w-0 flex-1 mr-1.5 sm:mr-4">
                   {/* Avatar */}
-                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 select-none ${avatarColorClass}`}>
+                  <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 select-none ${avatarColorClass}`}>
                     {initial}
                   </div>
 
                   {/* Contact Name */}
-                  <span className="w-28 sm:w-44 font-semibold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 ml-3">
+                  <span className="w-20 sm:w-36 lg:w-44 font-semibold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 ml-1.5 sm:ml-3">
                     {contactName}
                   </span>
 
                   {/* Badge */}
                   {isSent ? (
-                    <span className="ml-2 sm:ml-4 shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
+                    <span className="ml-1.5 sm:ml-4 shrink-0 px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
                       Sent
                     </span>
                   ) : (
-                    <span className="ml-2 sm:ml-4 shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                    <span className="ml-1.5 sm:ml-4 shrink-0 px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
                       Received
                     </span>
                   )}
 
                   {/* Vertical Divider */}
-                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-3 sm:mx-4 shrink-0" />
+                  <div className="h-3.5 sm:h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1.5 sm:mx-4 shrink-0" />
 
                   {/* Message Body */}
                   <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate font-normal flex-1 min-w-0">
@@ -5520,8 +5520,8 @@ const Casbox = () => {
                 </div>
 
                 {/* Right side: Timestamp, Status Checkmark, Three dots */}
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <span className="text-xs text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-1.5 sm:ml-2">
+                  <span className="text-[11px] sm:text-xs text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap shrink-0">
                     {formatCashboxTime(msg.timestamp)}
                   </span>
 
@@ -5610,7 +5610,7 @@ const Casbox = () => {
   ) : (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent relative">
       {/* Search Bar & Filter for Messages */}
-      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center bg-transparent shrink-0">
+      <div className="px-2.5 sm:px-6 py-2 sm:py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center bg-transparent shrink-0">
         <div className="relative flex-1 flex items-center bg-gray-100/70 dark:bg-gray-800/60 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
           <MdSearch size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none shrink-0" />
           <input
@@ -5762,15 +5762,15 @@ const Casbox = () => {
               <div
                 key={id}
                 onClick={() => handleOpenMessageDetail(item)}
-                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${
+                className={`group flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${
                   selectedSentDetail && (selectedSentDetail.id === msg.id || selectedSentDetail === msg) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                 }`}
               >
 
                 {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] — [Message Preview] */}
-                <div className="flex items-center min-w-0 flex-1 mr-4">
+                <div className="flex items-center min-w-0 flex-1 mr-1.5 sm:mr-4">
                   {/* Checkbox */}
-                  <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center shrink-0 mr-1.5 sm:mr-3" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
@@ -5784,25 +5784,25 @@ const Casbox = () => {
                   </div>
 
                   {/* Avatar */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-3 sm:mr-3.5 ${avatarColorClass}`}>
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-1.5 sm:mr-3.5 ${avatarColorClass}`}>
                     {initial}
                   </div>
 
                   {/* Person Name */}
-                  <span className={`w-32 sm:w-44 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-3 sm:mr-4 ${
+                  <span className={`w-20 sm:w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-1.5 sm:mr-4 ${
                     isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
                   }`}>
                     {personName}
                   </span>
 
                   {/* Sent / Received Badge */}
-                  <div className="shrink-0 mr-3 sm:mr-4">
+                  <div className="shrink-0 mr-1.5 sm:mr-4">
                     {isSent ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
+                      <span className="px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
                         Sent
                       </span>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                      <span className="px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
                         Received
                       </span>
                     )}
@@ -5811,22 +5811,22 @@ const Casbox = () => {
                   {/* Message Content Preview (Subject + Body) */}
                   <div className="flex items-center min-w-0 flex-1">
                     {subject && (
-                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[130px] sm:max-w-[200px] mr-2 ${
+                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[80px] sm:max-w-[200px] mr-1.5 sm:mr-2 ${
                         isUnread ? 'font-bold' : 'font-semibold'
                       }`}>
                         {subject}
                       </span>
                     )}
                     <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
-                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
+                      {subject && bodyPreview ? <span className="opacity-50 mr-1">—</span> : null}
                       {bodyPreview}
                     </span>
                   </div>
                 </div>
 
                 {/* Right side: [Time] [Status] [3-dot] */}
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <span className={`text-xs font-medium whitespace-nowrap ${
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-1.5 sm:ml-2">
+                  <span className={`text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 ${
                     isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
                   }`}>
                     {formatCashboxTime(msg?.timestamp)}
@@ -5840,13 +5840,13 @@ const Casbox = () => {
 
                     if (isSeen) {
                       return (
-                        <span className="text-blue-500 shrink-0 flex items-center ml-2" title="Seen">
+                        <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
                           <MdDoneAll size={16} />
                         </span>
                       );
                     }
                     return (
-                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center ml-2" title="Sent">
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
                         <MdCheck size={16} />
                       </span>
                     );
@@ -5964,7 +5964,7 @@ const Casbox = () => {
               <div
                 key={id}
                 onClick={() => handleArchivedMessageClick(msg, chat || { contact })}
-                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${
+                className={`group flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${
                   isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                 }`}
               >
@@ -5973,9 +5973,9 @@ const Casbox = () => {
                 )}
 
                 {/* Left side: [Checkbox] [Avatar] [Person Name] [Direction | Subject — Preview] */}
-                <div className="flex items-center min-w-0 flex-1 mr-4">
+                <div className="flex items-center min-w-0 flex-1 mr-1.5 sm:mr-4">
                   {/* Checkbox */}
-                  <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center shrink-0 mr-1.5 sm:mr-3" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
@@ -5989,12 +5989,12 @@ const Casbox = () => {
                   </div>
 
                   {/* Avatar */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-3 sm:mr-3.5 ${avatarColorClass}`}>
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-1.5 sm:mr-3.5 ${avatarColorClass}`}>
                     {initial}
                   </div>
 
                   {/* Sender / Contact Name */}
-                  <span className={`w-32 sm:w-44 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-3 sm:mr-4 ${
+                  <span className={`w-20 sm:w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-1.5 sm:mr-4 ${
                     isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
                   }`}>
                     {personName}
@@ -6003,7 +6003,7 @@ const Casbox = () => {
                   {/* Direction + Subject + Content Preview */}
                   <div className="flex items-center min-w-0 flex-1">
                     {/* Direction Label */}
-                    <span className={`text-xs sm:text-sm font-semibold shrink-0 ${
+                    <span className={`text-[11px] sm:text-xs font-semibold shrink-0 ${
                       isSent ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'
                     }`}>
                       {isSent ? 'Sent' : 'Received'}
@@ -6011,19 +6011,19 @@ const Casbox = () => {
 
                     {/* Pipe separator | if subject or bodyPreview exists */}
                     {(subject || bodyPreview) && (
-                      <span className="text-gray-400 dark:text-gray-500 mx-2 shrink-0 select-none">|</span>
+                      <span className="text-gray-400 dark:text-gray-500 mx-1 sm:mx-2 shrink-0 select-none">|</span>
                     )}
 
                     {/* Subject */}
                     {subject && (
-                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[130px] sm:max-w-[200px] font-semibold ${bodyPreview ? 'mr-1.5' : ''}`}>
+                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[80px] sm:max-w-[200px] font-semibold ${bodyPreview ? 'mr-1 sm:mr-1.5' : ''}`}>
                         {subject}
                       </span>
                     )}
 
                     {/* Dash separator — if both subject and bodyPreview exist */}
                     {subject && bodyPreview && (
-                      <span className="text-gray-400 dark:text-gray-500 opacity-60 mr-1.5 shrink-0 select-none">—</span>
+                      <span className="text-gray-400 dark:text-gray-500 opacity-60 mr-1 sm:mr-1.5 shrink-0 select-none">—</span>
                     )}
 
                     {/* Content Preview */}
@@ -6036,8 +6036,8 @@ const Casbox = () => {
                 </div>
 
                 {/* Right side: [Time] [Status Ticks] [3-dot menu] */}
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <span className={`text-xs font-medium whitespace-nowrap ${
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-1.5 sm:ml-2">
+                  <span className={`text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 ${
                     isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
                   }`}>
                     {formatCashboxTime(msg?.timestamp)}
@@ -6051,13 +6051,13 @@ const Casbox = () => {
 
                     if (isSeen) {
                       return (
-                        <span className="text-blue-500 shrink-0 flex items-center ml-2" title="Seen">
+                        <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
                           <MdDoneAll size={16} />
                         </span>
                       );
                     }
                     return (
-                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center ml-2" title="Sent">
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
                         <MdCheck size={16} />
                       </span>
                     );
@@ -6181,7 +6181,7 @@ const Casbox = () => {
                     handleSelectMessage(msg);
                   }
                 }}
-                className={`group flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors cursor-pointer relative bg-white dark:bg-[#121212] ${
+                className={`group flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors cursor-pointer relative bg-white dark:bg-[#121212] ${
                   isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                 }`}
               >
@@ -6190,9 +6190,9 @@ const Casbox = () => {
                 )}
 
                 {/* Left side: [Checkbox] [Avatar] [Name] [Message Preview] */}
-                <div className="flex items-center min-w-0 flex-1 mr-4">
+                <div className="flex items-center min-w-0 flex-1 mr-1.5 sm:mr-4">
                   {/* Checkbox */}
-                  <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center shrink-0 mr-1.5 sm:mr-3" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
@@ -6206,12 +6206,12 @@ const Casbox = () => {
                   </div>
 
                   {/* Avatar */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-3 sm:mr-3.5 ${avatarColorClass}`}>
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-1.5 sm:mr-3.5 ${avatarColorClass}`}>
                     {initial}
                   </div>
 
                   {/* Name */}
-                  <span className={`w-32 sm:w-44 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-3 sm:mr-4 ${
+                  <span className={`w-20 sm:w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-1.5 sm:mr-4 ${
                     unreadCount > 0 ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
                   }`}>
                     {personName}
@@ -6220,22 +6220,22 @@ const Casbox = () => {
                   {/* Message Content Preview (Subject + Body) */}
                   <div className="flex items-center min-w-0 flex-1">
                     {subject && (
-                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[130px] sm:max-w-[200px] mr-2 ${
+                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[80px] sm:max-w-[200px] mr-1.5 sm:mr-2 ${
                         unreadCount > 0 ? 'font-bold' : 'font-semibold'
                       }`}>
                         {subject}
                       </span>
                     )}
                     <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
-                      {subject && bodyPreview ? <span className="opacity-50 mr-1.5">—</span> : null}
+                      {subject && bodyPreview ? <span className="opacity-50 mr-1">—</span> : null}
                       {bodyPreview}
                     </span>
                   </div>
                 </div>
 
                 {/* Right side: [Time] [Status] [More options] */}
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <span className={`text-xs font-medium whitespace-nowrap ${
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-1.5 sm:ml-2">
+                  <span className={`text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 ${
                     unreadCount > 0 ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'
                   }`}>
                     {formatCashboxTime(msg?.timestamp)}
@@ -6249,13 +6249,13 @@ const Casbox = () => {
 
                     if (isSeen) {
                       return (
-                        <span className="text-blue-500 shrink-0 flex items-center ml-2" title="Seen">
+                        <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
                           <MdDoneAll size={16} />
                         </span>
                       );
                     }
                     return (
-                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center ml-2" title="Sent">
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
                         <MdCheck size={16} />
                       </span>
                     );
