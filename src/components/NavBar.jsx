@@ -525,7 +525,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <button
             type="button"
             onClick={() => openCompose({ mode: currentTab === 'chat' ? 'chat' : 'mail' })}
-            className="flex items-center justify-center gap-1.5 sm:gap-2 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 h-8 sm:h-9 lg:h-10 px-2.5 sm:px-3.5 lg:px-4"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 h-8 w-8 sm:w-auto sm:h-9 lg:h-10 px-0 sm:px-3.5 lg:px-4"
             title={t('navbar.compose', t('common.compose', 'Compose'))}
             aria-label={t('navbar.compose', t('common.compose', 'Compose'))}
           >
@@ -752,7 +752,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   {user?.email?.[0]?.toUpperCase() || "U"}
                 </div>
               )}
-              <div className="hidden xl:flex items-center gap-1.5">
+              <div className="hidden lg:flex items-center gap-1.5">
                 <span
                   className="text-[13px] font-medium truncate max-w-[80px] xl:max-w-[110px] text-white"
                 >
@@ -763,7 +763,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                 )}
               </div>
               <svg
-                className="h-3.5 w-3.5 hidden xl:block opacity-80 text-white shrink-0"
+                className="h-3.5 w-3.5 hidden lg:block opacity-80 text-white shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
