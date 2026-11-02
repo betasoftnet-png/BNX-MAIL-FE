@@ -1239,7 +1239,7 @@ const Settings = () => {
           className="text-sm font-semibold mb-3 hover:underline text-left cursor-pointer flex items-center gap-1.5 transition-colors hover:text-primary"
           style={{ color: theme.accent }}
         >
-          â† {t("common.back", "Back")}
+          ←  {t("common.back", "Back")}
         </button>
         <h2 className="text-2xl font-bold mb-4 px-2" style={{ color: theme.text }}>{t("settings.title", "Settings")}</h2>
 
@@ -1658,11 +1658,11 @@ const Settings = () => {
                     style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                   >
                     <option value="en" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>English</option>
-                    <option value="ta" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Tamil (à®¤à®®à®¿à®´à¯)</option>
-                    <option value="hi" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Hindi (à¤¹à¤¿à¤‚à¤¦à¥€)</option>
-                    <option value="te" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Telugu (à°¤à±†à°²à±à°—à±)</option>
-                    <option value="ml" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Malayalam (à´®à´²à´¯à´¾à´³à´‚)</option>
-                    <option value="kn" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Kannada (à²•à²¨à³à²¨à²¡)</option>
+                    <option value="ta" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Tamil</option>
+                    <option value="hi" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Hindi</option>
+                    <option value="te" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Telugu</option>
+                    <option value="ml" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Malayalam</option>
+                    <option value="kn" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Kannada</option>
                   </select>
                   <span className="text-xs text-gray-500">{t("settings.display_language_help", "BNXmail display language preference.")}</span>
                 </div>
