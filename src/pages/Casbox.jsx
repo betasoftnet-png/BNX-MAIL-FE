@@ -991,6 +991,7 @@ const Casbox = () => {
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
   const [emojiSearchTerm, setEmojiSearchTerm] = useState("");
   const [activeEmojiCategory, setActiveEmojiCategory] = useState("smileys");
+  const [reactionPickerPlacement, setReactionPickerPlacement] = useState({ placement: 'above', align: 'left' });
   const [reactionsMap, setReactionsMap] = useState(() => {
     try {
       const saved = localStorage.getItem('bnx_casbox_reactions');
@@ -999,6 +1000,46 @@ const Casbox = () => {
       return {};
     }
   });
+
+  // Calculate emoji reaction picker placement (above vs below, left vs right) to avoid clipping and viewport overflow
+  useEffect(() => {
+    if (!activeReactionMsgId) return;
+
+    const updatePlacement = () => {
+      const msgEl = document.getElementById(`casbox-msg-${activeReactionMsgId}`);
+      if (!msgEl || !chatContainerRef.current) return;
+
+      const containerRect = chatContainerRef.current.getBoundingClientRect();
+      const msgRect = msgEl.getBoundingClientRect();
+
+      const requiredHeight = showFullEmojiPicker ? 340 : 50;
+      const spaceAbove = msgRect.top - containerRect.top;
+      const spaceBelow = containerRect.bottom - msgRect.bottom;
+
+      const requiredWidth = showFullEmojiPicker ? 320 : 250;
+      const spaceRight = containerRect.right - msgRect.left;
+
+      const placement = spaceAbove >= requiredHeight || spaceAbove >= spaceBelow ? 'above' : 'below';
+      const align = spaceRight >= requiredWidth ? 'left' : 'right';
+
+      setReactionPickerPlacement({ placement, align });
+    };
+
+    updatePlacement();
+
+    const container = chatContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', updatePlacement, { passive: true });
+    }
+    window.addEventListener('resize', updatePlacement);
+
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', updatePlacement);
+      }
+      window.removeEventListener('resize', updatePlacement);
+    };
+  }, [activeReactionMsgId, showFullEmojiPicker]);
 
   // Cross-tab/window real-time synchronization for reactions
   useEffect(() => {
@@ -1085,7 +1126,11 @@ const Casbox = () => {
       }
     };
     document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+    };
   }, []);
 
   const [showArchive, setShowArchive] = useState(false);
@@ -7496,10 +7541,146 @@ const Casbox = () => {
                   <div className="flex-1 flex flex-col items-start min-w-0">
                     <div 
                       id={`casbox-msg-${msgUniqueId}`}
-                      className={`max-w-[92%] sm:max-w-[85%] flex flex-col items-start min-w-0 rounded-2xl transition-all duration-500 ${
+                      className={`max-w-[92%] sm:max-w-[85%] flex flex-col items-start min-w-0 rounded-2xl transition-all duration-500 relative ${
                         highlightedMessageId === msgUniqueId ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-[#121212] bg-blue-100/60 dark:bg-blue-900/40 p-1 -m-1 shadow-md scale-[1.01]' : ''
                       }`}
                     >
+                      {/* Quick Reaction Floating Bar & Full Picker Anchored Directly Above/Below Message */}
+                      {activeReactionMsgId === msgUniqueId && (
+                        <div
+                          ref={reactionBarRef}
+                          className={`absolute z-50 flex flex-col ${
+                            reactionPickerPlacement.placement === 'below'
+                              ? 'top-full mt-1.5'
+                              : 'bottom-full mb-1.5'
+                          } ${
+                            reactionPickerPlacement.align === 'right'
+                              ? 'right-0 items-end'
+                              : 'left-0 items-start'
+                          }`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Quick Reactions Pill */}
+                          <div className="bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-full shadow-lg px-2 sm:px-2.5 py-1 flex items-center gap-1 sm:gap-1.5 select-none animate-in fade-in zoom-in-95 duration-150 max-w-[calc(100vw-3.5rem)] overflow-x-auto hidden-scrollbar">
+                            {QUICK_REACTIONS.map((emoji) => {
+                              const isSelected = (reactionsMap[msgUniqueId]?.[emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
+                              return (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => handleToggleReaction(msgUniqueId, emoji)}
+                                  className={`w-7 h-7 flex items-center justify-center text-lg hover:scale-125 active:scale-95 transition-all cursor-pointer rounded-full ${
+                                    isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
+                                  }`}
+                                  title={isSelected ? `${emoji} (Click to remove)` : emoji}
+                                >
+                                  {emoji}
+                                </button>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              onClick={() => setShowFullEmojiPicker(prev => !prev)}
+                              className={`w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-sm font-bold ${
+                                showFullEmojiPicker ? 'bg-black/10 dark:bg-white/20 text-gray-900 dark:text-white' : ''
+                              }`}
+                              title="More emojis"
+                            >
+                              <MdAdd size={16} />
+                            </button>
+                          </div>
+
+                          {/* Full Emoji Picker */}
+                          {showFullEmojiPicker && (
+                            <div
+                              className={`w-72 sm:w-80 max-w-[calc(100vw-3.5rem)] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl p-2.5 sm:p-3 z-50 flex flex-col animate-in fade-in duration-200 ${
+                                reactionPickerPlacement.placement === 'below' ? 'mt-1.5' : 'mb-1.5 order-first'
+                              }`}
+                              style={{ borderColor: theme?.border || '#e2e8f0' }}
+                            >
+                              {/* Search bar */}
+                              <div className="relative mb-2">
+                                <input
+                                  type="text"
+                                  placeholder="Search emoji..."
+                                  value={emojiSearchTerm}
+                                  onChange={(e) => setEmojiSearchTerm(e.target.value)}
+                                  className="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800 dark:text-gray-200"
+                                />
+                                <MdSearch className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                              </div>
+
+                              {/* Category Tabs */}
+                              <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-1.5 mb-2 px-1">
+                                {EMOJI_CATEGORIES.map(cat => (
+                                  <button
+                                    key={cat.id}
+                                    type="button"
+                                    onClick={() => { setActiveEmojiCategory(cat.id); setEmojiSearchTerm(''); }}
+                                    className={`p-1 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
+                                      activeEmojiCategory === cat.id && !emojiSearchTerm ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 scale-110' : 'text-gray-500 opacity-70 hover:opacity-100'
+                                    }`}
+                                    title={cat.name}
+                                  >
+                                    {cat.icon}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* Category Title */}
+                              <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
+                                {emojiSearchTerm ? `Search results for "${emojiSearchTerm}"` : (EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory)?.name || 'Smileys & People')}
+                              </div>
+
+                              {/* Emoji Grid */}
+                              <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto hidden-scrollbar px-0.5">
+                                {(() => {
+                                  const term = emojiSearchTerm.trim().toLowerCase();
+                                  let list = [];
+                                  if (term) {
+                                    EMOJI_CATEGORIES.forEach(c => {
+                                      c.emojis.forEach(e => {
+                                        if (e.name.toLowerCase().includes(term) && !list.some(x => x.emoji === e.emoji)) {
+                                          list.push(e);
+                                        }
+                                      });
+                                    });
+                                  } else {
+                                    const cat = EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory) || EMOJI_CATEGORIES[0];
+                                    list = cat.emojis;
+                                  }
+
+                                  if (list.length === 0) {
+                                    return (
+                                      <div className="col-span-8 py-6 text-center text-xs text-gray-400">
+                                        No emojis found
+                                      </div>
+                                    );
+                                  }
+
+                                  return list.map(item => {
+                                    const isSelected = (reactionsMap[msgUniqueId]?.[item.emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
+                                    return (
+                                      <button
+                                        key={item.emoji + item.name}
+                                        type="button"
+                                        onClick={() => handleToggleReaction(msgUniqueId, item.emoji)}
+                                        className={`w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:scale-125 transition-all cursor-pointer select-none ${
+                                          isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
+                                        }`}
+                                        title={isSelected ? `${item.name} (Click to remove)` : item.name}
+                                      >
+                                        {item.emoji}
+                                      </button>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Bubble + Three Dot Action Container */}
                       <div className="flex items-center gap-1.5 sm:gap-2 relative group max-w-full">
                         {isMessageSelectionMode && (
@@ -7555,43 +7736,7 @@ const Casbox = () => {
                           </div>
                         )}
 
-                        {/* Reaction Badges Beside Bubble */}
-                        {(() => {
-                          const msgReactions = reactionsMap[msgUniqueId];
-                          if (!msgReactions || Object.keys(msgReactions).length === 0) return null;
-
-                          return (
-                            <div className="flex items-center gap-1 shrink-0 select-none">
-                              {Object.entries(msgReactions).map(([emoji, reactors]) => {
-                                if (!reactors || reactors.length === 0) return null;
-                                const hasReacted = reactors.some(u => typeof u === 'string' && u.trim() === currentUserId);
-                                const tooltipText = reactors.map(r => (typeof r === 'string' && r.trim() === currentUserId) ? 'You' : (r.includes('@') ? r.split('@')[0] : r)).join(', ');
-
-                                return (
-                                  <button
-                                    key={emoji}
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleReaction(msgUniqueId, emoji);
-                                    }}
-                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs shadow-2xs cursor-pointer transition-all hover:scale-105 active:scale-95 ${
-                                      hasReacted
-                                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 font-semibold text-blue-700 dark:text-blue-300'
-                                        : 'bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                    }`}
-                                    title={`${tooltipText} reacted with ${emoji}`}
-                                  >
-                                    <span>{emoji}</span>
-                                    <span className="text-[11px] font-medium leading-none">{reactors.length}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
-
-                        {/* Action Trigger Buttons: Smiley Icon + Three-Dot Menu */}
+                        {/* Action Trigger Buttons: Smiley Icon + Forward + Three-Dot Menu */}
                         {!isMessageSelectionMode && (
                           <div className="relative shrink-0 flex items-center gap-0.5">
                             {/* Smiley Icon Button for Emoji Reactions */}
@@ -7645,138 +7790,6 @@ const Casbox = () => {
                             >
                               <MdMoreVert size={18} />
                             </button>
-
-                            {/* Quick Reaction Floating Bar & Full Picker */}
-                            {activeReactionMsgId === msgUniqueId && (
-                              <div
-                                ref={reactionBarRef}
-                                className={`absolute z-50 flex flex-col items-start ${
-                                  index >= sortedThread.length - 2
-                                    ? 'bottom-0 left-full ml-1.5'
-                                    : 'top-0 left-full ml-1.5'
-                                }`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {/* Quick Reactions Pill */}
-                                <div className="bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-full shadow-lg px-2.5 py-1 flex items-center gap-1.5 select-none animate-in fade-in zoom-in-95 duration-150">
-                                  {QUICK_REACTIONS.map((emoji) => {
-                                    const isSelected = (reactionsMap[msgUniqueId]?.[emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
-                                    return (
-                                      <button
-                                        key={emoji}
-                                        type="button"
-                                        onClick={() => handleToggleReaction(msgUniqueId, emoji)}
-                                        className={`w-7 h-7 flex items-center justify-center text-lg hover:scale-130 active:scale-95 transition-all cursor-pointer rounded-full ${
-                                          isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
-                                        }`}
-                                        title={isSelected ? `${emoji} (Click to remove)` : emoji}
-                                      >
-                                        {emoji}
-                                      </button>
-                                    );
-                                  })}
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowFullEmojiPicker(prev => !prev)}
-                                    className={`w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-sm font-bold ${
-                                      showFullEmojiPicker ? 'bg-black/10 dark:bg-white/20 text-gray-900 dark:text-white' : ''
-                                    }`}
-                                    title="More emojis"
-                                  >
-                                    <MdAdd size={16} />
-                                  </button>
-                                </div>
-
-                                {/* Full Emoji Picker */}
-                                {showFullEmojiPicker && (
-                                  <div
-                                    className={`mt-2 w-72 sm:w-80 bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl p-3 z-50 flex flex-col animate-in fade-in slide-in-from-top-2 duration-200 ${
-                                      index >= sortedThread.length - 2 ? 'absolute bottom-full mb-2 left-0' : ''
-                                    }`}
-                                    style={{ borderColor: theme?.border || '#e2e8f0' }}
-                                  >
-                                    {/* Search bar */}
-                                    <div className="relative mb-2">
-                                      <input
-                                        type="text"
-                                        placeholder="Search emoji..."
-                                        value={emojiSearchTerm}
-                                        onChange={(e) => setEmojiSearchTerm(e.target.value)}
-                                        className="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800 dark:text-gray-200"
-                                      />
-                                      <MdSearch className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                    </div>
-
-                                    {/* Category Tabs */}
-                                    <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-1.5 mb-2 px-1">
-                                      {EMOJI_CATEGORIES.map(cat => (
-                                        <button
-                                          key={cat.id}
-                                          type="button"
-                                          onClick={() => { setActiveEmojiCategory(cat.id); setEmojiSearchTerm(''); }}
-                                          className={`p-1 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
-                                            activeEmojiCategory === cat.id && !emojiSearchTerm ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 scale-110' : 'text-gray-500 opacity-70 hover:opacity-100'
-                                          }`}
-                                          title={cat.name}
-                                        >
-                                          {cat.icon}
-                                        </button>
-                                      ))}
-                                    </div>
-
-                                    {/* Category Title */}
-                                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
-                                      {emojiSearchTerm ? `Search results for "${emojiSearchTerm}"` : (EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory)?.name || 'Smileys & People')}
-                                    </div>
-
-                                    {/* Emoji Grid */}
-                                    <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto hidden-scrollbar px-0.5">
-                                      {(() => {
-                                        const term = emojiSearchTerm.trim().toLowerCase();
-                                        let list = [];
-                                        if (term) {
-                                          EMOJI_CATEGORIES.forEach(c => {
-                                            c.emojis.forEach(e => {
-                                              if (e.name.toLowerCase().includes(term) && !list.some(x => x.emoji === e.emoji)) {
-                                                list.push(e);
-                                              }
-                                            });
-                                          });
-                                        } else {
-                                          const cat = EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory) || EMOJI_CATEGORIES[0];
-                                          list = cat.emojis;
-                                        }
-
-                                        if (list.length === 0) {
-                                          return (
-                                            <div className="col-span-8 py-6 text-center text-xs text-gray-400">
-                                              No emojis found
-                                            </div>
-                                          );
-                                        }
-
-                                        return list.map(item => {
-                                          const isSelected = (reactionsMap[msgUniqueId]?.[item.emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
-                                          return (
-                                            <button
-                                              key={item.emoji + item.name}
-                                              type="button"
-                                              onClick={() => handleToggleReaction(msgUniqueId, item.emoji)}
-                                              className={`w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:scale-125 transition-all cursor-pointer select-none ${
-                                                isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
-                                              }`}
-                                              title={isSelected ? `${item.name} (Click to remove)` : item.name}
-                                            >
-                                              {item.emoji}
-                                            </button>
-                                          );
-                                        });
-                                      })()}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
 
                             {/* Three-Dot Dropdown Menu */}
                             {activeMessageMenuId === msgUniqueId && (
@@ -7881,6 +7894,56 @@ const Casbox = () => {
                           </div>
                         )}
                       </div>
+
+                      {/* Reaction Badges Directly Below Bubble */}
+                      {(() => {
+                        const msgReactions = reactionsMap[msgUniqueId];
+                        if (!msgReactions || Object.keys(msgReactions).length === 0) return null;
+
+                        return (
+                          <div className="flex flex-wrap items-center gap-1 select-none mt-1 ml-1 z-10">
+                            {Object.entries(msgReactions).map(([emoji, reactors]) => {
+                              if (!reactors || reactors.length === 0) return null;
+                              const hasReacted = reactors.some(u => typeof u === 'string' && u.trim() === currentUserId);
+                              const tooltipText = reactors.map(r => (typeof r === 'string' && r.trim() === currentUserId) ? 'You' : (r.includes('@') ? r.split('@')[0] : r)).join(', ');
+
+                              return (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleReaction(msgUniqueId, emoji);
+                                  }}
+                                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs shadow-2xs cursor-pointer transition-all hover:scale-105 active:scale-95 ${
+                                    hasReacted
+                                      ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 font-semibold text-blue-700 dark:text-blue-300'
+                                      : 'bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                  }`}
+                                  title={`${tooltipText} reacted with ${emoji} (Click to ${hasReacted ? 'remove' : 'add'})`}
+                                >
+                                  <span>{emoji}</span>
+                                  <span className="text-[11px] font-medium leading-none">{reactors.length}</span>
+                                </button>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMessageMenuId(null);
+                                setActiveReactionMsgId(prev => prev === msgUniqueId ? null : msgUniqueId);
+                                setShowFullEmojiPicker(false);
+                                setEmojiSearchTerm("");
+                              }}
+                              className="flex items-center justify-center p-1 rounded-full border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-white dark:bg-[#1e1e1e] hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-pointer text-xs"
+                              title="Add reaction"
+                            >
+                              <MdAdd size={13} />
+                            </button>
+                          </div>
+                        );
+                      })()}
 
                       {/* Edited Label */}
                       {(msg?.isEdited || msg?.edited) && (
