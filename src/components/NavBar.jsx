@@ -472,7 +472,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           {/* COMPOSE */}
           <button
             onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
-            className="h-8 sm:h-9 flex items-center justify-center gap-1.5 px-2.5 sm:px-3 lg:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ml-1 sm:ml-2"
+            className="h-8 sm:h-9 flex items-center justify-center gap-1.5 px-2.5 sm:px-3 lg:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ml-2 sm:ml-4 md:ml-5 lg:ml-6"
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent || "#135bec" }}>
