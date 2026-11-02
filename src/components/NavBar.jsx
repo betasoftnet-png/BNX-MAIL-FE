@@ -473,7 +473,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <button
             type="button"
             onClick={() => openCompose({ mode: currentTab === 'chat' ? 'chat' : 'mail' })}
-            className="flex items-center justify-center gap-2 h-9 sm:h-10 px-3 sm:px-4 lg:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-2 sm:ml-4 md:ml-10 lg:ml-16 xl:ml-20"
+            className="flex items-center justify-center gap-2 h-9 sm:h-10 px-3 sm:px-4 lg:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-2 sm:ml-4 md:ml-8 lg:ml-[100px] xl:ml-[115px] 2xl:ml-[120px]"
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
             <svg className="h-4 w-4 shrink-0 text-[#195bac]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
