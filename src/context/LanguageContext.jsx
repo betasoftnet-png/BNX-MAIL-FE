@@ -48,6 +48,27 @@ export const LanguageProvider = ({ children }) => {
 
   useEffect(() => {
     fetchUserLanguage();
+
+    const handleLangEvent = (e) => {
+      if (e.detail?.language) {
+        const normalized = normalizeLang(e.detail.language);
+        setCurrentLanguage(normalized);
+      }
+    };
+
+    const handleStorageEvent = (e) => {
+      if (e.key === 'bnx_setting_language' && e.newValue) {
+        setCurrentLanguage(normalizeLang(e.newValue));
+      }
+    };
+
+    window.addEventListener('bnx_language_changed', handleLangEvent);
+    window.addEventListener('storage', handleStorageEvent);
+
+    return () => {
+      window.removeEventListener('bnx_language_changed', handleLangEvent);
+      window.removeEventListener('storage', handleStorageEvent);
+    };
   }, []);
 
   const applyLanguage = async (newLang) => {
@@ -56,6 +77,7 @@ export const LanguageProvider = ({ children }) => {
     
     setCurrentLanguage(lang);
     localStorage.setItem('bnx_setting_language', lang);
+    window.dispatchEvent(new CustomEvent('bnx_language_changed', { detail: { language: lang } }));
 
     if (token) {
       try {

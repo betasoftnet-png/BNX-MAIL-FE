@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   MdSettings,
@@ -981,80 +981,84 @@ const Settings = () => {
   const handleSaveComposingSettings = async (e) => {
     e.preventDefault();
     if (savingRef.current) return;
-    if (user?.email) {
-      setLoading(true);
+    setLoading(true);
+    try {
+      const targetLang = normalizeLang(language);
+
+      // Apply new language globally to application UI & localStorage & backend language endpoint
+      await applyLanguage(targetLang);
+
       try {
-        const targetLang = normalizeLang(language);
-
-        // Apply new language globally to application UI & localStorage & backend language endpoint
-        await applyLanguage(targetLang);
-
-        try {
-          await settingsAPI.updateComposing({
-            spellingCheckEnabled: spellingCheck,
-            grammarCheckEnabled: grammarCheck,
-            autoCorrectEnabled: autoCorrect,
-            smartComposeEnabled: writingSuggestions
-          });
-        } catch (err) {
-          console.warn("Failed to save composing preferences to endpoint:", err);
-        }
-
-        await saveBackendSettings({
-          undoSendDelay,
-          bulkMailEnabled,
-          notificationEnabled,
-          language: targetLang,
+        await settingsAPI.updateComposing({
           spellingCheckEnabled: spellingCheck,
           grammarCheckEnabled: grammarCheck,
           autoCorrectEnabled: autoCorrect,
-          spellingCheck,
-          grammarCheck,
-          autoCorrect,
-          writingSuggestions,
-          desktopNotifications,
-          conversationView,
-          defaultFontFamily,
-          defaultFontSize,
-          defaultTextColor
+          smartComposeEnabled: writingSuggestions
         });
-
-        localStorage.setItem("bnx_setting_language", targetLang);
-        localStorage.setItem("bnx_setting_writingSuggestions", writingSuggestions ? "true" : "false");
-        localStorage.setItem("bnx_setting_desktopNotifications", desktopNotifications ? "true" : "false");
-        localStorage.setItem("bnx_setting_conversationView", "false");
-        localStorage.setItem("bnx_setting_fontFamily", defaultFontFamily);
-        localStorage.setItem("bnx_setting_fontSizeText", defaultFontSize);
-        localStorage.setItem("bnx_setting_textColor", defaultTextColor);
-        window.dispatchEvent(new CustomEvent('bnx_text_style_changed', {
-          detail: {
-            fontFamily: defaultFontFamily,
-            fontSize: defaultFontSize,
-            textColor: defaultTextColor
-          }
-        }));
-        try {
-          await settingsAPI.updateTextStyle({
-            fontFamily: defaultFontFamily,
-            fontSize: defaultFontSize,
-            textColor: defaultTextColor
-          });
-        } catch (tsErr) {
-          console.warn("Failed to sync default text style to backend:", tsErr);
-        }
-        localStorage.setItem("bnx_setting_undoSendDelay", String(undoSendDelay));
-        localStorage.setItem("bnx_bulk_mail_filter", bulkMailEnabled ? "true" : "false");
-        localStorage.setItem("bnx_notification_filter", notificationEnabled ? "true" : "false");
-
-        // Save all signatures to ensure any name or content changes are persisted
-        for (const sig of signatures) {
-          await signatureAPI.updateSignature(sig.id, { name: sig.name, content: sig.content });
-        }
       } catch (err) {
-        toast.error("Failed to sync composing preferences", { id: "settings-save-toast", duration: 3000 });
-      } finally {
-        setLoading(false);
+        console.warn("Failed to save composing preferences to endpoint:", err);
       }
+
+      await saveBackendSettings({
+        undoSendDelay,
+        bulkMailEnabled,
+        notificationEnabled,
+        language: targetLang,
+        spellingCheckEnabled: spellingCheck,
+        grammarCheckEnabled: grammarCheck,
+        autoCorrectEnabled: autoCorrect,
+        spellingCheck,
+        grammarCheck,
+        autoCorrect,
+        writingSuggestions,
+        desktopNotifications,
+        defaultFontFamily,
+        defaultFontSize,
+        defaultTextColor
+      });
+
+      localStorage.setItem("bnx_setting_language", targetLang);
+      localStorage.setItem("bnx_setting_writingSuggestions", writingSuggestions ? "true" : "false");
+      localStorage.setItem("bnx_setting_desktopNotifications", desktopNotifications ? "true" : "false");
+      localStorage.setItem("bnx_setting_conversationView", "false");
+      localStorage.setItem("bnx_setting_fontFamily", defaultFontFamily);
+      localStorage.setItem("bnx_setting_fontSizeText", defaultFontSize);
+      localStorage.setItem("bnx_setting_textColor", defaultTextColor);
+      window.dispatchEvent(new CustomEvent('bnx_text_style_changed', {
+        detail: {
+          fontFamily: defaultFontFamily,
+          fontSize: defaultFontSize,
+          textColor: defaultTextColor
+        }
+      }));
+      try {
+        await settingsAPI.updateTextStyle({
+          fontFamily: defaultFontFamily,
+          fontSize: defaultFontSize,
+          textColor: defaultTextColor
+        });
+      } catch (tsErr) {
+        console.warn("Failed to sync default text style to backend:", tsErr);
+      }
+      localStorage.setItem("bnx_setting_undoSendDelay", String(undoSendDelay));
+      localStorage.setItem("bnx_bulk_mail_filter", bulkMailEnabled ? "true" : "false");
+      localStorage.setItem("bnx_notification_filter", notificationEnabled ? "true" : "false");
+
+      // Save all signatures to ensure any name or content changes are persisted
+      for (const sig of signatures) {
+        try {
+          await signatureAPI.updateSignature(sig.id, { name: sig.name, content: sig.content });
+        } catch (sigErr) {
+          console.warn("Failed to update signature:", sigErr);
+        }
+      }
+
+      toast.success(t("settings.save_composing_prefs_success", "Composing preferences and language updated successfully!"), { id: "settings-save-toast", duration: 3000 });
+    } catch (err) {
+      console.error("Save composing settings error:", err);
+      toast.error(t("settings.save_failed", "Failed to sync composing preferences"), { id: "settings-save-toast", duration: 3000 });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1633,9 +1637,7 @@ const Settings = () => {
                   <select
                     value={language}
                     onChange={e => {
-                      const val = e.target.value;
-                      setLanguage(val);
-                      applyLanguage(val);
+                      setLanguage(e.target.value);
                     }}
                     className="w-full p-3 text-sm rounded-xl border outline-none cursor-pointer focus:ring-2 focus:border-transparent transition-all"
                     style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
