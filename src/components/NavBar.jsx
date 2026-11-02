@@ -47,7 +47,6 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const [showDateFilterDropdown, setShowDateFilterDropdown] = useState(false);
   const [showCustomCalendar, setShowCustomCalendar] = useState(false);
   const dateFilterRef = useRef(null);
-  const tabletFilterRef = useRef(null);
 
   const [allCasboxMessages, setAllCasboxMessages] = useState([]);
   const [allChatRooms, setAllChatRooms] = useState([]);
@@ -81,10 +80,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
       if (mobileSearchContainerRef.current && !mobileSearchContainerRef.current.contains(event.target)) {
         setIsMobileSearchOpen(false);
       }
-      if (
-        dateFilterRef.current && !dateFilterRef.current.contains(event.target) &&
-        (!tabletFilterRef.current || !tabletFilterRef.current.contains(event.target))
-      ) {
+      if (dateFilterRef.current && !dateFilterRef.current.contains(event.target)) {
         setShowDateFilterDropdown(false);
       }
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -289,46 +285,6 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     }
   };
 
-  const renderDateFilterDropdown = () => (
-    <div
-      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 z-50 text-xs text-gray-700 dark:text-gray-200 animate-fade-in"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="px-3 py-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-        {t('navbar.filter_by_date', 'Filter by Date')}
-      </div>
-      {[
-        { label: t('navbar.filter_all_time', 'All time'), value: "ALL" },
-        { label: t('navbar.filter_today', 'Today'), value: "TODAY" },
-        { label: t('navbar.filter_yesterday', 'Yesterday'), value: "YESTERDAY" },
-        { label: t('navbar.filter_last_7_days', 'Last 7 days'), value: "LAST_7_DAYS" },
-        { label: t('navbar.filter_last_30_days', 'Last 30 days'), value: "LAST_30_DAYS" },
-        { label: t('navbar.filter_custom_range', 'Custom range...'), value: "CUSTOM" },
-      ].map((item) => (
-        <button
-          key={item.value}
-          type="button"
-          onClick={() => {
-            if (item.value === "CUSTOM") {
-              setShowCustomCalendar(true);
-            } else {
-              setDateFilter(item.value);
-              setShowDateFilterDropdown(false);
-            }
-          }}
-          className={`w-full text-left px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between cursor-pointer ${
-            dateFilter === item.value
-              ? "text-blue-600 dark:text-blue-400 font-medium bg-blue-50/50 dark:bg-blue-900/20"
-              : ""
-          }`}
-        >
-          <span>{item.label}</span>
-          {dateFilter === item.value && <Check size={13} className="text-blue-600 dark:text-blue-400" />}
-        </button>
-      ))}
-    </div>
-  );
-
   const renderSearchResults = (onClose) => {
     const hasEmails = matchingEmails.length > 0;
     const hasCasbox = matchingCasbox.length > 0;
@@ -486,51 +442,42 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
       style={{ backgroundColor: backgroundImage ? "transparent" : "#195bac" }}
     >
       <div className="flex items-center justify-between w-full max-w-full relative gap-1.5 sm:gap-2 lg:gap-4 box-border min-w-0">
-        {/* LEFT: Logo + Compose Button grouped together */}
-        <div className="flex-initial sm:flex-1 min-w-0 flex items-center justify-start gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3">
-          {/* Mobile/Tablet Menu Button */}
+        {/* LEFT */}
+        <div className="flex-1 md:flex-initial lg:flex-1 min-w-0 flex items-center justify-start gap-1 sm:gap-1.5 lg:gap-2">
+          {/* Mobile Menu Toggle Button */}
           <button
-            type="button"
-            onClick={() => {
-              if (window.innerWidth < 768) {
-                onOpenMenu?.();
-              } else {
-                onToggleDesktopSidebar?.();
-              }
-            }}
-            className="p-1 sm:p-1.5 rounded-lg text-white hover:bg-white/10 lg:hidden cursor-pointer shrink-0"
-            title="Toggle Menu"
-            aria-label="Toggle Menu"
+            onClick={onOpenMenu}
+            className="p-1 sm:p-1.5 mr-0.5 sm:mr-1 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer shrink-0"
+            title="Open Menu"
           >
-            <MdMenu size={20} className="sm:w-[22px] sm:h-[22px]" />
+            <MdMenu size={22} />
           </button>
 
           {/* Logo & Brand Name */}
-          <div
-            onClick={() => onToggleDesktopSidebar?.()}
-            className="flex items-center gap-1.5 sm:gap-2 shrink-0 cursor-pointer select-none"
-            title="BNXmail"
-          >
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <img
               src={logo}
               alt="BNX Mail"
-              className="h-7 sm:h-8 lg:h-9 drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0"
+              className="h-7 sm:h-8 lg:h-9 cursor-pointer drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0"
+              onClick={() => onToggleDesktopSidebar()}
             />
-            <span className="text-sm sm:text-base lg:text-lg font-bold tracking-tight text-white select-none whitespace-nowrap hidden min-[360px]:inline">
+            <span
+              onClick={() => onToggleDesktopSidebar()}
+              className="text-sm sm:text-base lg:text-lg font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden md:inline select-none whitespace-nowrap"
+            >
               BNX<span className="font-normal text-white/90">mail</span>
             </span>
           </div>
 
-          {/* Compose Button - ALWAYS stays immediately beside the logo */}
+          {/* Compose Button */}
           <button
             type="button"
             onClick={() => openCompose({ mode: currentTab === 'chat' ? 'chat' : 'mail' })}
-            className="flex items-center justify-center gap-1.5 sm:gap-2 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 h-8 w-8 sm:w-auto sm:h-9 lg:h-10 px-0 sm:px-3.5 lg:px-4"
+            className="flex items-center justify-center gap-2 sm:gap-2.5 h-9 sm:h-10 px-3 sm:px-4 lg:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-2 sm:ml-4 md:ml-8 lg:ml-[100px] xl:ml-[115px] 2xl:ml-[120px]"
             title={t('navbar.compose', t('common.compose', 'Compose'))}
-            aria-label={t('navbar.compose', t('common.compose', 'Compose'))}
           >
-            <Pencil size={15} className="sm:w-4 sm:h-4 text-[#195bac] shrink-0" />
-            <span className="text-xs sm:text-[13px] md:text-sm font-semibold text-gray-900 leading-none whitespace-nowrap hidden sm:inline">
+            <Pencil size={16} className="text-[#195bac] shrink-0" />
+            <span className="text-xs sm:text-[13px] md:text-sm font-semibold text-gray-900 leading-none whitespace-nowrap">
               {t('navbar.compose', t('common.compose', 'Compose'))}
             </span>
           </button>
@@ -542,14 +489,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             <button
               type="button"
               onClick={() => navigate('/inbox')}
-              className={`px-2 sm:px-3 lg:px-4 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.mail', 'Mail')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/casbox')}
-              className={`px-2 sm:px-3 lg:px-4 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.casbox', 'Casbox')}
             </button>
@@ -557,10 +504,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         </div>
 
         {/* RIGHT */}
-        <div className="flex-initial sm:flex-1 min-w-0 flex items-center justify-end gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5 z-0">
+        <div className="flex-1 md:flex-initial lg:flex-1 min-w-0 flex items-center justify-end gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5 z-0">
 
-          {/* DESKTOP SEARCH (xl+ screens) */}
-          <form onSubmit={handleSearch} className="hidden xl:flex shrink items-center w-36 lg:w-48 xl:w-56 2xl:w-64 focus-within:w-48 xl:focus-within:w-64 transition-all duration-200" ref={searchContainerRef}>
+          {/* DESKTOP SEARCH */}
+          <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-32 lg:w-48 xl:w-56 focus-within:w-44 lg:focus-within:w-56 xl:focus-within:w-64 transition-all duration-200" ref={searchContainerRef}>
             <div className="relative group w-full flex items-center">
               <input
                 id="mail-search-input"
@@ -620,7 +567,46 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                     )}
                   </button>
 
-                  {showDateFilterDropdown && renderDateFilterDropdown()}
+                  {/* Filter Dropdown */}
+                  {showDateFilterDropdown && (
+                    <div
+                      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 z-50 text-xs text-gray-700 dark:text-gray-200 animate-fade-in"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="px-3 py-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                        {t('navbar.filter_by_date', 'Filter by Date')}
+                      </div>
+                      {[
+                        { label: t('navbar.filter_all_time', 'All time'), value: "ALL" },
+                        { label: t('navbar.filter_today', 'Today'), value: "TODAY" },
+                        { label: t('navbar.filter_yesterday', 'Yesterday'), value: "YESTERDAY" },
+                        { label: t('navbar.filter_last_7_days', 'Last 7 days'), value: "LAST_7_DAYS" },
+                        { label: t('navbar.filter_last_30_days', 'Last 30 days'), value: "LAST_30_DAYS" },
+                        { label: t('navbar.filter_custom_range', 'Custom range...'), value: "CUSTOM" },
+                      ].map((item) => (
+                        <button
+                          key={item.value}
+                          type="button"
+                          onClick={() => {
+                            if (item.value === "CUSTOM") {
+                              setShowCustomCalendar(true);
+                            } else {
+                              setDateFilter(item.value);
+                              setShowDateFilterDropdown(false);
+                            }
+                          }}
+                          className={`w-full text-left px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between cursor-pointer ${
+                            dateFilter === item.value
+                              ? "text-blue-600 dark:text-blue-400 font-medium bg-blue-50/50 dark:bg-blue-900/20"
+                              : ""
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                          {dateFilter === item.value && <Check size={13} className="text-blue-600 dark:text-blue-400" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -635,32 +621,8 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             </div>
           </form>
 
-          {/* TABLET / LAPTOP FILTER BUTTON (md to xl screens) */}
-          <div className="relative hidden md:flex xl:hidden shrink-0" ref={tabletFilterRef}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDateFilterDropdown((prev) => !prev);
-              }}
-              className={`p-1.5 sm:p-2 rounded-xl flex items-center justify-center transition-all cursor-pointer relative ${
-                showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
-                  ? "bg-white/20 text-white shadow-sm border border-white/30"
-                  : "bg-white/10 hover:bg-white/20 text-white/90 hover:text-white border border-white/10"
-              }`}
-              title={t('navbar.filter_by_date', 'Filter options')}
-              aria-label="Filter options"
-            >
-              <SlidersHorizontal size={16} className="text-white" />
-              {dateFilter && dateFilter !== "ALL" && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full ring-1 ring-[#195bac]" />
-              )}
-            </button>
-            {showDateFilterDropdown && renderDateFilterDropdown()}
-          </div>
-
-          {/* TABLET & MOBILE SEARCH ICON BUTTON & DROPDOWN (< xl screens) */}
-          <div className="relative xl:hidden shrink-0" ref={mobileSearchContainerRef}>
+          {/* MOBILE SEARCH ICON BUTTON & DROPDOWN */}
+          <div className="relative md:hidden shrink-0" ref={mobileSearchContainerRef}>
             <button
               type="button"
               onClick={() => {
