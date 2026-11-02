@@ -231,8 +231,25 @@ const Inbox = ({ searchQuery }) => {
     />
   ) : (
     <div className="flex flex-col border-b border-gray-100 dark:border-gray-800 bg-transparent shrink-0">
+      {/* COMPOSE BUTTON ROW */}
+      <div className="px-3 sm:px-4 pt-2 sm:pt-2.5 pb-1 flex items-center shrink-0">
+        <button
+          type="button"
+          onClick={() => openCompose({ mode: 'mail' })}
+          className="h-8 sm:h-9 flex items-center justify-center gap-1.5 px-3 sm:px-4 rounded-full font-semibold shadow-xs sm:shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/80 dark:border-gray-700/80 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ml-1 sm:ml-2"
+          title={t('navbar.compose', t('common.compose', 'Compose'))}
+        >
+          <svg className="h-4 w-4 shrink-0 text-[#195bac] dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+          <span className="text-xs sm:text-[13px] font-semibold leading-none whitespace-nowrap">
+            {t('navbar.compose', t('common.compose', 'Compose'))}
+          </span>
+        </button>
+      </div>
+
       {/* TABS */}
-      <div className="flex px-4 pt-1 items-center gap-2 sm:gap-3 text-sm font-medium">
+      <div className="flex px-4 pt-1 pb-1.5 items-center gap-2 sm:gap-3 text-sm font-medium">
         {/* Edit Button */}
         <div className="relative shrink-0 border-r border-gray-200 dark:border-gray-700 pr-2">
           <button
