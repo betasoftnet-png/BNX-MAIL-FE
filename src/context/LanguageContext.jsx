@@ -6,6 +6,7 @@ import hi from '../locales/hi.json';
 import te from '../locales/te.json';
 import ml from '../locales/ml.json';
 import kn from '../locales/kn.json';
+import { settingsAPI } from '../services/api';
 
 const translations = { en, ta, hi, te, ml, kn };
 
@@ -23,23 +24,17 @@ export const normalizeLang = (code) => {
 const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
-  const [currentLanguage, setCurrentLanguage] = useState(() => {
-    return normalizeLang(localStorage.getItem('bnx_setting_language') || 'en');
-  });
+  const [currentLanguage, setCurrentLanguage] = useState('en');
 
   const fetchUserLanguage = async () => {
     const token = localStorage.getItem('accessToken');
     if (!token) return;
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      const response = await axios.get(`${baseUrl}/api/settings/language`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await settingsAPI.getLanguage();
       if (response.data && response.data.language) {
         const lang = normalizeLang(response.data.language);
         setCurrentLanguage(lang);
-        localStorage.setItem('bnx_setting_language', lang);
       }
     } catch (err) {
       console.warn("Could not fetch user language preference from backend:", err);
@@ -56,40 +51,17 @@ export const LanguageProvider = ({ children }) => {
       }
     };
 
-    const handleStorageEvent = (e) => {
-      if (e.key === 'bnx_setting_language' && e.newValue) {
-        setCurrentLanguage(normalizeLang(e.newValue));
-      }
-    };
-
     window.addEventListener('bnx_language_changed', handleLangEvent);
-    window.addEventListener('storage', handleStorageEvent);
 
     return () => {
       window.removeEventListener('bnx_language_changed', handleLangEvent);
-      window.removeEventListener('storage', handleStorageEvent);
     };
   }, []);
 
-  const applyLanguage = async (newLang) => {
+  const applyLanguage = (newLang) => {
     const lang = normalizeLang(newLang);
-    const token = localStorage.getItem('accessToken');
-    
     setCurrentLanguage(lang);
-    localStorage.setItem('bnx_setting_language', lang);
     window.dispatchEvent(new CustomEvent('bnx_language_changed', { detail: { language: lang } }));
-
-    if (token) {
-      try {
-        const baseUrl = import.meta.env.VITE_API_URL || '';
-        await axios.put(`${baseUrl}/api/settings/language`, 
-          { language: lang },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } catch (err) {
-        console.error("Failed to save language preference to backend:", err);
-      }
-    }
   };
 
   const t = (keyPath, fallback = '') => {

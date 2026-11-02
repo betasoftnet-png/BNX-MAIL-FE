@@ -174,7 +174,7 @@ const Settings = () => {
   const [density, setDensity] = useState("Default");
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [biometricsEnabled, setBiometricsEnabled] = useState(true);
-  const [language, setLanguage] = useState(() => normalizeLang(localStorage.getItem("bnx_setting_language") || "en"));
+  const [language, setLanguage] = useState(() => normalizeLang(currentLanguage || "en"));
 
   useEffect(() => {
     if (currentLanguage) {
@@ -512,7 +512,7 @@ const Settings = () => {
         setLocalEmailsPerPage(emailsPerPage);
         setTwoFactorEnabled(d.twoFactorEnabled ?? false);
         setBiometricsEnabled(d.biometricsEnabled ?? true);
-        const lang = normalizeLang(d.language || localStorage.getItem("bnx_setting_language") || "en");
+        const lang = normalizeLang(d.language || currentLanguage || "en");
         setLanguage(lang);
         if (d.writingSuggestions !== undefined || localStorage.getItem("bnx_setting_writingSuggestions") !== null) {
           setWritingSuggestions(d.writingSuggestions ?? (localStorage.getItem("bnx_setting_writingSuggestions") !== "false"));
@@ -982,11 +982,13 @@ const Settings = () => {
     e.preventDefault();
     if (savingRef.current) return;
     setLoading(true);
-    try {
-      const targetLang = normalizeLang(language);
 
-      // Apply new language globally to application UI & localStorage & backend language endpoint
-      await applyLanguage(targetLang);
+    const targetLang = normalizeLang(language);
+    const prevLang = currentLanguage;
+
+    try {
+      // 1. Send the selected language to the existing backend settings API
+      const langRes = await settingsAPI.updateLanguage(targetLang);
 
       try {
         await settingsAPI.updateComposing({
@@ -999,7 +1001,7 @@ const Settings = () => {
         console.warn("Failed to save composing preferences to endpoint:", err);
       }
 
-      await saveBackendSettings({
+      const backendSaved = await saveBackendSettings({
         undoSendDelay,
         bulkMailEnabled,
         notificationEnabled,
@@ -1017,7 +1019,15 @@ const Settings = () => {
         defaultTextColor
       });
 
-      localStorage.setItem("bnx_setting_language", targetLang);
+      if (!backendSaved && langRes?.status >= 400) {
+        throw new Error("Failed to save settings to server");
+      }
+
+      // 2. Apply the selected language using the existing translation/i18n functionality
+      // ONLY after the save operation succeeds!
+      applyLanguage(targetLang);
+
+      // Do not use localStorage or sessionStorage for language (Requirement 5). Save other client settings:
       localStorage.setItem("bnx_setting_writingSuggestions", writingSuggestions ? "true" : "false");
       localStorage.setItem("bnx_setting_desktopNotifications", desktopNotifications ? "true" : "false");
       localStorage.setItem("bnx_setting_conversationView", "false");
@@ -1053,10 +1063,15 @@ const Settings = () => {
         }
       }
 
-      toast.success(t("settings.save_composing_prefs_success", "Composing preferences and language updated successfully!"), { id: "settings-save-toast", duration: 3000 });
+      // 3. Display an appropriate success notification
+      toast.success(t("settings.save_composing_prefs_success", "Settings and language saved successfully!"), { id: "settings-save-toast", duration: 3000 });
     } catch (err) {
       console.error("Save composing settings error:", err);
-      toast.error(t("settings.save_failed", "Failed to sync composing preferences"), { id: "settings-save-toast", duration: 3000 });
+      // 4. Handle Save Failures:
+      // If the backend request fails, retain the previously active language
+      // Do not apply the newly selected language and revert the component's temporary selection
+      setLanguage(prevLang);
+      toast.error(t("settings.save_failed", "Failed to save settings. Please try again."), { id: "settings-save-toast", duration: 3000 });
     } finally {
       setLoading(false);
     }
@@ -1830,7 +1845,7 @@ const Settings = () => {
                   className="w-fit mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-sm"
                   style={{ background: theme.accent }}
                 >
-                  {t("common.save_preferences", "Save Preferences")}
+                  {t("common.save_changes", "Save Changes")}
                 </button>
               </form>
             </Section>
