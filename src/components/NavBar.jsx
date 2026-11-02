@@ -7,7 +7,7 @@ import { useMail } from "../context/MailContext";
 import { MdSettings, MdEmail, MdLogout, MdLightMode, MdDarkMode, MdNotifications, MdCheckCircle, MdManageAccounts, MdPersonAdd, MdPhotoCamera, MdMenu, MdAdd, MdApps, MdOutlineNoteAlt } from "react-icons/md";
 import { userAPI, casboxAPI, chatAPI } from "../services/api";
 import toast from "react-hot-toast";
-import { SlidersHorizontal, Calendar, Check, ChevronRight, Search, X } from "lucide-react";
+import { SlidersHorizontal, Calendar, Check, ChevronRight, Search, X, ArrowLeft } from "lucide-react";
 // import logo from "../assets/bnx.jpeg";
 
 import logo from "../assets/bnx-remove.png";
@@ -47,6 +47,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const [showDateFilterDropdown, setShowDateFilterDropdown] = useState(false);
   const [showCustomCalendar, setShowCustomCalendar] = useState(false);
   const dateFilterRef = useRef(null);
+  const mobileDateFilterRef = useRef(null);
 
   const [allCasboxMessages, setAllCasboxMessages] = useState([]);
   const [allChatRooms, setAllChatRooms] = useState([]);
@@ -80,7 +81,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
       if (mobileSearchContainerRef.current && !mobileSearchContainerRef.current.contains(event.target)) {
         setIsMobileSearchOpen(false);
       }
-      if (dateFilterRef.current && !dateFilterRef.current.contains(event.target)) {
+      const clickedInsideDateFilter = 
+        (dateFilterRef.current && dateFilterRef.current.contains(event.target)) ||
+        (mobileDateFilterRef.current && mobileDateFilterRef.current.contains(event.target));
+      if (!clickedInsideDateFilter) {
         setShowDateFilterDropdown(false);
       }
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -436,483 +440,560 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     );
   };
 
+  const renderDateFilterMenu = () => (
+    <div
+      className="absolute right-0 top-full mt-2 w-48 sm:w-52 max-w-[calc(100vw-2rem)] rounded-2xl shadow-xl border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900 py-1.5 px-1.5"
+      style={{ borderColor: theme.border || "#e2e8f0" }}
+    >
+      <div className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none">
+        <Calendar size={15} className="text-gray-500 dark:text-gray-400 shrink-0" />
+        <span>{t('navbar.filter_by_date', 'Filter by date')}</span>
+      </div>
+
+      <div className="flex flex-col gap-0.5 mt-0.5">
+        {[
+          { id: "ALL", label: t('navbar.all_time', 'All Time') },
+          { id: "1_DAY", label: t('navbar.last_1_day', 'Last 1 Day') },
+          { id: "1_WEEK", label: t('navbar.last_1_week', 'Last 1 Week') },
+          { id: "1_MONTH", label: t('navbar.last_1_month', 'Last 1 Month') },
+          { id: "CUSTOM", label: t('navbar.custom_date', 'Custom Date'), isCustom: true },
+        ].map((opt) => {
+          const isSelected = (dateFilter || "ALL") === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => {
+                if (opt.isCustom) {
+                  setShowDateFilterDropdown(false);
+                  setShowCustomCalendar(true);
+                } else {
+                  setDateFilter(opt.id);
+                  if (setCustomDateRange) setCustomDateRange(null);
+                  setShowDateFilterDropdown(false);
+                }
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer text-left ${
+                isSelected
+                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5 truncate">
+                <Calendar
+                  size={15}
+                  className={`shrink-0 ${
+                    isSelected
+                      ? "text-blue-600 dark:text-blue-400"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
+                />
+                <span className="truncate">{opt.label}</span>
+              </div>
+              {isSelected ? (
+                <Check size={15} className="text-blue-600 dark:text-blue-400 shrink-0 ml-2" />
+              ) : opt.isCustom ? (
+                <ChevronRight size={15} className="text-gray-400 shrink-0 ml-2" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <nav
-      className="sticky top-0 z-50 px-2 sm:px-4 lg:px-5 py-2 sm:py-2.5 transition-colors duration-300 shrink-0 shadow-md w-full relative"
+      className="sticky top-0 z-50 px-2 sm:px-3 md:px-4 lg:px-5 py-1.5 sm:py-2 md:py-2.5 transition-colors duration-300 shrink-0 shadow-md w-full relative min-w-0 overflow-x-clip"
       style={{ backgroundColor: backgroundImage ? "transparent" : "#195bac" }}
     >
-      <div className="flex items-center justify-between w-full relative gap-1.5 sm:gap-3">
-        {/* LEFT */}
-        <div className="flex items-center shrink-0">
-          {/* Mobile Menu Toggle Button */}
+      {isMobileSearchOpen ? (
+        <div
+          ref={mobileSearchContainerRef}
+          className="flex items-center w-full gap-1.5 sm:gap-2 h-8 sm:h-9 md:h-10 animate-fade-in relative min-w-0"
+        >
+          {/* Back / Close Search Button */}
           <button
-            onClick={onOpenMenu}
-            className="p-1 sm:p-1.5 mr-1.5 sm:mr-2 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer shrink-0"
-            title="Open Menu"
+            type="button"
+            onClick={() => {
+              setIsMobileSearchOpen(false);
+              setShowSearchResults(false);
+            }}
+            className="p-1.5 rounded-full text-white/90 hover:text-white hover:bg-white/15 shrink-0 transition-colors cursor-pointer"
+            title="Close search"
+            aria-label="Close search"
           >
-            <MdMenu size={22} />
+            <ArrowLeft size={18} className="text-white" />
           </button>
 
-          {/* Logo & Brand Name */}
-          <div
-            className={`flex items-center gap-1.5 sm:gap-2 shrink-0 transition-all duration-300 ${
-              isDesktopSidebarOpen
-                ? "md:w-44 lg:w-[13.9375rem]"
-                : "w-auto mr-2 sm:mr-4"
-            }`}
-          >
-            <img
-              src={logo}
-              alt="BNX Mail"
-              className="h-7 sm:h-9 cursor-pointer drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0"
-              onClick={() => onToggleDesktopSidebar()}
+          {/* Full-width Search Form */}
+          <form onSubmit={handleSearch} className="relative flex-1 flex items-center min-w-0">
+            <input
+              ref={mobileInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSearchResults(true);
+              }}
+              onFocus={() => setShowSearchResults(true)}
+              onKeyDown={handleKeyDown}
+              placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
+              className={`w-full pl-8 py-1.5 rounded-full text-xs sm:text-sm bg-white/20 hover:bg-white/25 focus:bg-white/25 text-white placeholder:text-white/70 focus:outline-none focus:ring-2 focus:ring-white/40 border border-white/25 transition-all truncate placeholder:truncate ${
+                searchQuery ? "pr-16" : "pr-9"
+              }`}
+              autoFocus
             />
-            <span
-              onClick={() => onToggleDesktopSidebar()}
-              className="text-base sm:text-lg lg:text-xl font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden sm:block select-none"
-            >
-              BNX<span className="font-normal text-white/90">mail</span>
-            </span>
-          </div>
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/70 pointer-events-none" />
 
-          {/* COMPOSE */}
-          <button
-            onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
-            className={`h-8 sm:h-9 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 rounded-full font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ${
-              !isDesktopSidebarOpen ? "ml-1 sm:ml-2" : ""
-            }`}
-            title={t('navbar.compose', t('common.compose', 'Compose'))}
-          >
-            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent || "#135bec" }}>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-            <span className="text-xs sm:text-[13px] font-semibold leading-none whitespace-nowrap">{t('navbar.compose', t('common.compose', 'Compose'))}</span>
-          </button>
-        </div>
-
-        {/* CENTER: SEGMENTED CONTROL (Permanently Horizontally Centered) */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto z-10 flex items-center justify-center">
-          <div className="flex items-center bg-white/10 backdrop-blur-sm shadow-sm rounded-full p-0.5 sm:p-1 border border-white/10 shrink-0">
-            <button
-              type="button"
-              onClick={() => navigate('/inbox')}
-              className={`px-2.5 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
-            >
-              {t('navbar.mail', 'Mail')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/casbox')}
-              className={`px-2.5 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
-            >
-              {t('navbar.casbox', 'Casbox')}
-            </button>
-          </div>
-        </div>
-
-        {/* RIGHT */}
-        <div className="flex items-center justify-end gap-1.5 sm:gap-2 md:gap-2.5 shrink-0 z-0">
-
-          {/* DESKTOP SEARCH (md+ screens) */}
-          <form onSubmit={handleSearch} className="hidden md:flex shrink items-center w-40 lg:w-52 xl:w-60 focus-within:w-48 lg:focus-within:w-64 xl:focus-within:w-72 transition-all duration-200" ref={searchContainerRef}>
-            <div className="relative group w-full flex items-center">
-              <input
-                id="mail-search-input"
-                type="text"
-                value={searchQuery}
-                onFocus={() => setShowSearchResults(true)}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setShowSearchResults(true);
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
-                className={`w-full px-2 py-1.5 pl-8 rounded-full text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white/20 active:bg-white/20 focus-visible:bg-white/20 text-white focus:text-white focus:shadow-sm border border-transparent focus:border-white/30 outline-none transition-all duration-200 truncate placeholder:truncate ${
-                  searchQuery ? "pr-16" : "pr-9"
-                }`}
-              />
-              <Search
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 transition-colors text-white/60 group-focus-within:text-white/90 pointer-events-none"
-              />
-
-              {/* Action buttons inside search bar: Clear (X) + Filter Button */}
-              <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSearchQuery("");
-                      setShowSearchResults(false);
-                    }}
-                    className="text-white/70 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
-                    title="Clear search"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-
-                <div className="relative" ref={dateFilterRef}>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDateFilterDropdown((prev) => !prev);
-                    }}
-                    className={`p-1 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${
-                      showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
-                        ? "bg-white/25 text-white shadow-xs"
-                        : "text-white/75 hover:text-white hover:bg-white/10"
-                    }`}
-                    title={t('navbar.filter_by_date', 'Filter options')}
-                    aria-label="Filter options"
-                    aria-expanded={showDateFilterDropdown}
-                  >
-                    <SlidersHorizontal size={14} className="text-white" />
-                    {dateFilter && dateFilter !== "ALL" && (
-                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full ring-1 ring-[#195bac]" />
-                    )}
-                  </button>
-
-                  {showDateFilterDropdown && (
-                    <div
-                      className="absolute right-0 top-full mt-2 w-48 sm:w-52 rounded-2xl shadow-xl border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900 py-1.5 px-1.5"
-                      style={{ borderColor: theme.border || "#e2e8f0" }}
-                    >
-                      {/* Header */}
-                      <div className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 select-none">
-                        <Calendar size={15} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                        <span>{t('navbar.filter_by_date', 'Filter by date')}</span>
-                      </div>
-
-                      <div className="flex flex-col gap-0.5 mt-0.5">
-                        {[
-                          { id: "ALL", label: t('navbar.all_time', 'All Time') },
-                          { id: "1_DAY", label: t('navbar.last_1_day', 'Last 1 Day') },
-                          { id: "1_WEEK", label: t('navbar.last_1_week', 'Last 1 Week') },
-                          { id: "1_MONTH", label: t('navbar.last_1_month', 'Last 1 Month') },
-                          { id: "CUSTOM", label: t('navbar.custom_date', 'Custom Date'), isCustom: true },
-                        ].map((opt) => {
-                          const isSelected = (dateFilter || "ALL") === opt.id;
-                          return (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              onClick={() => {
-                                if (opt.isCustom) {
-                                  setShowDateFilterDropdown(false);
-                                  setShowCustomCalendar(true);
-                                } else {
-                                  setDateFilter(opt.id);
-                                  if (setCustomDateRange) setCustomDateRange(null);
-                                  setShowDateFilterDropdown(false);
-                                }
-                              }}
-                              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer text-left ${
-                                isSelected
-                                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 truncate">
-                                <Calendar
-                                  size={15}
-                                  className={`shrink-0 ${
-                                    isSelected
-                                      ? "text-blue-600 dark:text-blue-400"
-                                      : "text-gray-500 dark:text-gray-400"
-                                  }`}
-                                />
-                                <span className="truncate">{opt.label}</span>
-                              </div>
-                              {isSelected ? (
-                                <Check size={15} className="text-blue-600 dark:text-blue-400 shrink-0 ml-2" />
-                              ) : opt.isCustom ? (
-                                <ChevronRight size={15} className="text-gray-400 shrink-0 ml-2" />
-                              ) : null}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {showSearchResults && searchQuery.trim().length > 0 && (
-                <div 
-                  className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 sm:p-3 max-h-[500px] sm:max-h-[540px] overflow-y-auto z-[9999] w-[360px] sm:w-[460px] md:w-[520px] max-w-[95vw] animate-fade-in"
-                  style={{ borderColor: theme.border || '#e2e8f0' }}
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchQuery("");
+                    setShowSearchResults(false);
+                  }}
+                  className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Clear search"
                 >
-                  {renderSearchResults(() => setShowSearchResults(false))}
-                </div>
+                  <X size={14} />
+                </button>
               )}
+
+              <div className="relative" ref={mobileDateFilterRef}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDateFilterDropdown((prev) => !prev);
+                  }}
+                  className={`p-1 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${
+                    showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
+                      ? "bg-white/30 text-white"
+                      : "text-white/80 hover:text-white hover:bg-white/10"
+                  }`}
+                  title={t('navbar.filter_by_date', 'Filter options')}
+                  aria-label="Filter options"
+                >
+                  <SlidersHorizontal size={14} className="text-white" />
+                  {dateFilter && dateFilter !== "ALL" && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full ring-1 ring-[#195bac]" />
+                  )}
+                </button>
+
+                {showDateFilterDropdown && renderDateFilterMenu()}
+              </div>
             </div>
           </form>
 
-          {/* MOBILE SEARCH ICON BUTTON & DROPDOWN (< md screens) */}
-          <div className="relative md:hidden shrink-0" ref={mobileSearchContainerRef}>
-            <button
-              type="button"
-              onClick={() => {
-                setIsMobileSearchOpen(prev => !prev);
-                if (!isMobileSearchOpen) {
-                  setTimeout(() => mobileInputRef.current?.focus(), 50);
-                }
-              }}
-              className={`p-1.5 sm:p-2 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                isMobileSearchOpen
-                  ? "bg-white/20 text-white shadow-sm border border-white/30"
-                  : "bg-white/10 hover:bg-white/20 text-white/90 hover:text-white border border-white/10"
-              }`}
-              title={t('navbar.search_mail', 'Search mail')}
-              aria-label="Search"
-              aria-expanded={isMobileSearchOpen}
+          {/* Mobile search suggestions */}
+          {showSearchResults && searchQuery.trim().length > 0 && (
+            <div 
+              className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 max-h-[65vh] overflow-y-auto z-[9999] animate-fade-in"
+              style={{ borderColor: theme.border || '#e2e8f0' }}
             >
-              <Search size={16} className="text-white" />
+              {renderSearchResults(() => {
+                setShowSearchResults(false);
+                setIsMobileSearchOpen(false);
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between w-full h-8 sm:h-9 md:h-10 gap-1 sm:gap-2 md:gap-3 min-w-0 relative">
+          {/* LEFT: HAMBURGER, LOGO & COMPOSE */}
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0 min-w-0">
+            {/* Mobile Menu Toggle Button */}
+            <button
+              onClick={onOpenMenu}
+              className="p-1 sm:p-1.5 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer shrink-0 transition-colors"
+              title="Open Menu"
+              aria-label="Open Menu"
+            >
+              <MdMenu size={22} />
             </button>
 
-            {isMobileSearchOpen && (
-              <div 
-                className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] sm:w-80 max-w-[360px] bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 z-[9999] animate-fade-in"
-                style={{ borderColor: theme.border || '#e2e8f0' }}
+            {/* Logo & Brand Name */}
+            <div
+              className={`flex items-center gap-1.5 sm:gap-2 shrink-0 transition-all duration-300 ${
+                isDesktopSidebarOpen
+                  ? "lg:w-[13.9375rem]"
+                  : "w-auto mr-1 sm:mr-3"
+              }`}
+            >
+              <img
+                src={logo}
+                alt="BNX Mail"
+                className="h-7 sm:h-8 md:h-9 cursor-pointer drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0 p-0.5 object-contain"
+                onClick={() => onToggleDesktopSidebar()}
+              />
+              <span
+                onClick={() => onToggleDesktopSidebar()}
+                className="text-base sm:text-lg lg:text-xl font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden sm:block select-none whitespace-nowrap"
               >
-                <form onSubmit={handleSearch} className="relative flex items-center w-full">
-                  <input
-                    ref={mobileInputRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
-                    className={`w-full pl-8 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1.5 focus:ring-blue-500 border border-transparent ${
-                      searchQuery ? "pr-16" : "pr-9"
-                    }`}
-                  />
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchQuery("")}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 cursor-pointer"
-                        title="Clear search"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
+                BNX<span className="font-normal text-white/90">mail</span>
+              </span>
+            </div>
+
+            {/* COMPOSE BUTTON (Full on md+, compact icon on < md) */}
+            <button
+              onClick={() => openCompose(currentTab === 'chat' ? { mode: 'chat' } : { mode: 'mail' })}
+              className={`h-7.5 sm:h-8 md:h-9 flex items-center justify-center gap-1.5 px-2.5 sm:px-3 md:px-3.5 rounded-full font-semibold shadow-sm transition-all hover:shadow hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-[#303134] border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-200 shrink-0 cursor-pointer select-none ${
+                !isDesktopSidebarOpen ? "ml-0.5 sm:ml-1" : ""
+              }`}
+              title={t('navbar.compose', t('common.compose', 'Compose'))}
+              aria-label={t('navbar.compose', t('common.compose', 'Compose'))}
+            >
+              <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent || "#135bec" }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span className="text-xs sm:text-[13px] font-semibold leading-none whitespace-nowrap hidden md:inline">
+                {t('navbar.compose', t('common.compose', 'Compose'))}
+              </span>
+            </button>
+          </div>
+
+          {/* CENTER: MAIL / CASBOX SWITCH (In natural flex flow - zero overlap) */}
+          <div className="flex-1 flex items-center justify-center min-w-0 px-1 sm:px-2">
+            <div className="flex items-center bg-white/15 backdrop-blur-sm shadow-sm rounded-full p-0.5 sm:p-1 border border-white/20 shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate('/inbox')}
+                className={`px-2.5 sm:px-3.5 md:px-5 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
+                  currentTab === 'mail' 
+                    ? 'bg-white text-[#195bac] shadow-sm' 
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {t('navbar.mail', 'Mail')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/casbox')}
+                className={`px-2.5 sm:px-3.5 md:px-5 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
+                  currentTab === 'chat' 
+                    ? 'bg-white text-[#195bac] shadow-sm' 
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {t('navbar.casbox', 'Casbox')}
+              </button>
+            </div>
+          </div>
+
+          {/* RIGHT: SEARCH, PROFILE, BIT TOOL */}
+          <div className="flex items-center justify-end gap-1 sm:gap-1.5 md:gap-2 shrink-0 min-w-0">
+            {/* DESKTOP SEARCH (lg+ screens) */}
+            <form
+              onSubmit={handleSearch}
+              className="hidden lg:flex shrink items-center w-36 xl:w-56 focus-within:w-48 xl:focus-within:w-64 transition-all duration-200"
+              ref={searchContainerRef}
+            >
+              <div className="relative group w-full flex items-center">
+                <input
+                  id="mail-search-input"
+                  type="text"
+                  value={searchQuery}
+                  onFocus={() => setShowSearchResults(true)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSearchResults(true);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
+                  className={`w-full px-2 py-1.5 pl-8 rounded-full text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white/20 active:bg-white/20 focus-visible:bg-white/20 text-white focus:text-white focus:shadow-sm border border-transparent focus:border-white/30 outline-none transition-all duration-200 truncate placeholder:truncate ${
+                    searchQuery ? "pr-16" : "pr-9"
+                  }`}
+                />
+                <Search
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 transition-colors text-white/60 group-focus-within:text-white/90 pointer-events-none"
+                />
+
+                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSearchQuery("");
+                        setShowSearchResults(false);
+                      }}
+                      className="text-white/70 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+
+                  <div className="relative" ref={dateFilterRef}>
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowDateFilterDropdown((prev) => !prev);
                       }}
-                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
-                      title="Filter options"
+                      className={`p-1 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${
+                        showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
+                          ? "bg-white/25 text-white shadow-xs"
+                          : "text-white/75 hover:text-white hover:bg-white/10"
+                      }`}
+                      title={t('navbar.filter_by_date', 'Filter options')}
+                      aria-label="Filter options"
+                      aria-expanded={showDateFilterDropdown}
                     >
-                      <SlidersHorizontal size={14} />
+                      <SlidersHorizontal size={14} className="text-white" />
+                      {dateFilter && dateFilter !== "ALL" && (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full ring-1 ring-[#195bac]" />
+                      )}
                     </button>
-                  </div>
-                </form>
 
-                {searchQuery.trim().length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 max-h-[420px] overflow-y-auto">
-                    {renderSearchResults(() => setIsMobileSearchOpen(false))}
+                    {showDateFilterDropdown && renderDateFilterMenu()}
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* USER */}
-          <div className="relative shrink-0" ref={dropdownRef}>
-            <button
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-1.5 sm:gap-2 p-1 sm:pr-2.5 lg:pr-3 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-transparent hover:border-white/20 cursor-pointer"
-            >
-              {user?.profilePictureUrl ? (
-                <img
-                  src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${user.profilePictureUrl}`}
-                  alt="Profile"
-                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover shadow-sm border border-white/20 shrink-0"
-                />
-              ) : (
-                <div
-                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center text-white font-semibold shadow-sm shrink-0 text-xs sm:text-sm bg-[#135bec]"
-                >
-                  {user?.email?.[0]?.toUpperCase() || "U"}
                 </div>
-              )}
-              <div className="hidden lg:flex items-center gap-1.5">
-                <span
-                  className="text-[13px] font-medium truncate max-w-[80px] xl:max-w-[110px] text-white"
-                >
-                  {user?.email?.split('@')[0] || "User"}
-                </span>
-                {isPrimary && (
-                  <MdCheckCircle className="text-white shrink-0" size={13} title={t('navbar.primary_account', 'Primary Account')} />
+
+                {showSearchResults && searchQuery.trim().length > 0 && (
+                  <div 
+                    className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 sm:p-3 max-h-[500px] sm:max-h-[540px] overflow-y-auto z-[9999] w-[360px] sm:w-[460px] md:w-[520px] max-w-[90vw] animate-fade-in"
+                    style={{ borderColor: theme.border || '#e2e8f0' }}
+                  >
+                    {renderSearchResults(() => setShowSearchResults(false))}
+                  </div>
                 )}
               </div>
-              <svg
-                className="h-3.5 w-3.5 hidden lg:block opacity-80 text-white shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            </form>
+
+            {/* COMPACT SEARCH ICON BUTTON (< lg screens) */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileSearchOpen(true);
+                setTimeout(() => mobileInputRef.current?.focus(), 80);
+              }}
+              className="lg:hidden p-1.5 sm:p-2 rounded-full flex items-center justify-center transition-all cursor-pointer bg-white/10 hover:bg-white/20 text-white/90 hover:text-white border border-white/10 shrink-0"
+              title={t('navbar.search_mail', 'Search mail')}
+              aria-label="Search"
+            >
+              <Search size={16} className="text-white" />
             </button>
 
-            {showDropdown && (
-              <div
-                className="absolute right-0 mt-3 w-[290px] sm:w-[310px] max-w-[calc(100vw-1.5rem)] rounded-2xl shadow-xl dark:shadow-soft-dark border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900"
-                style={{ borderColor: theme.border }}
+            {/* USER PROFILE */}
+            <div className="relative shrink-0" ref={dropdownRef}>
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="flex items-center gap-1.5 p-1 sm:pr-2.5 lg:pr-3 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-transparent hover:border-white/20 cursor-pointer shrink-0"
+                aria-label="User Profile"
               >
-                {/* Active User Large Header */}
-                <div className="flex flex-col items-center px-5 py-5 border-b text-center relative" style={{ borderColor: theme.border }}>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/jpeg, image/png, image/webp"
-                    onChange={handleProfilePictureUpload}
+                {user?.profilePictureUrl ? (
+                  <img
+                    src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${user.profilePictureUrl}`}
+                    alt="Profile"
+                    className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover shadow-sm border border-white/20 shrink-0"
                   />
-
-                  <div className="relative inline-block group cursor-pointer mb-2.5" onClick={() => fileInputRef.current?.click()}>
-                    {user?.profilePictureUrl ? (
-                      <img
-                        src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${user.profilePictureUrl}`}
-                        alt={user?.username}
-                        className={`w-16 h-16 rounded-full object-cover border-2 border-primary/20 ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-80 transition-opacity'}`}
-                      />
-                    ) : (
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-sm ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-90 transition-opacity'}`} style={{ backgroundColor: theme.accent || "#135bec" }}>
-                        {(user?.username || user?.email || "U").charAt(0).toUpperCase()}
-                      </div>
-                    )}
-
-                    {/* Hover Overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MdPhotoCamera size={24} className="text-white" />
-                    </div>
-
-                    {/* Mini Camera Badge always visible */}
-                    <div className="absolute bottom-0 right-0 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 group-hover:bg-gray-100 dark:group-hover:bg-gray-700 transition-colors">
-                      <MdPhotoCamera size={14} />
-                    </div>
-                  </div>
-
-                  <p className="text-base font-bold text-gray-800 dark:text-gray-100 leading-tight">
-                    {user?.username || "User"}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate max-w-full">
-                    {user?.email}
-                  </p>
-
-                  <button
-                    onClick={() => {
-                      setShowDropdown(false);
-                      const token = localStorage.getItem("accessToken") || "";
-                      window.open(`https://account.beta-softnet.com/security?token=${encodeURIComponent(token)}`, "_blank");
-                    }}
-                    className="mt-3 px-3.5 py-1.5 border rounded-full text-[11px] font-bold hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all cursor-pointer flex items-center gap-1.5"
-                    style={{ borderColor: theme.border, color: theme.text }}
+                ) : (
+                  <div
+                    className="h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center text-white font-semibold shadow-sm shrink-0 text-xs sm:text-sm bg-[#135bec]"
                   >
-                    <MdManageAccounts size={15} /> {t('navbar.manage_accounts', 'Manage your account')}
-                  </button>
-                </div>
-
-                {/* Other Accounts List */}
-                {otherSessions.length > 0 && (
-                  <div className="max-h-[150px] overflow-y-auto border-b" style={{ borderColor: theme.border }}>
-                    {otherSessions.map((sess) => (
-                      <div
-                        key={sess.email}
-                        onClick={() => {
-                          setShowDropdown(false);
-                          switchAccount(sess.email);
-                        }}
-                        className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-all border-b last:border-b-0 dark:border-gray-800/30"
-                      >
-                        <div className="flex items-center gap-2.5 truncate">
-                          {sess.profilePictureUrl ? (
-                            <img
-                              src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${sess.profilePictureUrl}`}
-                              alt={sess.username}
-                              className="w-7 h-7 rounded-full object-cover shrink-0"
-                            />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style={{ backgroundColor: theme.accent || "#135bec" }}>
-                              {(sess.username || sess.email || "U").charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <div className="truncate text-left">
-                            <p className="text-xs font-bold text-gray-800 dark:text-gray-200 leading-tight truncate">
-                              {sess.username}
-                            </p>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                              {sess.email}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                    {user?.email?.[0]?.toUpperCase() || "U"}
                   </div>
                 )}
-
-                {/* Actions */}
-                <div className="p-1">
-                  <button
-                    onClick={() => {
-                      setShowDropdown(false);
-                      localStorage.removeItem("tempToken");
-                      navigate("/login");
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-3 font-semibold text-gray-600 dark:text-gray-300"
+                <div className="hidden xl:flex items-center gap-1.5">
+                  <span
+                    className="text-[13px] font-medium truncate max-w-[80px] xl:max-w-[110px] text-white"
                   >
-                    <MdPersonAdd size={18} className="text-gray-400" /> {t('navbar.add_account', 'Add another account')}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowDropdown(false);
-                      logout();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-3 font-semibold text-gray-600 dark:text-gray-300"
-                  >
-                    <MdLogout size={18} className="text-gray-400" /> {t('navbar.logout', 'Sign out of this account')}
-                  </button>
+                    {user?.email?.split('@')[0] || "User"}
+                  </span>
+                  {isPrimary && (
+                    <MdCheckCircle className="text-white shrink-0" size={13} title={t('navbar.primary_account', 'Primary Account')} />
+                  )}
                 </div>
+                <svg
+                  className="h-3.5 w-3.5 hidden xl:block opacity-80 text-white shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-                <div className="border-t p-1" style={{ borderColor: theme.border }}>
-                  <button
-                    onClick={() => {
-                      setShowDropdown(false);
-                      logoutAll();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center gap-3 font-bold"
-                  >
-                    <MdLogout size={18} className="text-red-400" /> {t('navbar.sign_out_all', 'Sign out of all accounts')}
-                  </button>
+              {showDropdown && (
+                <div
+                  className="absolute right-0 mt-2.5 w-[280px] sm:w-[310px] max-w-[calc(100vw-1.5rem)] rounded-2xl shadow-xl dark:shadow-soft-dark border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900"
+                  style={{ borderColor: theme.border }}
+                >
+                  {/* Active User Header */}
+                  <div className="flex flex-col items-center px-5 py-5 border-b text-center relative" style={{ borderColor: theme.border }}>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/jpeg, image/png, image/webp"
+                      onChange={handleProfilePictureUpload}
+                    />
+
+                    <div className="relative inline-block group cursor-pointer mb-2.5" onClick={() => fileInputRef.current?.click()}>
+                      {user?.profilePictureUrl ? (
+                        <img
+                          src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${user.profilePictureUrl}`}
+                          alt={user?.username}
+                          className={`w-16 h-16 rounded-full object-cover border-2 border-primary/20 ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-80 transition-opacity'}`}
+                        />
+                      ) : (
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-sm ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-90 transition-opacity'}`} style={{ backgroundColor: theme.accent || "#135bec" }}>
+                          {(user?.username || user?.email || "U").charAt(0).toUpperCase()}
+                        </div>
+                      )}
+
+                      {/* Hover Overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MdPhotoCamera size={24} className="text-white" />
+                      </div>
+
+                      {/* Mini Camera Badge */}
+                      <div className="absolute bottom-0 right-0 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 group-hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <MdPhotoCamera size={14} />
+                      </div>
+                    </div>
+
+                    <p className="text-base font-bold text-gray-800 dark:text-gray-100 leading-tight">
+                      {user?.username || "User"}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate max-w-full">
+                      {user?.email}
+                    </p>
+
+                    <button
+                      onClick={() => {
+                        setShowDropdown(false);
+                        const token = localStorage.getItem("accessToken") || "";
+                        window.open(`https://account.beta-softnet.com/security?token=${encodeURIComponent(token)}`, "_blank");
+                      }}
+                      className="mt-3 px-3.5 py-1.5 border rounded-full text-[11px] font-bold hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all cursor-pointer flex items-center gap-1.5"
+                      style={{ borderColor: theme.border, color: theme.text }}
+                    >
+                      <MdManageAccounts size={15} /> {t('navbar.manage_accounts', 'Manage your account')}
+                    </button>
+                  </div>
+
+                  {/* Other Accounts List */}
+                  {otherSessions.length > 0 && (
+                    <div className="max-h-[150px] overflow-y-auto border-b" style={{ borderColor: theme.border }}>
+                      {otherSessions.map((sess) => (
+                        <div
+                          key={sess.email}
+                          onClick={() => {
+                            setShowDropdown(false);
+                            switchAccount(sess.email);
+                          }}
+                          className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-all border-b last:border-b-0 dark:border-gray-800/30"
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            {sess.profilePictureUrl ? (
+                              <img
+                                src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${sess.profilePictureUrl}`}
+                                alt={sess.username}
+                                className="w-7 h-7 rounded-full object-cover shrink-0"
+                              />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style={{ backgroundColor: theme.accent || "#135bec" }}>
+                                {(sess.username || sess.email || "U").charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="truncate text-left">
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-200 leading-tight truncate">
+                                {sess.username}
+                              </p>
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                {sess.email}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Theme Mode & Utility Actions */}
+                  <div className="p-1 border-b" style={{ borderColor: theme.border }}>
+                    <button
+                      onClick={() => {
+                        handleThemeToggle();
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center justify-between font-semibold text-gray-600 dark:text-gray-300 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        {currentThemeName === "Dark" ? (
+                          <MdLightMode size={18} className="text-amber-500" />
+                        ) : (
+                          <MdDarkMode size={18} className="text-blue-500" />
+                        )}
+                        <span>{currentThemeName === "Dark" ? t('navbar.light_mode', 'Light Theme') : t('navbar.dark_mode', 'Dark Theme')}</span>
+                      </div>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                        {currentThemeName}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Account Actions */}
+                  <div className="p-1">
+                    <button
+                      onClick={() => {
+                        setShowDropdown(false);
+                        localStorage.removeItem("tempToken");
+                        navigate("/login");
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-3 font-semibold text-gray-600 dark:text-gray-300 cursor-pointer"
+                    >
+                      <MdPersonAdd size={18} className="text-gray-400" /> {t('navbar.add_account', 'Add another account')}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowDropdown(false);
+                        logout();
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-3 font-semibold text-gray-600 dark:text-gray-300 cursor-pointer"
+                    >
+                      <MdLogout size={18} className="text-gray-400" /> {t('navbar.logout', 'Sign out of this account')}
+                    </button>
+                  </div>
+
+                  <div className="border-t p-1" style={{ borderColor: theme.border }}>
+                    <button
+                      onClick={() => {
+                        setShowDropdown(false);
+                        logoutAll();
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center gap-3 font-bold cursor-pointer"
+                    >
+                      <MdLogout size={18} className="text-red-400" /> {t('navbar.sign_out_all', 'Sign out of all accounts')}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            <div className="h-5 w-[1px] bg-white/20 ml-0.5 hidden sm:block shrink-0" />
+
+            {/* BIT TOOLS TOGGLE */}
+            <button
+              onClick={onToggleBitToolSidebar}
+              className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-auto md:px-2 rounded-full bg-white dark:hover:bg-white/10 transition-all flex items-center justify-center shrink-0 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 cursor-pointer shadow-xs hover:shadow"
+              title={t('navbar.bit_tools', 'Toggle BIT Tools')}
+              aria-label={t('navbar.bit_tools', 'Toggle BIT Tools')}
+            >
+              <img
+                src={bitToolLogo}
+                alt="BIT Tool"
+                className="h-4 sm:h-5 object-contain opacity-80 hover:opacity-100"
+              />
+            </button>
           </div>
-
-          <div className="h-6 w-[1px] bg-white/20 ml-0.5 sm:ml-1 hidden sm:block shrink-0" />
-          <button
-            onClick={onToggleBitToolSidebar}
-            className="h-8 sm:h-9 px-1.5 sm:px-2 rounded-full bg-white dark:hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 cursor-pointer"
-            title={t('navbar.bit_tools', 'Toggle BIT Tools')}
-          >
-            <img
-              src={bitToolLogo}
-              alt="BIT Tool"
-              className="h-4 sm:h-5 object-contain opacity-80 hover:opacity-100"
-            />
-          </button>
         </div>
-      </div>
+      )}
       <CustomDateRangeModal
         isOpen={showCustomCalendar}
         onClose={() => setShowCustomCalendar(false)}
