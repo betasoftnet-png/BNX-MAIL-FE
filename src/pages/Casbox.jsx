@@ -5557,7 +5557,7 @@ const Casbox = () => {
       </div>
 
       {/* Messages List */}
-      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent pb-4 md:pb-20">
+      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent pb-20 md:pb-0">
         {loading && filteredCombineMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
             <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -5704,7 +5704,7 @@ const Casbox = () => {
       </div>
 
       {/* Floating Compose Button */}
-      <div className="hidden md:block absolute right-6 bottom-6 z-30 pointer-events-auto">
+      <div className="fixed right-4 bottom-4 z-30 pointer-events-auto md:hidden">
         <button
           type="button"
           onClick={() => openCompose({ mode: 'chat' })}
@@ -5812,7 +5812,7 @@ const Casbox = () => {
       </div>
 
       {/* Messages List Area */}
-      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent pb-4 md:pb-20">
+      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent pb-20 md:pb-0">
         {loading && (activeTab === 'messages' ? filteredIndividualMessages.length === 0 : activeTab === 'archive' ? filteredArchivedMessages.length === 0 : filteredConversationList.length === 0) ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
             <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -6580,7 +6580,7 @@ const Casbox = () => {
       </div>
 
       {/* Floating Compose Button */}
-      <div className="hidden md:block absolute right-6 bottom-6 z-30 pointer-events-auto">
+      <div className="fixed right-4 bottom-4 z-30 pointer-events-auto md:hidden">
         <button
           type="button"
           onClick={() => openCompose({ mode: 'chat' })}
