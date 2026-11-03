@@ -5703,16 +5703,16 @@ const Casbox = () => {
         )}
       </div>
 
-      {/* Floating Compose Button - Mobile (< 768px) */}
-      <div className="absolute right-4 bottom-4 md:hidden z-30 pointer-events-auto">
+      {/* Floating Compose Button */}
+      <div className="fixed md:absolute right-4 bottom-4 md:right-6 md:bottom-6 z-30 pointer-events-auto">
         <button
           type="button"
           onClick={() => openCompose({ mode: 'chat' })}
-          className="flex items-center justify-center gap-2 h-11 px-5 bg-white dark:bg-gray-800 text-[#0b1b54] dark:text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] border border-gray-100 dark:border-gray-700 transition-all cursor-pointer select-none"
+          className="flex items-center justify-center gap-2 h-9 sm:h-10 px-3.5 sm:px-4.5 bg-white dark:bg-gray-800 text-[#0b1b54] dark:text-white rounded-full font-bold shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] hover:bg-gray-50 dark:hover:bg-gray-700/60 hover:scale-[1.02] active:scale-[0.98] border border-gray-200/80 dark:border-gray-700/60 transition-all cursor-pointer select-none"
           title="Compose"
         >
-          <Pencil size={18} className="text-[#0b1b54] dark:text-blue-400 stroke-[2.5]" />
-          <span className="text-sm font-bold text-[#0b1b54] dark:text-white leading-none whitespace-nowrap">
+          <Pencil size={16} className="text-[#195bac] dark:text-blue-400 shrink-0 stroke-[2.2]" />
+          <span className="text-xs sm:text-sm font-bold text-[#0b1b54] dark:text-white leading-none whitespace-nowrap">
             Compose
           </span>
         </button>
@@ -6579,16 +6579,16 @@ const Casbox = () => {
         )}
       </div>
 
-      {/* Floating Compose Button - Mobile (< 768px) */}
-      <div className="absolute right-4 bottom-4 md:hidden z-30 pointer-events-auto">
+      {/* Floating Compose Button */}
+      <div className="fixed md:absolute right-4 bottom-4 md:right-6 md:bottom-6 z-30 pointer-events-auto">
         <button
           type="button"
           onClick={() => openCompose({ mode: 'chat' })}
-          className="flex items-center justify-center gap-2 h-11 px-5 bg-white dark:bg-gray-800 text-[#0b1b54] dark:text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] border border-gray-100 dark:border-gray-700 transition-all cursor-pointer select-none"
+          className="flex items-center justify-center gap-2 h-9 sm:h-10 px-3.5 sm:px-4.5 bg-white dark:bg-gray-800 text-[#0b1b54] dark:text-white rounded-full font-bold shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] hover:bg-gray-50 dark:hover:bg-gray-700/60 hover:scale-[1.02] active:scale-[0.98] border border-gray-200/80 dark:border-gray-700/60 transition-all cursor-pointer select-none"
           title="Compose"
         >
-          <Pencil size={18} className="text-[#0b1b54] dark:text-blue-400 stroke-[2.5]" />
-          <span className="text-sm font-bold text-[#0b1b54] dark:text-white leading-none whitespace-nowrap">
+          <Pencil size={16} className="text-[#195bac] dark:text-blue-400 shrink-0 stroke-[2.2]" />
+          <span className="text-xs sm:text-sm font-bold text-[#0b1b54] dark:text-white leading-none whitespace-nowrap">
             Compose
           </span>
         </button>
