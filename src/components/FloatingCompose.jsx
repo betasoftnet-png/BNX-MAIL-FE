@@ -309,7 +309,7 @@ const ComposeWindow = ({
   const [isComposeMaximized, setIsComposeMaximized] = useState(false);
   const containerRef = useRef(null);
   const wasDraftStarredRef = useRef(false);
-  const isReply = Boolean(composeData?.replyTo);
+  const isReply = Boolean(composeData?.replyTo) && composeData?.mode !== 'casbox' && composeData?.mode !== 'chat';
   const fileInputRef = useRef(null);
 
   const [composeMode, setComposeMode] = useState("mail"); // "chat" or "mail"
