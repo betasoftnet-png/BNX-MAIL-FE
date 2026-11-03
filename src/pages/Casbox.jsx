@@ -1125,9 +1125,6 @@ const Casbox = () => {
         setActiveReactionMsgId(null);
         setShowFullEmojiPicker(false);
       }
-      if (chevronMenuRef.current && !chevronMenuRef.current.contains(e.target)) {
-        setShowChevronMenu(false);
-      }
     };
     document.addEventListener("mousedown", handleOutsideClick);
     document.addEventListener("touchstart", handleOutsideClick);
@@ -1138,8 +1135,6 @@ const Casbox = () => {
   }, []);
 
   const [showArchive, setShowArchive] = useState(false);
-  const [showChevronMenu, setShowChevronMenu] = useState(false);
-  const chevronMenuRef = React.useRef(null);
   const [previewFile, setPreviewFile] = useState(null);
 
   const [acceptedContacts, setAcceptedContacts] = useState(() => {
@@ -5293,54 +5288,55 @@ const Casbox = () => {
             {requestMessages.length > 0 && <span className="flex h-1.5 w-1.5 rounded-full bg-red-500"></span>}
           </button>
 
-          {/* 4. Right-chevron icon */}
-          <div className="relative shrink-0" ref={chevronMenuRef}>
+          {/* Arrow button (smooth toggle between > and <) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (showArchive && activeTab === 'archive') {
+                setActiveTab('messages');
+                setSelectedMessage(null);
+                setSelectedSentDetail(null);
+                setSelectedRowIds(new Set());
+                fetchMessages(true);
+              }
+              setShowArchive(prev => !prev);
+            }}
+            className="bg-transparent hover:bg-transparent active:bg-transparent focus:bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 shadow-none p-1 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors flex items-center justify-center shrink-0 cursor-pointer select-none"
+            title={showArchive ? t('common.collapse', 'Collapse') : t('sidebar.archive', 'Archive')}
+            aria-label={showArchive ? "Collapse Archive" : "Expand Archive"}
+          >
+            {showArchive ? (
+              <MdChevronLeft size={18} />
+            ) : (
+              <MdChevronRight size={18} />
+            )}
+          </button>
+
+          {/* Archived / Hidden Tabs (smoothly revealed on expand) */}
+          {showArchive && (
             <button
               type="button"
-              onClick={() => setShowChevronMenu(prev => !prev)}
-              className={`p-1.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg transition-all flex items-center justify-center shrink-0 cursor-pointer ${
-                activeTab === 'archive' || showChevronMenu
+              onClick={() => {
+                setActiveTab('archive');
+                setSelectedMessage(null);
+                setSelectedSentDetail(null);
+                setSelectedRowIds(new Set());
+              }}
+              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${
+                activeTab === 'archive'
                   ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
-                  : 'hover:bg-black/5 dark:hover:bg-white/10'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
-              title="More options"
-              aria-label="More navigation options"
+              title={t('sidebar.archive', 'Archive')}
             >
-              <MdChevronRight size={18} />
+              {t('sidebar.archive', 'Archive')}
+              {unreadArchivedCount > 0 && (
+                <span className={`text-[11px] font-normal ${activeTab === 'archive' ? 'opacity-80' : 'opacity-60'}`}>
+                  ({unreadArchivedCount})
+                </span>
+              )}
             </button>
-
-            {showChevronMenu && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-44 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in duration-150">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('archive');
-                    setSelectedMessage(null);
-                    setSelectedSentDetail(null);
-                    setSelectedRowIds(new Set());
-                    setShowArchive(true);
-                    setShowChevronMenu(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-                    activeTab === 'archive'
-                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  }`}
-                  title={t('sidebar.archive', 'Archive')}
-                >
-                  <span className="flex items-center gap-2">
-                    <MdArchive size={16} />
-                    <span>{t('sidebar.archive', 'Archive')}</span>
-                  </span>
-                  {unreadArchivedCount > 0 && (
-                    <span className="text-[10px] bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded-full font-bold">
-                      {unreadArchivedCount}
-                    </span>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Right Side – Action Buttons (Connections, Blocked Connections, Refresh) */}
