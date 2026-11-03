@@ -2,6 +2,7 @@ import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile, MdRestore } from "react-icons/md";
+import { Pencil } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
@@ -35,7 +36,7 @@ const EmailList = ({
   const { user } = useAuth();
   const location = useLocation();
   const { theme, emailsPerPage, backgroundImage } = useTheme();
-  const { isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead } = useMail();
+  const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead } = useMail();
   const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
   const isTrashFolder = Boolean(
     isTrash ||
@@ -143,13 +144,12 @@ const EmailList = ({
   const paginationControls = effectiveTotal > 0 && (
     <div className="flex items-center justify-between gap-2 pl-4 pr-4 lg:px-6 py-4 border-t border-gray-100 dark:border-gray-800/60 bg-transparent shrink-0">
       <div className="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400 shrink-0">
-        <span className="hidden sm:inline">Showing </span>
+        Showing{' '}
         <span className="font-medium text-gray-700 dark:text-gray-300">{effectiveTotal > 0 ? startIndex + 1 : 0}</span>
-        <span className="hidden sm:inline"> to </span>
-        <span className="sm:hidden">-</span>
+        {' '}to{' '}
         <span className="font-medium text-gray-700 dark:text-gray-300">{Math.min(startIndex + emailsPerPage, effectiveTotal)}</span>
         {' '}of <span className="font-medium text-gray-700 dark:text-gray-300">{effectiveTotal}</span>
-        <span className="hidden sm:inline"> emails</span>
+        {' '}emails
       </div>
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <button
@@ -174,7 +174,7 @@ const EmailList = ({
   );
 
   return (
-    <>
+    <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
       {snoozeOpenUid && (
         <>
           {/* Invisible backdrop to capture outside clicks like Gmail */}
@@ -287,7 +287,7 @@ const EmailList = ({
           `}</style>
         </div>
       )}
-      <div className={`flex-1 overflow-y-auto bg-transparent hidden-scrollbar transition-opacity duration-300 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`flex-1 overflow-y-auto bg-transparent hidden-scrollbar transition-opacity duration-300 pb-16 lg:pb-0 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         {emails.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-gray-400 p-8">
             <span className="text-5xl mb-4 opacity-75">📭</span>
@@ -585,9 +585,24 @@ const EmailList = ({
         )}
       </div>
 
+      {/* Floating Compose Button - Tablet & Mobile (< 1024px) */}
+      <div className={`absolute right-4 sm:right-6 ${effectiveTotal > 0 ? 'bottom-[68px]' : 'bottom-4'} lg:hidden z-30 pointer-events-auto`}>
+        <button
+          type="button"
+          onClick={() => openCompose({ mode: 'mail' })}
+          className="flex items-center justify-center gap-2 h-10 px-4 sm:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] border border-gray-100/90 dark:border-gray-700/60 transition-all cursor-pointer select-none"
+          title={t('navbar.compose', t('common.compose', 'Compose'))}
+        >
+          <Pencil size={16} className="text-[#195bac] shrink-0" />
+          <span className="text-xs sm:text-sm font-semibold text-gray-900 leading-none whitespace-nowrap">
+            {t('navbar.compose', t('common.compose', 'Compose'))}
+          </span>
+        </button>
+      </div>
+
       {/* Pagination Controls */}
       {paginationControls}
-    </>
+    </div>
   );
 };
 

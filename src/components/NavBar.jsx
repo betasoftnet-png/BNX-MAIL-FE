@@ -469,11 +469,11 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             </span>
           </div>
 
-          {/* Compose Button */}
+          {/* Compose Button - Desktop (1440px+) & Laptop (1024px-1439px) */}
           <button
             type="button"
             onClick={() => openCompose({ mode: currentTab === 'chat' ? 'chat' : 'mail' })}
-            className="flex items-center justify-center gap-2 sm:gap-2.5 h-9 sm:h-10 px-3 sm:px-4 lg:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-2 sm:ml-4 md:ml-8 lg:ml-[100px] xl:ml-[115px] 2xl:ml-[120px]"
+            className="hidden lg:flex items-center justify-center gap-2 lg:gap-2.5 h-9 lg:h-10 px-3.5 lg:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-3 lg:ml-5 xl:ml-6"
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
             <Pencil size={16} className="text-[#195bac] shrink-0" />
