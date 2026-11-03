@@ -313,6 +313,25 @@ const ComposeWindow = ({
   const fileInputRef = useRef(null);
 
   const [composeMode, setComposeMode] = useState("mail"); // "chat" or "mail"
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+  const [quotedMessage, setQuotedMessage] = useState("");
+
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [allTemplates, setAllTemplates] = useState([]);
+
+  const [formData, setFormData] = useState({
+    to: "",
+    cc: "",
+    bcc: "",
+    subject: "",
+    body: "",
+  });
 
   // Sync mode if opened with data or if currently on chat page
   useEffect(() => {
@@ -338,26 +357,6 @@ const ComposeWindow = ({
       setError("");
     }
   };
-
-  const [sending, setSending] = useState(false);
-  const sendingRef = useRef(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const [showCc, setShowCc] = useState(false);
-  const [showBcc, setShowBcc] = useState(false);
-  const [quotedMessage, setQuotedMessage] = useState("");
-
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [allTemplates, setAllTemplates] = useState([]);
-
-  const [formData, setFormData] = useState({
-    to: "",
-    cc: "",
-    bcc: "",
-    subject: "",
-    body: "",
-  });
 
   const [signatures, setSignatures] = useState([]);
   const [showSignaturesMenu, setShowSignaturesMenu] = useState(false);
