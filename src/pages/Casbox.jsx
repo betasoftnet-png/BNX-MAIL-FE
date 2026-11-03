@@ -5288,75 +5288,56 @@ const Casbox = () => {
             {requestMessages.length > 0 && <span className="flex h-1.5 w-1.5 rounded-full bg-red-500"></span>}
           </button>
 
-          {/* Arrow button (compact left-arrow navigation control before Archive on mobile, toggle on desktop) */}
+          {/* Arrow button (smooth toggle between > and <) */}
           <button
             type="button"
             onClick={() => {
-              if (window.innerWidth < 768) {
-                if (activeTab === 'archive') {
-                  setActiveTab('messages');
-                  setSelectedMessage(null);
-                  setSelectedSentDetail(null);
-                  setSelectedRowIds(new Set());
-                  fetchMessages(true);
-                } else {
-                  setActiveTab('archive');
-                  setSelectedMessage(null);
-                  setSelectedSentDetail(null);
-                  setSelectedRowIds(new Set());
-                }
-              } else {
-                if (showArchive && activeTab === 'archive') {
-                  setActiveTab('messages');
-                  setSelectedMessage(null);
-                  setSelectedSentDetail(null);
-                  setSelectedRowIds(new Set());
-                  fetchMessages(true);
-                }
-                setShowArchive(prev => !prev);
+              if (showArchive && activeTab === 'archive') {
+                setActiveTab('messages');
+                setSelectedMessage(null);
+                setSelectedSentDetail(null);
+                setSelectedRowIds(new Set());
+                fetchMessages(true);
               }
+              setShowArchive(prev => !prev);
             }}
-            className="flex bg-transparent hover:bg-transparent active:bg-transparent focus:bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 shadow-none p-0.5 sm:p-1 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors items-center justify-center shrink-0 cursor-pointer select-none"
+            className="w-7 h-7 sm:w-auto sm:h-auto p-0 sm:p-1 flex items-center justify-center shrink-0 cursor-pointer select-none bg-transparent hover:bg-transparent active:bg-transparent focus:bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 shadow-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            style={{ WebkitTapHighlightColor: 'transparent', outline: 'none' }}
             title={showArchive ? t('common.collapse', 'Collapse') : t('sidebar.archive', 'Archive')}
             aria-label={showArchive ? "Collapse Archive" : "Expand Archive"}
           >
-            <span className="flex md:hidden items-center justify-center">
-              <MdChevronLeft size={15} />
-            </span>
-            <span className="hidden md:flex items-center justify-center">
-              {showArchive ? (
-                <MdChevronLeft size={18} />
-              ) : (
-                <MdChevronRight size={18} />
-              )}
-            </span>
-          </button>
-
-          {/* 4. Archive Tab (always visible on mobile, conditionally visible on desktop when expanded) */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('archive');
-              setSelectedMessage(null);
-              setSelectedSentDetail(null);
-              setSelectedRowIds(new Set());
-            }}
-            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${
-              showArchive ? 'flex' : 'flex md:hidden'
-            } ${
-              activeTab === 'archive'
-                ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-            title={t('sidebar.archive', 'Archive')}
-          >
-            {t('sidebar.archive', 'Archive')}
-            {unreadArchivedCount > 0 && (
-              <span className={`text-[9.5px] min-[380px]:text-[10px] sm:text-[11px] font-normal ${activeTab === 'archive' ? 'opacity-80' : 'opacity-60'}`}>
-                ({unreadArchivedCount})
-              </span>
+            {showArchive ? (
+              <MdChevronLeft size={18} className="shrink-0" />
+            ) : (
+              <MdChevronRight size={18} className="shrink-0" />
             )}
           </button>
+
+          {/* 4. Archive Tab (displayed when right arrow is clicked) */}
+          {showArchive && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('archive');
+                setSelectedMessage(null);
+                setSelectedSentDetail(null);
+                setSelectedRowIds(new Set());
+              }}
+              className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${
+                activeTab === 'archive'
+                  ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+              title={t('sidebar.archive', 'Archive')}
+            >
+              {t('sidebar.archive', 'Archive')}
+              {unreadArchivedCount > 0 && (
+                <span className={`text-[9.5px] min-[380px]:text-[10px] sm:text-[11px] font-normal ${activeTab === 'archive' ? 'opacity-80' : 'opacity-60'}`}>
+                  ({unreadArchivedCount})
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Right Side – Action Buttons (Connections, Blocked Connections, Refresh) */}
