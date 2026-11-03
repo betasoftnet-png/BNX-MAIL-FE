@@ -1618,8 +1618,8 @@ const Settings = () => {
                             disabled={resendTimer > 0}
                             onClick={() => sendOtp(otpTarget)}
                             className={`font-semibold cursor-pointer transition-colors ${resendTimer > 0
-                                ? "text-gray-400 cursor-not-allowed"
-                                : "text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                              ? "text-gray-400 cursor-not-allowed"
+                              : "text-blue-600 hover:text-blue-700 dark:text-blue-400"
                               }`}
                           >
                             {resendTimer > 0 ? `${t("settings.resend_code_in", "Resend code in")} ${resendTimer}s` : t("settings.resend_code", "Resend OTP")}
