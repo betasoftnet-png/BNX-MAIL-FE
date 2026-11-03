@@ -1125,6 +1125,9 @@ const Casbox = () => {
         setActiveReactionMsgId(null);
         setShowFullEmojiPicker(false);
       }
+      if (chevronMenuRef.current && !chevronMenuRef.current.contains(e.target)) {
+        setShowChevronMenu(false);
+      }
     };
     document.addEventListener("mousedown", handleOutsideClick);
     document.addEventListener("touchstart", handleOutsideClick);
@@ -1135,6 +1138,8 @@ const Casbox = () => {
   }, []);
 
   const [showArchive, setShowArchive] = useState(false);
+  const [showChevronMenu, setShowChevronMenu] = useState(false);
+  const chevronMenuRef = React.useRef(null);
   const [previewFile, setPreviewFile] = useState(null);
 
   const [acceptedContacts, setAcceptedContacts] = useState(() => {
@@ -5226,17 +5231,22 @@ const Casbox = () => {
 
   const headerComponent = (
     <div className="flex flex-col shrink-0 w-full max-w-full">
-      <div className="px-1.5 sm:px-5 py-2 sm:py-3.5 border-b border-gray-100 dark:border-gray-800 flex flex-nowrap items-center justify-between gap-1 sm:gap-2 shrink-0 bg-transparent w-full min-w-0">
-        {/* Tabs Group: Messages, Combine, Requests, Archive */}
-        <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-0.5 sm:p-1 rounded-lg shrink min-w-0 flex-1 sm:flex-initial overflow-x-auto hidden-scrollbar gap-0.5 sm:gap-1">
+      <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 flex flex-nowrap items-center justify-between gap-2 shrink-0 bg-transparent w-full min-w-0">
+        {/* Left Side – Navigation Tabs inside one light-grey rounded segmented container */}
+        <div className="flex items-center bg-[#F3F4F6] dark:bg-gray-800/90 p-1 rounded-xl shrink min-w-0 flex-1 sm:flex-initial overflow-x-auto hidden-scrollbar gap-1">
           {/* 1. Messages */}
           <button
+            type="button"
             onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
-            className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'messages' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
+              activeTab === 'messages'
+                ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
           >
             {t('casbox.messages', 'Messages')}
             {unreadMessagesCount > 0 && (
-              <span className={`font-normal ${activeTab === 'messages' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[11px] font-normal ${activeTab === 'messages' ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadMessagesCount})
               </span>
             )}
@@ -5244,12 +5254,17 @@ const Casbox = () => {
 
           {/* 2. Combine */}
           <button
+            type="button"
             onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${isCombineTab ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
+              isCombineTab
+                ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
           >
             {t('casbox.combine', 'Combine')}
             {unreadCombinedCount > 0 && (
-              <span className={`font-normal ${isCombineTab ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[11px] font-normal ${isCombineTab ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadCombinedCount})
               </span>
             )}
@@ -5257,69 +5272,82 @@ const Casbox = () => {
 
           {/* 3. Requests */}
           <button
+            type="button"
             onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'requests' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
+              activeTab === 'requests'
+                ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
           >
             {t('casbox.requests', 'Requests')}
             {unreadRequestsCount > 0 ? (
-              <span className={`font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[11px] font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadRequestsCount})
               </span>
             ) : requestsConversations.length > 0 ? (
-              <span className={`font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[11px] font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
                 ({requestsConversations.length})
               </span>
             ) : null}
-            {requestMessages.length > 0 && <span className="flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500"></span>}
+            {requestMessages.length > 0 && <span className="flex h-1.5 w-1.5 rounded-full bg-red-500"></span>}
           </button>
 
-          {/* 4. Archive */}
-          <button
-            onClick={() => {
-              setActiveTab('archive');
-              setSelectedMessage(null);
-              setSelectedSentDetail(null);
-              setSelectedRowIds(new Set());
-              setShowArchive(true);
-            }}
-            className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-md transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'archive' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-            title={t('sidebar.archive', 'Archive')}
-          >
-            {t('sidebar.archive', 'Archive')}
-            {unreadArchivedCount > 0 && (
-              <span className={`font-normal ${activeTab === 'archive' ? 'opacity-80' : 'opacity-60'}`}>
-                ({unreadArchivedCount})
-              </span>
+          {/* 4. Right-chevron icon */}
+          <div className="relative shrink-0" ref={chevronMenuRef}>
+            <button
+              type="button"
+              onClick={() => setShowChevronMenu(prev => !prev)}
+              className={`p-1.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg transition-all flex items-center justify-center shrink-0 cursor-pointer ${
+                activeTab === 'archive' || showChevronMenu
+                  ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
+                  : 'hover:bg-black/5 dark:hover:bg-white/10'
+              }`}
+              title="More options"
+              aria-label="More navigation options"
+            >
+              <MdChevronRight size={18} />
+            </button>
+
+            {showChevronMenu && (
+              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-44 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in duration-150">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('archive');
+                    setSelectedMessage(null);
+                    setSelectedSentDetail(null);
+                    setSelectedRowIds(new Set());
+                    setShowArchive(true);
+                    setShowChevronMenu(false);
+                  }}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'archive'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}
+                  title={t('sidebar.archive', 'Archive')}
+                >
+                  <span className="flex items-center gap-2">
+                    <MdArchive size={16} />
+                    <span>{t('sidebar.archive', 'Archive')}</span>
+                  </span>
+                  {unreadArchivedCount > 0 && (
+                    <span className="text-[10px] bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded-full font-bold">
+                      {unreadArchivedCount}
+                    </span>
+                  )}
+                </button>
+              </div>
             )}
-          </button>
-
-          {/* Desktop collapse chevron button */}
-          <button
-            onClick={() => {
-              if (showArchive && activeTab === 'archive') {
-                setActiveTab('messages');
-                setSelectedMessage(null);
-                setSelectedSentDetail(null);
-                setSelectedRowIds(new Set());
-              }
-              setShowArchive(prev => !prev);
-            }}
-            className="hidden sm:flex p-1 sm:p-1.5 rounded-md transition-all items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-700/60 shrink-0 cursor-pointer"
-            title={showArchive ? t('common.collapse', 'Collapse') : t('sidebar.archive', 'Archive')}
-            aria-label={showArchive ? "Collapse Archive" : "Expand Archive"}
-          >
-            {showArchive ? <MdChevronLeft size={16} className="sm:w-[18px] sm:h-[18px]" /> : <MdChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />}
-          </button>
+          </div>
         </div>
 
-        {/* 5. Vertical separator */}
-        <div className="w-[1px] h-4 sm:h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 sm:mx-1 shrink-0" />
-
-        {/* Actions Group (Connections, Block, Refresh, and Selected Actions) */}
-        <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-auto whitespace-nowrap">
+        {/* Right Side – Action Buttons (Connections, Blocked Connections, Refresh) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto whitespace-nowrap">
           {/* Selected Messages Actions */}
           {(activeTab === 'messages' || activeTab === 'archive') && selectedRowIds.size > 0 && (
-            <div className="flex items-center gap-1 sm:gap-1.5 mr-0.5 sm:mr-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 mr-1">
               {activeTab === 'archive' ? (
                 <button
                   type="button"
@@ -5356,20 +5384,20 @@ const Casbox = () => {
             </div>
           )}
 
-          {/* 6. Connections Button */}
-          <div className="relative mr-0.5 sm:mr-1 shrink-0" ref={connectionsRef}>
+          {/* Connections */}
+          <div className="relative shrink-0" ref={connectionsRef}>
             <button
               type="button"
               onClick={() => {
                 setShowConnectionsModal(prev => !prev);
                 if (!showConnectionsModal) fetchConnections();
               }}
-              className="px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold text-white transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer shadow-sm hover:opacity-90 active:scale-95 bg-[#195bac] shrink-0 whitespace-nowrap"
+              className="px-3.5 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-sm hover:opacity-95 active:scale-95 bg-[#195bac] shrink-0 whitespace-nowrap"
               style={{ backgroundColor: "#195bac" }}
               title="Connections"
               aria-label="Connections"
             >
-              <MdPersonAdd size={15} className="text-white shrink-0 sm:w-[17px] sm:h-[17px]" />
+              <MdPersonAdd size={16} className="text-white shrink-0" />
               <span>Connections</span>
             </button>
 
@@ -5423,19 +5451,26 @@ const Casbox = () => {
             )}
           </div>
 
+          {/* Blocked Connections */}
           <button
+            type="button"
             onClick={() => setShowBlockedModal(true)}
-            className="p-1 sm:p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
-            title={t('casbox.blocked_users', 'Blocked Users')}
+            className="p-1.5 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+            title="Blocked Connections"
+            aria-label="Blocked Connections"
           >
-            <MdBlock size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <MdBlock size={18} />
           </button>
+
+          {/* Refresh */}
           <button
+            type="button"
             onClick={fetchMessages}
-            className="p-1 sm:p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0 cursor-pointer"
-            title={t('common.refresh', 'Refresh')}
+            className="p-1.5 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+            title="Refresh"
+            aria-label="Refresh"
           >
-            <MdRefresh size={18} className={`sm:w-5 sm:h-5 ${loading ? "animate-spin" : ""}`} />
+            <MdRefresh size={18} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
