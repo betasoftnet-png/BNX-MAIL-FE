@@ -5226,14 +5226,14 @@ const Casbox = () => {
 
   const headerComponent = (
     <div className="flex flex-col shrink-0 w-full max-w-full">
-      <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 flex flex-nowrap items-center justify-between gap-2 shrink-0 bg-transparent w-full min-w-0">
+      <div className="px-2 sm:px-6 py-2 sm:py-3.5 flex flex-nowrap items-center justify-between gap-1.5 sm:gap-2 shrink-0 bg-transparent w-full min-w-0">
         {/* Left Side – Navigation Tabs inside one light-grey rounded segmented container */}
-        <div className="flex items-center bg-[#F3F4F6] dark:bg-gray-800/90 p-1 rounded-xl shrink min-w-0 flex-1 sm:flex-initial overflow-x-auto hidden-scrollbar gap-1">
+        <div className="flex items-center bg-[#F3F4F6] dark:bg-gray-800/90 p-0.5 sm:p-1 rounded-lg sm:rounded-xl shrink min-w-0 gap-0.5 sm:gap-1">
           {/* 1. Messages */}
           <button
             type="button"
             onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
-            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
+            className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'messages'
                 ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -5241,7 +5241,7 @@ const Casbox = () => {
           >
             {t('casbox.messages', 'Messages')}
             {unreadMessagesCount > 0 && (
-              <span className={`text-[11px] font-normal ${activeTab === 'messages' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[10px] sm:text-[11px] font-normal ${activeTab === 'messages' ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadMessagesCount})
               </span>
             )}
@@ -5251,7 +5251,7 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
+            className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
               isCombineTab
                 ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -5259,7 +5259,7 @@ const Casbox = () => {
           >
             {t('casbox.combine', 'Combine')}
             {unreadCombinedCount > 0 && (
-              <span className={`text-[11px] font-normal ${isCombineTab ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[10px] sm:text-[11px] font-normal ${isCombineTab ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadCombinedCount})
               </span>
             )}
@@ -5269,7 +5269,7 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
+            className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'requests'
                 ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -5277,11 +5277,11 @@ const Casbox = () => {
           >
             {t('casbox.requests', 'Requests')}
             {unreadRequestsCount > 0 ? (
-              <span className={`text-[11px] font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[10px] sm:text-[11px] font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadRequestsCount})
               </span>
             ) : requestsConversations.length > 0 ? (
-              <span className={`text-[11px] font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[10px] sm:text-[11px] font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
                 ({requestsConversations.length})
               </span>
             ) : null}
@@ -5301,7 +5301,7 @@ const Casbox = () => {
               }
               setShowArchive(prev => !prev);
             }}
-            className="bg-transparent hover:bg-transparent active:bg-transparent focus:bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 shadow-none p-1 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors flex items-center justify-center shrink-0 cursor-pointer select-none"
+            className="hidden md:flex bg-transparent hover:bg-transparent active:bg-transparent focus:bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 shadow-none p-1 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors items-center justify-center shrink-0 cursor-pointer select-none"
             title={showArchive ? t('common.collapse', 'Collapse') : t('sidebar.archive', 'Archive')}
             aria-label={showArchive ? "Collapse Archive" : "Expand Archive"}
           >
@@ -5322,7 +5322,7 @@ const Casbox = () => {
                 setSelectedSentDetail(null);
                 setSelectedRowIds(new Set());
               }}
-              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${
+              className={`hidden md:flex px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${
                 activeTab === 'archive'
                   ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -5340,7 +5340,7 @@ const Casbox = () => {
         </div>
 
         {/* Right Side – Action Buttons (Connections, Blocked Connections, Refresh) */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto whitespace-nowrap">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-auto whitespace-nowrap">
           {/* Selected Messages Actions */}
           {(activeTab === 'messages' || activeTab === 'archive') && selectedRowIds.size > 0 && (
             <div className="flex items-center gap-1 sm:gap-1.5 mr-1">
@@ -5388,13 +5388,13 @@ const Casbox = () => {
                 setShowConnectionsModal(prev => !prev);
                 if (!showConnectionsModal) fetchConnections();
               }}
-              className="px-3.5 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-sm hover:opacity-95 active:scale-95 bg-[#195bac] shrink-0 whitespace-nowrap"
+              className="w-7 h-7 md:w-auto md:h-auto p-1 md:px-4 md:py-1.5 rounded-full text-xs sm:text-sm font-semibold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:opacity-95 active:scale-95 bg-[#195bac] shrink-0 whitespace-nowrap"
               style={{ backgroundColor: "#195bac" }}
               title="Connections"
               aria-label="Connections"
             >
               <MdPersonAdd size={16} className="text-white shrink-0" />
-              <span>Connections</span>
+              <span className="hidden md:inline">Connections</span>
             </button>
 
             {/* Connections Popover */}
@@ -5451,22 +5451,22 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => setShowBlockedModal(true)}
-            className="p-1.5 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+            className="p-1 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 shrink-0 cursor-pointer"
             title="Blocked Connections"
             aria-label="Blocked Connections"
           >
-            <MdBlock size={18} />
+            <MdBlock size={17} className="sm:w-[18px] sm:h-[18px]" />
           </button>
 
           {/* Refresh */}
           <button
             type="button"
             onClick={fetchMessages}
-            className="p-1.5 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 shrink-0 cursor-pointer"
+            className="p-1 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 shrink-0 cursor-pointer"
             title="Refresh"
             aria-label="Refresh"
           >
-            <MdRefresh size={18} className={loading ? "animate-spin" : ""} />
+            <MdRefresh size={17} className={`sm:w-[18px] sm:h-[18px] ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
@@ -5556,7 +5556,7 @@ const Casbox = () => {
       </div>
 
       {/* Messages List */}
-      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent">
+      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent pb-20 md:pb-0">
         {loading && filteredCombineMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
             <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -5700,6 +5700,21 @@ const Casbox = () => {
             );
           })
         )}
+      </div>
+
+      {/* Floating Compose Button - Mobile (< 768px) */}
+      <div className="absolute right-4 bottom-4 md:hidden z-30 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => openCompose({ mode: 'chat' })}
+          className="flex items-center justify-center gap-2 h-11 px-5 bg-white dark:bg-gray-800 text-[#0b1b54] dark:text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] border border-gray-100 dark:border-gray-700 transition-all cursor-pointer select-none"
+          title="Compose"
+        >
+          <Pencil size={18} className="text-[#0b1b54] dark:text-blue-400 stroke-[2.5]" />
+          <span className="text-sm font-bold text-[#0b1b54] dark:text-white leading-none whitespace-nowrap">
+            Compose
+          </span>
+        </button>
       </div>
     </div>
   ) : (
