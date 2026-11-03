@@ -8,6 +8,7 @@ import { useMail } from "../context/MailContext";
 import { casboxAPI, api, userAPI, mailAPI, contactAliasAPI, connectionAPI, blockedContactsAPI } from "../services/api";
 import { MdCheck, MdDoneAll, MdStarBorder, MdStar, MdDeleteOutline, MdRefresh, MdSend, MdClose, MdRemoveRedEye, MdFileDownload, MdReply, MdForward, MdAttachFile, MdBlock, MdArrowBack, MdArchive, MdUnarchive, MdAccessTime, MdLabel, MdDelete, MdMoreVert, MdInsertEmoticon, MdChevronRight, MdChevronLeft, MdEdit, MdPersonAdd, MdSearch, MdFilterList, MdContentCopy, MdFilterAlt, MdMail, MdArrowDownward, MdArrowUpward, MdPushPin, MdRestore, MdOutlineEmojiEmotions, MdAdd, MdCheckBox } from "react-icons/md";
 import { SiAdobeacrobatreader } from "react-icons/si";
+import { Pencil } from "lucide-react";
 import toast from "react-hot-toast";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import MessageUndoToast from "../components/MessageUndoToast";
@@ -5222,7 +5223,7 @@ const Casbox = () => {
   }, [unifiedCombineMessages, combineFilter, combineSearch, contactAliases]);
 
   const headerComponent = (
-    <div className="flex flex-col shrink-0 w-full max-w-full">
+    <div className="hidden md:flex flex-col shrink-0 w-full max-w-full">
       <div className="px-2 sm:px-5 py-2 sm:py-3.5 border-b border-gray-100 dark:border-gray-800 flex flex-nowrap items-center justify-between gap-1 sm:gap-2 shrink-0 bg-transparent w-full min-w-0 overflow-x-hidden">
         {/* Tabs Group */}
         <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 p-0.5 sm:p-1 rounded-lg shrink min-w-0 overflow-x-auto hidden-scrollbar">
@@ -5665,19 +5666,19 @@ const Casbox = () => {
   ) : (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent relative">
       {/* Search Bar & Filter for Messages */}
-      <div className="px-2.5 sm:px-6 py-2 sm:py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center bg-transparent shrink-0">
-        <div className="relative flex-1 flex items-center bg-gray-100/70 dark:bg-gray-800/60 rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
-          <MdSearch size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none shrink-0" />
+      <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center bg-transparent shrink-0">
+        <div className="relative flex-1 flex items-center bg-[#f0f4f9] dark:bg-gray-800/80 md:bg-gray-100/70 rounded-full md:rounded-xl border border-transparent focus-within:border-blue-500/30 transition-all">
+          <MdSearch size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none shrink-0" />
           <input
             type="text"
             value={messagesSearch}
             onChange={(e) => setMessagesSearch(e.target.value)}
             placeholder="Search messages..."
-            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full py-2.5 pl-10 ${
+            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 w-full py-2.5 pl-10 ${
               messagesSearch ? 'pr-20' : 'pr-12'
             }`}
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {messagesSearch && (
               <button
                 type="button"
@@ -5694,15 +5695,15 @@ const Casbox = () => {
               <button
                 type="button"
                 onClick={() => setShowMessagesFilterMenu((prev) => !prev)}
-                className={`p-1.5 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${
+                className={`p-1 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${
                   messagesFilter !== 'all' || showMessagesFilterMenu
                     ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'
                 }`}
                 title="Filter messages"
                 aria-label="Filter messages"
               >
-                <MdFilterAlt size={18} />
+                <MdFilterAlt size={19} />
               </button>
 
               {showMessagesFilterMenu && (
@@ -5756,7 +5757,7 @@ const Casbox = () => {
       </div>
 
       {/* Messages List Area */}
-      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent">
+      <div className="flex-1 overflow-y-auto hidden-scrollbar relative bg-transparent pb-20 md:pb-0">
         {loading && (activeTab === 'messages' ? filteredIndividualMessages.length === 0 : activeTab === 'archive' ? filteredArchivedMessages.length === 0 : filteredConversationList.length === 0) ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-600 opacity-80 pb-20">
             <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -5822,10 +5823,164 @@ const Casbox = () => {
                 }`}
               >
 
-                {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] — [Message Preview] */}
-                <div className="flex items-center min-w-0 flex-1 mr-1.5 sm:mr-4">
-                  {/* Checkbox */}
-                  <div className="flex items-center shrink-0 mr-1.5 sm:mr-3" onClick={(e) => e.stopPropagation()}>
+                {/* Desktop View (>= md: 768px) */}
+                <div className="hidden md:flex items-center justify-between w-full min-w-0">
+                  {/* Left side: [Checkbox] [Avatar] [Person Name] [Sent/Received Badge] [Subject/Title] — [Message Preview] */}
+                  <div className="flex items-center min-w-0 flex-1 mr-4">
+                    {/* Checkbox */}
+                    <div className="flex items-center shrink-0 mr-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelectRow(rowId);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
+                    {/* Avatar */}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-3.5 ${avatarColorClass}`}>
+                      {initial}
+                    </div>
+
+                    {/* Person Name */}
+                    <span className={`w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-4 ${
+                      isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
+                    }`}>
+                      {personName}
+                    </span>
+
+                    {/* Sent / Received Badge */}
+                    <div className="shrink-0 mr-4">
+                      {isSent ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
+                          Sent
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                          Received
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Message Content Preview (Subject + Body) */}
+                    <div className="flex items-center min-w-0 flex-1">
+                      {subject && (
+                        <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[200px] mr-2 ${
+                          isUnread ? 'font-bold' : 'font-semibold'
+                        }`}>
+                          {subject}
+                        </span>
+                      )}
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
+                        {subject && bodyPreview ? <span className="opacity-50 mr-1">—</span> : null}
+                        {bodyPreview}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right side: [Time] [Status] [3-dot] */}
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className={`text-xs font-medium whitespace-nowrap shrink-0 ${
+                      isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                    }`}>
+                      {formatCashboxTime(msg?.timestamp)}
+                    </span>
+
+                    {/* Sent Message Status Ticks */}
+                    {(() => {
+                      if (!isSent) return null;
+                      const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
+                      const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+
+                      if (isSeen) {
+                        return (
+                          <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
+                            <MdDoneAll size={16} />
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
+                          <MdCheck size={16} />
+                        </span>
+                      );
+                    })()}
+
+                    {/* 3-dot options menu */}
+                    <div className="relative shrink-0 ml-1" ref={openMenuId === id ? listMenuRef : null}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(prev => prev === id ? null : id);
+                        }}
+                        className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                        title="More options"
+                      >
+                        <MdMoreVert size={18} />
+                      </button>
+
+                      {openMenuId === id && (
+                        <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                          {bodyPreview && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(msg.body || msg.content || '');
+                                toast.success("Copied to clipboard");
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                              <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
+                              Copy Text
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleArchiveMessage(msg, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
+                            Archive
+                          </button>
+                          {chat && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenEditNameModal(chat, e)}
+                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                              <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
+                              {t('casbox.edit_name', 'Edit Name')}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                              handleDeleteMessageWithUndo(msg || item);
+                            }}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdDeleteOutline size={16} className="text-red-500 dark:text-red-400" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile View (< md: 768px) - Exact match to reference screenshot */}
+                <div className="flex md:hidden items-center justify-between w-full min-w-0 gap-2.5 py-1">
+                  {/* Selection Checkbox on far left */}
+                  <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
@@ -5838,138 +5993,126 @@ const Casbox = () => {
                     />
                   </div>
 
-                  {/* Avatar */}
-                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none mr-1.5 sm:mr-3.5 ${avatarColorClass}`}>
+                  {/* Circular User Avatar with Initial inside */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none ${avatarColorClass}`}>
                     {initial}
                   </div>
 
-                  {/* Person Name */}
-                  <span className={`w-20 sm:w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-1.5 sm:mr-4 ${
-                    isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
-                  }`}>
-                    {personName}
-                  </span>
-
-                  {/* Sent / Received Badge */}
-                  <div className="shrink-0 mr-1.5 sm:mr-4">
-                    {isSent ? (
-                      <span className="px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
-                        Sent
-                      </span>
-                    ) : (
-                      <span className="px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
-                        Received
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Message Content Preview (Subject + Body) */}
-                  <div className="flex items-center min-w-0 flex-1">
-                    {subject && (
-                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[80px] sm:max-w-[200px] mr-1.5 sm:mr-2 ${
-                        isUnread ? 'font-bold' : 'font-semibold'
+                  {/* User details and Message Preview (two lines) */}
+                  <div className="flex flex-col min-w-0 flex-1 justify-center">
+                    {/* Top line: Username in bold + Status Badge */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`text-[13px] font-bold truncate ${
+                        isUnread ? 'text-gray-950 dark:text-white' : 'text-gray-900 dark:text-gray-100'
                       }`}>
-                        {subject}
+                        {personName}
                       </span>
-                    )}
-                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate flex-1 min-w-0 font-normal">
-                      {subject && bodyPreview ? <span className="opacity-50 mr-1">—</span> : null}
-                      {bodyPreview}
+                      {isSent ? (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#e6f7ec] dark:bg-green-950/40 text-[#16a34a] dark:text-green-400 shrink-0">
+                          Sent
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#ebf3fe] dark:bg-blue-950/40 text-[#2563eb] dark:text-blue-400 shrink-0">
+                          Received
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bottom line: Message preview below username */}
+                    <span className="text-[13px] text-gray-700 dark:text-gray-300 font-medium truncate mt-0.5">
+                      {bodyPreview || subject || "No message content"}
                     </span>
                   </div>
-                </div>
 
-                {/* Right side: [Time] [Status] [3-dot] */}
-                <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-1.5 sm:ml-2">
-                  <span className={`text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 ${
-                    isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
-                  }`}>
-                    {formatCashboxTime(msg?.timestamp)}
-                  </span>
+                  {/* Right side: Time + Tick Mark + 3-dot Menu */}
+                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                    <span className="text-xs font-normal text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                      {formatCashboxTime(msg?.timestamp)}
+                    </span>
 
-                  {/* Sent Message Status Ticks (Sent = ticks; Received = NO tick) */}
-                  {(() => {
-                    if (!isSent) return null;
-                    const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
-                    const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+                    {/* Single or double tick mark next to the time */}
+                    {(() => {
+                      const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
+                      const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
 
-                    if (isSeen) {
+                      if (isSeen) {
+                        return (
+                          <span className="text-blue-600 dark:text-blue-500 shrink-0 flex items-center" title="Seen">
+                            <MdDoneAll size={16} />
+                          </span>
+                        );
+                      }
                       return (
-                        <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
-                          <MdDoneAll size={16} />
+                        <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
+                          <MdCheck size={16} />
                         </span>
                       );
-                    }
-                    return (
-                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Sent">
-                        <MdCheck size={16} />
-                      </span>
-                    );
-                  })()}
+                    })()}
 
-                  {/* 3-dot options menu */}
-                  <div className="relative shrink-0 ml-1" ref={openMenuId === id ? listMenuRef : null}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenMenuId(prev => prev === id ? null : id);
-                      }}
-                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                      title="More options"
-                    >
-                      <MdMoreVert size={18} />
-                    </button>
+                    {/* Vertical three-dot menu */}
+                    <div className="relative shrink-0" ref={openMenuId === id ? listMenuRef : null}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(prev => prev === id ? null : id);
+                        }}
+                        className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                        title="More options"
+                      >
+                        <MdMoreVert size={18} />
+                      </button>
 
-                    {openMenuId === id && (
-                      <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
-                        {bodyPreview && (
+                      {openMenuId === id && (
+                        <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                          {bodyPreview && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(msg.body || msg.content || '');
+                                toast.success("Copied to clipboard");
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                              <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
+                              Copy Text
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleArchiveMessage(msg, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
+                            Archive
+                          </button>
+                          {chat && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenEditNameModal(chat, e)}
+                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                              <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
+                              {t('casbox.edit_name', 'Edit Name')}
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigator.clipboard.writeText(msg.body || msg.content || '');
-                              toast.success("Copied to clipboard");
                               setOpenMenuId(null);
+                              handleDeleteMessageWithUndo(msg || item);
                             }}
-                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                           >
-                            <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
-                            Copy Text
+                            <MdDeleteOutline size={16} className="text-red-500 dark:text-red-400" />
+                            Delete
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => handleArchiveMessage(msg, e)}
-                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
-                          Archive
-                        </button>
-                        {chat && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleOpenEditNameModal(chat, e)}
-                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
-                          >
-                            <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
-                            {t('casbox.edit_name', 'Edit Name')}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(null);
-                            handleDeleteMessageWithUndo(msg || item);
-                          }}
-                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <MdDeleteOutline size={16} className="text-red-500 dark:text-red-400" />
-                          Delete
-                        </button>
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -6379,6 +6522,21 @@ const Casbox = () => {
             );
           })
         )}
+      </div>
+
+      {/* Floating Compose Button - Mobile (< 768px) */}
+      <div className="absolute right-4 bottom-4 md:hidden z-30 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => openCompose({ mode: 'chat' })}
+          className="flex items-center justify-center gap-2 h-11 px-5 bg-white dark:bg-gray-800 text-[#0b1b54] dark:text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] border border-gray-100 dark:border-gray-700 transition-all cursor-pointer select-none"
+          title="Compose"
+        >
+          <Pencil size={18} className="text-[#0b1b54] dark:text-blue-400 stroke-[2.5]" />
+          <span className="text-sm font-bold text-[#0b1b54] dark:text-white leading-none whitespace-nowrap">
+            Compose
+          </span>
+        </button>
       </div>
     </div>
   );
