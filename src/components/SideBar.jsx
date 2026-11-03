@@ -198,9 +198,9 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
     }
   };
 
-  const mainNavItems = ["Inbox", "Analytics", "Starred", "Sent", "Draft", "Trash", "Snoozed"];
+  const mainNavItems = ["Inbox", "Starred", "Sent", "Draft", "Trash", "Snoozed"];
 
-  const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Mail Backup"]
+  const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Analytics", "Mail Backup"]
     .filter(name => name !== "All Inbox" || (getSessions && getSessions().length > 1));
 
   return (

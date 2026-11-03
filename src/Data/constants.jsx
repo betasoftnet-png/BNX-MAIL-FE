@@ -36,12 +36,6 @@ export const SIDEBAR_ITEMS = [
     count: 0
   },
   {
-    name: 'Analytics',
-    icon: <MdTrendingUp size={20} />,
-    path: '/analytics',
-    count: 0
-  },
-  {
     name: 'Starred',
     icon: <MdStarBorder size={20} />,
     path: '/starred',
@@ -123,6 +117,12 @@ export const SIDEBAR_ITEMS = [
     name: 'Subscriptions',
     icon: <MdNotifications size={20} />,
     path: '/subscriptions',
+    count: 0
+  },
+  {
+    name: 'Analytics',
+    icon: <MdTrendingUp size={20} />,
+    path: '/analytics',
     count: 0
   },
   {
