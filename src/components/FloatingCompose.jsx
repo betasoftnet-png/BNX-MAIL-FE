@@ -34,6 +34,46 @@ import {
   recordSentRecipient
 } from "../utils/recipientSuggestions";
 
+const CASBOX_RECIPIENT_ERROR = "This recipient is not a BNXmail user. You can send messages only to registered BNXmail accounts through Casbox.";
+
+const EXTERNAL_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "ymail.com",
+  "rocketmail.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "msn.com",
+  "zoho.com",
+  "zohomail.com",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "aol.com",
+  "aim.com",
+  "proton.me",
+  "protonmail.com",
+  "mail.com",
+  "gmx.com",
+  "yandex.com",
+]);
+
+const isExternalEmailDomain = (email) => {
+  if (!email || typeof email !== "string") return false;
+  const clean = email.trim().toLowerCase();
+  const atIdx = clean.lastIndexOf("@");
+  if (atIdx === -1 || atIdx === clean.length - 1) return false;
+  const domain = clean.substring(atIdx + 1);
+  if (EXTERNAL_EMAIL_DOMAINS.has(domain)) return true;
+  const externalBases = [
+    "gmail.", "googlemail.", "yahoo.", "ymail.", "outlook.", "hotmail.",
+    "zoho.", "icloud.", "aol.", "protonmail.", "proton."
+  ];
+  return externalBases.some(base => domain.startsWith(base) || domain === base.slice(0, -1));
+};
+
 const extractFormattedPlainText = (content) => {
   if (!content) return "";
   let text = String(content).trim();
@@ -285,6 +325,20 @@ const ComposeWindow = ({
       }
   }, [composeData, isComposeOpen]);
 
+  // When switching to Mail session, remove Casbox-only recipient restriction
+  useEffect(() => {
+    if ((composeMode === "mail" || composeMode === "email") && error && (error.includes("BNXmail") || error.includes("Casbox"))) {
+      setError("");
+    }
+  }, [composeMode, error]);
+
+  const handleSwitchMode = (mode) => {
+    setComposeMode(mode);
+    if ((mode === "mail" || mode === "email") && error && (error.includes("BNXmail") || error.includes("Casbox") || error.includes("recipient"))) {
+      setError("");
+    }
+  };
+
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
   const [error, setError] = useState("");
@@ -366,16 +420,20 @@ const ComposeWindow = ({
     handleChange(e);
     const val = e.target.value;
     const { suggestions } = filterRecipientSuggestions(contacts, val);
-    setToSuggestions(suggestions);
-    setShowToSuggestions(suggestions.length > 0);
+    const isCasbox = composeMode === "chat" || composeMode === "casbox";
+    const filteredToSuggestions = isCasbox ? suggestions.filter(s => !isExternalEmailDomain(s?.email)) : suggestions;
+    setToSuggestions(filteredToSuggestions);
+    setShowToSuggestions(filteredToSuggestions.length > 0);
     setToHighlightedIndex(0);
   };
 
   const handleToInputFocus = () => {
     focusedFieldRef.current = 'to';
     const { suggestions } = filterRecipientSuggestions(contacts, formData.to || "");
-    setToSuggestions(suggestions);
-    setShowToSuggestions(suggestions.length > 0);
+    const isCasbox = composeMode === "chat" || composeMode === "casbox";
+    const filteredToSuggestions = isCasbox ? suggestions.filter(s => !isExternalEmailDomain(s?.email)) : suggestions;
+    setToSuggestions(filteredToSuggestions);
+    setShowToSuggestions(filteredToSuggestions.length > 0);
     setToHighlightedIndex(0);
   };
 
@@ -1172,14 +1230,18 @@ const ComposeWindow = ({
       setError("Invalid recipient email address.");
       return;
     }
+    if (isExternalEmailDomain(raw)) {
+      setError(CASBOX_RECIPIENT_ERROR);
+      return;
+    }
     try {
       const res = await casboxAPI.validateRecipient(raw);
       if (res?.data && res.data.valid === false) {
-        setError("Invalid email ID. This BNXmail account does not exist.");
+        setError(res?.data?.message || CASBOX_RECIPIENT_ERROR);
       }
     } catch (err) {
       if (err?.response?.status === 400 || err?.response?.data?.valid === false) {
-        setError("Invalid email ID. This BNXmail account does not exist.");
+        setError(err?.response?.data?.message || CASBOX_RECIPIENT_ERROR);
       }
     }
   };
@@ -1220,6 +1282,15 @@ const ComposeWindow = ({
            return;
         }
 
+        // Validate that recipient is not an external email domain
+        if (isExternalEmailDomain(rawReceiver)) {
+           setError(CASBOX_RECIPIENT_ERROR);
+           toast.error(CASBOX_RECIPIENT_ERROR);
+           sendingRef.current = false;
+           setSending(false);
+           return;
+        }
+
         if (!formData.body && attachments.length === 0) {
            setError("Message text or attachment is required");
            sendingRef.current = false;
@@ -1229,23 +1300,29 @@ const ComposeWindow = ({
 
         // Validate recipient existence against backend before sending
         let isInvalidAccount = false;
+        let validationErrorMessage = CASBOX_RECIPIENT_ERROR;
         try {
            const checkRes = await casboxAPI.validateRecipient(rawReceiver);
            if (checkRes?.data && checkRes.data.valid === false) {
               isInvalidAccount = true;
+              if (checkRes.data.message) {
+                 validationErrorMessage = checkRes.data.message;
+              }
            }
         } catch (valErr) {
            console.error("Recipient validation failed:", valErr);
            const status = valErr?.response?.status;
            if (status === 400 || valErr?.response?.data?.valid === false) {
               isInvalidAccount = true;
+              if (valErr?.response?.data?.message) {
+                 validationErrorMessage = valErr.response.data.message;
+              }
            }
         }
 
         if (isInvalidAccount) {
-           const notFoundMsg = "Invalid email ID. This BNXmail account does not exist.";
-           setError(notFoundMsg);
-           toast.error(notFoundMsg);
+           setError(validationErrorMessage);
+           toast.error(validationErrorMessage);
            sendingRef.current = false;
            setSending(false);
            return;
@@ -1286,8 +1363,8 @@ const ComposeWindow = ({
             let errMsg;
             if (isBlocked) {
               errMsg = "This user is blocked.";
-            } else if (/does not exist|account does not exist|invalid recipient|invalid email/i.test(rawMsg)) {
-              errMsg = "Invalid email ID. This BNXmail account does not exist.";
+            } else if (/does not exist|account does not exist|invalid recipient|invalid email|not a BNXmail user|registered BNXmail/i.test(rawMsg)) {
+              errMsg = CASBOX_RECIPIENT_ERROR;
             } else {
               errMsg = rawMsg || "Failed to send message";
             }
@@ -2103,7 +2180,7 @@ const ComposeWindow = ({
               >
                 <button
                   type="button"
-                  onClick={() => setComposeMode("mail")}
+                  onClick={() => handleSwitchMode("mail")}
                   className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                     composeMode === "mail" || composeMode === "email"
                       ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
@@ -2114,7 +2191,7 @@ const ComposeWindow = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setComposeMode("chat")}
+                  onClick={() => handleSwitchMode("chat")}
                   className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                     composeMode === "chat" || composeMode === "casbox"
                       ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
