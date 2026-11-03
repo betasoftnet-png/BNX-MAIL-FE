@@ -7044,7 +7044,8 @@ const Casbox = () => {
                   const replyTo = isSent ? toEmail : fromEmail;
                   openCompose?.({
                     to: replyTo,
-                    subject: subject?.startsWith('Re:') ? subject : `Re: ${subject}`,
+                    replyTo: replyTo,
+                    subject: 'Re:',
                     mode: 'casbox'
                   });
                 }}

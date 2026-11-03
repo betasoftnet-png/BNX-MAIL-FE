@@ -1009,11 +1009,14 @@ const ComposeWindow = ({
             }
             setQuotedMessage(extractedQuote);
 
+            const isCasboxMode = composeData.mode === "casbox" || composeData.mode === "chat" || composeMode === "chat" || composeMode === "casbox";
+            const replySubject = isCasboxMode ? "Re:" : (composeData.subject || "");
+
             const replyForm = {
               to: composeData.replyTo,
               cc: composeData.cc || "",
               bcc: composeData.bcc || "",
-              subject: composeData.subject || "",
+              subject: replySubject,
               body: "",
             };
             setFormData(replyForm);
@@ -1085,11 +1088,14 @@ const ComposeWindow = ({
             isEditingExistingDraftRef.current = false;
             wasDraftStarredRef.current = false;
             originalDraftSnapshotRef.current = null;
+            const isCasboxMode = composeData.mode === "casbox" || composeData.mode === "chat" || composeMode === "chat" || composeMode === "casbox";
+            const isCasboxReply = isCasboxMode && (composeData.replyTo || composeData.isReply || (typeof composeData.subject === "string" && composeData.subject.trim().toLowerCase().startsWith("re:")));
+            const initialSubject = isCasboxReply ? "Re:" : (composeData.subject || "");
             const initialForm = {
               to: composeData.to || "",
               cc: composeData.cc || "",
               bcc: composeData.bcc || "",
-              subject: composeData.subject || "",
+              subject: initialSubject,
               body: composeData.body || "",
             };
             setFormData(initialForm);
