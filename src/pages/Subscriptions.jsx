@@ -1,4 +1,4 @@
-import { useTranslation } from "../context/LanguageContext";
+﻿import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect, useCallback } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { mailAPI, blockedContactsAPI } from "../services/api";
@@ -335,8 +335,8 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
             <button
               onClick={() => setActiveFilter("all")}
               className={`py-2 px-3 sm:px-4 rounded-lg transition-all cursor-pointer shrink-0 whitespace-nowrap ${activeFilter === "all"
-                  ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold"
-                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold"
+                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}
             >
               {t("subscriptions.all_senders", "All Senders")}
@@ -344,8 +344,8 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
             <button
               onClick={() => setActiveFilter("subscribed")}
               className={`py-2 px-3 sm:px-4 rounded-lg transition-all cursor-pointer shrink-0 whitespace-nowrap ${activeFilter === "subscribed"
-                  ? "bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 font-semibold"
-                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                ? "bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 font-semibold"
+                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}
             >
               {t("subscriptions.subscribed", "Subscribed")}
@@ -353,8 +353,8 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
             <button
               onClick={() => setActiveFilter("unsubscribed")}
               className={`py-2 px-3 sm:px-4 rounded-lg transition-all cursor-pointer shrink-0 whitespace-nowrap ${activeFilter === "unsubscribed"
-                  ? "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-semibold"
-                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                ? "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-semibold"
+                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}
             >
               {t("subscriptions.unsubscribed", "Unsubscribed")}
@@ -461,8 +461,8 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
                     {/* Status Badge */}
                     <span
                       className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${isBlocked
-                          ? "bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30"
-                          : "bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 border border-green-100 dark:border-green-900/30"
+                        ? "bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30"
+                        : "bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 border border-green-100 dark:border-green-900/30"
                         }`}
                     >
                       {isBlocked ? <MdBlock size={13} /> : <MdMarkEmailRead size={13} />}
@@ -474,8 +474,8 @@ const Subscriptions = ({ searchQuery: propSearchQuery = "" }) => {
                       onClick={() => handleToggleBlock(sender.email, isBlocked)}
                       disabled={isItemLoading}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer disabled:opacity-50 flex items-center gap-1.5 ${isBlocked
-                          ? "bg-white hover:bg-green-50/50 text-green-600 border-green-200 hover:border-green-300 dark:bg-transparent dark:hover:bg-green-950/10 dark:text-green-400 dark:border-green-900/40"
-                          : "bg-white hover:bg-red-50/50 text-red-600 border-red-200 hover:border-red-300 dark:bg-transparent dark:hover:bg-red-950/10 dark:text-red-400 dark:border-red-900/40"
+                        ? "bg-white hover:bg-green-50/50 text-green-600 border-green-200 hover:border-green-300 dark:bg-transparent dark:hover:bg-green-950/10 dark:text-green-400 dark:border-green-900/40"
+                        : "bg-white hover:bg-red-50/50 text-red-600 border-red-200 hover:border-red-300 dark:bg-transparent dark:hover:bg-red-950/10 dark:text-red-400 dark:border-red-900/40"
                         }`}
                     >
                       {isItemLoading && <span className="animate-spin text-xs">●</span>}
