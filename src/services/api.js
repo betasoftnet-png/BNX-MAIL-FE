@@ -348,7 +348,13 @@ export const emailAPI = {
 export const userAPI = {
     getSettings: () => api.get(API_ENDPOINTS.USERS.SETTINGS),
     updateSettings: (data) => api.patch(API_ENDPOINTS.USERS.SETTINGS, data),
-    activityLogs: () => api.get(API_ENDPOINTS.USERS.ACTIVITY_LOGS),
+    activityLogs: () => api.get(API_ENDPOINTS.USERS.ACTIVITY_LOGS, {
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+        }
+    }),
     getRecovery: () => api.get(API_ENDPOINTS.USERS.RECOVERY),
     updateRecovery: (data) => api.patch(API_ENDPOINTS.USERS.RECOVERY, data),
     updateProfilePicture: (formData) => api.post('/api/users/profile-picture', formData, {

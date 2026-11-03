@@ -54,6 +54,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme, PRESET_BACKGROUNDS, themes, DEFAULT_SIDEBAR_PREFS } from "../context/ThemeContext";
 import { useTranslation, normalizeLang } from "../context/LanguageContext";
 import toast from "react-hot-toast";
+import { formatActivityTimestamp, sortActivityLogs } from "../utils/activityDateUtils";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import ImageResize from 'quill-image-resize-module-react';
@@ -440,6 +441,27 @@ const Settings = () => {
     }
   }, [activeTab]);
 
+  // Refresh sessions and activity logs when revisiting the tab or regaining window focus
+  useEffect(() => {
+    if (activeTab !== "sessions") return;
+
+    const handleFocusRefresh = () => {
+      if (document.visibilityState === "visible") {
+        fetchSessions();
+        fetchExternalSessions();
+        fetchActivityLogs();
+      }
+    };
+
+    window.addEventListener("focus", handleFocusRefresh);
+    document.addEventListener("visibilitychange", handleFocusRefresh);
+
+    return () => {
+      window.removeEventListener("focus", handleFocusRefresh);
+      document.removeEventListener("visibilitychange", handleFocusRefresh);
+    };
+  }, [activeTab]);
+
   // Load client preferences from backend only
   useEffect(() => {
     // Removed localStorage logic per user request
@@ -571,7 +593,7 @@ const Settings = () => {
           setReadingPaneModeState?.(activeReadingPane);
         }
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to load settings from server");
     } finally {
       setLoading(false);
@@ -674,6 +696,7 @@ const Settings = () => {
       if (res.data?.success) {
         toast.success("Signed out of session successfully");
         fetchSessions();
+        fetchActivityLogs();
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to sign out of session");
@@ -708,7 +731,7 @@ const Settings = () => {
             timestamp: Date.now()
           });
           bc.close();
-        } catch (e) { }
+        } catch { }
 
         try {
           localStorage.setItem('bnx_revoked_session', JSON.stringify({
@@ -717,10 +740,11 @@ const Settings = () => {
             appName: sessionToRevoke.appName,
             timestamp: Date.now()
           }));
-        } catch (e) { }
+        } catch { }
 
         setConfirmRevokeModal(null);
         fetchExternalSessions();
+        fetchActivityLogs();
       } else {
         toast.error(res.data?.message || "Failed to revoke application access");
       }
@@ -777,10 +801,9 @@ const Settings = () => {
     try {
       setLoading(true);
       const res = await userAPI.activityLogs();
-      if (res.data?.success) {
-        const data = res.data.data;
-        setActivityLogs(Array.isArray(data) ? data : (data.logs || data.activity || []));
-      }
+      const rawData = res.data?.data ?? res.data;
+      const logs = Array.isArray(rawData) ? rawData : (rawData?.logs || rawData?.activity || rawData?.activities || []);
+      setActivityLogs(sortActivityLogs(logs));
     } catch {
       toast.error("Failed to load activity logs");
     } finally {
@@ -884,7 +907,7 @@ const Settings = () => {
         setSignatures(prev => [...prev, newSig]);
         setEditingSignatureId(newSig.id);
       }
-    } catch (e) {
+    } catch {
       toast.error("Failed to create signature");
     } finally {
       setLoading(false);
@@ -902,7 +925,7 @@ const Settings = () => {
       await signatureAPI.deleteSignature(id);
       setSignatures(prev => prev.filter(s => s.id !== id));
       fetchSignatures(); // Refresh defaults if needed
-    } catch (e) {
+    } catch {
       toast.error("Failed to delete signature");
     } finally {
       setLoading(false);
@@ -914,7 +937,7 @@ const Settings = () => {
       setLoading(true);
       await signatureAPI.setDefaultSignature(id);
       setSignatures(prev => prev.map(s => ({ ...s, isDefault: s.id === id })));
-    } catch (e) {
+    } catch {
       toast.error("Failed to set default signature");
     } finally {
       setLoading(false);
@@ -1250,7 +1273,13 @@ const Settings = () => {
             label={tab.label}
             active={activeTab === tab.id}
             onClick={() => {
-              setActiveTab(tab.id);
+              if (tab.id === "sessions" && activeTab === "sessions") {
+                fetchSessions();
+                fetchExternalSessions();
+                fetchActivityLogs();
+              } else {
+                setActiveTab(tab.id);
+              }
               scrollToTop();
             }}
             theme={theme}
@@ -2360,7 +2389,7 @@ const Settings = () => {
                               )}
                             </div>
                             <p className="text-sm text-gray-500">{s.ipAddress} — {device.browser}</p>
-                            <p className="text-xs text-gray-400 mt-1">{t("settings.logged_in", "Logged in:")} {new Date(s.createdAt).toLocaleString()}</p>
+                            <p className="text-xs text-gray-400 mt-1">{t("settings.logged_in", "Logged in:")} {formatActivityTimestamp(s.createdAt)}</p>
                           </div>
                         </div>
                         {!s.isCurrentSession && (
@@ -2396,7 +2425,7 @@ const Settings = () => {
                             </span>
                           </div>
                           <p className="text-sm text-gray-500">{s.ipAddress || "Remote Client"} — {t("settings.basic_profile_access", "Basic Profile Access")}</p>
-                          <p className="text-xs text-gray-400 mt-1">{t("settings.authorized", "Authorized:")} {new Date(s.loggedInAt).toLocaleString()}</p>
+                          <p className="text-xs text-gray-400 mt-1">{t("settings.authorized", "Authorized:")} {formatActivityTimestamp(s.loggedInAt)}</p>
                         </div>
                       </div>
                       <button
@@ -2465,7 +2494,7 @@ const Settings = () => {
                         {confirmRevokeModal.loggedInAt && (
                           <div className="flex justify-between items-center">
                             <span className="text-gray-400 font-medium">{t("settings.authorized", "Authorized")}:</span>
-                            <span>{new Date(confirmRevokeModal.loggedInAt).toLocaleString()}</span>
+                            <span>{formatActivityTimestamp(confirmRevokeModal.loggedInAt)}</span>
                           </div>
                         )}
                       </div>
@@ -2504,15 +2533,22 @@ const Settings = () => {
               <Section title={t("settings.recent_activity_logs", "Security Activity Log")} theme={theme}>
                 <p className="text-sm text-gray-500 mb-6">{t("settings.activity_logs_desc", "Audit history of recent security-critical adjustments on your account.")}</p>
                 <div className="flex flex-col gap-3 max-h-96 overflow-y-auto hidden-scrollbar pr-2">
-                  {activityLogs.length > 0 ? activityLogs.map((log, idx) => (
-                    <div key={idx} className="p-4 border rounded-xl flex justify-between items-center bg-black/5 dark:bg-white/5" style={{ borderColor: theme.border }}>
-                      <div className="flex flex-col gap-1">
-                        <p className="font-semibold text-sm" style={{ color: theme.text }}>{log.action}</p>
-                        <p className="text-xs text-gray-500">{log.ipAddress}</p>
+                  {activityLogs.length > 0 ? activityLogs.filter(Boolean).map((log, idx) => {
+                    const actionText = log.action || log.activity || log.event || log.description || log.type;
+                    const ip = log.ipAddress || log.ip || log.clientIp;
+                    const rawTime = log.timestamp || log.createdAt || log.created_at || log.time || log.date || log.loginTime;
+                    const timeStr = formatActivityTimestamp(rawTime);
+
+                    return (
+                      <div key={log.id ? `${log.id}-${idx}` : idx} className="p-4 border rounded-xl flex justify-between items-center bg-black/5 dark:bg-white/5" style={{ borderColor: theme.border }}>
+                        <div className="flex flex-col gap-1">
+                          {actionText && <p className="font-semibold text-sm" style={{ color: theme.text }}>{actionText}</p>}
+                          <p className="text-xs text-gray-500">{ip || ""}</p>
+                        </div>
+                        <span className="text-xs text-gray-400 font-medium text-right">{timeStr}</span>
                       </div>
-                      <span className="text-xs text-gray-400 font-medium text-right">{new Date(log.timestamp).toLocaleString()}</span>
-                    </div>
-                  )) : (
+                    );
+                  }) : (
                     <p className="text-sm text-gray-400 text-center py-6">{t("settings.no_activity_logs", "No activity logs recorded.")}</p>
                   )}
                 </div>
