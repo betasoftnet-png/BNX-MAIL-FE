@@ -7058,7 +7058,7 @@ const Casbox = () => {
                 onClick={() => {
                   openCompose?.({
                     to: '',
-                    subject: subject?.startsWith('Fwd:') ? subject : `Fwd: ${subject}`,
+                    subject: 'Fwd:',
                     body: bodyContent,
                     mode: 'casbox'
                   });

@@ -1024,11 +1024,13 @@ const ComposeWindow = ({
             if (composeData.bcc) setShowBcc(true);
           } else if (composeData.forward) {
             setQuotedMessage("");
+            const isCasboxMode = composeData.mode === "casbox" || composeData.mode === "chat" || composeMode === "chat" || composeMode === "casbox";
+            const forwardSubject = isCasboxMode ? "Fwd:" : (composeData.subject || "");
             const replyForm = {
               to: "",
               cc: "",
               bcc: "",
-              subject: composeData.subject || "",
+              subject: forwardSubject,
               body: getOriginalEmailContentHTML(composeData.originalEmail),
             };
             setFormData(replyForm);
@@ -1089,7 +1091,8 @@ const ComposeWindow = ({
             originalDraftSnapshotRef.current = null;
             const isCasboxMode = composeData.mode === "casbox" || composeData.mode === "chat" || composeMode === "chat" || composeMode === "casbox";
             const isCasboxReply = isCasboxMode && (composeData.replyTo || composeData.isReply || (typeof composeData.subject === "string" && composeData.subject.trim().toLowerCase().startsWith("re:")));
-            const initialSubject = isCasboxReply ? "Re:" : (composeData.subject || "");
+            const isCasboxForward = isCasboxMode && (composeData.forward || composeData.isForward || (typeof composeData.subject === "string" && composeData.subject.trim().toLowerCase().startsWith("fwd:")));
+            const initialSubject = isCasboxReply ? "Re:" : isCasboxForward ? "Fwd:" : (composeData.subject || "");
             const initialForm = {
               to: composeData.to || "",
               cc: composeData.cc || "",
