@@ -1,5 +1,6 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useMail } from "../context/MailContext";
 import { useTheme } from "../context/ThemeContext";
 import {
@@ -49,20 +50,108 @@ const BulkActionsToolbar = ({
   const [showCustomSnoozeForm, setShowCustomSnoozeForm] = useState(false);
   const [customSnoozeTime, setCustomSnoozeTime] = useState("");
   const menuRef = useRef(null);
+  const buttonRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [dropdownPos, setDropdownPos] = useState({
+    top: 0,
+    right: 0,
+    left: 0,
+    openUpwards: false,
+    openSubRight: false
+  });
+
+  const updateDropdownPosition = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const menuWidth = 192; // w-48 = 192px
+    const estimatedHeight = 220;
+
+    const top = rect.bottom + 4;
+
+    let right = viewportWidth - rect.right;
+    if (rect.right - menuWidth < 8) {
+      right = Math.max(8, viewportWidth - menuWidth - 8);
+    } else {
+      right = Math.max(8, right);
+    }
+
+    const computedLeft = viewportWidth - right - menuWidth;
+    const openSubRight = computedLeft < 185;
+
+    let adjustedTop = top;
+    let openUpwards = false;
+    if (top + estimatedHeight > viewportHeight && rect.top > estimatedHeight) {
+      adjustedTop = Math.max(8, rect.top - estimatedHeight - 4);
+      openUpwards = true;
+    } else {
+      if (adjustedTop + estimatedHeight > viewportHeight) {
+        adjustedTop = Math.max(8, viewportHeight - estimatedHeight - 8);
+      }
+    }
+
+    setDropdownPos({
+      top: adjustedTop,
+      right: right,
+      left: Math.max(8, computedLeft),
+      openUpwards,
+      openSubRight
+    });
+  }, []);
+
+  const toggleMoreMenu = (e) => {
+    e.stopPropagation();
+    const next = !showMoreMenu;
+    if (next) {
+      updateDropdownPosition();
+    } else {
+      setShowSnoozeSub(false);
+      setShowLabelSub(false);
+      setShowCustomSnoozeForm(false);
+    }
+    setShowMoreMenu(next);
+  };
+
+  useEffect(() => {
+    if (!showMoreMenu) return;
+
+    updateDropdownPosition();
+
+    const handleWindowEvents = () => {
+      updateDropdownPosition();
+    };
+
+    window.addEventListener("resize", handleWindowEvents);
+    window.addEventListener("scroll", handleWindowEvents, true);
+
+    return () => {
+      window.removeEventListener("resize", handleWindowEvents);
+      window.removeEventListener("scroll", handleWindowEvents, true);
+    };
+  }, [showMoreMenu, updateDropdownPosition]);
 
   // Close menus on click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
         setShowMoreMenu(false);
         setShowSnoozeSub(false);
         setShowLabelSub(false);
         setShowCustomSnoozeForm(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    if (showMoreMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showMoreMenu]);
 
   // Helper to check if an email is selected
   const isEmailSelected = useCallback((e) =>
@@ -247,6 +336,10 @@ const BulkActionsToolbar = ({
       const uniqueSenders = [...new Set(selectedEmails.map((e) => e.senderEmail || e.from).filter(Boolean))];
       await Promise.all(uniqueSenders.map((email) => handleUnsubscribe(email, true)));
       setSelectedIds(new Set());
+      setShowMoreMenu(false);
+      setShowSnoozeSub(false);
+      setShowLabelSub(false);
+      setShowCustomSnoozeForm(false);
       toast.success("Unsubscribed successfully", { id: "bulk-unsub" });
     } catch (err) {
       toast.error("Failed to unsubscribe", { id: "bulk-unsub" });
@@ -311,7 +404,7 @@ const BulkActionsToolbar = ({
 
   return (
     <div 
-      className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-t-2xl shrink-0 transition-all border-b overflow-x-auto hidden-scrollbar min-w-0"
+      className="relative z-20 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-t-2xl shrink-0 transition-all border-b overflow-x-auto hidden-scrollbar min-w-0"
       style={{ 
         backgroundColor: theme.bg || "rgba(19, 91, 236, 0.05)", 
         borderColor: theme.border,
@@ -389,148 +482,171 @@ const BulkActionsToolbar = ({
         {/* More Actions vertical dots menu */}
         <div className="relative" ref={menuRef}>
           <button
-            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            ref={buttonRef}
+            onClick={toggleMoreMenu}
             className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all cursor-pointer text-gray-600 dark:text-gray-300 flex items-center justify-center"
             title={t("email_details.more_actions", "More Options")}
           >
             <MdMoreVert size={19} />
           </button>
 
-          {showMoreMenu && (
-            <div 
-              className="absolute right-0 mt-1 w-48 rounded-xl shadow-xl dark:shadow-soft-dark border z-50 py-1 bg-white dark:bg-gray-900 text-xs text-left"
-              style={{ borderColor: theme.border }}
-            >
-              {/* Snooze Sub-Trigger */}
-              <div className="relative">
-                <button
-                  onMouseEnter={() => {
-                    if (!showCustomSnoozeForm) {
-                      setShowSnoozeSub(true);
-                      setShowLabelSub(false);
-                    }
-                  }}
-                  onClick={() => setShowSnoozeSub(!showSnoozeSub)}
-                  className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300"
-                >
-                  <MdAccessTime size={16} className="text-gray-400" /> {t("common.snooze", "Snooze")}...
-                </button>
-                {showSnoozeSub && (
-                  <div 
-                    className="absolute right-full top-0 mr-1 w-44 rounded-xl shadow-xl border bg-white dark:bg-gray-900 py-1 z-[60]"
-                    style={{ borderColor: theme.border }}
+          {showMoreMenu && typeof document !== "undefined" && createPortal(
+            <>
+              {/* Invisible backdrop to capture outside clicks */}
+              <div
+                className="fixed inset-0 z-[99998]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMoreMenu(false);
+                  setShowSnoozeSub(false);
+                  setShowLabelSub(false);
+                  setShowCustomSnoozeForm(false);
+                }}
+              />
+              <div 
+                ref={dropdownRef}
+                onClick={(e) => e.stopPropagation()}
+                style={{ 
+                  position: "fixed",
+                  top: `${dropdownPos.top}px`,
+                  right: `${dropdownPos.right}px`,
+                  borderColor: theme.border,
+                  color: theme.text
+                }}
+                className="w-48 rounded-xl shadow-2xl dark:shadow-soft-dark border z-[99999] py-1 bg-white dark:bg-gray-900 text-xs text-left select-none animate-in fade-in zoom-in-95 duration-100"
+              >
+                {/* Snooze Sub-Trigger */}
+                <div className="relative">
+                  <button
+                    onMouseEnter={() => {
+                      if (!showCustomSnoozeForm) {
+                        setShowSnoozeSub(true);
+                        setShowLabelSub(false);
+                      }
+                    }}
+                    onClick={() => setShowSnoozeSub(!showSnoozeSub)}
+                    className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300 cursor-pointer"
                   >
-                    {showCustomSnoozeForm ? (
-                      <div className="p-3 flex flex-col gap-2 bg-white dark:bg-gray-900">
-                        <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400">{t("bulk_actions.select_datetime", "Select Date & Time")}</label>
-                        <input
-                          type="datetime-local"
-                          value={customSnoozeTime}
-                          onChange={(e) => setCustomSnoozeTime(e.target.value)}
-                          className="w-full p-1.5 rounded-lg border text-xs bg-gray-50 dark:bg-neutral-850 text-gray-900 dark:text-white outline-none border-gray-200 dark:border-neutral-700"
-                        />
-                        <div className="flex justify-end gap-1.5 mt-1">
-                          <button
-                            onClick={() => setShowCustomSnoozeForm(false)}
-                            className="px-2 py-1 rounded text-[10px] bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-                          >
-                            {t("common.back", "Back")}
-                          </button>
+                    <MdAccessTime size={16} className="text-gray-400" /> {t("common.snooze", "Snooze")}...
+                  </button>
+                  {showSnoozeSub && (
+                    <div 
+                      className={`absolute ${dropdownPos.openSubRight ? "left-full ml-1" : "right-full mr-1"} ${dropdownPos.openUpwards ? "bottom-0" : "top-0"} w-44 rounded-xl shadow-2xl border bg-white dark:bg-gray-900 py-1 z-[100000] max-h-64 overflow-y-auto hidden-scrollbar`}
+                      style={{ borderColor: theme.border }}
+                    >
+                      {showCustomSnoozeForm ? (
+                        <div className="p-3 flex flex-col gap-2 bg-white dark:bg-gray-900">
+                          <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400">{t("bulk_actions.select_datetime", "Select Date & Time")}</label>
+                          <input
+                            type="datetime-local"
+                            value={customSnoozeTime}
+                            onChange={(e) => setCustomSnoozeTime(e.target.value)}
+                            className="w-full p-1.5 rounded-lg border text-xs bg-gray-50 dark:bg-neutral-850 text-gray-900 dark:text-white outline-none border-gray-200 dark:border-neutral-700"
+                          />
+                          <div className="flex justify-end gap-1.5 mt-1">
+                            <button
+                              onClick={() => setShowCustomSnoozeForm(false)}
+                              className="px-2 py-1 rounded text-[10px] bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-pointer"
+                            >
+                              {t("common.back", "Back")}
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!customSnoozeTime) {
+                                  alert("Please select a valid date and time.");
+                                  return;
+                                }
+                                const dateObj = new Date(customSnoozeTime);
+                                if (dateObj <= new Date()) {
+                                  alert("Please select a future date and time.");
+                                  return;
+                                }
+                                handleBulkSnoozeWithDate(dateObj.toISOString());
+                              }}
+                              className="px-2 py-1 rounded text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-medium cursor-pointer"
+                            >
+                              {t("common.save", "Save")}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <button onClick={() => handleBulkSnooze(2)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">{t("bulk_actions.later_today", "Later today")}</button>
+                          <button onClick={() => handleBulkSnooze(24)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">{t("bulk_actions.tomorrow", "Tomorrow")}</button>
+                          <button onClick={() => handleBulkSnooze(48)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">{t("bulk_actions.this_weekend", "This weekend")}</button>
+                          <button onClick={() => handleBulkSnooze(168)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">{t("bulk_actions.next_week", "Next week")}</button>
+                          <div className="border-t border-gray-100 dark:border-neutral-800 my-1"></div>
                           <button
                             onClick={() => {
-                              if (!customSnoozeTime) {
-                                alert("Please select a valid date and time.");
-                                return;
-                              }
-                              const dateObj = new Date(customSnoozeTime);
-                              if (dateObj <= new Date()) {
-                                alert("Please select a future date and time.");
-                                return;
-                              }
-                              handleBulkSnoozeWithDate(dateObj.toISOString());
+                              setShowCustomSnoozeForm(true);
+                              const defaultCustom = new Date();
+                              defaultCustom.setMinutes(defaultCustom.getMinutes() - defaultCustom.getTimezoneOffset());
+                              setCustomSnoozeTime(defaultCustom.toISOString().slice(0, 16));
                             }}
-                            className="px-2 py-1 rounded text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-blue-500 font-semibold cursor-pointer"
                           >
-                            {t("common.save", "Save")}
+                            {t("bulk_actions.select_datetime", "Select date & time")}
                           </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <button onClick={() => handleBulkSnooze(2)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800">{t("bulk_actions.later_today", "Later today")}</button>
-                        <button onClick={() => handleBulkSnooze(24)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800">{t("bulk_actions.tomorrow", "Tomorrow")}</button>
-                        <button onClick={() => handleBulkSnooze(48)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800">{t("bulk_actions.this_weekend", "This weekend")}</button>
-                        <button onClick={() => handleBulkSnooze(168)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800">{t("bulk_actions.next_week", "Next week")}</button>
-                        <div className="border-t border-gray-100 dark:border-neutral-800 my-1"></div>
-                        <button
-                          onClick={() => {
-                            setShowCustomSnoozeForm(true);
-                            const defaultCustom = new Date();
-                            defaultCustom.setMinutes(defaultCustom.getMinutes() - defaultCustom.getTimezoneOffset());
-                            setCustomSnoozeTime(defaultCustom.toISOString().slice(0, 16));
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-blue-500 font-semibold"
-                        >
-                          {t("bulk_actions.select_datetime", "Select date & time")}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
 
-              {/* Label As Sub-Trigger */}
-              <div className="relative">
-                <button
-                  onMouseEnter={() => { setShowLabelSub(true); setShowSnoozeSub(false); }}
-                  onClick={() => setShowLabelSub(!showLabelSub)}
-                  className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300"
-                >
-                  <MdLabel size={16} className="text-gray-400" /> {t("bulk_actions.label_as", "Label as...")}
-                </button>
-                {showLabelSub && (
-                  <div 
-                    className="absolute right-full top-0 mr-1 w-44 max-h-48 overflow-y-auto rounded-xl shadow-xl border bg-white dark:bg-gray-900 py-1 z-[60] hidden-scrollbar"
-                    style={{ borderColor: theme.border }}
+                {/* Label As Sub-Trigger */}
+                <div className="relative">
+                  <button
+                    onMouseEnter={() => { setShowLabelSub(true); setShowSnoozeSub(false); }}
+                    onClick={() => setShowLabelSub(!showLabelSub)}
+                    className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300 cursor-pointer"
                   >
-                    {labels.length === 0 ? (
-                      <div className="px-4 py-2 text-gray-400">{t("bulk_actions.no_labels", "No labels found")}</div>
-                    ) : (
-                      labels.map((lbl) => (
-                        <button 
-                          key={lbl.id} 
-                          onClick={() => handleBulkApplyLabel(lbl.id)} 
-                          className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1.5"
-                        >
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
-                          <span className="truncate">{lbl.name}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
+                    <MdLabel size={16} className="text-gray-400" /> {t("bulk_actions.label_as", "Label as...")}
+                  </button>
+                  {showLabelSub && (
+                    <div 
+                      className={`absolute ${dropdownPos.openSubRight ? "left-full ml-1" : "right-full mr-1"} ${dropdownPos.openUpwards ? "bottom-0" : "top-0"} w-44 max-h-48 overflow-y-auto rounded-xl shadow-2xl border bg-white dark:bg-gray-900 py-1 z-[100000] hidden-scrollbar`}
+                      style={{ borderColor: theme.border }}
+                    >
+                      {labels.length === 0 ? (
+                        <div className="px-4 py-2 text-gray-400">{t("bulk_actions.no_labels", "No labels found")}</div>
+                      ) : (
+                        labels.map((lbl) => (
+                          <button 
+                            key={lbl.id} 
+                            onClick={() => handleBulkApplyLabel(lbl.id)} 
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
+                            <span className="truncate">{lbl.name}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Unsubscribe */}
+                <button
+                  onClick={handleBulkUnsubscribe}
+                  onMouseEnter={() => { setShowSnoozeSub(false); setShowLabelSub(false); }}
+                  className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300 cursor-pointer"
+                >
+                  <MdBlock size={16} className="text-gray-400" /> {t("bulk_actions.unsubscribe", "Unsubscribe")}
+                </button>
+
+                {/* Reply (only for 1 selected) */}
+                {selectedEmails.length === 1 && (
+                  <button
+                    onClick={handleBulkReply}
+                    onMouseEnter={() => { setShowSnoozeSub(false); setShowLabelSub(false); }}
+                    className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300 font-bold border-t border-gray-100 dark:border-gray-850 mt-1 pt-1 cursor-pointer"
+                  >
+                    <MdReply size={16} className="text-gray-400" /> {t("common.reply", "Reply")}
+                  </button>
                 )}
               </div>
-
-              {/* Unsubscribe */}
-              <button
-                onClick={handleBulkUnsubscribe}
-                onMouseEnter={() => { setShowSnoozeSub(false); setShowLabelSub(false); }}
-                className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300"
-              >
-                <MdBlock size={16} className="text-gray-400" /> {t("bulk_actions.unsubscribe", "Unsubscribe")}
-              </button>
-
-              {/* Reply (only for 1 selected) */}
-              {selectedEmails.length === 1 && (
-                <button
-                  onClick={handleBulkReply}
-                  onMouseEnter={() => { setShowSnoozeSub(false); setShowLabelSub(false); }}
-                  className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300 font-bold border-t border-gray-100 dark:border-gray-850 mt-1 pt-1"
-                >
-                  <MdReply size={16} className="text-gray-400" /> {t("common.reply", "Reply")}
-                </button>
-              )}
-            </div>
+            </>,
+            document.body
           )}
         </div>
       </div>
