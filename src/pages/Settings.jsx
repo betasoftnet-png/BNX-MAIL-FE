@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import {
   MdSettings,
   MdColorLens,
@@ -1258,11 +1259,18 @@ const Settings = () => {
         style={{ background: theme.cardBg, borderColor: theme.border }}
       >
         <button
-          onClick={() => navigate("/inbox")}
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate("/inbox");
+            }
+          }}
           className="text-sm font-semibold mb-3 hover:underline text-left cursor-pointer flex items-center gap-1.5 transition-colors hover:text-primary"
           style={{ color: theme.accent }}
         >
-          ←  {t("common.back", "Back")}
+          <ArrowLeft size={16} />
+          <span>{t("common.back", "Back")}</span>
         </button>
         <h2 className="text-2xl font-bold mb-4 px-2" style={{ color: theme.text }}>{t("settings.title", "Settings")}</h2>
 

@@ -4,6 +4,7 @@ import { useTranslation } from '../context/LanguageContext';
 import { mailAPI } from '../services/api';
 import StorageCard from '../components/StorageCard';
 import beta2 from '../assets/beta2.png';
+import { ArrowLeft } from 'lucide-react';
 import cliksBusinessLogo from '../assets/cliks-business.png';
 import cliksLogo from '../assets/cliks.png';
 
@@ -118,7 +119,7 @@ const StorageManagement = () => {
               className="flex items-center gap-1.5 text-xs font-bold transition-all opacity-80 hover:opacity-100 cursor-pointer"
               style={{ color: theme.text }}
             >
-              â† Back to list
+              <ArrowLeft size={14} /> <span>Back to list</span>
             </button>
             <span className="h-4 w-px bg-gray-300 dark:bg-gray-700" />
             <img src={beta2} alt="BNX Mail" className="h-7 w-auto" />
