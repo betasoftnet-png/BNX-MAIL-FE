@@ -31,7 +31,9 @@ import {
   fetchAndSyncContacts,
   filterRecipientSuggestions,
   applyRecipientSuggestion,
-  recordSentRecipient
+  recordSentRecipient,
+  parseRecipientChips,
+  formatRecipientChips
 } from "../utils/recipientSuggestions";
 
 const CASBOX_RECIPIENT_ERROR = "This recipient is not a BNXmail user. You can send messages only to registered BNXmail accounts through Casbox.";
@@ -382,13 +384,21 @@ const ComposeWindow = ({
   const quillRef = useRef(null);
   const focusedFieldRef = useRef(null);
 
-  // Recipient autocomplete state
+  // Recipient autocomplete & chips state
   const [contacts, setContacts] = useState(() => getStoredContacts(user?.email));
+  const [toInputValue, setToInputValue] = useState("");
   const [toSuggestions, setToSuggestions] = useState([]);
   const [showToSuggestions, setShowToSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [toHighlightedIndex, setToHighlightedIndex] = useState(0);
   const toDropdownRef = useRef(null);
   const toInputRef = useRef(null);
+  const debounceTimerRef = useRef(null);
+
+  // Recipient chips parsed from formData.to
+  const recipientChips = useMemo(() => {
+    return parseRecipientChips(formData.to || "");
+  }, [formData.to]);
 
   useEffect(() => {
     if (user?.email) {
@@ -415,42 +425,151 @@ const ComposeWindow = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleToInputChange = (e) => {
-    handleChange(e);
-    const val = e.target.value;
-    const { suggestions } = filterRecipientSuggestions(contacts, val);
+  const handleRemoveRecipientChip = (indexToRemove) => {
+    const updated = recipientChips.filter((_, idx) => idx !== indexToRemove);
+    setFormData((prev) => ({ ...prev, to: updated.join(", ") }));
+    if (toInputRef.current) {
+      toInputRef.current.focus();
+    }
+  };
+
+  const handleAddRecipientChip = (emailToAdd) => {
+    if (!emailToAdd) return;
+    const clean = emailToAdd.trim();
+    if (!clean) return;
     const isCasbox = composeMode === "chat" || composeMode === "casbox";
-    const filteredToSuggestions = isCasbox ? suggestions.filter(s => !isExternalEmailDomain(s?.email)) : suggestions;
-    setToSuggestions(filteredToSuggestions);
-    setShowToSuggestions(filteredToSuggestions.length > 0);
+    if (isCasbox && isExternalEmailDomain(clean)) {
+      setError(CASBOX_RECIPIENT_ERROR);
+      toast.error(CASBOX_RECIPIENT_ERROR);
+      return;
+    }
+    const exists = recipientChips.some(c => c.toLowerCase() === clean.toLowerCase());
+    if (!exists) {
+      const updated = [...recipientChips, clean];
+      setFormData((prev) => ({ ...prev, to: updated.join(", ") }));
+    }
+    setToInputValue("");
+    setShowToSuggestions(false);
+    setToSuggestions([]);
+    if (toInputRef.current) {
+      toInputRef.current.focus();
+    }
+  };
+
+  const handleSelectToSuggestion = (suggestion) => {
+    if (!suggestion || !suggestion.email) return;
+    handleAddRecipientChip(suggestion.email);
+  };
+
+  const triggerSuggestionsSearch = (val) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    const clean = (val || "").trim();
+    if (!clean) {
+      setToSuggestions([]);
+      setShowToSuggestions(false);
+      setIsLoadingSuggestions(false);
+      return;
+    }
+
+    const isCasbox = composeMode === "chat" || composeMode === "casbox";
+    const existingSet = new Set(recipientChips.map(c => c.toLowerCase()));
+
+    // Priority 1: Instant local matches from cached contacts
+    const { suggestions: localMatches } = filterRecipientSuggestions(contacts, clean, 10, existingSet);
+    const filteredLocal = isCasbox ? localMatches.filter(s => !isExternalEmailDomain(s?.email)) : localMatches;
+    setToSuggestions(filteredLocal);
+    setShowToSuggestions(true);
     setToHighlightedIndex(0);
+
+    // Debounced server search (Priority 1: previous contacts, Fallback: registered BNXmail users)
+    setIsLoadingSuggestions(true);
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await mailAPI.autocompleteRecipients(clean, 10);
+        const serverData = res.data?.data || res.data || [];
+        if (Array.isArray(serverData)) {
+          const filteredServer = isCasbox ? serverData.filter(s => !isExternalEmailDomain(s?.email)) : serverData;
+
+          const merged = [];
+          const seen = new Set(existingSet);
+
+          // Priority 1: matching previous contacts first
+          const allPrevious = [
+            ...filteredLocal,
+            ...filteredServer.filter(s => s.isPreviousContact || s.source === "PREVIOUS_CONTACT")
+          ];
+          allPrevious.forEach(s => {
+            const k = s.email?.toLowerCase();
+            if (k && !seen.has(k)) {
+              seen.add(k);
+              merged.push(s);
+            }
+          });
+
+          // Fallback: registered BNXmail users from database
+          const allFallback = filteredServer.filter(s => !s.isPreviousContact && s.source !== "PREVIOUS_CONTACT");
+          allFallback.forEach(s => {
+            const k = s.email?.toLowerCase();
+            if (k && !seen.has(k)) {
+              seen.add(k);
+              merged.push(s);
+            }
+          });
+
+          setToSuggestions(merged);
+        }
+      } catch (err) {
+        // Keep local matches if server query fails
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    }, 250);
+  };
+
+  const handleToInputChange = (e) => {
+    const val = e.target.value;
+    if (val.includes(",") || val.includes(";")) {
+      const parts = val.split(/[,;]/);
+      const trailing = parts.pop() || "";
+      const completeAddrs = parts.map(p => p.trim()).filter(Boolean);
+      if (completeAddrs.length > 0) {
+        const isCasbox = composeMode === "chat" || composeMode === "casbox";
+        const newChips = [...recipientChips];
+        completeAddrs.forEach(addr => {
+          if (isCasbox && isExternalEmailDomain(addr)) {
+            setError(CASBOX_RECIPIENT_ERROR);
+            toast.error(CASBOX_RECIPIENT_ERROR);
+            return;
+          }
+          if (!newChips.some(c => c.toLowerCase() === addr.toLowerCase())) {
+            newChips.push(addr);
+          }
+        });
+        setFormData((prev) => ({ ...prev, to: newChips.join(", ") }));
+      }
+      setToInputValue(trailing);
+      triggerSuggestionsSearch(trailing);
+      return;
+    }
+
+    setToInputValue(val);
+    triggerSuggestionsSearch(val);
   };
 
   const handleToInputFocus = () => {
     focusedFieldRef.current = 'to';
-    const { suggestions } = filterRecipientSuggestions(contacts, formData.to || "");
-    const isCasbox = composeMode === "chat" || composeMode === "casbox";
-    const filteredToSuggestions = isCasbox ? suggestions.filter(s => !isExternalEmailDomain(s?.email)) : suggestions;
-    setToSuggestions(filteredToSuggestions);
-    setShowToSuggestions(filteredToSuggestions.length > 0);
-    setToHighlightedIndex(0);
+    if (toInputValue.trim().length > 0) {
+      triggerSuggestionsSearch(toInputValue);
+    }
   };
 
   const handleToInputBlur = () => {
     if (focusedFieldRef.current === 'to') focusedFieldRef.current = null;
     setTimeout(() => {
       setShowToSuggestions(false);
-    }, 150);
-  };
-
-  const handleSelectToSuggestion = (suggestion) => {
-    const updatedVal = applyRecipientSuggestion(formData.to || "", suggestion.email);
-    setFormData((prev) => ({ ...prev, to: updatedVal }));
-    setShowToSuggestions(false);
-    setToSuggestions([]);
-    if (toInputRef.current) {
-      toInputRef.current.focus();
-    }
+    }, 200);
   };
 
   const handleToInputKeyDown = (e) => {
@@ -468,16 +587,27 @@ const ComposeWindow = ({
         e.preventDefault();
         if (toSuggestions[toHighlightedIndex]) {
           handleSelectToSuggestion(toSuggestions[toHighlightedIndex]);
+          return;
         }
-        return;
       } else if (e.key === 'Escape') {
         e.preventDefault();
         setShowToSuggestions(false);
         return;
       }
     }
-    if (e.key === 'Enter') {
+
+    if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
       e.preventDefault();
+      if (toInputValue.trim().length > 0) {
+        handleAddRecipientChip(toInputValue.trim());
+      }
+      return;
+    }
+
+    if (e.key === 'Backspace' && toInputValue === '' && recipientChips.length > 0) {
+      e.preventDefault();
+      handleRemoveRecipientChip(recipientChips.length - 1);
+      return;
     }
   };
 
@@ -1263,7 +1393,18 @@ const ComposeWindow = ({
     setError("");
     setSuccess("");
 
-    if (!formData.to) {
+    let currentTo = (formData.to || "").trim();
+    if (toInputValue && toInputValue.trim()) {
+      const pendingInput = toInputValue.trim();
+      const existingChips = parseRecipientChips(currentTo);
+      if (!existingChips.some(c => c.toLowerCase() === pendingInput.toLowerCase())) {
+        currentTo = currentTo ? (currentTo + ", " + pendingInput) : pendingInput;
+        setFormData(prev => ({ ...prev, to: currentTo }));
+      }
+      setToInputValue("");
+    }
+
+    if (!currentTo) {
       setError("Recipient email is required");
       sendingRef.current = false;
       setSending(false);
@@ -2286,23 +2427,25 @@ const ComposeWindow = ({
                       <input
                         ref={toInputRef}
                         type="text"
-                        name="to"
+                        name="to_input"
                         autoFocus
                         className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm"
                         placeholder="Recipient email..."
-                        value={formData.to || ""}
+                        value={toInputValue}
                         onChange={handleToInputChange}
                         onFocus={handleToInputFocus}
                         onBlur={handleToInputBlur}
                         onKeyDown={handleToInputKeyDown}
                       />
-                      {showToSuggestions && toSuggestions.length > 0 && (
+                      {showToSuggestions && (
                         <RecipientAutocomplete
                           suggestions={toSuggestions}
                           highlightedIndex={toHighlightedIndex}
                           onSelectSuggestion={handleSelectToSuggestion}
                           onHoverIndex={setToHighlightedIndex}
                           dropdownRef={toDropdownRef}
+                          isLoading={isLoadingSuggestions}
+                          query={toInputValue}
                         />
                       )}
                     </div>
@@ -2415,29 +2558,55 @@ const ComposeWindow = ({
               {(composeMode === "mail" || composeMode === "email") && (
                 <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">{t('compose.to', 'To')}</div>
-                  <div className="flex-1 relative flex items-center min-w-0">
-                    <input
-                      ref={toInputRef}
-                      type="text"
-                      name="to"
-                      autoFocus
-                      className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                      placeholder={t('compose.recipients', 'Recipients')}
-                      value={formData.to || ""}
-                      onChange={handleToInputChange}
-                      onFocus={handleToInputFocus}
-                      onBlur={handleToInputBlur}
-                      onKeyDown={handleToInputKeyDown}
-                    />
-                    {showToSuggestions && toSuggestions.length > 0 && (
-                      <RecipientAutocomplete
-                        suggestions={toSuggestions}
-                        highlightedIndex={toHighlightedIndex}
-                        onSelectSuggestion={handleSelectToSuggestion}
-                        onHoverIndex={setToHighlightedIndex}
-                        dropdownRef={toDropdownRef}
+                  <div className="flex-1 relative flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
+                    {recipientChips.map((recipient, idx) => (
+                      <span
+                        key={"recipient_chip_" + idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200/90 dark:border-blue-800/80 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300 max-w-full select-none"
+                      >
+                        <MdPersonOutline size={13} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span className="truncate max-w-[160px] sm:max-w-[220px]" title={recipient}>
+                          {recipient}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveRecipientChip(idx);
+                          }}
+                          className="text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 ml-0.5 cursor-pointer text-xs leading-none p-0.5"
+                          title="Remove recipient"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                    <div className="flex-1 relative flex items-center min-w-[120px]">
+                      <input
+                        ref={toInputRef}
+                        type="text"
+                        name="to_input"
+                        autoFocus
+                        className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm py-0.5"
+                        placeholder={recipientChips.length === 0 ? t('compose.recipients', 'Recipients') : ""}
+                        value={toInputValue}
+                        onChange={handleToInputChange}
+                        onFocus={handleToInputFocus}
+                        onBlur={handleToInputBlur}
+                        onKeyDown={handleToInputKeyDown}
                       />
-                    )}
+                      {showToSuggestions && (
+                        <RecipientAutocomplete
+                          suggestions={toSuggestions}
+                          highlightedIndex={toHighlightedIndex}
+                          onSelectSuggestion={handleSelectToSuggestion}
+                          onHoverIndex={setToHighlightedIndex}
+                          dropdownRef={toDropdownRef}
+                          isLoading={isLoadingSuggestions}
+                          query={toInputValue}
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2 text-gray-500 font-medium ml-2 shrink-0">
                     <button type="button" onClick={() => setShowCc(!showCc)} className="hover:underline">
@@ -2452,32 +2621,58 @@ const ComposeWindow = ({
               {(composeMode === "chat" || composeMode === "casbox") && (
                 <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">To</div>
-                  <div className="flex-1 relative flex items-center min-w-0">
-                    <input
-                      ref={toInputRef}
-                      type="text"
-                      name="to"
-                      autoFocus
-                      className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                      placeholder="Chat / Casbox Recipient (Email or Username)"
-                      value={formData.to || ""}
-                      onChange={handleToInputChange}
-                      onFocus={handleToInputFocus}
-                      onBlur={(e) => {
-                        handleToInputBlur();
-                        handleCasboxRecipientBlur(e);
-                      }}
-                      onKeyDown={handleToInputKeyDown}
-                    />
-                    {showToSuggestions && toSuggestions.length > 0 && (
-                      <RecipientAutocomplete
-                        suggestions={toSuggestions}
-                        highlightedIndex={toHighlightedIndex}
-                        onSelectSuggestion={handleSelectToSuggestion}
-                        onHoverIndex={setToHighlightedIndex}
-                        dropdownRef={toDropdownRef}
+                  <div className="flex-1 relative flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
+                    {recipientChips.map((recipient, idx) => (
+                      <span
+                        key={"casbox_chip_" + idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200/90 dark:border-blue-800/80 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300 max-w-full select-none"
+                      >
+                        <MdPersonOutline size={13} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span className="truncate max-w-[160px] sm:max-w-[220px]" title={recipient}>
+                          {recipient}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveRecipientChip(idx);
+                          }}
+                          className="text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 ml-0.5 cursor-pointer text-xs leading-none p-0.5"
+                          title="Remove recipient"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                    <div className="flex-1 relative flex items-center min-w-[120px]">
+                      <input
+                        ref={toInputRef}
+                        type="text"
+                        name="to_input"
+                        autoFocus
+                        className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm py-0.5"
+                        placeholder={recipientChips.length === 0 ? "Chat / Casbox Recipient (Email or Username)" : ""}
+                        value={toInputValue}
+                        onChange={handleToInputChange}
+                        onFocus={handleToInputFocus}
+                        onBlur={(e) => {
+                          handleToInputBlur();
+                          handleCasboxRecipientBlur(e);
+                        }}
+                        onKeyDown={handleToInputKeyDown}
                       />
-                    )}
+                      {showToSuggestions && (
+                        <RecipientAutocomplete
+                          suggestions={toSuggestions}
+                          highlightedIndex={toHighlightedIndex}
+                          onSelectSuggestion={handleSelectToSuggestion}
+                          onHoverIndex={setToHighlightedIndex}
+                          dropdownRef={toDropdownRef}
+                          isLoading={isLoadingSuggestions}
+                          query={toInputValue}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

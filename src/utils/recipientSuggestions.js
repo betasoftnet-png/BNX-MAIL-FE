@@ -266,13 +266,36 @@ export const getExistingRecipientEmails = (inputValue) => {
   return set;
 };
 
-export const filterRecipientSuggestions = (contacts, inputValue, limit = 8) => {
+export const parseRecipientChips = (inputStr) => {
+  if (!inputStr) return [];
+  const addrs = splitAddresses(inputStr);
+  const seen = new Set();
+  const list = [];
+  addrs.forEach(a => {
+    const parsed = parseAddress(a);
+    const clean = parsed?.email || a.replace(/["'<>]/g, '').trim();
+    if (clean && !seen.has(clean.toLowerCase())) {
+      seen.add(clean.toLowerCase());
+      list.push(clean);
+    }
+  });
+  return list;
+};
+
+export const formatRecipientChips = (chips) => {
+  if (!Array.isArray(chips)) return '';
+  return chips.filter(Boolean).join(', ');
+};
+
+export const filterRecipientSuggestions = (contacts, inputValue, limit = 8, existingRecipientSet = null) => {
   const query = getActiveRecipientQuery(inputValue).toLowerCase();
   if (!query || query.length === 0) {
     return { query: '', suggestions: [] };
   }
 
-  const existingEmails = getExistingRecipientEmails(inputValue);
+  const existingEmails = existingRecipientSet instanceof Set 
+    ? existingRecipientSet 
+    : getExistingRecipientEmails(inputValue);
 
   // Filter contacts
   const matches = (contacts || []).filter(c => {
@@ -283,14 +306,18 @@ export const filterRecipientSuggestions = (contacts, inputValue, limit = 8) => {
     if (existingEmails.has(emailLower)) return false;
     // Match query dynamically against email or name
     return emailLower.includes(query) || nameLower.includes(query);
-  });
+  }).map(c => ({
+    ...c,
+    source: c.source || 'PREVIOUS_CONTACT',
+    isPreviousContact: c.isPreviousContact !== undefined ? c.isPreviousContact : true
+  }));
 
   // Sort matches by relevance:
-  // 1. Email starts with query
-  // 2. Name starts with query
-  // 3. Email contains query
-  // 4. Name contains query
-  // 5. Contact count / frequency
+  // 1. Email starts with query (e.g. typing 'D' -> 'david@...')
+  // 2. Name starts with query (e.g. typing 'HR' -> 'HR Manager')
+  // 3. Word in name starts with query
+  // 4. Contact count / frequency
+  // 5. Substring / Alphabetical
   matches.sort((a, b) => {
     const aEmail = a.email.toLowerCase();
     const bEmail = b.email.toLowerCase();
@@ -306,6 +333,11 @@ export const filterRecipientSuggestions = (contacts, inputValue, limit = 8) => {
     const bNameStarts = bName.startsWith(query);
     if (aNameStarts && !bNameStarts) return -1;
     if (!aNameStarts && bNameStarts) return 1;
+
+    const aWordStarts = aName.split(/\s+/).some(w => w.startsWith(query));
+    const bWordStarts = bName.split(/\s+/).some(w => w.startsWith(query));
+    if (aWordStarts && !bWordStarts) return -1;
+    if (!aWordStarts && bWordStarts) return 1;
 
     const aCount = a.count || 1;
     const bCount = b.count || 1;

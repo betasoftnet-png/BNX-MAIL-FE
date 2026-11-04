@@ -181,7 +181,8 @@ export const API_ENDPOINTS = {
     CATEGORY: '/api/mail/category',
     UNSUBSCRIBE: '/api/mail/unsubscribe',
     SUBSCRIBE: '/api/mail/subscribe',
-    SUBSCRIPTIONS: '/api/mail/subscriptions'
+    SUBSCRIPTIONS: '/api/mail/subscriptions',
+    RECIPIENTS_AUTOCOMPLETE: '/api/mail/recipients/autocomplete'
   },
   EMAILS: {
     CREATE: '/api/emails/create',

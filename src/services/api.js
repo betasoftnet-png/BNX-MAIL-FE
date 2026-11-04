@@ -324,6 +324,7 @@ export const mailAPI = {
         );
     },
     getSubscriptions: () => api.get(API_ENDPOINTS.MAIL.SUBSCRIPTIONS),
+    autocompleteRecipients: (query, limit = 10) => api.get(`${API_ENDPOINTS.MAIL.RECIPIENTS_AUTOCOMPLETE || '/api/mail/recipients/autocomplete'}?query=${encodeURIComponent(query)}&limit=${limit}`),
 
     // Labels
     getLabels: () => api.get(API_ENDPOINTS.MAIL.LABELS),
@@ -360,6 +361,7 @@ export const userAPI = {
     updateProfilePicture: (formData) => api.post('/api/users/profile-picture', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     }),
+    autocompleteRecipients: (query, limit = 10) => api.get(`/api/users/autocomplete-recipients?query=${encodeURIComponent(query)}&limit=${limit}`),
 };
 
 export const signatureAPI = {
