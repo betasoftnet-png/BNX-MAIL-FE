@@ -18,9 +18,7 @@ import {
   MdArrowBack,
   MdPersonOutline,
   MdInsertDriveFile,
-  MdImage,
-  MdLabel,
-  MdCheck
+  MdImage
 } from "react-icons/md";
 import { 
   saveDraftAttachments, 
@@ -316,10 +314,7 @@ const ComposeWindow = ({
     openCompose,
     updateDraftInState,
     updateDraftUidInState,
-    isEmailStarred,
-    labels = [],
-    fetchLabels,
-    handleApplyLabel
+    isEmailStarred
   } = useMail();
 
   const composeData = initialData;
@@ -381,45 +376,6 @@ const ComposeWindow = ({
   const [signatures, setSignatures] = useState([]);
   const [showSignaturesMenu, setShowSignaturesMenu] = useState(false);
   const [undoSendDelay, setUndoSendDelay] = useState(0);
-
-  const [selectedLabels, setSelectedLabels] = useState(() => {
-    if (composeData?.draft && Array.isArray(composeData.draft.labels)) {
-      return composeData.draft.labels;
-    }
-    return [];
-  });
-  const [showLabelsMenu, setShowLabelsMenu] = useState(false);
-  const labelsMenuRef = useRef(null);
-  const labelsMenuReplyRef = useRef(null);
-
-  useEffect(() => {
-    const handleLabelsClickOutside = (e) => {
-      const inNormal = labelsMenuRef.current && labelsMenuRef.current.contains(e.target);
-      const inReply = labelsMenuReplyRef.current && labelsMenuReplyRef.current.contains(e.target);
-      if (!inNormal && !inReply) {
-        setShowLabelsMenu(false);
-      }
-    };
-    if (showLabelsMenu) {
-      document.addEventListener("mousedown", handleLabelsClickOutside);
-      return () => document.removeEventListener("mousedown", handleLabelsClickOutside);
-    }
-  }, [showLabelsMenu]);
-
-  const handleToggleSelectLabel = (lbl) => {
-    setSelectedLabels((prev) => {
-      const exists = prev.some(
-        (l) => String(l.id || l) === String(lbl.id) || (l.name && l.name === lbl.name)
-      );
-      if (exists) {
-        return prev.filter(
-          (l) => String(l.id || l) !== String(lbl.id) && l.name !== lbl.name
-        );
-      } else {
-        return [...prev, lbl];
-      }
-    });
-  };
   const [defaultFontFamily, setDefaultFontFamily] = useState(() => localStorage.getItem("bnx_setting_fontFamily") || "Arial");
   const [defaultFontSize, setDefaultFontSize] = useState(() => localStorage.getItem("bnx_setting_fontSizeText") || "Normal");
   const [defaultTextColor, setDefaultTextColor] = useState(() => localStorage.getItem("bnx_setting_textColor") || "#000000");
@@ -1112,8 +1068,6 @@ const ComposeWindow = ({
       setQuotedMessage("");
       setShowCc(false);
       setShowBcc(false);
-      setSelectedLabels([]);
-      setShowLabelsMenu(false);
       setFormData({
         to: "",
         cc: "",
@@ -1209,13 +1163,11 @@ const ComposeWindow = ({
         initialFormDataRef.current = null;
         setAttachments([]);
         setUploading(false);
-        setSelectedLabels([]);
       }
 
       if (composeData) {
         if (!signatureInjectedRef.current) {
           if (composeData.replyTo) {
-            setSelectedLabels([]);
             let extractedQuote = "";
             if (composeData.originalBody) {
               extractedQuote = extractFormattedPlainText(composeData.originalBody);
@@ -1240,7 +1192,6 @@ const ComposeWindow = ({
             if (composeData.cc) setShowCc(true);
             if (composeData.bcc) setShowBcc(true);
           } else if (composeData.forward) {
-            setSelectedLabels([]);
             setQuotedMessage("");
             const isCasboxMode = composeData.mode === "casbox" || composeData.mode === "chat" || composeMode === "chat" || composeMode === "casbox";
             const forwardSubject = isCasboxMode ? "Fwd:" : (composeData.subject || "");
@@ -1255,8 +1206,6 @@ const ComposeWindow = ({
             initialFormDataRef.current = { ...replyForm };
           } else if (composeData.draft) {
             const d = composeData.draft;
-            const draftLabels = Array.isArray(d.labels) ? d.labels : [];
-            setSelectedLabels(draftLabels);
             isEditingExistingDraftRef.current = true;
             const draftUidVal = d.uid !== undefined && d.uid !== null ? String(d.uid) : null;
             const draftIdVal = d.id !== undefined && d.id !== null ? String(d.id) : null;
@@ -1786,25 +1735,6 @@ const ComposeWindow = ({
           selectedDraftIdRef.current = null;
           isEditingExistingDraftRef.current = false;
 
-          const sentUid = response.data?.data?.sentUid || response.data?.data?.uid;
-          const currentSelectedLabels = [...selectedLabels];
-
-          // If user explicitly selected labels, apply them to sent email in Sent folder
-          if (currentSelectedLabels.length > 0 && sentUid) {
-            currentSelectedLabels.forEach((lbl) => {
-              const lblId = typeof lbl === 'object' ? lbl.id : lbl;
-              if (lblId) {
-                mailAPI.applyLabel(sentUid, lblId, 'Sent').catch((err) => {
-                  console.warn('Failed to apply label to sent email:', err);
-                });
-              }
-            });
-          }
-
-          // Immediately reset label selection state
-          setSelectedLabels([]);
-          setShowLabelsMenu(false);
-
           if (handleEmailSent) {
             handleEmailSent({
               draftId: currentDraftId,
@@ -1818,8 +1748,7 @@ const ComposeWindow = ({
                 bcc: formData.bcc,
                 subject: formData.subject,
                 body: formData.body,
-                attachments: attachments,
-                labels: currentSelectedLabels
+                attachments: attachments
               }
             });
           }
@@ -2310,8 +2239,6 @@ const ComposeWindow = ({
       setAttachments([]);
       setDraftId(null);
       imapDraftUidRef.current = null;
-      setSelectedLabels([]);
-      setShowLabelsMenu(false);
       if (discDraftId) {
         try {
           await api.delete(`/api/mail/drafts/${discDraftId}`);
@@ -3067,38 +2994,6 @@ const ComposeWindow = ({
                   autoCorrect={autoCorrect ? "on" : "off"}
                 />
               </div>
-
-              {/* SELECTED LABELS DISPLAY */}
-              {(composeMode === "mail" || composeMode === "email") && selectedLabels.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 py-1.5 border-b shrink-0" style={{ borderColor: theme.border }}>
-                  <span className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
-                    <MdLabel size={13} />
-                    <span>Labels:</span>
-                  </span>
-                  {selectedLabels.map((lbl) => {
-                    const lblId = typeof lbl === 'object' ? (lbl.id || lbl.name) : lbl;
-                    const lblName = typeof lbl === 'object' ? (lbl.name || lbl.id) : lbl;
-                    const lblColor = typeof lbl === 'object' ? (lbl.colorHex || '#135bec') : '#135bec';
-                    return (
-                      <span
-                        key={lblId}
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold text-white shadow-xs"
-                        style={{ backgroundColor: lblColor }}
-                      >
-                        <span className="truncate max-w-[120px]">{lblName}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSelectLabel(lbl)}
-                          className="hover:opacity-75 cursor-pointer ml-0.5"
-                          title="Remove label"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           )}
 
@@ -3444,83 +3339,6 @@ const ComposeWindow = ({
                     )}
                   </div>
 
-                  {/* Labels quick selector (Reply mode) */}
-                  {(composeMode === "mail" || composeMode === "email") && (
-                    <div className="relative" ref={labelsMenuReplyRef}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = !showLabelsMenu;
-                          setShowLabelsMenu(next);
-                          if (next && fetchLabels) fetchLabels();
-                        }}
-                        className={`p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
-                          selectedLabels.length > 0
-                            ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
-                            : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
-                        }`}
-                        title="Labels"
-                      >
-                        <MdLabel size={19} />
-                      </button>
-
-                      {showLabelsMenu && (
-                        <div
-                          className="absolute bottom-10 right-0 w-56 max-h-56 overflow-y-auto rounded-xl border shadow-xl z-50 p-1.5 glass"
-                          style={{
-                            backgroundColor: theme.cardBg,
-                            borderColor: theme.border,
-                            color: theme.text,
-                          }}
-                        >
-                          <div className="flex items-center justify-between p-1.5 mb-1 border-b" style={{ borderColor: theme.border }}>
-                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Label as</span>
-                            <button
-                              type="button"
-                              onClick={() => setShowLabelsMenu(false)}
-                              className="text-xs p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-550"
-                            >
-                              <MdClose size={12} />
-                            </button>
-                          </div>
-                          {labels.length === 0 ? (
-                            <p className="text-[10px] text-center p-2 opacity-60">No labels found</p>
-                          ) : (
-                            <div className="flex flex-col gap-0.5">
-                              {labels.map((lbl) => {
-                                const isSelected = selectedLabels.some(
-                                  (sl) => String(sl.id || sl) === String(lbl.id) || (sl.name && sl.name === lbl.name)
-                                );
-                                return (
-                                  <button
-                                    key={lbl.id}
-                                    type="button"
-                                    onClick={() => handleToggleSelectLabel(lbl)}
-                                    className="w-full text-left px-2.5 py-1.5 text-xs rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors truncate text-gray-800 dark:text-gray-200 cursor-pointer flex justify-between items-center"
-                                  >
-                                    <div className="flex items-center gap-2 truncate">
-                                      <span
-                                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                                        style={{ backgroundColor: lbl.colorHex || "#135bec" }}
-                                      />
-                                      <span className="truncate">{lbl.name}</span>
-                                    </div>
-                                    <input
-                                      type="checkbox"
-                                      readOnly
-                                      checked={isSelected}
-                                      className="rounded border-gray-300 dark:border-neutral-600 text-blue-600 w-3.5 h-3.5 pointer-events-none"
-                                    />
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
                   <button
                     type="button"
                     onClick={handleDiscard}
@@ -3767,86 +3585,6 @@ const ComposeWindow = ({
                                   <div className="text-[10px] opacity-60 truncate">{t.subject}</div>
                                 </button>
                               ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Labels quick selector */}
-                  {(composeMode === "mail" || composeMode === "email") && (
-                    <div className="relative" ref={labelsMenuRef}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = !showLabelsMenu;
-                          setShowLabelsMenu(next);
-                          if (next && fetchLabels) fetchLabels();
-                        }}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-xs font-semibold cursor-pointer transition-colors ${
-                          selectedLabels.length > 0 
-                            ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30" 
-                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                        }`}
-                        title="Select Labels"
-                      >
-                        <MdLabel size={16} />
-                        <span className="hidden sm:inline">
-                          {selectedLabels.length > 0 ? `Labels (${selectedLabels.length})` : "Labels"}
-                        </span>
-                      </button>
-
-                      {showLabelsMenu && (
-                        <div
-                          className="absolute bottom-10 right-0 md:right-auto md:left-0 w-56 max-h-56 overflow-y-auto rounded-xl border shadow-xl z-50 p-1.5 glass"
-                          style={{
-                            backgroundColor: theme.cardBg,
-                            borderColor: theme.border,
-                            color: theme.text,
-                          }}
-                        >
-                          <div className="flex items-center justify-between p-1.5 mb-1 border-b" style={{ borderColor: theme.border }}>
-                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Label as</span>
-                            <button
-                              type="button"
-                              onClick={() => setShowLabelsMenu(false)}
-                              className="text-xs p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-550"
-                            >
-                              <MdClose size={12} />
-                            </button>
-                          </div>
-                          {labels.length === 0 ? (
-                            <p className="text-[10px] text-center p-2 opacity-60">No labels found</p>
-                          ) : (
-                            <div className="flex flex-col gap-0.5">
-                              {labels.map((lbl) => {
-                                const isSelected = selectedLabels.some(
-                                  (sl) => String(sl.id || sl) === String(lbl.id) || (sl.name && sl.name === lbl.name)
-                                );
-                                return (
-                                  <button
-                                    key={lbl.id}
-                                    type="button"
-                                    onClick={() => handleToggleSelectLabel(lbl)}
-                                    className="w-full text-left px-2.5 py-1.5 text-xs rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors truncate text-gray-800 dark:text-gray-200 cursor-pointer flex justify-between items-center"
-                                  >
-                                    <div className="flex items-center gap-2 truncate">
-                                      <span
-                                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                                        style={{ backgroundColor: lbl.colorHex || "#135bec" }}
-                                      />
-                                      <span className="truncate">{lbl.name}</span>
-                                    </div>
-                                    <input
-                                      type="checkbox"
-                                      readOnly
-                                      checked={isSelected}
-                                      className="rounded border-gray-300 dark:border-neutral-600 text-blue-600 w-3.5 h-3.5 pointer-events-none"
-                                    />
-                                  </button>
-                                );
-                              })}
                             </div>
                           )}
                         </div>
