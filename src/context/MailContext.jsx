@@ -154,6 +154,24 @@ export const MailProvider = ({ children }) => {
     };
     const sentDraftUidsRef = useRef(getInitialSentDraftUids());
 
+    const getInitialSentEmailLabels = () => {
+        try {
+            const stored = sessionStorage.getItem('bnx_sent_email_labels');
+            return stored ? JSON.parse(stored) : {};
+        } catch (e) {
+            return {};
+        }
+    };
+    const sentEmailLabelsRef = useRef(getInitialSentEmailLabels());
+
+    const updateSentEmailLabels = useCallback((uid, labelsList) => {
+        if (!uid) return;
+        sentEmailLabelsRef.current[String(uid)] = Array.isArray(labelsList) ? labelsList : [];
+        try {
+            sessionStorage.setItem('bnx_sent_email_labels', JSON.stringify(sentEmailLabelsRef.current));
+        } catch (e) {}
+    }, []);
+
     useEffect(() => {
         starredIdsRef.current = starredIds;
     }, [starredIds]);
@@ -810,6 +828,15 @@ export const MailProvider = ({ children }) => {
                         if (seenSentUids.has(uidStr)) return false;
                         seenSentUids.add(uidStr);
                         return true;
+                    }).map(m => {
+                        const uidStr = String(m.uid ?? m.id ?? '');
+                        if (sentEmailLabelsRef.current && sentEmailLabelsRef.current[uidStr] !== undefined) {
+                            return {
+                                ...m,
+                                labels: sentEmailLabelsRef.current[uidStr]
+                            };
+                        }
+                        return m;
                     });
                 }
 
@@ -1092,6 +1119,15 @@ export const MailProvider = ({ children }) => {
                         if (seenSentUids.has(uidStr)) return false;
                         seenSentUids.add(uidStr);
                         return true;
+                    }).map(m => {
+                        const uidStr = String(m.uid ?? m.id ?? '');
+                        if (sentEmailLabelsRef.current && sentEmailLabelsRef.current[uidStr] !== undefined) {
+                            return {
+                                ...m,
+                                labels: sentEmailLabelsRef.current[uidStr]
+                            };
+                        }
+                        return m;
                     });
                 }
 
@@ -2148,6 +2184,11 @@ export const MailProvider = ({ children }) => {
             }
         });
 
+        if (targetFolder && targetFolder.toLowerCase() === 'sent') {
+            const currentSentLabels = sentEmailLabelsRef.current[strUid] || [];
+            updateSentEmailLabels(strUid, [...currentSentLabels, labelToAdd]);
+        }
+
         invalidateCache(`label-${labelId}`);
         if (currentFolderRef.current) {
             invalidateCache(currentFolderRef.current);
@@ -2225,6 +2266,11 @@ export const MailProvider = ({ children }) => {
                 });
             }
         });
+
+        if (targetFolder && targetFolder.toLowerCase() === 'sent') {
+            const currentSentLabels = sentEmailLabelsRef.current[strUid] || [];
+            updateSentEmailLabels(strUid, currentSentLabels.filter(l => String(l.id || l) !== strLabelId && l.name !== labelId));
+        }
 
         invalidateCache(`label-${labelId}`);
         if (currentFolderRef.current) {
@@ -2485,6 +2531,11 @@ export const MailProvider = ({ children }) => {
                 cleanData.replyTo = match[1];
             }
         }
+        // Initialize Label selection as empty; never carry over previous label
+        if (!cleanData.draft || !Array.isArray(cleanData.draft.labels)) {
+            delete cleanData.labels;
+            delete cleanData.selectedLabels;
+        }
         const order = nextComposeOrderRef.current++;
         const newWindow = {
             id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`,
@@ -2563,6 +2614,7 @@ export const MailProvider = ({ children }) => {
             : (sentEmail?.id !== undefined && sentEmail?.id !== null ? String(sentEmail.id) : null);
 
         let sentEmailObj = null;
+        const explicitLabels = Array.isArray(emailData?.labels) ? emailData.labels : [];
         if (sentEmail || emailData) {
             const rawSentDate = sentEmail?.sentAt ? new Date(sentEmail.sentAt).toISOString() : new Date().toISOString();
             sentEmailObj = {
@@ -2582,8 +2634,13 @@ export const MailProvider = ({ children }) => {
                 read: true,
                 sentDate: rawSentDate,
                 date: rawSentDate,
-                attachments: emailData?.attachments || sentEmail?.attachments || []
+                attachments: emailData?.attachments || sentEmail?.attachments || [],
+                labels: explicitLabels
             };
+        }
+
+        if (sentUid) {
+            updateSentEmailLabels(sentUid, explicitLabels);
         }
 
         // 1. Immediately update active emails state
@@ -2728,7 +2785,7 @@ export const MailProvider = ({ children }) => {
                 detail: { uid: sentUid, starred: true }
             }));
         }
-    }, [fetchEmails, fetchEmailsSilently, fetchLabelEmails, invalidateCache, isEmailStarred, user?.email]);
+    }, [fetchEmails, fetchEmailsSilently, fetchLabelEmails, invalidateCache, isEmailStarred, user?.email, updateSentEmailLabels]);
 
     const updateDraftInState = useCallback((targetId, updatedFields) => {
         if (!targetId) return;
