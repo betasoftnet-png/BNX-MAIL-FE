@@ -195,6 +195,50 @@ const EmailDetails = ({
   const [localLabels, setLocalLabels] = useState(email?.labels || []);
   const [isSnoozing, setIsSnoozing] = useState(false);
   const [isApplyingLabel, setIsApplyingLabel] = useState(false);
+  const [isLocallySnoozed, setIsLocallySnoozed] = useState(false);
+  const [localSnoozeUntil, setLocalSnoozeUntil] = useState(null);
+
+  useEffect(() => {
+    setIsLocallySnoozed(false);
+    setLocalSnoozeUntil(null);
+  }, [email?.uid, email?.id]);
+
+  const isSnoozedMode = Boolean(
+    email?.folderName?.toLowerCase() === 'snoozed' ||
+    currentFolder?.toLowerCase() === 'snoozed' ||
+    (typeof window !== 'undefined' && (
+      window.location.pathname === '/snoozed' ||
+      window.location.pathname?.startsWith('/snoozed') ||
+      window.location.pathname?.includes('snoozed')
+    ))
+  );
+
+  const isSnoozed = Boolean(
+    isLocallySnoozed ||
+    isSnoozedMode ||
+    email?.isSnoozed ||
+    email?.snoozed ||
+    email?.snoozedUntil ||
+    email?.wakeUpAt
+  );
+
+  const snoozedUntilValue = localSnoozeUntil || email?.snoozedUntil || email?.wakeUpAt;
+  const snoozedUntilText = useMemo(() => {
+    if (!snoozedUntilValue) return null;
+    try {
+      const d = new Date(snoozedUntilValue);
+      if (isNaN(d.getTime())) return String(snoozedUntilValue);
+      return d.toLocaleDateString([], {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    } catch {
+      return null;
+    }
+  }, [snoozedUntilValue]);
 
   const isHtmlContent = Boolean(
     email?.htmlBody ||
@@ -631,12 +675,14 @@ const EmailDetails = ({
     setIsSnoozing(true);
     try {
       const targetFolder = email?.folderName || getFolder();
-      if (snoozeAction) {
-        await snoozeAction(targetUid || email?.uid, isoDate, targetFolder);
-      }
+      setIsLocallySnoozed(true);
+      setLocalSnoozeUntil(isoDate);
       setShowSnooze(false);
       setCustomSnooze(false);
-      if (handleClose) {
+      if (snoozeAction) {
+        await snoozeAction(targetUid || email?.uid || email?.id, isoDate, targetFolder);
+      }
+      if (handleClose && !isSnoozedMode) {
         handleClose();
       }
     } catch (err) {
@@ -979,7 +1025,7 @@ const EmailDetails = ({
     // Later today: 6 PM today (or +3 hours if past 5 PM)
     const laterToday = new Date(now);
     if (now.getHours() >= 17) {
-      laterToday.setHours(now.getHours() + 3);
+      laterToday.setHours(now.getHours() + 3, 0, 0, 0);
     } else {
       laterToday.setHours(18, 0, 0, 0);
     }
@@ -989,24 +1035,16 @@ const EmailDetails = ({
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(8, 0, 0, 0);
 
-    // Later this week: Thursday 8 AM (if today is Mon/Tue/Wed), else +2 days 8 AM
-    const laterThisWeek = new Date(now);
-    if (now.getDay() < 4) {
-      laterThisWeek.setDate(now.getDate() + (4 - now.getDay()));
-    } else {
-      laterThisWeek.setDate(now.getDate() + 2);
-    }
-    laterThisWeek.setHours(8, 0, 0, 0);
-
     // This weekend: Saturday 8 AM
     const thisWeekend = new Date(now);
-    const daysToSaturday = 6 - now.getDay();
-    thisWeekend.setDate(now.getDate() + (daysToSaturday === 0 ? 7 : daysToSaturday));
+    let daysToSaturday = 6 - now.getDay();
+    if (daysToSaturday <= 0) daysToSaturday += 7;
+    thisWeekend.setDate(now.getDate() + daysToSaturday);
     thisWeekend.setHours(8, 0, 0, 0);
 
     // Next week: Monday 8 AM
     const nextWeek = new Date(now);
-    const daysToMonday = (8 - now.getDay()) % 7 || 7;
+    let daysToMonday = (8 - now.getDay()) % 7 || 7;
     nextWeek.setDate(now.getDate() + daysToMonday);
     nextWeek.setHours(8, 0, 0, 0);
 
@@ -1017,11 +1055,10 @@ const EmailDetails = ({
     };
 
     return [
-      { label: "Later today", time: laterToday, display: formatTime(laterToday), icon: <MdToday size={18} className="text-amber-500" /> },
-      { label: "Tomorrow", time: tomorrow, display: formatTime(tomorrow), icon: <MdWbSunny size={18} className="text-yellow-500" /> },
-      { label: "Later this week", time: laterThisWeek, display: formatTime(laterThisWeek), icon: <MdEvent size={18} className="text-indigo-500" /> },
-      { label: "This weekend", time: thisWeekend, display: formatTime(thisWeekend), icon: <MdNightsStay size={18} className="text-purple-500" /> },
-      { label: "Next week", time: nextWeek, display: formatTime(nextWeek), icon: <MdUpdate size={18} className="text-emerald-500" /> },
+      { label: "Later today", time: laterToday, display: formatTime(laterToday), icon: <MdToday size={18} className="text-amber-500 shrink-0" /> },
+      { label: "Tomorrow", time: tomorrow, display: formatTime(tomorrow), icon: <MdWbSunny size={18} className="text-yellow-500 shrink-0" /> },
+      { label: "This weekend", time: thisWeekend, display: formatTime(thisWeekend), icon: <MdNightsStay size={18} className="text-purple-500 shrink-0" /> },
+      { label: "Next week", time: nextWeek, display: formatTime(nextWeek), icon: <MdUpdate size={18} className="text-emerald-500 shrink-0" /> },
     ];
   };
 
@@ -1315,29 +1352,171 @@ const EmailDetails = ({
           </button>
 
           {!isTrashMode && !isSpamMode && (
-            <button
-              onClick={() => {
-                const targetUid = email?.uid ?? email?.id;
-                const targetFolder = email?.folderName || currentFolder;
-                if (onStar) {
-                  onStar(targetUid, targetFolder);
-                } else if (handleToggleStar) {
-                  handleToggleStar(targetUid, targetFolder);
-                }
-              }}
-              className="p-2 rounded-full cursor-pointer"
-              title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
-              aria-label={isStarred ? "Unstar email" : "Star email"}
-            >
-              <MdStar
-                size={20}
-                className={
-                  isStarred
-                    ? "text-yellow-500 fill-current drop-shadow-sm"
-                    : "text-gray-400 dark:text-gray-500"
-                }
-              />
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  const targetUid = email?.uid ?? email?.id;
+                  const targetFolder = email?.folderName || currentFolder;
+                  if (onStar) {
+                    onStar(targetUid, targetFolder);
+                  } else if (handleToggleStar) {
+                    handleToggleStar(targetUid, targetFolder);
+                  }
+                }}
+                className="p-2 rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
+                aria-label={isStarred ? "Unstar email" : "Star email"}
+              >
+                <MdStar
+                  size={20}
+                  className={
+                    isStarred
+                      ? "text-yellow-500 fill-current drop-shadow-sm"
+                      : "text-gray-400 dark:text-gray-500"
+                  }
+                />
+              </button>
+
+              <div className="relative" ref={snoozeRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSnooze((prev) => !prev);
+                    setCustomSnooze(false);
+                  }}
+                  className={`p-2 rounded-full cursor-pointer transition-colors relative flex items-center justify-center ${
+                    isSnoozed
+                      ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                      : "text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10"
+                  }`}
+                  title={isSnoozed ? (snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed") : t("common.snooze", "Snooze")}
+                  aria-label={isSnoozed ? "Email is snoozed" : "Snooze email"}
+                >
+                  <MdAccessTime size={20} className={isSnoozed ? "text-blue-600 dark:text-blue-400" : ""} />
+                  {isSnoozed && (
+                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 ring-2 ring-white dark:ring-neutral-900" />
+                  )}
+                </button>
+
+                {showSnooze && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSnooze(false);
+                        setCustomSnooze(false);
+                      }}
+                    />
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-0 top-full mt-2 w-64 sm:w-72 rounded-xl shadow-2xl z-50 border bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 overflow-hidden text-sm flex flex-col py-1.5 animate-fadeIn select-none"
+                    >
+                      <div className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between">
+                        <span className="truncate">
+                          {isSnoozed ? (snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed") : "Snooze until..."}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSnooze(false);
+                            setCustomSnooze(false);
+                          }}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer p-0.5 ml-2"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {customSnooze ? (
+                        <div className="p-4 flex flex-col gap-3">
+                          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                            Pick date & time
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={customDateTime}
+                            min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                            onChange={(e) => setCustomDateTime(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <div className="flex gap-2 justify-end mt-2">
+                            <button
+                              type="button"
+                              onClick={() => setCustomSnooze(false)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                            >
+                              Back
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isSnoozing}
+                              onClick={() => {
+                                if (!customDateTime) {
+                                  toast.error("Please select a valid date and time.");
+                                  return;
+                                }
+                                const dateObj = new Date(customDateTime);
+                                if (isNaN(dateObj.getTime()) || dateObj <= new Date()) {
+                                  toast.error("Please select a future date and time.");
+                                  return;
+                                }
+                                handleSnoozeOption(email?.uid ?? email?.id, dateObj.toISOString());
+                              }}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20 disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                              {isSnoozing ? "Saving..." : "Save"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {getSnoozeOptions().map((opt, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              disabled={isSnoozing}
+                              onClick={() => {
+                                handleSnoozeOption(email?.uid ?? email?.id, opt.time.toISOString());
+                              }}
+                              className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center justify-between gap-3 cursor-pointer transition-colors disabled:opacity-50"
+                            >
+                              <div className="flex items-center gap-3 truncate">
+                                {opt.icon}
+                                <span className="text-gray-800 dark:text-gray-200 font-medium truncate">
+                                  {opt.label}
+                                </span>
+                              </div>
+                              <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                                {opt.display}
+                              </span>
+                            </button>
+                          ))}
+
+                          <div className="border-t border-gray-100 dark:border-neutral-800 my-1" />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomSnooze(true);
+                              const defaultCustom = new Date();
+                              defaultCustom.setDate(defaultCustom.getDate() + 1);
+                              defaultCustom.setHours(8, 0, 0, 0);
+                              const localIso = new Date(defaultCustom.getTime() - defaultCustom.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                              setCustomDateTime(localIso);
+                            }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center gap-3 cursor-pointer transition-colors text-blue-600 dark:text-blue-400 font-medium text-xs sm:text-sm"
+                          >
+                            <MdDateRange size={18} className="shrink-0" />
+                            <span>Pick date & time</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -1352,7 +1531,13 @@ const EmailDetails = ({
           >
             {email.subject || "(No Subject)"}
           </h1>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isSnoozed && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs">
+                <MdAccessTime size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>{snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed"}</span>
+              </span>
+            )}
             {localLabels?.map((label) => {
               const labelId = typeof label === 'string' ? label : (label.id || label.name);
               const labelName = typeof label === 'string' ? label : (label.name || label.id);
