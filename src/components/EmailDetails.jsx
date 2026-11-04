@@ -333,6 +333,9 @@ const EmailDetails = ({
   }, [email, onReply, onForward, onArchive, onDelete, onBack, onClose]);
 
   const snoozeRef = React.useRef(null);
+  const snoozeButtonRef = React.useRef(null);
+  const snoozeDropdownRef = React.useRef(null);
+  const [snoozeCoords, setSnoozeCoords] = useState({ top: 0, right: 0 });
   const labelsRef = React.useRef(null);
 
   const normalizeEmail = (addr) => {
@@ -654,7 +657,16 @@ const EmailDetails = ({
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (snoozeRef.current && !snoozeRef.current.contains(e.target)) {
+      if (
+        snoozeButtonRef.current &&
+        snoozeButtonRef.current.contains(e.target)
+      ) {
+        return;
+      }
+      if (
+        snoozeDropdownRef.current &&
+        !snoozeDropdownRef.current.contains(e.target)
+      ) {
         setShowSnooze(false);
         setCustomSnooze(false);
       }
@@ -662,13 +674,74 @@ const EmailDetails = ({
         setShowLabels(false);
       }
     };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowSnooze(false);
+        setCustomSnooze(false);
+        setShowLabels(false);
+      }
+    };
     if (showSnooze || showLabels) {
       document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("keydown", handleKeyDown);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [showSnooze, showLabels]);
+
+  useEffect(() => {
+    if (!showSnooze) return;
+    const updatePosition = () => {
+      if (snoozeButtonRef.current) {
+        const rect = snoozeButtonRef.current.getBoundingClientRect();
+        const menuHeight = 320;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        let topPosition;
+        if (spaceBelow < menuHeight && rect.top > menuHeight) {
+          topPosition = rect.top - menuHeight - 4;
+        } else {
+          topPosition = rect.bottom + 6;
+        }
+        const rightPosition = Math.max(12, window.innerWidth - rect.right);
+        setSnoozeCoords({ top: topPosition, right: rightPosition });
+      }
+    };
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [showSnooze]);
+
+  const handleToggleSnooze = (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (showSnooze) {
+      setShowSnooze(false);
+      setCustomSnooze(false);
+      return;
+    }
+    if (snoozeButtonRef.current) {
+      const rect = snoozeButtonRef.current.getBoundingClientRect();
+      const menuHeight = 320;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      let topPosition;
+      if (spaceBelow < menuHeight && rect.top > menuHeight) {
+        topPosition = rect.top - menuHeight - 4;
+      } else {
+        topPosition = rect.bottom + 6;
+      }
+      const rightPosition = Math.max(12, window.innerWidth - rect.right);
+      setSnoozeCoords({ top: topPosition, right: rightPosition });
+    }
+    setShowSnooze(true);
+    setCustomSnooze(false);
+  };
 
   const handleSnoozeOption = async (targetUid, isoDate) => {
     if (isSnoozing) return;
@@ -1394,11 +1467,9 @@ const EmailDetails = ({
 
               <div className="relative" ref={snoozeRef}>
                 <button
+                  ref={snoozeButtonRef}
                   type="button"
-                  onClick={() => {
-                    setShowSnooze((prev) => !prev);
-                    setCustomSnooze(false);
-                  }}
+                  onClick={handleToggleSnooze}
                   className={`p-2 rounded-full cursor-pointer transition-colors relative flex items-center justify-center ${
                     isSnoozed
                       ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50"
@@ -1413,10 +1484,10 @@ const EmailDetails = ({
                   )}
                 </button>
 
-                {showSnooze && (
+                {showSnooze && typeof document !== "undefined" && createPortal(
                   <>
                     <div
-                      className="fixed inset-0 z-40"
+                      className="fixed inset-0 z-[99998]"
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowSnooze(false);
@@ -1424,8 +1495,14 @@ const EmailDetails = ({
                       }}
                     />
                     <div
+                      ref={snoozeDropdownRef}
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute right-0 top-full mt-2 w-64 sm:w-72 rounded-xl shadow-2xl z-50 border bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 overflow-hidden text-sm flex flex-col py-1.5 animate-fadeIn select-none"
+                      style={{
+                        position: "fixed",
+                        top: `${snoozeCoords.top}px`,
+                        right: `${snoozeCoords.right}px`,
+                      }}
+                      className="w-64 sm:w-72 rounded-xl shadow-2xl z-[99999] border bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 overflow-hidden text-sm flex flex-col py-1.5 animate-fadeIn select-none"
                     >
                       <div className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between">
                         <span>Snooze until...</span>
@@ -1526,7 +1603,8 @@ const EmailDetails = ({
                         </>
                       )}
                     </div>
-                  </>
+                  </>,
+                  document.body
                 )}
               </div>
             </>
