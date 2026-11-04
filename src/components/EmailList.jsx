@@ -65,6 +65,11 @@ const EmailList = ({
     location.pathname === '/sent' ||
     location.pathname?.startsWith('/sent/')
   );
+  const isSnoozedFolder = Boolean(
+    currentFolder?.toLowerCase() === 'snoozed' ||
+    location.pathname === '/snoozed' ||
+    location.pathname?.startsWith('/snoozed/')
+  );
   const snoozeAction = onSnooze || contextHandleSnooze;
 
   const [snoozeOpenUid, setSnoozeOpenUid] = useState(null);
@@ -127,9 +132,10 @@ const EmailList = ({
     nextWeek.setHours(8, 0, 0, 0);
 
     const formatTime = (d) => {
-      const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      const dateStr = d.toLocaleDateString([], { weekday: 'short' });
-      return `${dateStr}, ${timeStr}`;
+      const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
+      const hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${weekday}, ${hours}:${minutes}`;
     };
 
     return [
@@ -495,12 +501,21 @@ const EmailList = ({
                   )}
 
                   {/* Date / Hover Actions */}
-                  <div className={`w-14 sm:w-20 shrink-0 text-right relative flex justify-end items-center h-full ${snoozeOpenUid === email.uid ? 'z-50' : 'z-10'}`}>
+                  <div className={`${isSnoozedFolder ? 'min-w-[70px] sm:min-w-[110px]' : 'w-14 sm:w-20'} shrink-0 text-right relative flex justify-end items-center h-full ${snoozeOpenUid === email.uid ? 'z-50' : 'z-10'}`}>
                     <span
                       className={`text-xs whitespace-nowrap transition-opacity duration-100 group-hover:opacity-0 ${isUnread ? "font-bold text-primary" : "text-gray-400 dark:text-gray-500"
                         }`}
                     >
                       {(() => {
+                        const snoozeTarget = isSnoozedFolder && (email.wakeUpAt || email.snoozedUntil || email.snoozeUntil);
+                        if (snoozeTarget) {
+                          const sParsed = new Date(snoozeTarget);
+                          if (!isNaN(sParsed.getTime())) {
+                            const timeStr = sParsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                            const dateStr = sParsed.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                            return `${dateStr}, ${timeStr}`;
+                          }
+                        }
                         const raw = email.receivedDate || email.sentDate || email.date || email.createdAt || email.timestamp;
                         if (!raw) return "";
                         const parsed = new Date(raw);

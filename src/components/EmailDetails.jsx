@@ -682,7 +682,7 @@ const EmailDetails = ({
       if (snoozeAction) {
         await snoozeAction(targetUid || email?.uid || email?.id, isoDate, targetFolder);
       }
-      if (handleClose && !isSnoozedMode) {
+      if (handleClose) {
         handleClose();
       }
     } catch (err) {
@@ -1035,6 +1035,19 @@ const EmailDetails = ({
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(8, 0, 0, 0);
 
+    // Later this week: Friday 8 AM (if Mon-Wed), else +2 days 8 AM
+    const laterThisWeek = new Date(now);
+    if (now.getDay() >= 1 && now.getDay() <= 3) {
+      laterThisWeek.setDate(now.getDate() + (5 - now.getDay()));
+    } else if (now.getDay() === 4) {
+      laterThisWeek.setDate(now.getDate() + 1);
+    } else {
+      let daysToFri = (5 - now.getDay() + 7) % 7;
+      if (daysToFri <= 0) daysToFri += 7;
+      laterThisWeek.setDate(now.getDate() + daysToFri);
+    }
+    laterThisWeek.setHours(8, 0, 0, 0);
+
     // This weekend: Saturday 8 AM
     const thisWeekend = new Date(now);
     let daysToSaturday = 6 - now.getDay();
@@ -1049,14 +1062,16 @@ const EmailDetails = ({
     nextWeek.setHours(8, 0, 0, 0);
 
     const formatTime = (d) => {
-      const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      const dateStr = d.toLocaleDateString([], { weekday: 'short' });
-      return `${dateStr}, ${timeStr}`;
+      const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
+      const hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${weekday}, ${hours}:${minutes}`;
     };
 
     return [
       { label: "Later today", time: laterToday, display: formatTime(laterToday), icon: <MdToday size={18} className="text-amber-500 shrink-0" /> },
       { label: "Tomorrow", time: tomorrow, display: formatTime(tomorrow), icon: <MdWbSunny size={18} className="text-yellow-500 shrink-0" /> },
+      { label: "Later this week", time: laterThisWeek, display: formatTime(laterThisWeek), icon: <MdEvent size={18} className="text-indigo-500 shrink-0" /> },
       { label: "This weekend", time: thisWeekend, display: formatTime(thisWeekend), icon: <MdNightsStay size={18} className="text-purple-500 shrink-0" /> },
       { label: "Next week", time: nextWeek, display: formatTime(nextWeek), icon: <MdUpdate size={18} className="text-emerald-500 shrink-0" /> },
     ];
@@ -1413,9 +1428,7 @@ const EmailDetails = ({
                       className="absolute right-0 top-full mt-2 w-64 sm:w-72 rounded-xl shadow-2xl z-50 border bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 overflow-hidden text-sm flex flex-col py-1.5 animate-fadeIn select-none"
                     >
                       <div className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between">
-                        <span className="truncate">
-                          {isSnoozed ? (snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed") : "Snooze until..."}
-                        </span>
+                        <span>Snooze until...</span>
                         <button
                           type="button"
                           onClick={() => {
@@ -1431,7 +1444,7 @@ const EmailDetails = ({
                       {customSnooze ? (
                         <div className="p-4 flex flex-col gap-3">
                           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                            Pick date & time
+                            Select date & time
                           </label>
                           <input
                             type="datetime-local"
@@ -1505,10 +1518,10 @@ const EmailDetails = ({
                               const localIso = new Date(defaultCustom.getTime() - defaultCustom.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
                               setCustomDateTime(localIso);
                             }}
-                            className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center gap-3 cursor-pointer transition-colors text-blue-600 dark:text-blue-400 font-medium text-xs sm:text-sm"
+                            className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center gap-3 cursor-pointer transition-colors text-blue-500 dark:text-blue-400 font-medium text-xs sm:text-sm"
                           >
                             <MdDateRange size={18} className="shrink-0" />
-                            <span>Pick date & time</span>
+                            <span>Select date & time</span>
                           </button>
                         </>
                       )}
