@@ -4,6 +4,7 @@ import { MdSend, MdAttachFile, MdDeleteOutline, MdClose, MdAssignment } from "re
 import { mailAPI, userAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
+import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
 import { useAuth } from "../context/AuthContext";
 import { DEFAULT_TEMPLATES } from "./Templates";
 import { handleStandardInputAutoCorrect } from "../utils/autoCorrect";
@@ -44,6 +45,7 @@ const getFontSizeCss = (size) => {
 };
 
 const ComposePage = () => {
+  const { sentNotifications } = useNotificationPreferences();
   useEffect(() => {
     const handleTextStyleChanged = (e) => {
       if (e.detail) {
@@ -346,7 +348,7 @@ const ComposePage = () => {
       const response = await mailAPI.send(payload);
 
       if (response.data?.success) {
-        setSuccess("Email sent successfully");
+        if (sentNotifications) setSuccess("Email sent successfully");
         recordSentRecipient(user?.email, formData.to);
         if (formData.cc) recordSentRecipient(user?.email, formData.cc);
         if (formData.bcc) recordSentRecipient(user?.email, formData.bcc);

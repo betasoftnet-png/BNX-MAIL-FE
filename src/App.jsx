@@ -8,6 +8,7 @@ import { MailProvider } from "./context/MailContext";
 import { SocketProvider } from "./context/SocketContext";
 import { SignupProvider } from "./context/SignupContext";
 import { LanguageProvider } from "./context/LanguageContext";
+import { NotificationPreferenceProvider } from "./context/NotificationPreferenceContext";
 
 /* Layout */
 import NavBar from "./components/NavBar";
@@ -379,7 +380,8 @@ const App = () => (
   <ThemeProvider>
     <AuthProvider>
     <LanguageProvider>
-      <MailProvider>
+      <NotificationPreferenceProvider>
+        <MailProvider>
         <SocketProvider>
           <SignupProvider>
             <Router>
@@ -476,7 +478,8 @@ const App = () => (
             </Router>
           </SignupProvider>
         </SocketProvider>
-      </MailProvider>
+        </MailProvider>
+      </NotificationPreferenceProvider>
       </LanguageProvider>
     </AuthProvider>
   </ThemeProvider>

@@ -6,6 +6,7 @@ import { useTheme } from './ThemeContext';
 import { filterDuplicateSpamEmails } from '../utils/spamFilter';
 import { matchesDateRange } from '../utils/dateFilter';
 import toast from 'react-hot-toast';
+import { useNotificationPreferences } from './NotificationPreferenceContext';
 import UndoDeleteToast from '../components/UndoDeleteToast';
 import {
     getStoredStarredIds,
@@ -79,6 +80,11 @@ const MailContext = createContext();
 export const MailProvider = ({ children }) => {
     const { user } = useAuth();
     const { emailsPerPage: limit } = useTheme();
+    const notifPrefs = useNotificationPreferences();
+    const notifPrefsRef = useRef(notifPrefs);
+    useEffect(() => {
+        notifPrefsRef.current = notifPrefs;
+    }, [notifPrefs]);
     const [emails, setEmails] = useState([]);
     const emailsRef = useRef(emails);
     useEffect(() => {
@@ -1305,6 +1311,27 @@ export const MailProvider = ({ children }) => {
             if (hasPastDueScheduled && cur !== 'sent') {
                 fetchEmailsSilently('sent');
             }
+
+            // Check if any snoozed emails have reached wake-up time
+            if (pagesCache.current?.['snoozed']) {
+                const nowTime = Date.now();
+                Object.values(pagesCache.current['snoozed']).forEach(pageList => {
+                    if (Array.isArray(pageList)) {
+                        pageList.forEach(item => {
+                            const wakeTime = item.wakeUpAt ? new Date(item.wakeUpAt).getTime() : 0;
+                            if (wakeTime > 0 && wakeTime <= nowTime && !item._wakeNotified) {
+                                item._wakeNotified = true;
+                                if (notifPrefsRef.current?.snoozedNotifications) {
+                                    toast(`Snoozed email "${item.subject || 'Reminder'}" is now active in Inbox`, { icon: '⏰', id: `snooze-wake-${item.uid || item.id}` });
+                                }
+                                invalidateCache('inbox');
+                                invalidateCache('snoozed');
+                                fetchEmailsSilently('inbox');
+                            }
+                        });
+                    }
+                });
+            }
         };
 
         const interval = setInterval(syncAllMailStatus, 15000);
@@ -1580,6 +1607,11 @@ export const MailProvider = ({ children }) => {
         window.dispatchEvent(new CustomEvent('bnx-starred-updated', {
             detail: { uid: strUid, folder: emailFolder, starred: nextStarred }
         }));
+
+        if (nextStarred && notifPrefsRef.current?.starredNotifications) {
+            const subjectSnippet = targetEmail?.subject ? ` "${targetEmail.subject.slice(0, 25)}${targetEmail.subject.length > 25 ? '...' : ''}"` : '';
+            toast.success(`Email${subjectSnippet} added to Starred`, { id: `starred-${strUid}`, icon: '⭐' });
+        }
 
         // 6. Persist star status in backend database via existing API (skip frontend-only scheduled folder)
         if (targetFolder !== 'scheduled' && emailFolder !== 'scheduled') {
@@ -2028,7 +2060,7 @@ export const MailProvider = ({ children }) => {
 
         try {
             await mailAPI.snooze(uid, wakeUpAt, targetFolder);
-            if (!silent) toast.success('Snoozed email');
+            if (!silent && notifPrefsRef.current?.snoozedNotifications) toast.success('Snoozed email');
             return true;
         } catch (error) {
             console.error('Failed to snooze email:', error);

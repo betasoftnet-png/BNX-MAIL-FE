@@ -34,6 +34,7 @@ import {
 import { mailAPI, api, userAPI, signatureAPI, casboxAPI, settingsAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
+import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../context/LanguageContext";
 import { DEFAULT_TEMPLATES } from "../pages/Templates";
@@ -317,6 +318,7 @@ const ComposeWindow = ({
     isEmailStarred
   } = useMail();
 
+  const { sentNotifications } = useNotificationPreferences();
   const composeData = initialData;
   const closeCompose = onClose;
   const isComposeOpen = true;
@@ -1715,7 +1717,11 @@ const ComposeWindow = ({
           if (delaySeconds > 0) {
             toast.dismiss(tid);
           } else {
-            toast.success("Message sent.", { id: tid, duration: 4000 });
+            if (sentNotifications) {
+              toast.success("Message sent.", { id: tid, duration: 4000 });
+            } else if (tid) {
+              toast.dismiss(tid);
+            }
             closeCompose();
           }
 
@@ -1770,7 +1776,7 @@ const ComposeWindow = ({
       // Fake instant send by closing compose immediately
       closeCompose();
       
-      const toastId = toast((t) => (
+      const toastId = sentNotifications ? toast((t) => (
         <div className="flex items-center justify-between gap-6 w-full min-w-[250px] text-sm text-black">
           <span>Message sent.</span>
           <button
@@ -1794,7 +1800,7 @@ const ComposeWindow = ({
           padding: '12px 24px',
           boxShadow: '0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15)'
         }
-      });
+      }) : null;
 
       setTimeout(() => {
         if (isUndone) {
@@ -1815,7 +1821,7 @@ const ComposeWindow = ({
         executeSend(toastId);
       }, delaySeconds * 1000);
     } else {
-      const toastId = toast.loading("Sending email...", { position: "bottom-center" });
+      const toastId = sentNotifications ? toast.loading("Sending email...", { position: "bottom-center" }) : null;
       executeSend(toastId);
     }
   };

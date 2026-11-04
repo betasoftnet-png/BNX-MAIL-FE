@@ -165,6 +165,8 @@ const Settings = () => {
   const [sentNotifications, setSentNotifications] = useState(false);
   const [starredNotifications, setStarredNotifications] = useState(true);
   const [snoozedNotifications, setSnoozedNotifications] = useState(true);
+  const [updatingNotificationKey, setUpdatingNotificationKey] = useState(null);
+  const notifPreferencesContext = useNotificationPreferences();
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [quietHoursEnabled, setQuietHoursEnabled] = useState(false);
@@ -1101,6 +1103,50 @@ const Settings = () => {
     }
   };
 
+  const handleToggleNotificationPreference = async (key, newValue) => {
+    if (updatingNotificationKey) return;
+    const prevValues = {
+      inboxNotifications,
+      sentNotifications,
+      starredNotifications,
+      snoozedNotifications,
+    };
+    const prevValue = prevValues[key];
+    if (key === 'inboxNotifications') setInboxNotifications(newValue);
+    if (key === 'sentNotifications') setSentNotifications(newValue);
+    if (key === 'starredNotifications') setStarredNotifications(newValue);
+    if (key === 'snoozedNotifications') setSnoozedNotifications(newValue);
+    setUpdatingNotificationKey(key);
+    try {
+      const res = await userAPI.updateSettings({ [key]: newValue });
+      if (res.status === 200 || res.data?.success) {
+        window.dispatchEvent(new CustomEvent('bnx_notification_settings_changed', {
+          detail: { key, value: newValue }
+        }));
+        if (notifPreferencesContext?.updatePreference) {
+          notifPreferencesContext.updatePreference(key, newValue);
+        }
+        const labelMap = {
+          inboxNotifications: 'Inbox mail alerts',
+          sentNotifications: 'Sent confirmation alerts',
+          starredNotifications: 'Starred email alerts',
+          snoozedNotifications: 'Snoozed email alerts'
+        };
+        toast.success(`${labelMap[key] || 'Notification preference'} ${newValue ? 'enabled' : 'disabled'}`);
+      } else {
+        throw new Error(res.data?.message || 'Failed to update notification preference');
+      }
+    } catch (err) {
+      if (key === 'inboxNotifications') setInboxNotifications(prevValue);
+      if (key === 'sentNotifications') setSentNotifications(prevValue);
+      if (key === 'starredNotifications') setStarredNotifications(prevValue);
+      if (key === 'snoozedNotifications') setSnoozedNotifications(prevValue);
+      toast.error(err.response?.data?.message || err.message || 'Failed to update setting');
+    } finally {
+      setUpdatingNotificationKey(null);
+    }
+  };
+
   const handleSaveNotificationSettings = async (e) => {
     e.preventDefault();
     if (savingRef.current) return;
@@ -1925,10 +1971,10 @@ const Settings = () => {
                 {/* Notifications triggers */}
                 <div className="flex flex-col gap-4">
                   <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t("settings.folders_subscriptions", "Folders & Subscriptions")}</h4>
-                  <ToggleRow label={t("settings.inbox_alerts", "Inbox Mail Alerts")} checked={inboxNotifications} onChange={setInboxNotifications} theme={theme} />
-                  <ToggleRow label={t("settings.sent_alerts", "Sent Confirmation Alerts")} checked={sentNotifications} onChange={setSentNotifications} theme={theme} />
-                  <ToggleRow label={t("settings.starred_alerts", "Starred Email Alerts")} checked={starredNotifications} onChange={setStarredNotifications} theme={theme} />
-                  <ToggleRow label={t("settings.snoozed_alerts", "Snoozed Email Alerts")} checked={snoozedNotifications} onChange={setSnoozedNotifications} theme={theme} />
+                  <ToggleRow label={t("settings.inbox_alerts", "Inbox Mail Alerts")} checked={inboxNotifications} disabled={updatingNotificationKey === "inboxNotifications"} onChange={(val) => handleToggleNotificationPreference("inboxNotifications", val)} theme={theme} />
+                  <ToggleRow label={t("settings.sent_alerts", "Sent Confirmation Alerts")} checked={sentNotifications} disabled={updatingNotificationKey === "sentNotifications"} onChange={(val) => handleToggleNotificationPreference("sentNotifications", val)} theme={theme} />
+                  <ToggleRow label={t("settings.starred_alerts", "Starred Email Alerts")} checked={starredNotifications} disabled={updatingNotificationKey === "starredNotifications"} onChange={(val) => handleToggleNotificationPreference("starredNotifications", val)} theme={theme} />
+                  <ToggleRow label={t("settings.snoozed_alerts", "Snoozed Email Alerts")} checked={snoozedNotifications} disabled={updatingNotificationKey === "snoozedNotifications"} onChange={(val) => handleToggleNotificationPreference("snoozedNotifications", val)} theme={theme} />
                 </div>
 
                 <div className="flex flex-col gap-4 border-t pt-6" style={{ borderColor: theme.border }}>
@@ -3072,13 +3118,14 @@ const Section = ({ title, children, theme }) => (
   </div>
 );
 
-const ToggleRow = ({ label, checked, onChange, theme }) => (
+const ToggleRow = ({ label, checked, onChange, theme, disabled = false }) => (
   <div className="flex items-center justify-between py-3">
     <span className="text-sm font-medium" style={{ color: theme.text }}>{label}</span>
     <button
       type="button"
-      onClick={() => onChange(!checked)}
-      className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 outline-none cursor-pointer flex items-center ${checked ? 'justify-end' : 'justify-start'}`}
+      disabled={disabled}
+      onClick={() => !disabled && onChange(!checked)}
+      className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 outline-none flex items-center ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${checked ? 'justify-end' : 'justify-start'}`}
       style={{ backgroundColor: checked ? theme.accent : 'rgba(156,163,175,0.4)' }}
     >
       <span className="w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300" />

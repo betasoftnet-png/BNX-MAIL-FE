@@ -4,6 +4,7 @@ import SockJS from 'sockjs-client';
 import { useAuth } from './AuthContext';
 import { useMail } from './MailContext';
 import toast from 'react-hot-toast';
+import { useNotificationPreferences } from './NotificationPreferenceContext';
 
 const SocketContext = createContext();
 
@@ -54,12 +55,20 @@ export const SocketProvider = ({ children }) => {
     const messageQueueRef = useRef([]);
     const isAuthenticatedRef = useRef(isAuthenticated);
     isAuthenticatedRef.current = isAuthenticated;
+    const notifPrefs = useNotificationPreferences();
+    const notifPrefsRef = useRef(notifPrefs);
+    useEffect(() => {
+        notifPrefsRef.current = notifPrefs;
+    }, [notifPrefs]);
 
     const handlePersonalNotification = (data) => {
         const { fetchEmails, fetchEmailsSilently, invalidateCache, currentFolder } = mailRef.current || {};
+        const { inboxNotifications = true, sentNotifications = false, starredNotifications = true, snoozedNotifications = true } = notifPrefsRef.current || {};
         switch (data?.type) {
             case 'new_email':
-                toast('New email received!', { icon: '📧' });
+                if (inboxNotifications) {
+                    toast('New email received!', { icon: '📧' });
+                }
                 if (invalidateCache) {
                     invalidateCache('inbox');
                     invalidateCache('unread');
@@ -79,7 +88,9 @@ export const SocketProvider = ({ children }) => {
                 break;
             case 'send_progress':
                 if (data.status === 'completed') {
-                    toast.success('Email sent successfully');
+                    if (sentNotifications) {
+                        toast.success('Email sent successfully');
+                    }
                     if (fetchEmails) fetchEmails(undefined, true);
                     if (fetchEmailsSilently) {
                         fetchEmailsSilently('sent');
@@ -89,9 +100,33 @@ export const SocketProvider = ({ children }) => {
                     toast.error('Failed to send email');
                 }
                 break;
+            case 'snooze_wake':
+            case 'snooze_active':
+            case 'snoozed_email':
+                if (snoozedNotifications) {
+                    toast(data?.message || 'Snoozed email is now active in Inbox', { icon: '⏰' });
+                }
+                if (fetchEmails) fetchEmails('inbox', true);
+                break;
+            case 'starred_email':
+                if (starredNotifications) {
+                    toast(data?.message || 'Email added to Starred', { icon: '⭐' });
+                }
+                break;
             default:
                 if (data?.message) {
-                    toast(data.message);
+                    const msg = String(data.message).toLowerCase();
+                    if (msg.includes('sent') && !sentNotifications) {
+                        // Suppressed by sent confirmation preference
+                    } else if (msg.includes('new email') && !inboxNotifications) {
+                        // Suppressed by inbox alert preference
+                    } else if (msg.includes('star') && !starredNotifications) {
+                        // Suppressed by starred alert preference
+                    } else if (msg.includes('snooze') && !snoozedNotifications) {
+                        // Suppressed by snoozed alert preference
+                    } else {
+                        toast(data.message);
+                    }
                 }
         }
     };

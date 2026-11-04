@@ -51,6 +51,7 @@ import {
   MdCheck
 } from "react-icons/md";
 import { useMail } from "../context/MailContext";
+import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
@@ -144,6 +145,7 @@ const EmailDetails = ({
   onNavigate,
 }) => {
   const { theme, readingPaneMode } = useTheme();
+  const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
   const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze, isEmailStarred, handleToggleStar } = useMail();
@@ -920,7 +922,11 @@ const EmailDetails = ({
       }
 
       if (res.data?.success) {
-        toast.success(replyMode === 'forward' ? "Forwarded successfully" : "Reply sent successfully", { id: toastId });
+        if (sentNotifications) {
+          toast.success(replyMode === 'forward' ? "Forwarded successfully" : "Reply sent successfully", { id: toastId });
+        } else {
+          toast.dismiss(toastId);
+        }
         
 
 
