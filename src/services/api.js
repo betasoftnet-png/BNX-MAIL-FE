@@ -274,6 +274,9 @@ export const mailAPI = {
     saveDraft: (data) => api.post(API_ENDPOINTS.MAIL.DRAFTS, data),
     downloadAttachment: (uid, fileName, folder = 'INBOX') => api.get(`/api/mail/${uid}/attachments/${fileName}?folder=${folder}`, { responseType: 'blob' }),
     createDbDraft: (data) => api.post('/api/mail/drafts', data),
+    getDbDrafts: () => api.get('/api/mail/drafts'),
+    getDbDraft: (id) => api.get(`/api/mail/drafts/${id}`),
+    deleteDbDraft: (id) => api.delete(`/api/mail/drafts/${id}`),
     uploadDraftAttachment: (id, formData) => api.post(`/api/mail/drafts/${id}/attachments`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     }),

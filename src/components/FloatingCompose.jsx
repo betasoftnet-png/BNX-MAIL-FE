@@ -16,8 +16,21 @@ import {
   MdFileDownload,
   MdRemoveRedEye,
   MdArrowBack,
-  MdPersonOutline
+  MdPersonOutline,
+  MdInsertDriveFile,
+  MdImage
 } from "react-icons/md";
+import { 
+  saveDraftAttachments, 
+  getDraftAttachments, 
+  removeDraftAttachmentFromStorage, 
+  clearDraftAttachments, 
+  formatFileSize, 
+  isImageFile, 
+  linkDraftUid, 
+  storeInMemoryFile, 
+  getInMemoryFile 
+} from "../utils/draftAttachmentStorage";
 import { mailAPI, api, userAPI, signatureAPI, casboxAPI, settingsAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
@@ -682,33 +695,58 @@ const ComposeWindow = ({
 
       let url = "";
       let textContent = "";
+      const rawBlob = (fileItem?.rawFile instanceof Blob) ? fileItem.rawFile : getInMemoryFile(fileName);
 
-      if (fileItem?.rawFile instanceof Blob) {
-        url = window.URL.createObjectURL(fileItem.rawFile);
+      if (rawBlob instanceof Blob) {
+        url = window.URL.createObjectURL(rawBlob);
         if (mime === "text/plain") {
-          textContent = await fileItem.rawFile.text();
+          textContent = await rawBlob.text();
         }
       } else {
+        const filePath = fileItem?.filePath || fileItem?.url;
         const draftUid = imapDraftUidRef.current || composeData?.draft?.uid;
-        if (draftUid) {
-          const res = await mailAPI.downloadAttachment(draftUid, fileName, "Drafts");
-          const blob = new Blob([res.data], { type: mime });
-          url = window.URL.createObjectURL(blob);
-          if (mime === "text/plain") {
-            const reader = new FileReader();
-            textContent = await new Promise((resolve) => {
-              reader.onload = () => resolve(reader.result);
-              reader.readAsText(blob);
-            });
+
+        if (filePath) {
+          try {
+            const fetchPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+            const res = await api.get(fetchPath, { responseType: 'blob' });
+            const blob = new Blob([res.data], { type: mime || res.headers?.['content-type'] });
+            url = window.URL.createObjectURL(blob);
+            if (mime === "text/plain") {
+              textContent = await blob.text();
+            }
+          } catch (e) {
+            console.warn("Could not fetch file by path, falling back:", e);
           }
-        } else if (fileItem?.url) {
-          const res = await api.get(fileItem.url, { responseType: 'blob' });
-          const blob = new Blob([res.data], { type: mime });
-          url = window.URL.createObjectURL(blob);
-          if (mime === "text/plain") {
-            textContent = await blob.text();
+        }
+
+        if (!url && draftUid) {
+          try {
+            const res = await mailAPI.downloadAttachment(draftUid, fileName, "Drafts");
+            const blob = new Blob([res.data], { type: mime });
+            url = window.URL.createObjectURL(blob);
+            if (mime === "text/plain") {
+              const reader = new FileReader();
+              textContent = await new Promise((resolve) => {
+                reader.onload = () => resolve(reader.result);
+                reader.readAsText(blob);
+              });
+            }
+          } catch (e) {
+            console.warn("Could not download attachment from IMAP draft:", e);
           }
-        } else {
+        }
+
+        if (!url && fileItem?.thumbnailPath) {
+          try {
+            const thumbPath = fileItem.thumbnailPath.startsWith('/') ? fileItem.thumbnailPath : `/${fileItem.thumbnailPath}`;
+            const res = await api.get(thumbPath, { responseType: 'blob' });
+            const blob = new Blob([res.data], { type: 'image/jpeg' });
+            url = window.URL.createObjectURL(blob);
+          } catch (e) {}
+        }
+
+        if (!url) {
           setPreviewFile({
             fileName,
             blobUrl: "",
@@ -726,10 +764,10 @@ const ComposeWindow = ({
         blobUrl: url,
         mimeType: mime,
         textContent,
-        rawFile: fileItem?.rawFile
+        rawFile: rawBlob
       });
       toast.success("Loaded preview", { id: "preview-attachment" });
-    } catch (err) {
+      } catch (err) {
       console.error("Failed to preview attachment:", err);
       toast.error("Failed to preview attachment", { id: "preview-attachment" });
     }
@@ -1117,8 +1155,9 @@ const ComposeWindow = ({
   /* ---------------- PREFILL ON COMPOSE DATA CHANGE ---------------- */
   useEffect(() => {
     if (isComposeOpen) {
-      // Only set initial empty state once when opening
-      if (!signatureInjectedRef.current && signatures.length === 0) {
+      // Only set initial empty state once when opening fresh compose (do not clear when opening existing draft)
+      const isExistingDraft = Boolean(composeData?.draft);
+      if (!signatureInjectedRef.current && signatures.length === 0 && !isExistingDraft) {
         setDraftId(null);
         imapDraftUidRef.current = null;
         initialFormDataRef.current = null;
@@ -1204,16 +1243,50 @@ const ComposeWindow = ({
             initialFormDataRef.current = { ...draftForm };
             if (draftForm.cc && draftForm.cc.trim()) setShowCc(true);
             if (draftForm.bcc && draftForm.bcc.trim()) setShowBcc(true);
-            let loadedAttachments = [];
-            if (Array.isArray(d.attachments) && d.attachments.length > 0) {
-              loadedAttachments = d.attachments.map(att => typeof att === 'string' ? { fileName: att, size: 0 } : att);
-            } else if (d.attachmentsJson) {
-              try {
-                loadedAttachments = JSON.parse(d.attachmentsJson);
-              } catch (e) {}
+            const restored = getDraftAttachments(d);
+            let loadedAttachments = (restored && restored.length > 0) ? restored : [];
+
+            if (loadedAttachments.length === 0) {
+              if (Array.isArray(d.attachments) && d.attachments.length > 0) {
+                loadedAttachments = d.attachments.map(att => typeof att === 'string' ? { fileName: att, size: 0 } : att);
+              } else if (d.attachmentsJson) {
+                try {
+                  loadedAttachments = JSON.parse(d.attachmentsJson);
+                } catch (e) {}
+              }
             }
+
             if (loadedAttachments.length > 0) {
               setAttachments(loadedAttachments);
+            } else {
+              // Asynchronously query database drafts in case attachment details exist in DB
+              mailAPI.getDbDrafts().then((res) => {
+                if (res.data?.success && Array.isArray(res.data.data)) {
+                  const dbDrafts = res.data.data;
+                  const matched = dbDrafts.find((dbd) => {
+                    if (d.id && String(dbd.id) === String(d.id)) return true;
+                    const subMatch = (dbd.subject || '').trim().toLowerCase() === (d.subject || '').trim().toLowerCase();
+                    const toMatch = (dbd.to || '').trim().toLowerCase() === (d.to || '').trim().toLowerCase();
+                    return subMatch && toMatch;
+                  });
+                  if (matched?.attachmentsJson) {
+                    try {
+                      const parsed = JSON.parse(matched.attachmentsJson);
+                      if (Array.isArray(parsed) && parsed.length > 0) {
+                        setAttachments(parsed);
+                        if (!d.id && matched.id) setDraftId(matched.id);
+                        saveDraftAttachments({
+                          draftId: matched.id,
+                          uid: d.uid,
+                          to: d.to,
+                          subject: d.subject,
+                          attachments: parsed,
+                        });
+                      }
+                    } catch (e) {}
+                  }
+                }
+              }).catch(() => {});
             }
           } else {
             isEditingExistingDraftRef.current = false;
@@ -1328,7 +1401,26 @@ const ComposeWindow = ({
         const uploadRes = await mailAPI.uploadDraftAttachment(activeDraftId, fileForm);
         if (uploadRes.data?.success) {
           const info = uploadRes.data.data;
-          setAttachments((prev) => [...prev, { ...info, rawFile: file }]);
+          const newAtt = {
+            ...info,
+            fileName: info.fileName || file.name,
+            size: typeof info.size === 'number' && info.size > 0 ? info.size : file.size,
+            filePath: info.filePath || '',
+            thumbnailPath: info.thumbnailPath || '',
+            rawFile: file
+          };
+          storeInMemoryFile(file.name, file);
+          setAttachments((prev) => {
+            const next = [...prev, newAtt];
+            saveDraftAttachments({
+              draftId: activeDraftId,
+              uid: imapDraftUidRef.current,
+              to: formData.to,
+              subject: formData.subject,
+              attachments: next,
+            });
+            return next;
+          });
           toast.success(`${file.name} uploaded`, { id: "upload-attachment" });
         } else {
           throw new Error(`Failed to upload ${file.name}`);
@@ -1346,17 +1438,39 @@ const ComposeWindow = ({
 
   /* ---------------- ATTACHMENT REMOVAL HANDLER ---------------- */
   const handleRemoveAttachment = async (fileName) => {
-    if (!draftId) return;
-    try {
-      toast.loading(`Removing ${fileName}...`, { id: "remove-attachment" });
-      const res = await mailAPI.removeDraftAttachment(draftId, fileName);
-      if (res.data?.success) {
-        setAttachments((prev) => prev.filter((a) => a.fileName !== fileName));
-        toast.success("Attachment removed", { id: "remove-attachment" });
+    // 1. Immediately update frontend draft state
+    setAttachments((prev) => {
+      const next = prev.filter((a) => (a.fileName || a.name) !== fileName);
+      saveDraftAttachments({
+        draftId,
+        uid: imapDraftUidRef.current,
+        to: formData.to,
+        subject: formData.subject,
+        attachments: next,
+      });
+      return next;
+    });
+
+    removeDraftAttachmentFromStorage({
+      draftId,
+      uid: imapDraftUidRef.current,
+      to: formData.to,
+      subject: formData.subject,
+      fileName,
+    });
+
+    if (draftId) {
+      try {
+        toast.loading(`Removing ${fileName}...`, { id: "remove-attachment" });
+        const res = await mailAPI.removeDraftAttachment(draftId, fileName);
+        if (res.data?.success) {
+          toast.success("Attachment removed", { id: "remove-attachment" });
+        }
+      } catch (err) {
+        console.warn("Failed to remove attachment on server:", err);
       }
-    } catch (err) {
-      console.error("Failed to remove attachment:", err);
-      toast.error("Failed to remove attachment", { id: "remove-attachment" });
+    } else {
+      toast.success("Attachment removed", { id: "remove-attachment" });
     }
   };
 
@@ -1497,6 +1611,13 @@ const ComposeWindow = ({
                 body: bodyToSend,
                 attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : null
             });
+            clearDraftAttachments({
+                draftId,
+                uid: imapDraftUidRef.current,
+                to: formData.to,
+                subject: formData.subject,
+            });
+            setAttachments([]);
             toast.success("Chat message sent.");
             closeCompose();
             window.dispatchEvent(new CustomEvent('casbox_message_sent', { 
@@ -1602,6 +1723,13 @@ const ComposeWindow = ({
           if (formData.cc) recordSentRecipient(user?.email, formData.cc);
           if (formData.bcc) recordSentRecipient(user?.email, formData.bcc);
 
+          clearDraftAttachments({
+            draftId: currentDraftId,
+            uid: currentImapDraftUid || currentDraftUid,
+            to: formData.to,
+            subject: formData.subject,
+          });
+          setAttachments([]);
           imapDraftUidRef.current = null;
           setDraftId(null);
           selectedDraftIdRef.current = null;
@@ -1835,6 +1963,47 @@ const ComposeWindow = ({
         });
       }
 
+      // Persist attachments in frontend storage
+      saveDraftAttachments({
+        draftId,
+        uid: targetUid || targetDraftId,
+        to: formData.to,
+        subject: formData.subject,
+        attachments,
+      });
+
+      if (isExistingDraft && targetDraftId) {
+        if (typeof updateDraftInState === 'function') {
+          updateDraftInState(targetDraftId, {
+            subject: formData.subject || "(No Subject)",
+            to: formData.to || "",
+            recipientEmail: formData.to || "",
+            cc: formData.cc || "",
+            bcc: formData.bcc || "",
+            body: formData.body || "",
+            textPlain: extractPlainTextFromHtml(formData.body || ""),
+            htmlBody: formData.body || "",
+            attachments: attachments,
+            attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : null,
+            hasAttachments: attachments.length > 0,
+          });
+        }
+      }
+
+      if (draftId) {
+        mailAPI.createDbDraft({
+          id: draftId,
+          to: formData.to || "",
+          cc: formData.cc || "",
+          bcc: formData.bcc || "",
+          subject: formData.subject || "(No Subject)",
+          body: getFinalBody(formData.body),
+          isHtml: true,
+          attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : null,
+          attachments: attachments,
+        }).catch(console.warn);
+      }
+
       const safeUid = targetUid && /^\d+$/.test(String(targetUid).trim()) ? String(targetUid).trim() : null;
       const payload = {
         uid: safeUid,
@@ -1842,6 +2011,7 @@ const ComposeWindow = ({
         subject: formData.subject || "(No Subject)",
         body: getFinalBody(formData.body),
         isHtml: true,
+        attachments: attachments,
       };
       if (formData.cc) payload.cc = formData.cc;
       if (formData.bcc) payload.bcc = formData.bcc;
@@ -1850,11 +2020,19 @@ const ComposeWindow = ({
       const savedData = res.data?.data;
       if (savedData && savedData.uid) {
         imapDraftUidRef.current = savedData.uid;
+        linkDraftUid(savedData.uid, draftId, attachments);
         if (targetDraftId && String(savedData.uid) !== String(targetDraftId)) {
           if (typeof updateDraftUidInState === 'function') {
             updateDraftUidInState(targetDraftId, savedData.uid);
           }
           selectedDraftIdRef.current = String(savedData.uid);
+        }
+        if (typeof updateDraftInState === 'function') {
+          updateDraftInState(savedData.uid, {
+            attachments: attachments,
+            attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : null,
+            hasAttachments: attachments.length > 0,
+          });
         }
       }
 
@@ -1903,8 +2081,18 @@ const ComposeWindow = ({
         (formData.cc || '').trim() !== (init.cc || '').trim() ||
         (formData.bcc || '').trim() !== (init.bcc || '').trim() ||
         (formData.subject || '').trim() !== (init.subject || '').trim() ||
-        (formData.body || '').trim() !== (init.body || '').trim()
+        (formData.body || '').trim() !== (init.body || '').trim() ||
+        attachments.length > 0
       );
+
+      // Save attachments in frontend storage
+      saveDraftAttachments({
+        draftId,
+        uid: imapDraftUidRef.current || composeData?.draft?.uid,
+        to: formData.to,
+        subject: formData.subject,
+        attachments,
+      });
 
       if (hasChanged && targetDraftId) {
         // 1. Immediately update only that selected draft in the Drafts list and cache using its unique ID
@@ -1918,13 +2106,29 @@ const ComposeWindow = ({
             body: formData.body || "",
             textPlain: extractPlainTextFromHtml(formData.body || ""),
             htmlBody: formData.body || "",
+            attachments: attachments,
+            attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : null,
+            hasAttachments: attachments.length > 0,
           });
         }
 
-        // 2. Persist to backend without blocking or showing alerts
-        const targetUid = imapDraftUidRef.current ? String(imapDraftUidRef.current) : (composeData?.draft?.uid ? String(composeData.draft.uid) : null);
-        const targetId = draftId || composeData?.draft?.id || null;
+        // 2. Persist to DB draft
+        if (draftId) {
+          mailAPI.createDbDraft({
+            id: draftId,
+            to: formData.to || "",
+            cc: formData.cc || "",
+            bcc: formData.bcc || "",
+            subject: formData.subject || "(No Subject)",
+            body: getFinalBody(formData.body),
+            isHtml: true,
+            attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : null,
+            attachments: attachments,
+          }).catch(console.warn);
+        }
 
+        // 3. Persist to IMAP
+        const targetUid = imapDraftUidRef.current ? String(imapDraftUidRef.current) : (composeData?.draft?.uid ? String(composeData.draft.uid) : null);
         const safeUid = targetUid && /^\d+$/.test(String(targetUid).trim()) ? String(targetUid).trim() : null;
         const payload = {
           uid: safeUid,
@@ -1932,15 +2136,19 @@ const ComposeWindow = ({
           subject: formData.subject || "(No Subject)",
           body: getFinalBody(formData.body),
           isHtml: true,
+          attachments: attachments,
         };
         if (formData.cc) payload.cc = formData.cc;
         if (formData.bcc) payload.bcc = formData.bcc;
 
         mailAPI.saveDraft(payload).then((res) => {
           const savedData = res.data?.data;
-          if (savedData?.uid && String(savedData.uid) !== String(targetDraftId)) {
-            if (typeof updateDraftUidInState === 'function') {
-              updateDraftUidInState(targetDraftId, savedData.uid);
+          if (savedData?.uid) {
+            linkDraftUid(savedData.uid, draftId, attachments);
+            if (String(savedData.uid) !== String(targetDraftId)) {
+              if (typeof updateDraftUidInState === 'function') {
+                updateDraftUidInState(targetDraftId, savedData.uid);
+              }
             }
           }
         }).catch((err) => {
@@ -1953,35 +2161,67 @@ const ComposeWindow = ({
       return;
     }
 
-    // Normal new-compose behavior: save as draft if user typed content
+    // Normal new-compose behavior: save as draft if user typed content or attached files
     const hasContent = Boolean(
       formData.to?.trim() ||
       formData.subject?.trim() ||
       formData.body?.trim() ||
       formData.cc?.trim() ||
-      formData.bcc?.trim()
+      formData.bcc?.trim() ||
+      attachments.length > 0
     );
-    if (hasContent && (composeMode === "mail" || composeMode === "email")) {
-      const payload = {
-        to: formData.to,
-        subject: formData.subject || "(No Subject)",
-        body: getFinalBody(formData.body),
-        isHtml: true,
-      };
-      if (formData.cc) payload.cc = formData.cc;
-      if (formData.bcc) payload.bcc = formData.bcc;
 
-      mailAPI.saveDraft(payload).then(() => {
-        if (invalidateCache) {
-          invalidateCache('draft');
-          invalidateCache('drafts');
-        }
-        if (currentFolder?.toLowerCase() === 'draft' || currentFolder?.toLowerCase() === 'drafts') {
-          fetchEmails('draft', true);
-        } else if (fetchEmailsSilently) {
-          fetchEmailsSilently('drafts');
-        }
-      }).catch(console.error);
+    if (hasContent) {
+      // Save attachments in frontend storage
+      saveDraftAttachments({
+        draftId,
+        uid: imapDraftUidRef.current,
+        to: formData.to,
+        subject: formData.subject,
+        attachments,
+      });
+
+      if (draftId) {
+        mailAPI.createDbDraft({
+          id: draftId,
+          to: formData.to || "",
+          cc: formData.cc || "",
+          bcc: formData.bcc || "",
+          subject: formData.subject || "(No Subject)",
+          body: getFinalBody(formData.body),
+          isHtml: true,
+          attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : null,
+          attachments: attachments,
+        }).catch(console.warn);
+      }
+
+      if (composeMode === "mail" || composeMode === "email") {
+        const payload = {
+          to: formData.to,
+          subject: formData.subject || "(No Subject)",
+          body: getFinalBody(formData.body),
+          isHtml: true,
+          attachments: attachments,
+        };
+        if (formData.cc) payload.cc = formData.cc;
+        if (formData.bcc) payload.bcc = formData.bcc;
+
+        mailAPI.saveDraft(payload).then((res) => {
+          const savedData = res.data?.data;
+          if (savedData?.uid) {
+            linkDraftUid(savedData.uid, draftId, attachments);
+          }
+          if (invalidateCache) {
+            invalidateCache('draft');
+            invalidateCache('drafts');
+          }
+          if (currentFolder?.toLowerCase() === 'draft' || currentFolder?.toLowerCase() === 'drafts') {
+            fetchEmails('draft', true);
+          } else if (fetchEmailsSilently) {
+            fetchEmailsSilently('drafts');
+          }
+        }).catch(console.error);
+      }
     }
     closeCompose();
   };
@@ -1990,6 +2230,13 @@ const ComposeWindow = ({
     if (window.confirm("Discard this email?")) {
       const discDraftId = draftId;
       const discImapUid = imapDraftUidRef.current;
+      clearDraftAttachments({
+        draftId: discDraftId,
+        uid: discImapUid,
+        to: formData.to,
+        subject: formData.subject,
+      });
+      setAttachments([]);
       setDraftId(null);
       imapDraftUidRef.current = null;
       if (discDraftId) {
@@ -2813,41 +3060,70 @@ const ComposeWindow = ({
             />
           </div>
 
-          {/* ATTACHMENT CHIPS RENDERING - FIXED / NON-SHRINKING */}
+          {/* ATTACHMENT CHIPS RENDERING - ROUNDED PILL DESIGN */}
           {attachments.length > 0 && (
-            <div className="shrink-0 flex flex-wrap gap-2 py-2 mt-2 border-t max-h-24 overflow-y-auto" style={{ borderColor: theme.border }}>
-              {attachments.map((file, i) => (
-                <div 
-                  key={file.fileName || i}
-                  className="flex items-center gap-2 bg-black/[0.03] dark:bg-white/[0.04] border px-2.5 py-1 rounded-xl text-xs"
-                  style={{ borderColor: theme.border, color: theme.text }}
-                >
-                  <span 
-                    onClick={() => handlePreviewAttachment(file)}
-                    className="truncate max-w-[150px] cursor-pointer hover:underline text-blue-600 dark:text-blue-400"
-                    title="Click to preview"
+            <div 
+              className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2.5 border-t max-h-28 overflow-y-auto" 
+              style={{ borderColor: theme.border }}
+            >
+              {attachments.map((file, i) => {
+                const fileName = file.fileName || file.name || (typeof file === 'string' ? file : `attachment_${i + 1}`);
+                const fileSize = file.size || (file.rawFile ? file.rawFile.size : 0);
+                const isImg = isImageFile(fileName);
+
+                return (
+                  <div 
+                    key={fileName + i}
+                    className="inline-flex items-center gap-2 bg-[#f3f4f6] dark:bg-[#262626] border border-gray-200 dark:border-neutral-700 px-3.5 py-1.5 rounded-full text-xs shadow-2xs select-none transition-all hover:bg-gray-200/70 dark:hover:bg-neutral-800"
+                    style={{ color: theme.text }}
                   >
-                    {file.fileName}
-                  </span>
-                  <span className="opacity-55 font-medium">({Math.round((file.size || 0) / 1024)} KB)</span>
-                  <button 
-                    type="button" 
-                    onClick={() => handlePreviewAttachment(file)}
-                    className="text-gray-500 hover:text-blue-600 transition-colors p-0.5 rounded cursor-pointer"
-                    title="Preview attachment"
-                  >
-                    <MdRemoveRedEye size={14} />
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => handleRemoveAttachment(file.fileName)}
-                    className="text-red-500 hover:text-red-700 font-bold text-sm leading-none cursor-pointer"
-                    title="Remove attachment"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+                    {/* File / Image Icon on the left */}
+                    <span className="text-gray-500 dark:text-gray-400 shrink-0 flex items-center">
+                      {isImg ? (
+                        <MdImage size={16} className="text-blue-500 dark:text-blue-400" />
+                      ) : (
+                        <MdInsertDriveFile size={16} className="text-gray-500 dark:text-gray-400" />
+                      )}
+                    </span>
+
+                    {/* Original File Name */}
+                    <span 
+                      onClick={() => handlePreviewAttachment(file)}
+                      className="font-medium text-gray-800 dark:text-gray-200 truncate max-w-[180px] cursor-pointer hover:underline"
+                      title={fileName}
+                    >
+                      {fileName}
+                    </span>
+
+                    {/* Formatted File Size (e.g. 251 KB) */}
+                    {fileSize > 0 && (
+                      <span className="text-gray-500 dark:text-gray-400 text-[11px] whitespace-nowrap font-normal">
+                        {formatFileSize(fileSize)}
+                      </span>
+                    )}
+
+                    {/* Eye Icon for Preview */}
+                    <button 
+                      type="button" 
+                      onClick={() => handlePreviewAttachment(file)}
+                      className="text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-0.5 rounded cursor-pointer flex items-center justify-center ml-0.5"
+                      title="Preview attachment"
+                    >
+                      <MdRemoveRedEye size={16} />
+                    </button>
+
+                    {/* Red × Icon to Remove */}
+                    <button 
+                      type="button" 
+                      onClick={() => handleRemoveAttachment(fileName)}
+                      className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors p-0.5 rounded cursor-pointer flex items-center justify-center font-bold"
+                      title="Remove attachment"
+                    >
+                      <MdClose size={16} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 

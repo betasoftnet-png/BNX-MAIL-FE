@@ -9,6 +9,7 @@ import { useTheme } from "../context/ThemeContext";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
+import { getDraftAttachments } from "../utils/draftAttachmentStorage";
 
 const Draft = ({ searchQuery }) => {
   const { t } = useTranslation();
@@ -43,7 +44,13 @@ const Draft = ({ searchQuery }) => {
     const handleBnxOpenEmail = (event) => {
       const emailToOpen = event?.detail?.email;
       if (!emailToOpen) return;
-      openCompose({ draft: { ...emailToOpen } });
+      const restored = getDraftAttachments(emailToOpen);
+      const enrichedEmail = {
+        ...emailToOpen,
+        attachments: (restored && restored.length > 0) ? restored : emailToOpen.attachments,
+        attachmentsJson: (restored && restored.length > 0) ? JSON.stringify(restored) : emailToOpen.attachmentsJson,
+      };
+      openCompose({ draft: enrichedEmail });
     };
     window.addEventListener("bnx-open-email", handleBnxOpenEmail);
     return () => window.removeEventListener("bnx-open-email", handleBnxOpenEmail);
@@ -54,7 +61,13 @@ const Draft = ({ searchQuery }) => {
   );
 
   const handleSelectEmail = (email) => {
-    openCompose({ draft: { ...email } });
+    const restored = getDraftAttachments(email);
+    const enrichedEmail = {
+      ...email,
+      attachments: (restored && restored.length > 0) ? restored : email.attachments,
+      attachmentsJson: (restored && restored.length > 0) ? JSON.stringify(restored) : email.attachmentsJson,
+    };
+    openCompose({ draft: enrichedEmail });
   };
 
   
@@ -68,8 +81,14 @@ const Draft = ({ searchQuery }) => {
   };
 const handleReply = (email) => {
     // Open draft in composer
+    const restored = getDraftAttachments(email);
+    const enrichedEmail = {
+      ...email,
+      attachments: (restored && restored.length > 0) ? restored : email.attachments,
+      attachmentsJson: (restored && restored.length > 0) ? JSON.stringify(restored) : email.attachmentsJson,
+    };
     openCompose({
-      draft: { ...email }
+      draft: enrichedEmail
     });
     setSelectedEmailUid(null); // Close the detail view
   };
