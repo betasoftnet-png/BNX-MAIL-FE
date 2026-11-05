@@ -54,6 +54,7 @@ import { emailAPI, authAPI, userAPI, signatureAPI, settingsAPI } from "../servic
 import { useAuth } from "../context/AuthContext";
 import { useTheme, PRESET_BACKGROUNDS, themes, DEFAULT_SIDEBAR_PREFS } from "../context/ThemeContext";
 import { useTranslation, normalizeLang } from "../context/LanguageContext";
+import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
 import toast from "react-hot-toast";
 import { formatActivityTimestamp, sortActivityLogs } from "../utils/activityDateUtils";
 import ReactQuill, { Quill } from "react-quill";
