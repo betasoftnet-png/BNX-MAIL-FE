@@ -2174,43 +2174,6 @@ const Settings = () => {
                   <ToggleRow label={t("settings.snoozed_alerts", "Snoozed Email Alerts")} checked={snoozedNotifications} disabled={updatingNotificationKey === "snoozedNotifications"} onChange={(val) => handleToggleNotificationPreference("snoozedNotifications", val)} theme={theme} />
                 </div>
 
-                <div className="flex flex-col gap-4 border-t pt-6" style={{ borderColor: theme.border }}>
-                  <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t("settings.auditory_vibration_feedback", "Vibration & Sounds")}</h4>
-                  <ToggleRow label={t("settings.play_sound", "Play Alert Sound")} checked={soundEnabled} onChange={setSoundEnabled} theme={theme} />
-                  <ToggleRow label={t("settings.vibrate", "Enable Haptic Vibration")} checked={vibrationEnabled} onChange={setVibrationEnabled} theme={theme} />
-                </div>
-
-                {/* Quiet Hours */}
-                <div className="flex flex-col gap-4 border-t pt-6" style={{ borderColor: theme.border }}>
-                  <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t("settings.quiet_hours_schedule", "Quiet Hours Schedule")}</h4>
-                  <ToggleRow label={t("settings.quiet_hours_desc", "Mute Notifications Schedule")} checked={quietHoursEnabled} onChange={setQuietHoursEnabled} theme={theme} />
-
-                  {quietHoursEnabled && (
-                    <div className="flex items-center gap-4 mt-2 p-4 rounded-2xl animate-fadeIn" style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>
-                      <div className="flex-1 flex flex-col gap-2">
-                        <label className="text-xs font-semibold text-gray-500">{t("settings.quiet_hours_start", "Quiet Starts At")}</label>
-                        <input
-                          type="time"
-                          value={quietHoursStart}
-                          onChange={e => setQuietHoursStart(e.target.value)}
-                          className="p-3 text-sm rounded-xl outline-none border focus:ring-2 focus:border-transparent transition-all"
-                          style={{ background: theme.cardBg, borderColor: theme.border, color: theme.text }}
-                        />
-                      </div>
-                      <div className="flex-1 flex flex-col gap-2">
-                        <label className="text-xs font-semibold text-gray-500">{t("settings.quiet_hours_end", "Quiet Ends At")}</label>
-                        <input
-                          type="time"
-                          value={quietHoursEnd}
-                          onChange={e => setQuietHoursEnd(e.target.value)}
-                          className="p-3 text-sm rounded-xl outline-none border focus:ring-2 focus:border-transparent transition-all"
-                          style={{ background: theme.cardBg, borderColor: theme.border, color: theme.text }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
                 <button
                   type="submit"
                   className="w-fit mt-4 px-6 py-3 rounded-xl text-sm font-medium text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-sm"
