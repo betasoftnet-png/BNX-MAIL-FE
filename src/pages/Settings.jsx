@@ -147,6 +147,14 @@ const Settings = () => {
   const [externalSessions, setExternalSessions] = useState([]);
   const [confirmRevokeModal, setConfirmRevokeModal] = useState(null);
   const [revokingSessionId, setRevokingSessionId] = useState(null);
+  const [revokedExternalSessions, setRevokedExternalSessions] = useState(() => {
+    try {
+      const stored = localStorage.getItem('bnx_revoked_external_sessions');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
   const [activityLogs, setActivityLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [localEmailsPerPage, setLocalEmailsPerPage] = useState(emailsPerPage);
@@ -680,7 +688,26 @@ const Settings = () => {
       setLoading(true);
       const res = await authAPI.getExternalSessions();
       if (res.data?.success) {
-        setExternalSessions(res.data.data || []);
+        const activeList = res.data.data || [];
+        let savedRevoked = {};
+        try {
+          savedRevoked = JSON.parse(localStorage.getItem('bnx_revoked_external_sessions') || '{}');
+        } catch {}
+
+        const combined = activeList.map(s => {
+          if (savedRevoked[s.id]) {
+            return { ...s, status: 'Revoked' };
+          }
+          return { ...s, status: s.status || 'Authorized' };
+        });
+
+        Object.values(savedRevoked).forEach(revokedApp => {
+          if (!combined.some(s => Number(s.id) === Number(revokedApp.id))) {
+            combined.push({ ...revokedApp, status: 'Revoked' });
+          }
+        });
+
+        setExternalSessions(combined);
       }
     } catch {
       toast.error("Failed to load third-party app sessions");
@@ -719,8 +746,26 @@ const Settings = () => {
       setRevokingSessionId(sessionToRevoke.id);
       const res = await authAPI.revokeExternalSession(sessionToRevoke.id);
       if (res.data?.success) {
-        // Immediate UI removal
-        setExternalSessions(prev => prev.filter(s => s.id !== sessionToRevoke.id));
+        // Record revoked session in local storage and state
+        const revokedRecord = {
+          ...sessionToRevoke,
+          status: 'Revoked',
+          revokedAt: new Date().toISOString()
+        };
+
+        setRevokedExternalSessions(prev => {
+          const updated = { ...prev, [sessionToRevoke.id]: revokedRecord };
+          try {
+            localStorage.setItem('bnx_revoked_external_sessions', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+
+        // Update application status to "Revoked" in the externalSessions list
+        setExternalSessions(prev =>
+          prev.map(s => (s.id === sessionToRevoke.id ? { ...s, status: 'Revoked' } : s))
+        );
+
         toast.success(res.data?.message || `Access for ${sessionToRevoke.appName} revoked successfully`);
 
         // Notify other tabs and apps via BroadcastChannel and localStorage
@@ -746,7 +791,7 @@ const Settings = () => {
         } catch { }
 
         setConfirmRevokeModal(null);
-        fetchExternalSessions();
+        await fetchExternalSessions();
         fetchActivityLogs();
       } else {
         toast.error(res.data?.message || "Failed to revoke application access");
@@ -2465,40 +2510,66 @@ const Settings = () => {
               <Section title={t("settings.connected_applications", "Connected Applications")} theme={theme}>
                 <p className="text-sm text-gray-500 mb-6">{t("settings.connected_apps_desc", "Third-party applications authorized to access your mailbox profile.")}</p>
                 <div className="flex flex-col gap-4">
-                  {externalSessions.length > 0 ? externalSessions.map((s) => (
-                    <div key={s.id} className="p-5 rounded-2xl border flex justify-between items-center shadow-sm hover:shadow transition-shadow" style={{ borderColor: theme.border, background: theme.cardBg }}>
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5" style={{ color: theme.accent }}>
-                          <MdSecurity size={20} />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-base font-semibold" style={{ color: theme.text }}>{s.appName}</span>
-                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                              {t("settings.authorized_badge", "Authorized")}
-                            </span>
+                  {externalSessions.length > 0 ? externalSessions.map((s) => {
+                    const isRevoked = s.status === "Revoked";
+                    return (
+                      <div key={s.id} className="p-5 rounded-2xl border flex justify-between items-center shadow-sm hover:shadow transition-shadow" style={{ borderColor: theme.border, background: theme.cardBg }}>
+                        <div className="flex items-center gap-4">
+                          <div className={`p-3 rounded-xl ${isRevoked ? "bg-red-500/10 text-red-500" : "bg-black/5 dark:bg-white/5"}`} style={!isRevoked ? { color: theme.accent } : {}}>
+                            <MdSecurity size={20} />
                           </div>
-                          <p className="text-sm text-gray-500">{s.ipAddress || "Remote Client"} — {t("settings.basic_profile_access", "Basic Profile Access")}</p>
-                          <p className="text-xs text-gray-400 mt-1">{t("settings.authorized", "Authorized:")} {formatActivityTimestamp(s.loggedInAt)}</p>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base font-semibold" style={{ color: theme.text }}>{s.appName}</span>
+                              {isRevoked ? (
+                                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
+                                  {t("settings.revoked_badge", "Revoked")}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                  {t("settings.authorized_badge", "Authorized")}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500">{s.ipAddress || "Remote Client"} — {t("settings.basic_profile_access", "Basic Profile Access")}</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {isRevoked ? (
+                                <span>{t("settings.status_revoked_desc", "Access has been revoked for this application.")}</span>
+                              ) : (
+                                <span>{t("settings.authorized", "Authorized:")} {formatActivityTimestamp(s.loggedInAt)}</span>
+                              )}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={Boolean(revokingSessionId)}
-                        onClick={() => promptRevokeExternalSession(s)}
-                        className="px-4 py-2 text-xs font-bold rounded-xl text-red-500 border border-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-                      >
-                        {revokingSessionId === s.id ? (
-                          <>
-                            <div className="w-3.5 h-3.5 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
-                            <span>{t("settings.revoking", "Revoking...")}</span>
-                          </>
+
+                        {isRevoked ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="px-4 py-2 text-xs font-semibold rounded-xl text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/40 opacity-70 cursor-not-allowed flex items-center gap-1.5"
+                          >
+                            <span>{t("settings.revoked_badge", "Revoked")}</span>
+                          </button>
                         ) : (
-                          <span>{t("settings.revoke_access", "Revoke Access")}</span>
+                          <button
+                            type="button"
+                            disabled={Boolean(revokingSessionId)}
+                            onClick={() => promptRevokeExternalSession(s)}
+                            className="px-4 py-2 text-xs font-bold rounded-xl text-red-500 border border-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                          >
+                            {revokingSessionId === s.id ? (
+                              <>
+                                <div className="w-3.5 h-3.5 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+                                <span>{t("settings.revoking", "Revoking...")}</span>
+                              </>
+                            ) : (
+                              <span>{t("settings.revoke_access", "Revoke Access")}</span>
+                            )}
+                          </button>
                         )}
-                      </button>
-                    </div>
-                  )) : (
+                      </div>
+                    );
+                  }) : (
                     <p className="text-sm text-gray-400 text-center py-6">{t("settings.no_connected_apps", "No connected applications found.")}</p>
                   )}
                 </div>
@@ -2520,10 +2591,10 @@ const Settings = () => {
                         </div>
                         <div className="flex flex-col gap-1">
                           <h3 className="text-lg font-bold">
-                            {t("settings.revoke_app_title", "Revoke Access for")} {confirmRevokeModal.appName}?
+                            {confirmRevokeModal.appName}
                           </h3>
                           <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                            {t("settings.revoke_app_warning", "This will immediately revoke access and automatically log out the device session for this application.")}
+                            {t("settings.revoke_app_confirm_message", "Are you sure you want to revoke access for this application?")}
                           </p>
                         </div>
                       </div>
@@ -2575,7 +2646,7 @@ const Settings = () => {
                               <span>{t("settings.revoking", "Revoking...")}</span>
                             </>
                           ) : (
-                            <span>{t("settings.confirm_revoke", "Revoke Access")}</span>
+                            <span>{t("common.revoke", "Revoke")}</span>
                           )}
                         </button>
                       </div>
