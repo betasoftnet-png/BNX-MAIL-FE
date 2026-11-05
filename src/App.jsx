@@ -430,6 +430,9 @@ const App = () => (
                     />
 
                     {/* Remote Connected Application Demonstrations */}
+                    <Route path="/apps/bit-tool" element={<RemoteConnectedApp appType="bit-tool" />} />
+                    <Route path="/apps/bittool" element={<RemoteConnectedApp appType="bit-tool" />} />
+                    <Route path="/bit-tool" element={<RemoteConnectedApp appType="bit-tool" />} />
                     <Route path="/apps/beta-website" element={<RemoteConnectedApp appType="beta-website" />} />
                     <Route path="/apps/beta-storage" element={<RemoteConnectedApp appType="beta-storage" />} />
 

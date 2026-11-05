@@ -1,12 +1,33 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import { MdSecurity, MdCheckCircle, MdError, MdRefresh, MdLock, MdCloudQueue, MdLanguage, MdLaunch } from "react-icons/md";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-import { authAPI, userAPI } from "../services/api";
+import { authAPI } from "../services/api";
+import bitToolLogo from "../assets/BIT-TOOL-2.png";
+
+const BitToolIcon = ({ size = 24, style }) => (
+  <img
+    src={bitToolLogo}
+    alt="Bit Tool"
+    style={{ width: size, height: size, objectFit: "contain", ...style }}
+  />
+);
 
 const APP_CONFIGS = {
+  "bit-tool": {
+    clientId: "bit-tool",
+    appName: "Bit Tool",
+    clientSecret: "secure-bit-tool-secret-2026",
+    storageKey: "bit_tool_oauth_session",
+    icon: BitToolIcon,
+    accentColor: "#f59e0b",
+    bgGradient: "from-amber-600 to-orange-700",
+    description: "Integrated developer tools & productivity utility platform.",
+    apiScope: "Basic Profile, Developer Tools, Account SSO",
+    redirectUri: "http://localhost:5173/auth"
+  },
   "beta-website": {
     clientId: "beta_website",
     appName: "Beta Website",
@@ -16,7 +37,8 @@ const APP_CONFIGS = {
     accentColor: "#2563eb",
     bgGradient: "from-blue-600 to-indigo-700",
     description: "Official Beta Softnet portal & corporate services website.",
-    apiScope: "Basic Profile, Account SSO"
+    apiScope: "Basic Profile, Account SSO",
+    redirectUri: "http://localhost:5173/"
   },
   "beta-storage": {
     clientId: "beta-storage",
@@ -27,12 +49,13 @@ const APP_CONFIGS = {
     accentColor: "#059669",
     bgGradient: "from-emerald-600 to-teal-700",
     description: "Cloud-native distributed storage system and vault backup.",
-    apiScope: "Files, Storage Quota, Account SSO"
+    apiScope: "Files, Storage Quota, Account SSO",
+    redirectUri: "http://localhost:5173/"
   }
 };
 
-const RemoteConnectedApp = ({ appType = "beta-website" }) => {
-  const config = APP_CONFIGS[appType] || APP_CONFIGS["beta-website"];
+const RemoteConnectedApp = ({ appType = "bit-tool" }) => {
+  const config = APP_CONFIGS[appType] || APP_CONFIGS["bit-tool"];
   const location = useLocation();
 
   const [session, setSession] = useState(() => {
@@ -41,6 +64,15 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
+    }
+  });
+
+  const [isValidatingSession, setIsValidatingSession] = useState(() => {
+    try {
+      const saved = localStorage.getItem(config.storageKey);
+      return Boolean(saved && JSON.parse(saved)?.token);
+    } catch {
+      return false;
     }
   });
 
@@ -61,9 +93,12 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
 
   // Handle remote revocation trigger
   const handleRemoteRevoked = (reason = "Your session has been revoked. Please log in again.") => {
-    console.warn(`[${config.appName}] Session revoked remotely:`, reason);
-    localStorage.removeItem(config.storageKey);
+    console.warn(`[${config.appName}] Session revoked:`, reason);
+    try {
+      localStorage.removeItem(config.storageKey);
+    } catch {}
     setSession(null);
+    setIsValidatingSession(false);
     setRevocationNotice(reason);
     setWsConnected(false);
     toast.error(reason, { id: `${config.clientId}-revoked-toast`, duration: 6000 });
@@ -75,7 +110,67 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
     }
   };
 
-  // 1. WebSocket listener for live revocation broadcasts
+  // Handle remote session authorization restoration
+  const handleRemoteAuthorized = (authorizedSession) => {
+    if (authorizedSession?.token) {
+      setSession(authorizedSession);
+      setRevocationNotice(null);
+      setIsValidatingSession(false);
+      try {
+        localStorage.setItem(config.storageKey, JSON.stringify(authorizedSession));
+      } catch {}
+      toast.success(`Access to ${config.appName} restored!`, { id: `${config.clientId}-auth-toast` });
+    } else {
+      try {
+        const saved = localStorage.getItem(config.storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.token) {
+            setSession(parsed);
+            setRevocationNotice(null);
+            setIsValidatingSession(false);
+            toast.success(`Access to ${config.appName} restored!`, { id: `${config.clientId}-auth-toast` });
+          }
+        }
+      } catch (e) {}
+    }
+  };
+
+  // 1. Immediate validation on page load/refresh
+  useEffect(() => {
+    if (!session?.token) {
+      setIsValidatingSession(false);
+      return;
+    }
+
+    let isMounted = true;
+    const validateImmediate = async () => {
+      try {
+        const res = await authAPI.checkOAuthSession(session.token);
+        if (!isMounted) return;
+        if (!res.data?.success || res.data?.data?.active === false) {
+          handleRemoteRevoked("Your session has been revoked. Please log in again.");
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        if (err.response?.status === 401 || err.response?.data?.error === "session_revoked") {
+          handleRemoteRevoked("Your session has been revoked. Please log in again.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsValidatingSession(false);
+        }
+      }
+    };
+
+    validateImmediate();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.token]);
+
+  // 2. WebSocket listener for live revocation and authorization broadcasts
   useEffect(() => {
     if (!session?.token) return;
 
@@ -110,7 +205,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
             }
           });
 
-          // Listen on client-specific topic
+          // Listen on client-specific revocation topic
           client.subscribe(`/topic/client/${config.clientId}/session-revocation`, (msg) => {
             try {
               const body = JSON.parse(msg.body);
@@ -119,6 +214,16 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
               }
             } catch (err) {
               console.error("Failed to parse client revocation message", err);
+            }
+          });
+
+          // Listen on client-specific authorization topic
+          client.subscribe(`/topic/client/${config.clientId}/session-authorized`, (msg) => {
+            try {
+              const body = JSON.parse(msg.body);
+              handleRemoteAuthorized(body.session);
+            } catch (err) {
+              console.error("Failed to parse client authorized message", err);
             }
           });
         },
@@ -144,7 +249,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
     }
   }, [session?.token, session?.sessionId, config.clientId]);
 
-  // 2. Polling session verification heartbeat (checks server-side session validity every 3.5 seconds)
+  // 3. Polling session verification heartbeat (checks server-side session validity every 3.5 seconds)
   useEffect(() => {
     if (!session?.token) return;
 
@@ -158,7 +263,6 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
         }
       } catch (err) {
         if (!isMounted) return;
-        // HTTP 401 means server-side token or session was invalidated / revoked!
         if (err.response?.status === 401 || err.response?.data?.error === "session_revoked") {
           handleRemoteRevoked("Your session has been revoked. Please log in again.");
         }
@@ -171,7 +275,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
     };
   }, [session?.token]);
 
-  // 3. Cross-tab BroadcastChannel & LocalStorage Event Listener
+  // 4. Cross-tab BroadcastChannel & LocalStorage Event Listener
   useEffect(() => {
     let bc;
     try {
@@ -184,6 +288,8 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
           (!session?.sessionId || !data.sessionId || Number(data.sessionId) === Number(session.sessionId))
         ) {
           handleRemoteRevoked("Your session has been revoked. Please log in again.");
+        } else if (data?.type === "SESSION_AUTHORIZED" && data.clientId === config.clientId) {
+          handleRemoteAuthorized(data.session);
         }
       };
     } catch (e) {}
@@ -199,6 +305,15 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
             handleRemoteRevoked("Your session has been revoked. Please log in again.");
           }
         } catch (err) {}
+      } else if (e.key === config.storageKey) {
+        if (!e.newValue) {
+          handleRemoteRevoked("Session cleared from local storage.");
+        } else {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            handleRemoteAuthorized(parsed);
+          } catch {}
+        }
       }
     };
 
@@ -208,7 +323,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
       if (bc) bc.close();
       window.removeEventListener("storage", handleStorageEvent);
     };
-  }, [session?.sessionId, config.clientId]);
+  }, [session?.sessionId, config.clientId, config.storageKey]);
 
   // Authorize / Login via BNX SSO
   const handleAuthorizeSSO = async () => {
@@ -218,7 +333,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
       // 1. Generate authorization code using BNXmail backend
       const authRes = await authAPI.authorizeOAuth({
         clientId: config.clientId,
-        redirectUri: "http://localhost:3000/",
+        redirectUri: config.redirectUri || "http://localhost:5173/auth",
         state: "state_" + Date.now()
       });
 
@@ -256,7 +371,26 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
       };
 
       localStorage.setItem(config.storageKey, JSON.stringify(newSession));
+      localStorage.removeItem("bnx_revoked_session");
+
+      // Clear revoked state for this app in Settings storage if present
+      try {
+        const storedRevoked = JSON.parse(localStorage.getItem("bnx_revoked_external_sessions") || "{}");
+        let changed = false;
+        Object.keys(storedRevoked).forEach(key => {
+          if (storedRevoked[key]?.clientId === config.clientId) {
+            delete storedRevoked[key];
+            changed = true;
+          }
+        });
+        if (changed) {
+          localStorage.setItem("bnx_revoked_external_sessions", JSON.stringify(storedRevoked));
+        }
+      } catch {}
+
       setSession(newSession);
+      setRevocationNotice(null);
+      setIsValidatingSession(false);
       toast.success(`Successfully connected to ${config.appName}`);
     } catch (err) {
       console.error("SSO Authorization failed", err);
@@ -287,7 +421,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
         message: err.response?.data?.message || "API call failed. Token or session is invalid.",
         data: err.response?.data
       });
-      if (err.response?.status === 401) {
+      if (err.response?.status === 401 || err.response?.data?.error === "session_revoked") {
         handleRemoteRevoked("Your session has been revoked. Please log in again.");
       }
     } finally {
@@ -298,7 +432,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
   const AppIcon = config.icon;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-600 selection:text-white">
       {/* Top Application Header */}
       <header className="border-b border-slate-800 bg-slate-900/70 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-3">
@@ -347,8 +481,15 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
           </div>
         )}
 
-        {/* LOGGED IN / ACTIVE STATE */}
-        {session ? (
+        {/* LOADING STATE ON MOUNT / REFRESH */}
+        {isValidatingSession ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-12 my-auto animate-fadeIn">
+            <div className="w-10 h-10 border-3 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mb-4" />
+            <p className="text-sm font-semibold text-slate-300">Validating {config.appName} authorization...</p>
+            <p className="text-xs text-slate-500 mt-1">Verifying server-side session credentials with BNX Identity</p>
+          </div>
+        ) : session ? (
+          /* LOGGED IN / ACTIVE STATE */
           <div className="flex flex-col gap-6 animate-fadeIn">
             <div className="p-6 md:p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
@@ -408,11 +549,11 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
             <div className="p-6 md:p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl flex flex-col gap-5">
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <MdSecurity className="text-blue-400" size={20} />
-                  Remote Revocation Verification
+                  <MdSecurity className="text-amber-400" size={20} />
+                  Cross-Application Revocation & Authorization
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Leave this tab open and click <strong>Revoke Access</strong> in BNXmail (Settings → Active Sessions & Logs → Connected Applications). This page will immediately detect revocation and automatically log out.
+                  Revoking access in BNXmail invalidates this session immediately. Refreshing this page will detect server-side revocation and automatically return to the login state.
                 </p>
               </div>
 
@@ -421,7 +562,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
                   type="button"
                   disabled={testingApi}
                   onClick={handleTestProtectedApi}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 active:scale-95 transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-600/20 disabled:opacity-50"
                 >
                   {testingApi ? (
                     <>
@@ -442,7 +583,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
                   rel="noopener noreferrer"
                   className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  <span>Go to BNXmail to Revoke</span>
+                  <span>Go to BNXmail Settings</span>
                   <MdLaunch size={14} />
                 </Link>
 
@@ -508,7 +649,7 @@ const RemoteConnectedApp = ({ appType = "beta-website" }) => {
               type="button"
               disabled={isAuthorizing}
               onClick={handleAuthorizeSSO}
-              className="w-full py-3.5 px-6 rounded-2xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-blue-600/25 disabled:opacity-50"
+              className="w-full py-3.5 px-6 rounded-2xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-500 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-amber-600/25 disabled:opacity-50"
             >
               {isAuthorizing ? (
                 <>

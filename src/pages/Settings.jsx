@@ -80,6 +80,37 @@ const quillModules = {
   }
 };
 
+const KNOWN_CLIENT_APPS = {
+  "bit-tool": {
+    clientId: "bit-tool",
+    appName: "Bit Tool",
+    clientSecret: "secure-bit-tool-secret-2026",
+    storageKey: "bit_tool_oauth_session",
+    redirectUri: "http://localhost:5173/auth"
+  },
+  "beta_website": {
+    clientId: "beta_website",
+    appName: "Beta Website",
+    clientSecret: "secure-beta-secret-2026",
+    storageKey: "beta_website_oauth_session",
+    redirectUri: "http://localhost:5173/"
+  },
+  "beta-storage": {
+    clientId: "beta-storage",
+    appName: "Beta Storage",
+    clientSecret: "secure-storage-secret-2026",
+    storageKey: "beta_storage_oauth_session",
+    redirectUri: "http://localhost:5173/"
+  },
+  "cliks-business": {
+    clientId: "cliks-business",
+    appName: "Cliks Business",
+    clientSecret: "secure-cliks-biz-secret-2026",
+    storageKey: "cliks_business_oauth_session",
+    redirectUri: "https://cliksbusiness.com/"
+  }
+};
+
 const Settings = () => {
   const { t, applyLanguage, currentLanguage } = useTranslation();
   const navigate = useNavigate();
@@ -147,6 +178,7 @@ const Settings = () => {
   const [externalSessions, setExternalSessions] = useState([]);
   const [confirmRevokeModal, setConfirmRevokeModal] = useState(null);
   const [revokingSessionId, setRevokingSessionId] = useState(null);
+  const [authorizingClientId, setAuthorizingClientId] = useState(null);
   const [revokedExternalSessions, setRevokedExternalSessions] = useState(() => {
     try {
       const stored = localStorage.getItem('bnx_revoked_external_sessions');
@@ -790,6 +822,17 @@ const Settings = () => {
           }));
         } catch { }
 
+        // Remove stored OAuth session credentials for this client app from localStorage
+        try {
+          const cId = sessionToRevoke.clientId || (sessionToRevoke.appName?.toLowerCase().includes("bit") ? "bit-tool" : null);
+          const appCfg = KNOWN_CLIENT_APPS[cId] || Object.values(KNOWN_CLIENT_APPS).find(
+            c => c.appName.toLowerCase() === sessionToRevoke.appName?.toLowerCase()
+          );
+          if (appCfg?.storageKey) {
+            localStorage.removeItem(appCfg.storageKey);
+          }
+        } catch { }
+
         setConfirmRevokeModal(null);
         await fetchExternalSessions();
         fetchActivityLogs();
@@ -800,6 +843,114 @@ const Settings = () => {
       toast.error(err.response?.data?.message || "Failed to revoke application access");
     } finally {
       setRevokingSessionId(null);
+    }
+  };
+
+  const handleGrantAccess = async (session) => {
+    const clientId = session.clientId || (session.appName?.toLowerCase().includes("bit") ? "bit-tool" : null);
+    const appConfig = KNOWN_CLIENT_APPS[clientId] || Object.values(KNOWN_CLIENT_APPS).find(
+      c => c.appName.toLowerCase() === session.appName?.toLowerCase()
+    );
+
+    if (!appConfig) {
+      toast.error("Application configuration not found for authorization");
+      return;
+    }
+
+    try {
+      setAuthorizingClientId(appConfig.clientId);
+
+      // 1. Generate authorization code using BNX backend
+      const authRes = await authAPI.authorizeOAuth({
+        clientId: appConfig.clientId,
+        redirectUri: appConfig.redirectUri,
+        state: "reauth_" + Date.now()
+      });
+
+      if (!authRes.data?.success || !authRes.data?.data?.code) {
+        throw new Error(authRes.data?.message || "Failed to generate authorization code");
+      }
+
+      const code = authRes.data.data.code;
+
+      // 2. Exchange code for access token
+      const tokenRes = await authAPI.exchangeOAuthToken({
+        grantType: "authorization_code",
+        code: code,
+        clientId: appConfig.clientId,
+        clientSecret: appConfig.clientSecret
+      });
+
+      if (!tokenRes.data?.success || !tokenRes.data?.data?.access_token) {
+        throw new Error(tokenRes.data?.message || "Failed to exchange authorization token");
+      }
+
+      const accessToken = tokenRes.data.data.access_token;
+
+      // 3. Inspect session
+      const inspectRes = await authAPI.checkOAuthSession(accessToken);
+      const sessionData = inspectRes.data?.data || {};
+
+      const newSession = {
+        token: accessToken,
+        sessionId: sessionData.sessionId || Date.now(),
+        email: sessionData.email || "user@bnxmail.com",
+        appName: appConfig.appName,
+        clientId: appConfig.clientId,
+        authorizedAt: new Date().toISOString()
+      };
+
+      // Store in localStorage for the client app so refresh restores it
+      try {
+        localStorage.setItem(appConfig.storageKey, JSON.stringify(newSession));
+      } catch {}
+
+      // Clear revoked state in Settings localStorage
+      setRevokedExternalSessions(prev => {
+        const updated = { ...prev };
+        delete updated[session.id];
+        Object.keys(updated).forEach(k => {
+          if (updated[k]?.clientId === appConfig.clientId) {
+            delete updated[k];
+          }
+        });
+        try {
+          localStorage.setItem('bnx_revoked_external_sessions', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      try {
+        localStorage.removeItem('bnx_revoked_session');
+      } catch {}
+
+      // Update status in externalSessions UI
+      setExternalSessions(prev =>
+        prev.map(s => (s.id === session.id || s.clientId === appConfig.clientId ? { ...s, status: 'Authorized', revoked: false } : s))
+      );
+
+      // Broadcast SESSION_AUTHORIZED event
+      try {
+        const bc = new BroadcastChannel('bnx_session_events');
+        bc.postMessage({
+          type: 'SESSION_AUTHORIZED',
+          clientId: appConfig.clientId,
+          appName: appConfig.appName,
+          sessionId: newSession.sessionId,
+          session: newSession,
+          timestamp: Date.now()
+        });
+        bc.close();
+      } catch {}
+
+      toast.success(`Access to ${appConfig.appName} granted successfully!`);
+      await fetchExternalSessions();
+      fetchActivityLogs();
+    } catch (err) {
+      console.error("Grant access failed", err);
+      toast.error(err.response?.data?.message || err.message || "Failed to grant application access");
+    } finally {
+      setAuthorizingClientId(null);
     }
   };
 
@@ -2545,10 +2696,21 @@ const Settings = () => {
                         {isRevoked ? (
                           <button
                             type="button"
-                            disabled
-                            className="px-4 py-2 text-xs font-semibold rounded-xl text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/40 opacity-70 cursor-not-allowed flex items-center gap-1.5"
+                            disabled={authorizingClientId === (s.clientId || "bit-tool")}
+                            onClick={() => handleGrantAccess(s)}
+                            className="px-4 py-2 text-xs font-bold rounded-xl text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
                           >
-                            <span>{t("settings.revoked_badge", "Revoked")}</span>
+                            {authorizingClientId === (s.clientId || "bit-tool") ? (
+                              <>
+                                <div className="w-3.5 h-3.5 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                                <span>{t("settings.authorizing", "Authorizing...")}</span>
+                              </>
+                            ) : (
+                              <>
+                                <MdCheckCircle size={14} />
+                                <span>{t("settings.grant_access", "Authorize")}</span>
+                              </>
+                            )}
                           </button>
                         ) : (
                           <button
