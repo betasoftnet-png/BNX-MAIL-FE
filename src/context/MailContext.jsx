@@ -2568,14 +2568,17 @@ export const MailProvider = ({ children }) => {
             delete cleanData.labels;
             delete cleanData.selectedLabels;
         }
-        const order = nextComposeOrderRef.current++;
-        const newWindow = {
-            id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`,
-            data: cleanData,
-            order: order,
-            createdAt: Date.now()
-        };
-        setComposeWindows((prev) => [...prev, newWindow]);
+        setComposeWindows((prev) => {
+            const currentOrder = prev.length === 0 ? 0 : nextComposeOrderRef.current;
+            nextComposeOrderRef.current = currentOrder + 1;
+            const newWindow = {
+                id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`,
+                data: cleanData,
+                order: currentOrder,
+                createdAt: Date.now()
+            };
+            return [...prev, newWindow];
+        });
         setIsComposeOpen(true);
         setIsComposeMinimized(false);
         setIsComposeMaximized(false);
@@ -2588,6 +2591,7 @@ export const MailProvider = ({ children }) => {
             if (next.length === 0) {
                 setIsComposeOpen(false);
                 setComposeData(null);
+                nextComposeOrderRef.current = 0;
             } else {
                 setComposeData(next[next.length - 1].data);
             }
@@ -2600,11 +2604,15 @@ export const MailProvider = ({ children }) => {
             closeComposeWindow(windowId);
         } else {
             setComposeWindows((prev) => {
-                if (prev.length === 0) return prev;
+                if (prev.length === 0) {
+                    nextComposeOrderRef.current = 0;
+                    return prev;
+                }
                 const next = prev.slice(0, prev.length - 1);
                 if (next.length === 0) {
                     setIsComposeOpen(false);
                     setComposeData(null);
+                    nextComposeOrderRef.current = 0;
                 } else {
                     setComposeData(next[next.length - 1].data);
                 }

@@ -897,8 +897,6 @@ const ComposeWindow = ({
   };
 
   const [isMobile, setIsMobile] = useState(() => (typeof window !== "undefined" ? window.innerWidth < 768 : false));
-  const isRight = (order % 2 === 0);
-  const sideRank = Math.floor(order / 2);
 
   const calculateDefaultSizeAndPos = useCallback(() => {
     if (typeof window === "undefined") {
@@ -915,17 +913,15 @@ const ComposeWindow = ({
       };
     }
 
-    const xOffset = (sideRank % 6) * 24;
-    const yOffset = (sideRank % 6) * 36;
+    // Always position on the right side of the screen
+    // If multiple windows are open simultaneously, cascade slightly inward from the right
+    const cascadeIndex = typeof order === "number" ? (order % 5) : 0;
+    const xOffset = cascadeIndex * 24;
+    const yOffset = cascadeIndex * 24;
 
-    let initX;
-    if (isRight) {
-      const baseX = window.innerWidth - defaultW - 24;
-      initX = Math.max(10, baseX - xOffset);
-    } else {
-      const baseX = 24;
-      initX = Math.min(window.innerWidth - defaultW - 10, baseX + xOffset);
-    }
+    const baseX = window.innerWidth - defaultW - 24;
+    const initX = Math.max(10, baseX - xOffset);
+
     const baseY = window.innerHeight - defaultH - 20;
     const initY = Math.max(10, baseY - yOffset);
 
@@ -933,7 +929,7 @@ const ComposeWindow = ({
       size: { width: defaultW, height: defaultH },
       position: { x: initX, y: initY }
     };
-  }, [isReply, isRight, sideRank]);
+  }, [isReply, order]);
 
   const [size, setSize] = useState(() => calculateDefaultSizeAndPos().size);
   const [position, setPosition] = useState(() => calculateDefaultSizeAndPos().position);
@@ -998,12 +994,7 @@ const ComposeWindow = ({
       // Minimized state: docked compact header bar at bottom of respective side
       const minW = Math.min(260, window.innerWidth - 40);
       const minH = 45;
-      let minX;
-      if (isRight) {
-        minX = Math.max(10, window.innerWidth - minW - 20 - (minimizedIndex % 4) * (minW + 10));
-      } else {
-        minX = Math.min(window.innerWidth - minW - 10, 20 + (minimizedIndex % 4) * (minW + 10));
-      }
+      const minX = Math.max(10, window.innerWidth - minW - 20 - (minimizedIndex % 4) * (minW + 10));
       const minY = window.innerHeight - minH;
       setSize({ width: minW, height: minH });
       setPosition({ x: minX, y: minY });
@@ -1030,7 +1021,7 @@ const ComposeWindow = ({
       setSize({ width: savedW, height: savedH });
       setPosition({ x: clampedX, y: clampedY });
     }
-  }, [isComposeMaximized, isComposeMinimized, isMobile, isRight, minimizedIndex, calculateDefaultSizeAndPos]);
+  }, [isComposeMaximized, isComposeMinimized, isMobile, minimizedIndex, calculateDefaultSizeAndPos]);
 
   // Load Custom + Default templates for inline insertion
   useEffect(() => {
