@@ -9,6 +9,8 @@ import { useTheme } from "../context/ThemeContext";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
+import toast from "react-hot-toast";
+import { getTodayDateString } from "../utils/dateFilter";
 
 const AllMail = ({ searchQuery }) => {
   const { t } = useTranslation();
@@ -103,15 +105,18 @@ const AllMail = ({ searchQuery }) => {
         const start = new Date(today.getFullYear(), today.getMonth(), 1);
         if (emailDate < start) return false;
       } else if (filterDate === "Custom date range") {
+        const todayMax = new Date();
+        todayMax.setHours(23, 59, 59, 999);
         if (customStartDate) {
           const start = new Date(customStartDate);
           start.setHours(0, 0, 0, 0);
+          if (start > todayMax) return false;
           if (emailDate < start) return false;
         }
         if (customEndDate) {
           const end = new Date(customEndDate);
           end.setHours(23, 59, 59, 999);
-          if (emailDate > end) return false;
+          if (emailDate > Math.min(end.getTime(), todayMax.getTime())) return false;
         }
       }
     }
@@ -373,7 +378,16 @@ const AllMail = ({ searchQuery }) => {
                           <input
                             type="date"
                             value={customStartDate}
-                            onChange={(e) => setCustomStartDate(e.target.value)}
+                            max={getTodayDateString()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const todayStr = getTodayDateString();
+                              if (val && val > todayStr) {
+                                toast.error("Future dates are not allowed");
+                                return;
+                              }
+                              setCustomStartDate(val);
+                            }}
                             className="px-2 py-1.5 border border-gray-250 dark:border-gray-700 rounded-lg text-xs bg-transparent dark:text-white"
                           />
                         </div>
@@ -382,7 +396,16 @@ const AllMail = ({ searchQuery }) => {
                           <input
                             type="date"
                             value={customEndDate}
-                            onChange={(e) => setCustomEndDate(e.target.value)}
+                            max={getTodayDateString()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const todayStr = getTodayDateString();
+                              if (val && val > todayStr) {
+                                toast.error("Future dates are not allowed");
+                                return;
+                              }
+                              setCustomEndDate(val);
+                            }}
                             className="px-2 py-1.5 border border-gray-250 dark:border-gray-700 rounded-lg text-xs bg-transparent dark:text-white"
                           />
                         </div>

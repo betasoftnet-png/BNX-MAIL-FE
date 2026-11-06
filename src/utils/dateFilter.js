@@ -72,10 +72,11 @@ export const getEmailTimestamp = (email) => {
 /**
  * Checks if an email falls within the specified date filter and optional custom range.
  * - ALL: matches all emails
- * - 1_DAY: within last 24 hours
- * - 1_WEEK: within last 7 days
- * - 1_MONTH: within last 30 days
- * - CUSTOM: between customRange.startDate and customRange.endDate (inclusive of full end day)
+ * - 1_DAY / TODAY: within today / last 24 hours
+ * - YESTERDAY: within yesterday
+ * - 1_WEEK / LAST_7_DAYS: within last 7 days
+ * - 1_MONTH / LAST_30_DAYS: within last 30 days
+ * - CUSTOM: between customRange.startDate and customRange.endDate (clamped to today dynamically, future emails excluded)
  */
 export const matchesDateRange = (email, filter = "ALL", customRange = null) => {
   if (!filter || filter === "ALL" || filter === "ALL_TIME") {
@@ -90,16 +91,31 @@ export const matchesDateRange = (email, filter = "ALL", customRange = null) => {
   const now = Date.now();
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-  if (filter === "1_DAY") {
-    return emailTime >= now - ONE_DAY_MS;
+  // Never match emails with timestamps in the future
+  if (emailTime > now) {
+    return false;
   }
 
-  if (filter === "1_WEEK") {
-    return emailTime >= now - 7 * ONE_DAY_MS;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartMs = todayStart.getTime();
+
+  const yesterdayStartMs = todayStartMs - ONE_DAY_MS;
+
+  if (filter === "1_DAY" || filter === "TODAY") {
+    return emailTime >= Math.min(todayStartMs, now - ONE_DAY_MS) && emailTime <= now;
   }
 
-  if (filter === "1_MONTH") {
-    return emailTime >= now - 30 * ONE_DAY_MS;
+  if (filter === "YESTERDAY") {
+    return emailTime >= yesterdayStartMs && emailTime < todayStartMs;
+  }
+
+  if (filter === "1_WEEK" || filter === "LAST_7_DAYS") {
+    return emailTime >= now - 7 * ONE_DAY_MS && emailTime <= now;
+  }
+
+  if (filter === "1_MONTH" || filter === "LAST_30_DAYS") {
+    return emailTime >= now - 30 * ONE_DAY_MS && emailTime <= now;
   }
 
   if (filter === "CUSTOM" && customRange) {
@@ -111,10 +127,15 @@ export const matchesDateRange = (email, filter = "ALL", customRange = null) => {
     start.setHours(0, 0, 0, 0);
     const startMs = start.getTime();
 
-    // End date at 23:59:59.999 local time (inclusive of full day)
+    // Start date in the future cannot match any emails
+    if (startMs > now) {
+      return false;
+    }
+
+    // End date at 23:59:59.999 local time (inclusive of full day), clamped to current moment
     const end = new Date(endDate || startDate);
     end.setHours(23, 59, 59, 999);
-    const endMs = end.getTime();
+    const endMs = Math.min(end.getTime(), now);
 
     return emailTime >= startMs && emailTime <= endMs;
   }
@@ -138,12 +159,24 @@ export const formatDateDDMMYYYY = (dateInput) => {
 };
 
 /**
+ * Returns dynamic today's date in YYYY-MM-DD local format
+ */
+export const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Returns a human-friendly label for current active date filter
  */
 export const getDateFilterLabel = (filter, customRange = null) => {
-  if (filter === "1_DAY") return "Last 1 Day";
-  if (filter === "1_WEEK") return "Last 1 Week";
-  if (filter === "1_MONTH") return "Last 1 Month";
+  if (filter === "1_DAY" || filter === "TODAY") return "Today";
+  if (filter === "YESTERDAY") return "Yesterday";
+  if (filter === "1_WEEK" || filter === "LAST_7_DAYS") return "Last 7 Days";
+  if (filter === "1_MONTH" || filter === "LAST_30_DAYS") return "Last 30 Days";
   if (filter === "CUSTOM" && customRange?.startDate) {
     const s = formatDateDDMMYYYY(customRange.startDate);
     const e = customRange.endDate ? formatDateDDMMYYYY(customRange.endDate) : s;
