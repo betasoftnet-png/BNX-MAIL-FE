@@ -945,43 +945,21 @@ export const MailProvider = ({ children }) => {
                         res = await mailAPI.getUnread(targetPage, limit);
                     } catch (err) {
                         res = await mailAPI.getInbox(targetPage, limit);
-                        if (res?.data?.success) {
-                            const dataObj = res.data.data;
-                            const list = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
-                            const unreadItems = list.filter(m => {
-                                const uStr = String(m.uid ?? m.id ?? '');
-                                if (unreadUidsRef.current?.has(uStr)) return true;
-                                if (readUidsRef.current?.has(uStr)) return false;
-                                return !m.isRead && !m.read;
-                            });
-                            res = {
-                                data: {
-                                    success: true,
-                                    data: {
-                                        emails: unreadItems,
-                                        totalCount: unreadItems.length,
-                                        unreadCount: unreadItems.length
-                                    }
-                                }
-                            };
-                        }
                     }
                     if (res?.data?.success && res.data.data) {
-                        if (Array.isArray(res.data.data)) {
-                            const unreadItems = res.data.data.filter(m => {
-                                const uStr = String(m.uid ?? m.id ?? '');
-                                if (unreadUidsRef.current?.has(uStr)) return true;
-                                if (readUidsRef.current?.has(uStr)) return false;
-                                return !m.isRead && !m.read;
-                            });
-                            res.data.data = {
-                                emails: unreadItems,
-                                totalCount: unreadItems.length,
-                                unreadCount: unreadItems.length
-                            };
-                        } else if (!res.data.data.emails && Array.isArray(res.data.data.unreadEmails)) {
-                            res.data.data.emails = res.data.data.unreadEmails;
-                        }
+                        const rawList = res.data.data.emails || (Array.isArray(res.data.data) ? res.data.data : []);
+                        const unreadItems = rawList.filter(m => {
+                            const uStr = String(m.uid ?? m.id ?? '');
+                            if (unreadUidsRef.current?.has(uStr)) return true;
+                            if (readUidsRef.current?.has(uStr)) return false;
+                            return !m.isRead && !m.read;
+                        });
+                        res.data.data = {
+                            ...(Array.isArray(res.data.data) ? {} : res.data.data),
+                            emails: unreadItems,
+                            totalCount: unreadItems.length,
+                            unreadCount: unreadItems.length
+                        };
                     }
                     break;
                 }
@@ -1107,6 +1085,15 @@ export const MailProvider = ({ children }) => {
                     readUidsRef.current,
                     unreadUidsRef.current
                 );
+
+                if (folderKey === 'unread') {
+                    normalizedEmails = normalizedEmails.filter(m => {
+                        const uStr = String(m.uid ?? m.id ?? '');
+                        if (unreadUidsRef.current?.has(uStr)) return true;
+                        if (readUidsRef.current?.has(uStr)) return false;
+                        return !m.isRead && !m.read;
+                    });
+                }
 
                 // Calculate dynamic total count reflecting actual filtered unique emails
                 let calculatedTotal = normalizedEmails.length;
@@ -1241,43 +1228,21 @@ export const MailProvider = ({ children }) => {
                         res = await mailAPI.getUnread(targetPage, limit);
                     } catch (err) {
                         res = await mailAPI.getInbox(targetPage, limit);
-                        if (res?.data?.success) {
-                            const dataObj = res.data.data;
-                            const list = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
-                            const unreadItems = list.filter(m => {
-                                const uStr = String(m.uid ?? m.id ?? '');
-                                if (unreadUidsRef.current?.has(uStr)) return true;
-                                if (readUidsRef.current?.has(uStr)) return false;
-                                return !m.isRead && !m.read;
-                            });
-                            res = {
-                                data: {
-                                    success: true,
-                                    data: {
-                                        emails: unreadItems,
-                                        totalCount: unreadItems.length,
-                                        unreadCount: unreadItems.length
-                                    }
-                                }
-                            };
-                        }
                     }
                     if (res?.data?.success && res.data.data) {
-                        if (Array.isArray(res.data.data)) {
-                            const unreadItems = res.data.data.filter(m => {
-                                const uStr = String(m.uid ?? m.id ?? '');
-                                if (unreadUidsRef.current?.has(uStr)) return true;
-                                if (readUidsRef.current?.has(uStr)) return false;
-                                return !m.isRead && !m.read;
-                            });
-                            res.data.data = {
-                                emails: unreadItems,
-                                totalCount: unreadItems.length,
-                                unreadCount: unreadItems.length
-                            };
-                        } else if (!res.data.data.emails && Array.isArray(res.data.data.unreadEmails)) {
-                            res.data.data.emails = res.data.data.unreadEmails;
-                        }
+                        const rawList = res.data.data.emails || (Array.isArray(res.data.data) ? res.data.data : []);
+                        const unreadItems = rawList.filter(m => {
+                            const uStr = String(m.uid ?? m.id ?? '');
+                            if (unreadUidsRef.current?.has(uStr)) return true;
+                            if (readUidsRef.current?.has(uStr)) return false;
+                            return !m.isRead && !m.read;
+                        });
+                        res.data.data = {
+                            ...(Array.isArray(res.data.data) ? {} : res.data.data),
+                            emails: unreadItems,
+                            totalCount: unreadItems.length,
+                            unreadCount: unreadItems.length
+                        };
                     }
                     break;
                 }
@@ -1417,6 +1382,15 @@ export const MailProvider = ({ children }) => {
                     readUidsRef.current,
                     unreadUidsRef.current
                 );
+
+                if (lowerFolder === 'unread') {
+                    normalizedEmails = normalizedEmails.filter(m => {
+                        const uStr = String(m.uid ?? m.id ?? '');
+                        if (unreadUidsRef.current?.has(uStr)) return true;
+                        if (readUidsRef.current?.has(uStr)) return false;
+                        return !m.isRead && !m.read;
+                    });
+                }
                 
                 // Calculate dynamic total count reflecting actual filtered unique emails
                 let calculatedTotal = normalizedEmails.length;
@@ -1938,9 +1912,15 @@ export const MailProvider = ({ children }) => {
         saveStoredReadUids(user?.email, readUidsRef.current);
 
         // 1. Immediately update active emails state
-        setEmails(prev => prev.map(m =>
-            (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: true, read: true } : m
-        ));
+        const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
+        if (currentFolderLower === 'unread') {
+            setEmails(prev => prev.filter(m => String(m.uid ?? m.id) !== strUid));
+            setTotalEmails(total => Math.max(0, total - 1));
+        } else {
+            setEmails(prev => prev.map(m =>
+                (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: true, read: true } : m
+            ));
+        }
 
         // 2. Immediately update in-memory pagesCache across all folders so returning to inbox stays read
         if (pagesCache.current) {
@@ -1948,18 +1928,26 @@ export const MailProvider = ({ children }) => {
                 if (pagesCache.current[f]) {
                     Object.keys(pagesCache.current[f]).forEach(p => {
                         if (Array.isArray(pagesCache.current[f][p])) {
-                            pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
-                                (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: true, read: true } : m
-                            );
+                            if (f === 'unread') {
+                                pagesCache.current[f][p] = pagesCache.current[f][p].filter(m =>
+                                    String(m.uid ?? m.id) !== strUid
+                                );
+                            } else {
+                                pagesCache.current[f][p] = pagesCache.current[f][p].map(m =>
+                                    (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: true, read: true } : m
+                                );
+                            }
                         }
                     });
                 }
             });
+            if (pagesCache.current['unread_total'] !== undefined) {
+                pagesCache.current['unread_total'] = Math.max(0, pagesCache.current['unread_total'] - 1);
+            }
         }
 
         // 3. Immediately decrement unread counts if this email was previously unread
         if (wasUnread) {
-            const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
             const isSpamFolder = currentFolderLower === 'spam';
             setUnreadCounts(counts => ({
                 ...counts,
@@ -2009,9 +1997,23 @@ export const MailProvider = ({ children }) => {
         unreadUidsRef.current.add(strUid);
         saveStoredReadUids(user?.email, readUidsRef.current);
 
-        setEmails(prev => prev.map(m =>
-            (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: false, read: false } : m
-        ));
+        const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
+        if (currentFolderLower === 'unread') {
+            if (foundEmail) {
+                const unreadItem = { ...foundEmail, isRead: false, read: false };
+                setEmails(prev => {
+                    const exists = prev.some(m => String(m.uid ?? m.id) === strUid);
+                    return exists
+                        ? prev.map(m => String(m.uid ?? m.id) === strUid ? unreadItem : m)
+                        : [unreadItem, ...prev];
+                });
+                setTotalEmails(total => total + 1);
+            }
+        } else {
+            setEmails(prev => prev.map(m =>
+                (String(m.uid ?? m.id) === strUid) ? { ...m, isRead: false, read: false } : m
+            ));
+        }
 
         if (pagesCache.current) {
             Object.keys(pagesCache.current).forEach(f => {
@@ -2025,10 +2027,22 @@ export const MailProvider = ({ children }) => {
                     });
                 }
             });
+            if (pagesCache.current['unread'] && foundEmail) {
+                const unreadItem = { ...foundEmail, isRead: false, read: false };
+                const p1 = pagesCache.current['unread']['1'] || pagesCache.current['unread'][1];
+                if (Array.isArray(p1)) {
+                    const exists = p1.some(m => String(m.uid ?? m.id) === strUid);
+                    if (!exists) {
+                        p1.unshift(unreadItem);
+                    }
+                }
+            }
+            if (pagesCache.current['unread_total'] !== undefined) {
+                pagesCache.current['unread_total'] = pagesCache.current['unread_total'] + 1;
+            }
         }
 
         if (wasRead) {
-            const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
             const isSpamFolder = currentFolderLower === 'spam';
             setUnreadCounts(counts => ({
                 ...counts,
@@ -2042,16 +2056,13 @@ export const MailProvider = ({ children }) => {
         }
 
         invalidateCache('unread');
-        if (currentFolderRef.current?.toLowerCase() === 'unread') {
-            fetchEmails('unread', true, currentPageRef.current);
-        }
 
         try {
             await mailAPI.markUnread(uid);
         } catch (apiErr) {
             console.warn('Backend markUnread API call failed:', apiErr);
         }
-    }, [user?.email, invalidateCache, fetchEmails]);
+    }, [user?.email, invalidateCache]);
 
     const commitPendingDelete = useCallback(async () => {
         const pending = pendingUndoDeleteRef.current;

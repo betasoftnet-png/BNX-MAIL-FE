@@ -15,13 +15,21 @@ const Unread = ({ searchQuery }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter, unreadCounts } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleArchive, handleUnarchive, handleSnooze, openCompose, matchesDateFilter, unreadCounts, isEmailRead } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
 
-  const unreadEmails = emails.filter((e) => !e.isRead || String(e.uid) === String(selectedEmailUid));
-  const unreadCount = unreadCounts?.unread !== undefined ? unreadCounts.unread : emails.filter((e) => !e.isRead).length;
-  const selectedEmail = selectedEmailOverride || emails.find((e) => String(e.uid) === String(selectedEmailUid));
+  const unreadEmails = emails.filter((e) => {
+    const uidStr = String(e.uid ?? e.id ?? '');
+    if (isEmailRead && isEmailRead(uidStr)) return false;
+    return !e.isRead && !e.read;
+  });
+  const unreadCount = emails.length === 0 ? 0 : (unreadCounts?.unread !== undefined ? unreadCounts.unread : unreadEmails.length);
+  const baseSelectedEmail = selectedEmailOverride || emails.find((e) => String(e.uid ?? e.id) === String(selectedEmailUid));
+  const selectedEmail = baseSelectedEmail ? {
+    ...baseSelectedEmail,
+    isRead: isEmailRead ? (isEmailRead(baseSelectedEmail.uid ?? baseSelectedEmail.id) || baseSelectedEmail.isRead) : baseSelectedEmail.isRead
+  } : null;
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -48,10 +56,11 @@ const Unread = ({ searchQuery }) => {
     const handleBnxOpenEmail = (event) => {
       const emailToOpen = event?.detail?.email;
       if (!emailToOpen) return;
+      const uidStr = String(emailToOpen.uid ?? emailToOpen.id ?? '');
       setSelectedEmailOverride(emailToOpen);
-      if (emailToOpen.uid) setSelectedEmailUid(emailToOpen.uid);
-      if (!emailToOpen.isRead && emailToOpen.uid) {
-        handleMarkRead(emailToOpen.uid);
+      if (uidStr) setSelectedEmailUid(uidStr);
+      if ((!emailToOpen.isRead && !emailToOpen.read) && uidStr) {
+        handleMarkRead(uidStr, true, emailToOpen);
       }
     };
     window.addEventListener("bnx-open-email", handleBnxOpenEmail);
@@ -63,10 +72,11 @@ const Unread = ({ searchQuery }) => {
   );
 
   const handleSelectEmail = (email) => {
-    setSelectedEmailOverride(null);
-    setSelectedEmailUid(email.uid);
-    if (!email.isRead) {
-      handleMarkRead(email.uid);
+    const uidStr = String(email.uid ?? email.id ?? '');
+    setSelectedEmailOverride(email);
+    setSelectedEmailUid(uidStr);
+    if (!email.isRead && !email.read) {
+      handleMarkRead(uidStr, true, email);
     }
   };
 
@@ -92,7 +102,7 @@ const Unread = ({ searchQuery }) => {
     <EmailDetails
       emailList={visibleEmails}
       onNavigate={(email) => {
-        setSelectedEmailOverride(null);
+        setSelectedEmailOverride(email);
         setSelectedEmailUid(email.uid);
         if (!email.isRead && !email.read) {
           handleMarkRead(email.uid, true, email);

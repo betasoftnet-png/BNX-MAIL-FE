@@ -1406,20 +1406,35 @@ const EmailDetails = ({
               <div className="h-5 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
 
               {!isScheduledMode && !isTrashMode && !isSpamMode && (
-                <button
-                  onClick={() => {
-                    if (isActuallyArchived) {
-                      if (onUnarchive) onUnarchive(email.uid);
-                      else onArchive?.(email.uid);
-                    } else {
-                      onArchive?.(email.uid);
-                    }
-                  }}
-                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
-                  title={isActuallyArchived ? "Unarchive" : "Archive"}
-                >
-                  {isActuallyArchived ? <MdUnarchive size={20} /> : <MdArchive size={20} />}
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      if (isActuallyArchived) {
+                        if (onUnarchive) onUnarchive(email.uid);
+                        else onArchive?.(email.uid);
+                      } else {
+                        onArchive?.(email.uid);
+                      }
+                    }}
+                    className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
+                    title={isActuallyArchived ? "Unarchive" : "Archive"}
+                  >
+                    {isActuallyArchived ? <MdUnarchive size={20} /> : <MdArchive size={20} />}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const emailUid = email?.uid ?? email?.id;
+                      if (emailUid !== undefined && emailUid !== null) {
+                        handleMarkUnread?.(emailUid, false, email);
+                        handleClose();
+                      }
+                    }}
+                    className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 cursor-pointer"
+                    title={t("common.mark_unread", "Mark as unread")}
+                  >
+                    <MdMarkEmailUnread size={20} />
+                  </button>
+                </>
               )}
 
               <button

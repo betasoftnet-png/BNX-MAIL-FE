@@ -41,7 +41,8 @@ const BulkActionsToolbar = ({
     handleUnsubscribe,
     handleSnooze,
     handleApplyLabel,
-    openCompose
+    openCompose,
+    isEmailRead
   } = useMail();
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -270,7 +271,12 @@ const BulkActionsToolbar = ({
   if (selectedIds.size === 0) return null;
 
   // Determine if any of the selected emails are unread
-  const hasUnread = selectedEmails.some((e) => !e.isRead);
+  const isItemUnread = (e) => {
+    const uidStr = String(e.uid ?? e.id ?? '');
+    if (isEmailRead && isEmailRead(uidStr)) return false;
+    return !e.isRead && !e.read;
+  };
+  const hasUnread = selectedEmails.some(isItemUnread);
 
   // Select all toggle handler
   const handleSelectAllToggle = () => {
@@ -305,10 +311,10 @@ const BulkActionsToolbar = ({
     try {
       toast.loading("Updating read status...", { id: "bulk-read" });
       if (hasUnread) {
-        await Promise.all(selectedEmails.map((e) => !e.isRead ? handleMarkRead(e.uid || e.id || e.messageId, true) : Promise.resolve()));
+        await Promise.all(selectedEmails.map((e) => isItemUnread(e) ? handleMarkRead(e.uid || e.id || e.messageId, true, e) : Promise.resolve()));
         toast.success("Emails marked as read", { id: "bulk-read" });
       } else {
-        await Promise.all(selectedEmails.map((e) => e.isRead ? handleMarkUnread(e.uid || e.id || e.messageId, true) : Promise.resolve()));
+        await Promise.all(selectedEmails.map((e) => !isItemUnread(e) ? handleMarkUnread(e.uid || e.id || e.messageId, true, e) : Promise.resolve()));
         toast.success("Emails marked as unread", { id: "bulk-read" });
       }
       setSelectedIds(new Set());
