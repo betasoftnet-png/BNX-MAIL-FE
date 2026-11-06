@@ -1501,25 +1501,29 @@ const ComposeWindow = ({
     setSuccess("");
 
     let currentTo = (formData.to || "").trim();
+    const allToChips = parseRecipientChips(currentTo);
     if (toInputValue && toInputValue.trim()) {
       const pendingInput = toInputValue.trim();
-      const existingChips = parseRecipientChips(currentTo);
-      if (!existingChips.some(c => c.toLowerCase() === pendingInput.toLowerCase())) {
-        currentTo = currentTo ? (currentTo + ", " + pendingInput) : pendingInput;
-        setFormData(prev => ({ ...prev, to: currentTo }));
+      if (!allToChips.some(c => c.toLowerCase() === pendingInput.toLowerCase())) {
+        allToChips.push(pendingInput);
       }
       setToInputValue("");
     }
+    const cleanTo = allToChips.join(", ");
+    if (cleanTo && cleanTo !== formData.to) {
+      setFormData(prev => ({ ...prev, to: cleanTo }));
+    }
 
-    if (!currentTo) {
+    if (!cleanTo) {
       setError("Recipient email is required");
+      toast.error("Recipient email is required");
       sendingRef.current = false;
       setSending(false);
       return;
     }
 
     if (composeMode === "chat" || composeMode === "casbox") {
-        const rawReceiver = (formData.to || "").trim();
+        const rawReceiver = cleanTo;
         if (!rawReceiver) {
            setError("Recipient email is required");
            sendingRef.current = false;
@@ -1607,7 +1611,7 @@ const ComposeWindow = ({
             clearDraftAttachments({
                 draftId,
                 uid: imapDraftUidRef.current,
-                to: formData.to,
+                to: cleanTo,
                 subject: formData.subject,
             });
             setAttachments([]);
@@ -1640,8 +1644,25 @@ const ComposeWindow = ({
         return;
     }
 
-    if (!formData.subject) {
+    const cleanSubject = (formData.subject || "").trim();
+    if (!cleanSubject) {
       setError("Subject is required");
+      toast.error("Subject is required");
+      sendingRef.current = false;
+      setSending(false);
+      return;
+    }
+
+    // Validate email format for each recipient in To
+    const emailRegex = /^[A-Za-z0-9+_.-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
+    const invalidRecipient = allToChips.find(addr => {
+      const cleanAddr = addr.includes('<') ? (addr.match(/<([^>]+)>/)?.[1] || addr) : addr;
+      return !emailRegex.test(cleanAddr.trim());
+    });
+    if (invalidRecipient) {
+      const errTxt = `Invalid recipient email address: "${invalidRecipient}"`;
+      setError(errTxt);
+      toast.error(errTxt);
       sendingRef.current = false;
       setSending(false);
       return;
@@ -1649,6 +1670,7 @@ const ComposeWindow = ({
 
     if (uploading) {
       setError("Please wait for files to finish uploading");
+      toast.error("Please wait for files to finish uploading");
       sendingRef.current = false;
       setSending(false);
       return;
@@ -1672,19 +1694,35 @@ const ComposeWindow = ({
     const currentImapDraftUid = imapDraftUidRef.current;
     const currentDraftId = draftId;
     const currentDraftUid = composeData?.draft?.uid || composeData?.draft?.id || selectedDraftIdRef.current;
-    const activeDraftUid = currentImapDraftUid || currentDraftUid || (currentDraftId ? String(currentDraftId) : null);
+    const rawDraftUid = currentImapDraftUid || currentDraftUid || (currentDraftId ? String(currentDraftId) : null);
+    const safeDraftUid = rawDraftUid && !String(rawDraftUid).startsWith('compose-') ? String(rawDraftUid) : null;
+
+    let finalBody = getFinalBody(formData.body);
+    if (!finalBody || !finalBody.trim() || finalBody === '<p><br></p>' || finalBody === '<p></p>') {
+      finalBody = '<p>&nbsp;</p>';
+    }
+
+    const cleanCc = formData.cc ? parseRecipientChips(formData.cc).join(", ") : "";
+    const cleanBcc = formData.bcc ? parseRecipientChips(formData.bcc).join(", ") : "";
+
+    const cleanAttachments = (attachments || []).map(att => ({
+      fileName: att.fileName || att.name || '',
+      filePath: att.filePath || '',
+      thumbnailPath: att.thumbnailPath || '',
+      size: Number(att.size) || 0
+    }));
 
     const payload = {
-      to: formData.to,
-      subject: formData.subject,
-      body: getFinalBody(formData.body),
+      to: cleanTo,
+      subject: cleanSubject,
+      body: finalBody,
       isHtml: true,
-      draftUid: activeDraftUid,
-      uid: activeDraftUid,
+      draftUid: safeDraftUid,
+      uid: safeDraftUid,
     };
-    if (formData.cc) payload.cc = formData.cc;
-    if (formData.bcc) payload.bcc = formData.bcc;
-    if (attachments && attachments.length > 0) payload.attachments = attachments;
+    if (cleanCc) payload.cc = cleanCc;
+    if (cleanBcc) payload.bcc = cleanBcc;
+    if (cleanAttachments.length > 0) payload.attachments = cleanAttachments;
     if (isStarredDraft) {
       payload.isStarred = true;
       payload.starred = true;
@@ -1694,12 +1732,17 @@ const ComposeWindow = ({
       try {
         let response;
         if (draftId) {
-          await mailAPI.createDbDraft({
-            id: draftId,
-            ...payload,
-            isHtml: true
-          });
-          response = await mailAPI.sendDbDraft(draftId);
+          try {
+            await mailAPI.createDbDraft({
+              id: draftId,
+              ...payload,
+              isHtml: true
+            });
+            response = await mailAPI.sendDbDraft(draftId);
+          } catch (dbDraftErr) {
+            console.warn("sendDbDraft failed, falling back to direct send:", dbDraftErr);
+            response = await mailAPI.send(payload);
+          }
         } else {
           response = await mailAPI.send(payload);
         }
@@ -1716,15 +1759,15 @@ const ComposeWindow = ({
             closeCompose();
           }
 
-          recordSentRecipient(user?.email, formData.to);
-          if (formData.cc) recordSentRecipient(user?.email, formData.cc);
-          if (formData.bcc) recordSentRecipient(user?.email, formData.bcc);
+          recordSentRecipient(user?.email, cleanTo);
+          if (cleanCc) recordSentRecipient(user?.email, cleanCc);
+          if (cleanBcc) recordSentRecipient(user?.email, cleanBcc);
 
           clearDraftAttachments({
             draftId: currentDraftId,
             uid: currentImapDraftUid || currentDraftUid,
-            to: formData.to,
-            subject: formData.subject,
+            to: cleanTo,
+            subject: cleanSubject,
           });
           setAttachments([]);
           imapDraftUidRef.current = null;
@@ -1740,19 +1783,19 @@ const ComposeWindow = ({
               sentEmail: response.data?.data,
               wasStarred: isStarredDraft,
               emailData: {
-                to: formData.to,
-                cc: formData.cc,
-                bcc: formData.bcc,
-                subject: formData.subject,
-                body: formData.body,
-                attachments: attachments
+                to: cleanTo,
+                cc: cleanCc,
+                bcc: cleanBcc,
+                subject: cleanSubject,
+                body: finalBody,
+                attachments: cleanAttachments
               }
             });
           }
         }
       } catch (err) {
         console.error("Draft send error:", err);
-        const errorMsg = err.response?.data?.message || err.message || "Failed to send email";
+        const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to send email";
         setError(errorMsg);
         toast.error(errorMsg, { id: tid });
       } finally {
@@ -1825,15 +1868,48 @@ const ComposeWindow = ({
     setError("");
     setSuccess("");
 
-    if (!formData.to) {
+    // If user typed in recipient input but didn't press enter/tab before scheduling
+    let currentTo = formData.to;
+    if (toInputValue.trim()) {
+      const parts = toInputValue.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+      if (parts.length > 0) {
+        const existing = parseRecipientChips(formData.to);
+        const combined = Array.from(new Set([...existing, ...parts]));
+        currentTo = combined.join(", ");
+        setFormData(prev => ({ ...prev, to: currentTo }));
+        setToInputValue("");
+      }
+    }
+
+    const allToChips = parseRecipientChips(currentTo);
+    const cleanTo = allToChips.join(", ");
+    if (!cleanTo) {
       setError("Recipient email is required");
+      toast.error("Recipient email is required");
       sendingRef.current = false;
       setSending(false);
       return;
     }
 
-    if (!formData.subject) {
+    const cleanSubject = (formData.subject || "").trim();
+    if (!cleanSubject) {
       setError("Subject is required");
+      toast.error("Subject is required");
+      sendingRef.current = false;
+      setSending(false);
+      return;
+    }
+
+    // Validate email format for each recipient in To
+    const emailRegex = /^[A-Za-z0-9+_.-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
+    const invalidRecipient = allToChips.find(addr => {
+      const cleanAddr = addr.includes('<') ? (addr.match(/<([^>]+)>/)?.[1] || addr) : addr;
+      return !emailRegex.test(cleanAddr.trim());
+    });
+    if (invalidRecipient) {
+      const errTxt = `Invalid recipient email address: "${invalidRecipient}"`;
+      setError(errTxt);
+      toast.error(errTxt);
       sendingRef.current = false;
       setSending(false);
       return;
@@ -1841,27 +1917,46 @@ const ComposeWindow = ({
 
     if (uploading) {
       setError("Please wait for files to finish uploading");
+      toast.error("Please wait for files to finish uploading");
       sendingRef.current = false;
       setSending(false);
       return;
     }
 
+    let finalBody = getFinalBody(formData.body);
+    if (!finalBody || !finalBody.trim() || finalBody === '<p><br></p>' || finalBody === '<p></p>') {
+      finalBody = '<p>&nbsp;</p>';
+    }
+
+    const cleanCc = formData.cc ? parseRecipientChips(formData.cc).join(", ") : "";
+    const cleanBcc = formData.bcc ? parseRecipientChips(formData.bcc).join(", ") : "";
+
+    const cleanAttachments = (attachments || []).map(att => ({
+      fileName: att.fileName || att.name || '',
+      filePath: att.filePath || '',
+      thumbnailPath: att.thumbnailPath || '',
+      size: Number(att.size) || 0
+    }));
+
     try {
       const payload = {
-        to: formData.to,
-        subject: formData.subject,
-        body: getFinalBody(formData.body),
-        attachments: attachments,
+        to: cleanTo,
+        subject: cleanSubject,
+        body: finalBody,
         isHtml: true
       };
-      if (formData.cc) payload.cc = formData.cc;
-      if (formData.bcc) payload.bcc = formData.bcc;
+      if (cleanCc) payload.cc = cleanCc;
+      if (cleanBcc) payload.bcc = cleanBcc;
+      if (cleanAttachments.length > 0) payload.attachments = cleanAttachments;
 
       const response = await mailAPI.scheduleEmail(payload, sendAtIso);
 
       if (response.data?.success) {
         setSuccess("Email scheduled successfully");
         toast.success("Email scheduled successfully");
+        recordSentRecipient(user?.email, cleanTo);
+        if (cleanCc) recordSentRecipient(user?.email, cleanCc);
+        if (cleanBcc) recordSentRecipient(user?.email, cleanBcc);
         if (invalidateCache) invalidateCache('scheduled');
         window.dispatchEvent(new CustomEvent('bnx_scheduled_changed'));
         setTimeout(() => {
@@ -1869,7 +1964,9 @@ const ComposeWindow = ({
         }, 1000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to schedule email");
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to schedule email";
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       sendingRef.current = false;
       setSending(false);
