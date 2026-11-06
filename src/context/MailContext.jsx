@@ -61,6 +61,11 @@ export const saveStoredSelfSentEmail = (emailObj, userEmail) => {
             const mUid = String(m.uid ?? m.id ?? m.messageId ?? '');
             if (uid && mUid && mUid === uid) return true;
             if (messageId && m.messageId && String(m.messageId) === messageId) return true;
+            if (m.subject && emailObj.subject && m.subject.trim() === emailObj.subject.trim()) {
+                const dateA = new Date(m.date || m.sentDate || m.receivedDate || 0).getTime();
+                const dateB = new Date(emailObj.date || emailObj.sentDate || emailObj.receivedDate || 0).getTime();
+                if (dateA && dateB && Math.abs(dateA - dateB) < 300000) return true;
+            }
             return false;
         });
 
@@ -82,6 +87,131 @@ export const saveStoredSelfSentEmail = (emailObj, userEmail) => {
     } catch (e) {
         console.warn('Failed to save self-sent email:', e);
     }
+};
+
+export const syncSelfSentEmails = (folder, emailsList, userEmail, isEmailStarredFn, readUids, unreadUids) => {
+    if (!userEmail || !Array.isArray(emailsList)) return emailsList;
+    const fKey = (folder || '').toLowerCase();
+    const selfSentList = getStoredSelfSentEmails(userEmail);
+    if (!Array.isArray(selfSentList) || selfSentList.length === 0) return emailsList;
+
+    let result = [...emailsList];
+
+    if (fKey === 'sent') {
+        selfSentList.forEach(sMail => {
+            const uidStr = String(sMail.uid ?? sMail.id ?? '');
+            const msgId = sMail.messageId ? String(sMail.messageId) : null;
+
+            const existingIdx = result.findIndex(m => {
+                const mUid = String(m.uid ?? m.id ?? '');
+                if (uidStr && mUid && mUid === uidStr) return true;
+                if (msgId && m.messageId && String(m.messageId) === msgId) return true;
+                if (isSelfSentEmail(m, userEmail) && m.subject && sMail.subject && m.subject.trim() === sMail.subject.trim()) {
+                    const dateA = new Date(m.date || m.sentDate || m.receivedDate || 0).getTime();
+                    const dateB = new Date(sMail.date || sMail.sentDate || sMail.receivedDate || 0).getTime();
+                    if (dateA && dateB && Math.abs(dateA - dateB) < 300000) return true;
+                }
+                return false;
+            });
+
+            if (existingIdx >= 0) {
+                // Harmonize UID so both Sent and Inbox share the exact same UID/message ID
+                result[existingIdx].uid = sMail.uid;
+                result[existingIdx].id = sMail.uid;
+            } else {
+                result.push({
+                    ...sMail,
+                    folderName: 'Sent',
+                    isDraft: false,
+                    draft: false,
+                    isRead: true,
+                    read: true,
+                    sentDate: sMail.sentDate || sMail.date || sMail.receivedDate,
+                    date: sMail.sentDate || sMail.date || sMail.receivedDate
+                });
+            }
+        });
+
+        // Deduplicate Sent by canonical UID
+        const seenSentUids = new Set();
+        result = result.filter(m => {
+            const u = String(m.uid ?? m.id ?? '');
+            if (!u) return true;
+            if (seenSentUids.has(u)) return false;
+            seenSentUids.add(u);
+            return true;
+        });
+
+        sortEmailsByDateDesc(result);
+        return result;
+    }
+
+    if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(fKey)) {
+        selfSentList.forEach(sMail => {
+            if (sMail.deletedFromInbox) return;
+            const uidStr = String(sMail.uid ?? sMail.id ?? '');
+            const msgId = sMail.messageId ? String(sMail.messageId) : null;
+
+            const existingIdx = result.findIndex(m => {
+                const mUid = String(m.uid ?? m.id ?? '');
+                if (uidStr && mUid && mUid === uidStr) return true;
+                if (msgId && m.messageId && String(m.messageId) === msgId) return true;
+                if (isSelfSentEmail(m, userEmail) && m.subject && sMail.subject && m.subject.trim() === sMail.subject.trim()) {
+                    const dateA = new Date(m.date || m.receivedDate || m.sentDate || 0).getTime();
+                    const dateB = new Date(sMail.date || sMail.receivedDate || sMail.sentDate || 0).getTime();
+                    if (dateA && dateB && Math.abs(dateA - dateB) < 300000) return true;
+                }
+                return false;
+            });
+
+            if (existingIdx >= 0) {
+                // Harmonize UID so both Sent and Inbox share the exact same UID/message ID
+                result[existingIdx].uid = sMail.uid;
+                result[existingIdx].id = sMail.uid;
+            } else {
+                const isMarkedRead = readUids ? readUids.has(uidStr) : false;
+                const isMarkedUnread = unreadUids ? unreadUids.has(uidStr) : false;
+                const isRead = !isMarkedUnread && (isMarkedRead || (sMail.isRead !== undefined ? Boolean(sMail.isRead) : false));
+                const isStarred = typeof isEmailStarredFn === 'function' ? isEmailStarredFn(uidStr, 'inbox', sMail) : Boolean(sMail.starred);
+
+                if (fKey === 'unread' && isRead) return;
+
+                result.push({
+                    ...sMail,
+                    folderName: 'INBOX',
+                    isDraft: false,
+                    draft: false,
+                    isRead,
+                    read: isRead,
+                    starred: isStarred,
+                    isStarred: isStarred,
+                    receivedDate: sMail.receivedDate || sMail.sentDate || sMail.date,
+                    date: sMail.receivedDate || sMail.sentDate || sMail.date
+                });
+            }
+        });
+
+        // Filter out any items marked deleted from Inbox
+        const deletedInboxUids = new Set(selfSentList.filter(s => s.deletedFromInbox).map(s => String(s.uid ?? s.id ?? '')));
+        if (deletedInboxUids.size > 0) {
+            result = result.filter(m => !deletedInboxUids.has(String(m.uid ?? m.id ?? '')));
+        }
+
+        // Deduplicate Inbox by canonical UID
+        const seenInboxUids = new Set();
+        result = result.filter(m => {
+            const u = String(m.uid ?? m.id ?? '');
+            if (!u) return true;
+            if (seenInboxUids.has(u)) return false;
+            seenInboxUids.add(u);
+            return true;
+        });
+
+        sortEmailsByDateDesc(result);
+        return result;
+    }
+
+    return result;
 };
 
 export const markSelfSentDeletedFromInbox = (uid, userEmail) => {
@@ -969,45 +1099,14 @@ export const MailProvider = ({ children }) => {
                     });
                 }
 
-                if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(folderKey) && user?.email) {
-                    const selfSentList = getStoredSelfSentEmails(user.email);
-                    if (Array.isArray(selfSentList) && selfSentList.length > 0) {
-                        const existingUids = new Set(normalizedEmails.map(m => String(m.uid ?? m.id ?? '')));
-                        const existingMessageIds = new Set(normalizedEmails.filter(m => m.messageId).map(m => String(m.messageId)));
-
-                        selfSentList.forEach(sMail => {
-                            if (sMail.deletedFromInbox) return;
-                            const uidStr = String(sMail.uid ?? sMail.id ?? '');
-                            const msgId = sMail.messageId ? String(sMail.messageId) : null;
-                            if (existingUids.has(uidStr)) return;
-                            if (msgId && existingMessageIds.has(msgId)) return;
-
-                            const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
-                            const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
-                            const isRead = !isMarkedUnread && (isMarkedRead || (sMail.isRead !== undefined ? Boolean(sMail.isRead) : false));
-                            const isStarred = isEmailStarred(uidStr, 'inbox', sMail);
-
-                            if (folderKey === 'unread' && isRead) return;
-
-                            normalizedEmails.push({
-                                ...sMail,
-                                folderName: 'INBOX',
-                                isDraft: false,
-                                draft: false,
-                                isRead,
-                                read: isRead,
-                                starred: isStarred,
-                                isStarred: isStarred,
-                                receivedDate: sMail.receivedDate || sMail.sentDate || sMail.date,
-                                date: sMail.receivedDate || sMail.sentDate || sMail.date
-                            });
-                            existingUids.add(uidStr);
-                            if (msgId) existingMessageIds.add(msgId);
-                        });
-
-                        sortEmailsByDateDesc(normalizedEmails);
-                    }
-                }
+                normalizedEmails = syncSelfSentEmails(
+                    folderKey,
+                    normalizedEmails,
+                    user?.email,
+                    isEmailStarred,
+                    readUidsRef.current,
+                    unreadUidsRef.current
+                );
 
                 // Calculate dynamic total count reflecting actual filtered unique emails
                 let calculatedTotal = normalizedEmails.length;
@@ -1310,45 +1409,14 @@ export const MailProvider = ({ children }) => {
                     });
                 }
 
-                if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(lowerFolder) && user?.email) {
-                    const selfSentList = getStoredSelfSentEmails(user.email);
-                    if (Array.isArray(selfSentList) && selfSentList.length > 0) {
-                        const existingUids = new Set(normalizedEmails.map(m => String(m.uid ?? m.id ?? '')));
-                        const existingMessageIds = new Set(normalizedEmails.filter(m => m.messageId).map(m => String(m.messageId)));
-
-                        selfSentList.forEach(sMail => {
-                            if (sMail.deletedFromInbox) return;
-                            const uidStr = String(sMail.uid ?? sMail.id ?? '');
-                            const msgId = sMail.messageId ? String(sMail.messageId) : null;
-                            if (existingUids.has(uidStr)) return;
-                            if (msgId && existingMessageIds.has(msgId)) return;
-
-                            const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
-                            const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
-                            const isRead = !isMarkedUnread && (isMarkedRead || (sMail.isRead !== undefined ? Boolean(sMail.isRead) : false));
-                            const isStarred = isEmailStarred(uidStr, 'inbox', sMail);
-
-                            if (lowerFolder === 'unread' && isRead) return;
-
-                            normalizedEmails.push({
-                                ...sMail,
-                                folderName: 'INBOX',
-                                isDraft: false,
-                                draft: false,
-                                isRead,
-                                read: isRead,
-                                starred: isStarred,
-                                isStarred: isStarred,
-                                receivedDate: sMail.receivedDate || sMail.sentDate || sMail.date,
-                                date: sMail.receivedDate || sMail.sentDate || sMail.date
-                            });
-                            existingUids.add(uidStr);
-                            if (msgId) existingMessageIds.add(msgId);
-                        });
-
-                        sortEmailsByDateDesc(normalizedEmails);
-                    }
-                }
+                normalizedEmails = syncSelfSentEmails(
+                    lowerFolder,
+                    normalizedEmails,
+                    user?.email,
+                    isEmailStarred,
+                    readUidsRef.current,
+                    unreadUidsRef.current
+                );
                 
                 // Calculate dynamic total count reflecting actual filtered unique emails
                 let calculatedTotal = normalizedEmails.length;
@@ -2844,16 +2912,28 @@ export const MailProvider = ({ children }) => {
         const explicitLabels = Array.isArray(emailData?.labels) ? emailData.labels : [];
         if (sentEmail || emailData) {
             const rawSentDate = sentEmail?.sentAt ? new Date(sentEmail.sentAt).toISOString() : new Date().toISOString();
+            const userEmail = user?.email?.trim().toLowerCase();
+            const fromEmail = sentEmail?.from || sentEmail?.senderEmail || emailData?.from || emailData?.senderEmail || userEmail;
+            const senderName = user?.name || emailData?.senderName || fromEmail?.split('@')[0] || '';
+            const toEmail = emailData?.to || sentEmail?.to || '';
+            const commonUid = sentUid || (sentEmail?.id ? String(sentEmail.id) : null) || String(Date.now());
+
             sentEmailObj = {
                 ...(emailData || {}),
                 ...(sentEmail || {}),
-                uid: sentUid || String(Date.now()),
-                id: sentEmail?.id || sentUid || String(Date.now()),
-                to: emailData?.to || sentEmail?.to || '',
+                uid: commonUid,
+                id: commonUid,
+                from: fromEmail,
+                senderEmail: fromEmail,
+                senderName: senderName,
+                sender: senderName ? `${senderName} <${fromEmail}>` : fromEmail,
+                to: toEmail,
+                recipientEmail: toEmail,
                 cc: emailData?.cc || sentEmail?.cc || '',
                 bcc: emailData?.bcc || sentEmail?.bcc || '',
                 subject: emailData?.subject || sentEmail?.subject || '',
                 body: emailData?.body || sentEmail?.body || '',
+                htmlBody: emailData?.htmlBody || emailData?.body || sentEmail?.body || '',
                 folderName: 'Sent',
                 starred: isDraftStarred,
                 isStarred: isDraftStarred,
@@ -2865,8 +2945,8 @@ export const MailProvider = ({ children }) => {
                 labels: explicitLabels
             };
 
-            if (isSelfSentEmail(sentEmailObj, user?.email)) {
-                saveStoredSelfSentEmail(sentEmailObj, user?.email);
+            if (isSelfSentEmail(sentEmailObj, userEmail)) {
+                saveStoredSelfSentEmail(sentEmailObj, userEmail);
                 inboxEmailObj = {
                     ...sentEmailObj,
                     folderName: 'INBOX',
@@ -2986,6 +3066,7 @@ export const MailProvider = ({ children }) => {
                     sentEmailObj,
                     ...p1.filter(m => String(m.uid || m.id || '') !== String(sentEmailObj.uid))
                 ];
+                pagesCache.current['sent_total'] = Math.max(pagesCache.current['sent_total'] || 0, pagesCache.current['sent'][1].length);
             }
             if (inboxEmailObj) {
                 ['inbox', 'all-inbox', 'allinbox', 'unread'].forEach(fKey => {
@@ -2997,6 +3078,7 @@ export const MailProvider = ({ children }) => {
                         inboxEmailObj,
                         ...p1.filter(m => String(m.uid || m.id || '') !== String(inboxEmailObj.uid))
                     ];
+                    pagesCache.current[`${fKey}_total`] = Math.max(pagesCache.current[`${fKey}_total`] || 0, pagesCache.current[fKey][1].length);
                 });
 
                 setUnreadCounts(prev => ({

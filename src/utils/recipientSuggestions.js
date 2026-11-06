@@ -106,12 +106,12 @@ export const isSelfSentEmail = (email, userEmail) => {
   if (!email || !userEmail) return false;
   const cleanUser = userEmail.trim().toLowerCase();
 
-  const senderRaw = [email.senderEmail, email.from].filter(Boolean);
+  const senderRaw = [email.senderEmail, email.from, email.sender].filter(Boolean);
   const senderList = extractEmailAddresses(senderRaw);
   const isSender = senderList.includes(cleanUser);
   if (!isSender) return false;
 
-  const recipientRaw = [email.recipientEmail, email.to, email.cc, email.bcc].filter(Boolean);
+  const recipientRaw = [email.recipientEmail, email.to, email.cc, email.bcc, email.recipient].filter(Boolean);
   const recipientList = extractEmailAddresses(recipientRaw);
   return recipientList.includes(cleanUser);
 };

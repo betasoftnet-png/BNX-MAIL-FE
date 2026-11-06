@@ -1783,11 +1783,17 @@ const ComposeWindow = ({
               sentEmail: response.data?.data,
               wasStarred: isStarredDraft,
               emailData: {
+                from: user?.email,
+                senderEmail: user?.email,
+                senderName: user?.name,
                 to: cleanTo,
+                recipientEmail: cleanTo,
                 cc: cleanCc,
                 bcc: cleanBcc,
                 subject: cleanSubject,
                 body: finalBody,
+                htmlBody: finalBody,
+                isHtml: true,
                 attachments: cleanAttachments
               }
             });
