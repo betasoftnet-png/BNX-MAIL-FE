@@ -62,9 +62,8 @@ const Starred = ({ searchQuery }) => {
 
   const visibleEmails = emails.filter((e) => {
     const targetFolder = isDraftEmail(e) ? 'draft' : (e.folderName || 'starred');
-    const isItemStarred = typeof isEmailStarred === 'function'
-      ? isEmailStarred(e.uid ?? e.id, targetFolder, e)
-      : Boolean(e.starred || e.isStarred);
+    const isItemStarred = (typeof isEmailStarred === 'function' && isEmailStarred(e.uid ?? e.id, targetFolder, e)) ||
+      Boolean(e.starred || e.isStarred);
     if (!isItemStarred) return false;
     return typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true;
   });
@@ -222,7 +221,11 @@ const handleReply = (email) => {
 
   const listComponent = (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {sortedEmails.length === 0 ? (
+      {loading && !isRefreshing && sortedEmails.length === 0 ? (
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+          <p className="text-sm font-medium animate-pulse" style={{ color: theme.subText }}>Loading starred emails...</p>
+        </div>
+      ) : sortedEmails.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
           <MdStarBorder className="text-5xl mb-4 text-gray-300 dark:text-gray-600 opacity-55" />
           <p className="text-base font-semibold" style={{ color: theme.text }}>{t("starred.empty", "No starred messages")}</p>
