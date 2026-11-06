@@ -10,7 +10,9 @@ import { getEmailPreviewSnippet } from "../utils/htmlUtils";
 import {
   formatRecipientsDisplay,
   getRecipientFullTooltip,
-  getParsedRecipientGroups
+  getParsedRecipientGroups,
+  extractEmailAddresses,
+  isSelfSentEmail
 } from "../utils/recipientSuggestions";
 
 const EmailList = ({
@@ -302,12 +304,28 @@ const EmailList = ({
         ) : (
           <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800/60">
             {displayedEmails.map((email, i) => {
-              const isSentFolder = location.pathname === '/sent' || currentFolder?.toLowerCase() === 'sent' || email.folderName?.toLowerCase() === 'sent';
-              const isSentByUser = showTo || isSentFolder || (user?.email && email.from?.toLowerCase().includes(user.email.toLowerCase()));
+              const isSentView = Boolean(
+                showTo ||
+                currentFolder?.toLowerCase() === 'sent' ||
+                location.pathname === '/sent' ||
+                location.pathname?.startsWith('/sent/')
+              );
+              const isInboxView = Boolean(
+                currentFolder?.toLowerCase() === 'inbox' ||
+                currentFolder?.toLowerCase() === 'all-inbox' ||
+                currentFolder?.toLowerCase() === 'allinbox' ||
+                currentFolder?.toLowerCase() === 'unread' ||
+                location.pathname === '/inbox' ||
+                location.pathname === '/all-inbox' ||
+                location.pathname === '/unread'
+              );
+              const isEmailSelfSent = Boolean(isSelfSentEmail(email, user?.email));
+              const isSentFolder = isSentView || (!isInboxView && email.folderName?.toLowerCase() === 'sent');
+              const isSentByUser = isSentView || (!isInboxView && isSentFolder && !isEmailSelfSent);
               const recipientGroups = isSentByUser ? getParsedRecipientGroups(email) : null;
               const recipientBadge = email._displayRecipientType || (recipientGroups?.to?.length > 0 ? 'TO' : (recipientGroups?.cc?.length > 0 ? 'CC' : (recipientGroups?.bcc?.length > 0 ? 'BCC' : 'TO')));
               const recipientText = email._displayRecipient || (isSentByUser ? formatRecipientsDisplay(email) : '');
-              const sender = isSentByUser ? recipientText : email.from;
+              const sender = isSentByUser ? recipientText : (email.from || email.senderEmail);
               const recipientTooltip = isSentByUser
                 ? (email._displayRecipient
                     ? `${recipientBadge}: ${email._displayRecipient}`
@@ -428,13 +446,14 @@ const EmailList = ({
                         </span>
                       ) : (() => {
                         if (!sender) return "Unknown";
+                        const isSenderMe = Boolean(user?.email && extractEmailAddresses(sender).includes(user.email.toLowerCase()));
                         if (sender.includes("<")) {
                           const namePart = sender.split("<")[0].replace(/^["'\s]+|["'\s]+$/g, "").trim();
                           if (namePart) return namePart;
                           const emailInside = sender.match(/<([^>]+)>/)?.[1];
-                          if (emailInside) return emailInside.split("@")[0];
+                          if (emailInside) return isSenderMe ? "me" : emailInside.split("@")[0];
                         }
-                        return sender.split("@")[0] || sender;
+                        return isSenderMe ? "me" : (sender.split("@")[0] || sender);
                       })()}
                     </span>
                   </div>

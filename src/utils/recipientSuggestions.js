@@ -88,6 +88,34 @@ export const parseAddress = (addr) => {
   return null;
 };
 
+export const extractEmailAddresses = (field) => {
+  if (!field) return [];
+  if (Array.isArray(field)) {
+    return field.flatMap(extractEmailAddresses);
+  }
+  if (typeof field === 'object') {
+    const addr = field.email || field.address || field.value;
+    return addr ? [String(addr).trim().toLowerCase()] : [];
+  }
+  const str = String(field);
+  const matches = str.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g);
+  return matches ? matches.map(e => e.trim().toLowerCase()) : [];
+};
+
+export const isSelfSentEmail = (email, userEmail) => {
+  if (!email || !userEmail) return false;
+  const cleanUser = userEmail.trim().toLowerCase();
+
+  const senderRaw = [email.senderEmail, email.from].filter(Boolean);
+  const senderList = extractEmailAddresses(senderRaw);
+  const isSender = senderList.includes(cleanUser);
+  if (!isSender) return false;
+
+  const recipientRaw = [email.recipientEmail, email.to, email.cc, email.bcc].filter(Boolean);
+  const recipientList = extractEmailAddresses(recipientRaw);
+  return recipientList.includes(cleanUser);
+};
+
 export const extractContactsFromEmails = (emailList, currentUserEmail = '') => {
   if (!Array.isArray(emailList)) return [];
   const myEmail = (currentUserEmail || '').trim().toLowerCase();

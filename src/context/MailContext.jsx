@@ -22,6 +22,10 @@ import {
     linkScheduledStarToSentEmail,
     isEmailValidScheduled
 } from '../utils/starredStorage';
+import {
+    extractEmailAddresses,
+    isSelfSentEmail
+} from '../utils/recipientSuggestions';
 
 // Clean up any legacy persisted read UIDs from previous sessions to prevent stale overrides
 try {
@@ -33,6 +37,80 @@ try {
         });
     }
 } catch (e) {}
+
+export const getStoredSelfSentEmails = (userEmail) => {
+    if (!userEmail || typeof window === 'undefined') return [];
+    try {
+        const cleanUser = userEmail.trim().toLowerCase();
+        const raw = localStorage.getItem(`bnx_self_sent_${cleanUser}`);
+        return raw ? JSON.parse(raw) : [];
+    } catch {
+        return [];
+    }
+};
+
+export const saveStoredSelfSentEmail = (emailObj, userEmail) => {
+    if (!emailObj || !userEmail || typeof window === 'undefined') return;
+    try {
+        const cleanUser = userEmail.trim().toLowerCase();
+        const list = getStoredSelfSentEmails(cleanUser);
+        const uid = String(emailObj.uid ?? emailObj.id ?? emailObj.messageId ?? '');
+        const messageId = emailObj.messageId ? String(emailObj.messageId) : null;
+
+        const existingIdx = list.findIndex(m => {
+            const mUid = String(m.uid ?? m.id ?? m.messageId ?? '');
+            if (uid && mUid && mUid === uid) return true;
+            if (messageId && m.messageId && String(m.messageId) === messageId) return true;
+            return false;
+        });
+
+        const entryToSave = {
+            ...emailObj,
+            uid: emailObj.uid ?? emailObj.id ?? (existingIdx >= 0 ? list[existingIdx].uid : String(Date.now())),
+            id: emailObj.id ?? emailObj.uid ?? (existingIdx >= 0 ? list[existingIdx].id : String(Date.now())),
+            messageId: emailObj.messageId || (existingIdx >= 0 ? list[existingIdx].messageId : null)
+        };
+
+        if (existingIdx >= 0) {
+            list[existingIdx] = { ...list[existingIdx], ...entryToSave };
+        } else {
+            list.unshift(entryToSave);
+        }
+
+        const trimmed = list.slice(0, 100);
+        localStorage.setItem(`bnx_self_sent_${cleanUser}`, JSON.stringify(trimmed));
+    } catch (e) {
+        console.warn('Failed to save self-sent email:', e);
+    }
+};
+
+export const markSelfSentDeletedFromInbox = (uid, userEmail) => {
+    if (!uid || !userEmail || typeof window === 'undefined') return;
+    try {
+        const cleanUser = userEmail.trim().toLowerCase();
+        const list = getStoredSelfSentEmails(cleanUser);
+        const strUid = String(uid);
+        const item = list.find(m => String(m.uid ?? m.id ?? m.messageId ?? '') === strUid);
+        if (item) {
+            item.deletedFromInbox = true;
+            localStorage.setItem(`bnx_self_sent_${cleanUser}`, JSON.stringify(list));
+        }
+    } catch {}
+};
+
+export const unmarkSelfSentDeletedFromInbox = (uid, userEmail) => {
+    if (!uid || !userEmail || typeof window === 'undefined') return;
+    try {
+        const cleanUser = userEmail.trim().toLowerCase();
+        const list = getStoredSelfSentEmails(cleanUser);
+        const strUid = String(uid);
+        const item = list.find(m => String(m.uid ?? m.id ?? m.messageId ?? '') === strUid);
+        if (item) {
+            delete item.deletedFromInbox;
+            localStorage.setItem(`bnx_self_sent_${cleanUser}`, JSON.stringify(list));
+        }
+    } catch {}
+};
 
 // Helper functions for session-scoped read UIDs to preserve read status across in-session refreshes
 const getStoredReadUids = (email) => {
@@ -860,11 +938,9 @@ export const MailProvider = ({ children }) => {
                 if (user?.email) {
                     const loginEmail = user.email.trim().toLowerCase();
                     const isEmailMatch = (emailField, currentEmail) => {
-                        if (!emailField) return false;
-                        const cleanEmail = emailField.trim().toLowerCase();
-                        const match = cleanEmail.match(/<([^>]+)>/);
-                        const actualEmail = match ? match[1].trim().toLowerCase() : cleanEmail;
-                        return actualEmail === currentEmail;
+                        if (!emailField || !currentEmail) return false;
+                        const addrs = extractEmailAddresses(emailField);
+                        return addrs.includes(currentEmail);
                     };
 
                     if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(folderKey)) {
@@ -882,6 +958,54 @@ export const MailProvider = ({ children }) => {
                             const isSenderMe = isEmailMatch(m.senderEmail, loginEmail) || isEmailMatch(m.from, loginEmail);
                             return isSenderMe;
                         });
+                    }
+                }
+
+                if (folderKey === 'sent' && user?.email) {
+                    normalizedEmails.forEach(sMail => {
+                        if (isSelfSentEmail(sMail, user.email)) {
+                            saveStoredSelfSentEmail(sMail, user.email);
+                        }
+                    });
+                }
+
+                if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(folderKey) && user?.email) {
+                    const selfSentList = getStoredSelfSentEmails(user.email);
+                    if (Array.isArray(selfSentList) && selfSentList.length > 0) {
+                        const existingUids = new Set(normalizedEmails.map(m => String(m.uid ?? m.id ?? '')));
+                        const existingMessageIds = new Set(normalizedEmails.filter(m => m.messageId).map(m => String(m.messageId)));
+
+                        selfSentList.forEach(sMail => {
+                            if (sMail.deletedFromInbox) return;
+                            const uidStr = String(sMail.uid ?? sMail.id ?? '');
+                            const msgId = sMail.messageId ? String(sMail.messageId) : null;
+                            if (existingUids.has(uidStr)) return;
+                            if (msgId && existingMessageIds.has(msgId)) return;
+
+                            const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
+                            const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
+                            const isRead = !isMarkedUnread && (isMarkedRead || (sMail.isRead !== undefined ? Boolean(sMail.isRead) : false));
+                            const isStarred = isEmailStarred(uidStr, 'inbox', sMail);
+
+                            if (folderKey === 'unread' && isRead) return;
+
+                            normalizedEmails.push({
+                                ...sMail,
+                                folderName: 'INBOX',
+                                isDraft: false,
+                                draft: false,
+                                isRead,
+                                read: isRead,
+                                starred: isStarred,
+                                isStarred: isStarred,
+                                receivedDate: sMail.receivedDate || sMail.sentDate || sMail.date,
+                                date: sMail.receivedDate || sMail.sentDate || sMail.date
+                            });
+                            existingUids.add(uidStr);
+                            if (msgId) existingMessageIds.add(msgId);
+                        });
+
+                        sortEmailsByDateDesc(normalizedEmails);
                     }
                 }
 
@@ -1153,11 +1277,9 @@ export const MailProvider = ({ children }) => {
                 if (user?.email) {
                     const loginEmail = user.email.trim().toLowerCase();
                     const isEmailMatch = (emailField, currentEmail) => {
-                        if (!emailField) return false;
-                        const cleanEmail = emailField.trim().toLowerCase();
-                        const match = cleanEmail.match(/<([^>]+)>/);
-                        const actualEmail = match ? match[1].trim().toLowerCase() : cleanEmail;
-                        return actualEmail === currentEmail;
+                        if (!emailField || !currentEmail) return false;
+                        const addrs = extractEmailAddresses(emailField);
+                        return addrs.includes(currentEmail);
                     };
 
                     if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(lowerFolder)) {
@@ -1177,6 +1299,54 @@ export const MailProvider = ({ children }) => {
                             const isSenderMe = isEmailMatch(m.senderEmail, loginEmail) || isEmailMatch(m.from, loginEmail);
                             return isSenderMe;
                         });
+                    }
+                }
+
+                if (lowerFolder === 'sent' && user?.email) {
+                    normalizedEmails.forEach(sMail => {
+                        if (isSelfSentEmail(sMail, user.email)) {
+                            saveStoredSelfSentEmail(sMail, user.email);
+                        }
+                    });
+                }
+
+                if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(lowerFolder) && user?.email) {
+                    const selfSentList = getStoredSelfSentEmails(user.email);
+                    if (Array.isArray(selfSentList) && selfSentList.length > 0) {
+                        const existingUids = new Set(normalizedEmails.map(m => String(m.uid ?? m.id ?? '')));
+                        const existingMessageIds = new Set(normalizedEmails.filter(m => m.messageId).map(m => String(m.messageId)));
+
+                        selfSentList.forEach(sMail => {
+                            if (sMail.deletedFromInbox) return;
+                            const uidStr = String(sMail.uid ?? sMail.id ?? '');
+                            const msgId = sMail.messageId ? String(sMail.messageId) : null;
+                            if (existingUids.has(uidStr)) return;
+                            if (msgId && existingMessageIds.has(msgId)) return;
+
+                            const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
+                            const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
+                            const isRead = !isMarkedUnread && (isMarkedRead || (sMail.isRead !== undefined ? Boolean(sMail.isRead) : false));
+                            const isStarred = isEmailStarred(uidStr, 'inbox', sMail);
+
+                            if (lowerFolder === 'unread' && isRead) return;
+
+                            normalizedEmails.push({
+                                ...sMail,
+                                folderName: 'INBOX',
+                                isDraft: false,
+                                draft: false,
+                                isRead,
+                                read: isRead,
+                                starred: isStarred,
+                                isStarred: isStarred,
+                                receivedDate: sMail.receivedDate || sMail.sentDate || sMail.date,
+                                date: sMail.receivedDate || sMail.sentDate || sMail.date
+                            });
+                            existingUids.add(uidStr);
+                            if (msgId) existingMessageIds.add(msgId);
+                        });
+
+                        sortEmailsByDateDesc(normalizedEmails);
                     }
                 }
                 
@@ -1294,6 +1464,12 @@ export const MailProvider = ({ children }) => {
         }
     }, [user, fetchLabels]);
 
+    useEffect(() => {
+        if (user?.email) {
+            fetchEmailsSilently('sent');
+        }
+    }, [user?.email, fetchEmailsSilently]);
+
     const handlePageChange = useCallback((newPage) => {
         if (currentFolderRef.current.startsWith('label-')) {
             const labelId = currentFolderRef.current.replace('label-', '');
@@ -1329,6 +1505,9 @@ export const MailProvider = ({ children }) => {
             }
             if (cur !== 'unread') {
                 fetchEmailsSilently('unread');
+            }
+            if (cur !== 'sent') {
+                fetchEmailsSilently('sent');
             }
 
             // If there are starred scheduled emails that have reached delivery time, fetch sent emails to migrate stars
@@ -1822,6 +2001,9 @@ export const MailProvider = ({ children }) => {
             } catch (err) {
                 console.warn(`Failed to commit move-to-trash for email ${item.uid}:`, err);
             }
+            if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes((item.folder || '').toLowerCase())) {
+                markSelfSentDeletedFromInbox(item.uid, user?.email);
+            }
         }
 
         invalidateCache('trash');
@@ -1829,7 +2011,7 @@ export const MailProvider = ({ children }) => {
         invalidateCache('inbox');
         if (pending.folder) invalidateCache(pending.folder);
         if (currentFolderRef.current) invalidateCache(currentFolderRef.current);
-    }, [invalidateCache]);
+    }, [invalidateCache, user?.email]);
 
     const handleUndoDelete = useCallback(() => {
         const pending = pendingUndoDeleteRef.current;
@@ -1842,6 +2024,10 @@ export const MailProvider = ({ children }) => {
 
         const itemsToRestore = pending.items || [];
         if (!itemsToRestore.length) return;
+
+        itemsToRestore.forEach(item => {
+            unmarkSelfSentDeletedFromInbox(item.uid, user?.email);
+        });
 
         // Sort items by original index ascending so restoring them in order preserves exact positions
         const sortedItems = [...itemsToRestore].sort((a, b) => a.index - b.index);
@@ -2654,6 +2840,7 @@ export const MailProvider = ({ children }) => {
             : (sentEmail?.id !== undefined && sentEmail?.id !== null ? String(sentEmail.id) : null);
 
         let sentEmailObj = null;
+        let inboxEmailObj = null;
         const explicitLabels = Array.isArray(emailData?.labels) ? emailData.labels : [];
         if (sentEmail || emailData) {
             const rawSentDate = sentEmail?.sentAt ? new Date(sentEmail.sentAt).toISOString() : new Date().toISOString();
@@ -2677,6 +2864,20 @@ export const MailProvider = ({ children }) => {
                 attachments: emailData?.attachments || sentEmail?.attachments || [],
                 labels: explicitLabels
             };
+
+            if (isSelfSentEmail(sentEmailObj, user?.email)) {
+                saveStoredSelfSentEmail(sentEmailObj, user?.email);
+                inboxEmailObj = {
+                    ...sentEmailObj,
+                    folderName: 'INBOX',
+                    isDraft: false,
+                    draft: false,
+                    isRead: false,
+                    read: false,
+                    receivedDate: rawSentDate,
+                    date: rawSentDate
+                };
+            }
         }
 
         if (sentUid) {
@@ -2694,6 +2895,8 @@ export const MailProvider = ({ children }) => {
                 next = [sentEmailObj, ...next.filter(m => String(m.uid || m.id || '') !== String(sentEmailObj.uid))];
             } else if (cur === 'sent' && sentEmailObj) {
                 next = [sentEmailObj, ...next.filter(m => String(m.uid || m.id || '') !== String(sentEmailObj.uid))];
+            } else if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(cur) && inboxEmailObj) {
+                next = [inboxEmailObj, ...next.filter(m => String(m.uid || m.id || '') !== String(inboxEmailObj.uid))];
             }
             return next;
         });
@@ -2784,6 +2987,25 @@ export const MailProvider = ({ children }) => {
                     ...p1.filter(m => String(m.uid || m.id || '') !== String(sentEmailObj.uid))
                 ];
             }
+            if (inboxEmailObj) {
+                ['inbox', 'all-inbox', 'allinbox', 'unread'].forEach(fKey => {
+                    if (!pagesCache.current[fKey]) {
+                        pagesCache.current[fKey] = {};
+                    }
+                    const p1 = pagesCache.current[fKey][1] || [];
+                    pagesCache.current[fKey][1] = [
+                        inboxEmailObj,
+                        ...p1.filter(m => String(m.uid || m.id || '') !== String(inboxEmailObj.uid))
+                    ];
+                });
+
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    inbox: (prev.inbox || 0) + 1,
+                    unread: (prev.unread || 0) + 1,
+                    allinbox: (prev.allinbox || 0) + 1
+                }));
+            }
         }
 
         // 4. Clean up backend draft using existing APIs
@@ -2817,6 +3039,7 @@ export const MailProvider = ({ children }) => {
         // 6. Silently update drafts and sent caches in the background
         fetchEmailsSilently('drafts');
         fetchEmailsSilently('sent');
+        if (inboxEmailObj) fetchEmailsSilently('inbox');
         if (isDraftStarred) fetchEmailsSilently('starred');
 
         // 7. Dispatch starred update event so all listeners update immediately
