@@ -57,6 +57,7 @@ import { useTranslation, normalizeLang } from "../context/LanguageContext";
 import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
 import toast from "react-hot-toast";
 import { formatActivityTimestamp, sortActivityLogs } from "../utils/activityDateUtils";
+import { canAccessAllInbox } from "../utils/accountUtils";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import ImageResize from 'quill-image-resize-module-react';
@@ -2137,7 +2138,11 @@ const Settings = () => {
               <p className="text-sm text-gray-500 mb-6">{t("settings.folder_label_desc", "Choose which labels are visible in the main sidebar.")}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                 {Object.keys({ ...DEFAULT_SIDEBAR_PREFS, ...(sidebarPreferences || {}) })
-                  .filter((itemName) => itemName !== "Bulk Mail" && itemName.toLowerCase() !== "bulk mail" && itemName.toLowerCase() !== "bulk")
+                  .filter((itemName) => {
+                    if (itemName === "Bulk Mail" || itemName.toLowerCase() === "bulk mail" || itemName.toLowerCase() === "bulk") return false;
+                    if (itemName === "All Inbox" && !canAccessAllInbox(user)) return false;
+                    return true;
+                  })
                   .map((itemName) => (
                     <div key={itemName} className="flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-transparent" style={{ borderColor: theme.border }}>
                       <span className="font-medium text-sm" style={{ color: theme.text }}>{getSidebarItemLabel(itemName)}</span>

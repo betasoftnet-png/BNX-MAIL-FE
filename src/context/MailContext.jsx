@@ -38,6 +38,11 @@ import {
     syncSnoozedList,
     syncInboxList
 } from '../utils/snoozeStorage';
+import {
+    canAccessAllInbox,
+    getAssociatedBusinessEmails,
+    deduplicateAllInboxEmails
+} from '../utils/accountUtils';
 
 // Clean up any legacy persisted read UIDs from previous sessions to prevent stale overrides
 try {
@@ -367,6 +372,18 @@ export const MailProvider = ({ children }) => {
             snoozed: getActiveSnoozedCount(user?.email)
         }));
     }, [user?.email]);
+
+    // Reset folder page caches and All Inbox status when switching accounts or user profiles
+    useEffect(() => {
+        pagesCache.current = {};
+        silentFetchInFlight.current.clear();
+        invalidateCache('all-inbox');
+        invalidateCache('allinbox');
+        invalidateCache('inbox');
+        if (!canAccessAllInbox(user)) {
+            setUnreadCounts(prev => ({ ...prev, allinbox: 0 }));
+        }
+    }, [user?.email, user, invalidateCache]);
     const [labels, setLabels] = useState([]);
     const [totalEmails, setTotalEmails] = useState(0);
     const [pendingUndoDelete, setPendingUndoDelete] = useState(null);
@@ -665,45 +682,83 @@ export const MailProvider = ({ children }) => {
     }, [user?.email, limit]);
 
     const fetchAllInboxEmails = useCallback(async (targetPage = 1, pageLimit = limit) => {
-        const sessionsStr = localStorage.getItem('bnx_sessions');
+        // Personal accounts or unauthorized users must never access or fetch All Inbox
+        if (!canAccessAllInbox(user)) {
+            return {
+                data: {
+                    success: true,
+                    data: {
+                        emails: [],
+                        totalCount: 0,
+                        unreadCount: 0
+                    }
+                }
+            };
+        }
+
+        const sessionsStr = typeof window !== 'undefined' ? localStorage.getItem('bnx_sessions') : null;
         let sessions = {};
         try {
             sessions = sessionsStr ? JSON.parse(sessionsStr) : {};
         } catch (e) { }
 
-        const sessionKeys = Object.keys(sessions);
+        const currentEmail = (user?.email || '').trim().toLowerCase();
+        const authorizedBusinessEmails = getAssociatedBusinessEmails(user, sessions);
+        const authorizedEmailSet = new Set(authorizedBusinessEmails.map(e => e.trim().toLowerCase()));
+
+        // Filter sessions so we ONLY query authorized accounts belonging to the current business
+        const sessionKeys = Object.keys(sessions).filter(k => authorizedEmailSet.has(k.trim().toLowerCase()));
         let allEmails = [];
 
-        if (sessionKeys.length > 0) {
-            const fetchPromises = sessionKeys.map(async (email) => {
-                const sessionObj = sessions[email];
-                const token = sessionObj?.accessToken;
-                if (!token) return [];
+        const fetchPromises = sessionKeys.map(async (email) => {
+            const sessionObj = sessions[email];
+            const token = sessionObj?.accessToken;
+            if (!token) return [];
+            try {
+                const inboxRes = await api.get(API_ENDPOINTS.MAIL.INBOX, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+                if (inboxRes.data?.success) {
+                    const dataObj = inboxRes.data.data;
+                    const emailsList = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
+                    return emailsList.map(e => ({
+                        ...e,
+                        accountEmail: email
+                    }));
+                }
+            } catch (err) {
+                console.error(`Failed to fetch all-inbox for ${email}:`, err);
+            }
+            return [];
+        });
+
+        // Ensure the active logged-in business account's inbox is included if not fetched via sessions
+        const isCurrentFetched = sessionKeys.some(k => k.trim().toLowerCase() === currentEmail);
+        if (!isCurrentFetched && currentEmail) {
+            fetchPromises.push((async () => {
                 try {
-                    const inboxRes = await api.get(API_ENDPOINTS.MAIL.INBOX, {
-                        headers: {
-                            Authorization: `Bearer ${token}`
-                        }
-                    });
-                    if (inboxRes.data?.success) {
-                        const dataObj = inboxRes.data.data;
+                    const fallbackRes = await mailAPI.getInbox(targetPage, pageLimit);
+                    if (fallbackRes?.data?.success) {
+                        const dataObj = fallbackRes.data.data;
                         const emailsList = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
                         return emailsList.map(e => ({
                             ...e,
-                            accountEmail: email
+                            accountEmail: currentEmail
                         }));
                     }
                 } catch (err) {
-                    console.error(`Failed to fetch all-inbox for ${email}:`, err);
+                    console.error("Failed to fetch fallback inbox for all-inbox:", err);
                 }
                 return [];
-            });
-
-            const results = await Promise.all(fetchPromises);
-            allEmails = results.flat();
+            })());
         }
 
-        if (allEmails.length === 0) {
+        const results = await Promise.all(fetchPromises);
+        allEmails = results.flat();
+
+        if (allEmails.length === 0 && isCurrentFetched) {
             try {
                 const fallbackRes = await mailAPI.getInbox(targetPage, pageLimit);
                 if (fallbackRes?.data?.success) {
@@ -711,7 +766,7 @@ export const MailProvider = ({ children }) => {
                     const emailsList = dataObj?.emails || (Array.isArray(dataObj) ? dataObj : []);
                     allEmails = emailsList.map(e => ({
                         ...e,
-                        accountEmail: user?.email || ''
+                        accountEmail: currentEmail
                     }));
                 }
             } catch (err) {
@@ -719,17 +774,15 @@ export const MailProvider = ({ children }) => {
             }
         }
 
-        const seen = new Set();
-        const uniqueEmails = [];
-        for (const item of allEmails) {
-            const uidStr = String(item.uid ?? item.id ?? item.messageId ?? '');
-            const acc = item.accountEmail ? item.accountEmail.toLowerCase() : '';
-            const key = uidStr ? `${acc}_${uidStr}` : null;
-            if (!key || !seen.has(key)) {
-                if (key) seen.add(key);
-                uniqueEmails.push(item);
-            }
-        }
+        // Strictly keep emails belonging to authorized business accounts/mailboxes only
+        const filteredEmails = allEmails.filter(item => {
+            if (!item) return false;
+            const acc = (item.accountEmail || currentEmail).trim().toLowerCase();
+            return authorizedEmailSet.has(acc);
+        });
+
+        // Deduplicate emails across accounts/mailboxes
+        const uniqueEmails = deduplicateAllInboxEmails(filteredEmails);
 
         uniqueEmails.sort((a, b) => {
             const dateA = new Date(a.date || a.receivedDate || a.sentDate || 0);
@@ -1034,8 +1087,11 @@ export const MailProvider = ({ children }) => {
                         normalizedEmails = normalizedEmails.filter(m => {
                             const isDraft = m.folderName?.toLowerCase() === 'draft' || m.folderName?.toLowerCase() === 'drafts' || m.isDraft === true || m.draft === true;
                             if (isDraft) return false;
-                            const isSenderMe = isEmailMatch(m.senderEmail, loginEmail) || isEmailMatch(m.from, loginEmail);
-                            const isRecipientMe = isEmailMatch(m.recipientEmail, loginEmail) || isEmailMatch(m.to, loginEmail) || isEmailMatch(m.cc, loginEmail) || isEmailMatch(m.bcc, loginEmail);
+                            const targetEmail = (['all-inbox', 'allinbox'].includes(folderKey) && m.accountEmail)
+                                ? m.accountEmail.trim().toLowerCase()
+                                : loginEmail;
+                            const isSenderMe = isEmailMatch(m.senderEmail, targetEmail) || isEmailMatch(m.from, targetEmail);
+                            const isRecipientMe = isEmailMatch(m.recipientEmail, targetEmail) || isEmailMatch(m.to, targetEmail) || isEmailMatch(m.cc, targetEmail) || isEmailMatch(m.bcc, targetEmail);
                             return !isSenderMe || isRecipientMe;
                         });
                     } else if (folderKey === 'sent') {
@@ -1112,7 +1168,7 @@ export const MailProvider = ({ children }) => {
                         spam: unread
                     }));
                 } else if (countKey === 'allinbox') {
-                    const unread = normalizedEmails.filter(e => !e.isRead).length;
+                    const unread = canAccessAllInbox(user) ? normalizedEmails.filter(e => !e.isRead).length : 0;
                     setUnreadCounts(prev => ({
                         ...prev,
                         allinbox: unread
@@ -1334,8 +1390,11 @@ export const MailProvider = ({ children }) => {
                         normalizedEmails = normalizedEmails.filter(m => {
                             const isDraft = m.folderName?.toLowerCase() === 'draft' || m.folderName?.toLowerCase() === 'drafts' || m.isDraft === true || m.draft === true;
                             if (isDraft) return false;
-                            const isSenderMe = isEmailMatch(m.senderEmail, loginEmail) || isEmailMatch(m.from, loginEmail);
-                            const isRecipientMe = isEmailMatch(m.recipientEmail, loginEmail) || isEmailMatch(m.to, loginEmail) || isEmailMatch(m.cc, loginEmail) || isEmailMatch(m.bcc, loginEmail);
+                            const targetEmail = (['all-inbox', 'allinbox'].includes(lowerFolder) && m.accountEmail)
+                                ? m.accountEmail.trim().toLowerCase()
+                                : loginEmail;
+                            const isSenderMe = isEmailMatch(m.senderEmail, targetEmail) || isEmailMatch(m.from, targetEmail);
+                            const isRecipientMe = isEmailMatch(m.recipientEmail, targetEmail) || isEmailMatch(m.to, targetEmail) || isEmailMatch(m.cc, targetEmail) || isEmailMatch(m.bcc, targetEmail);
                             
                             // Keep if I am NOT the sender, OR if I am both the sender and the recipient (self-send)
                             return !isSenderMe || isRecipientMe;
@@ -1410,7 +1469,7 @@ export const MailProvider = ({ children }) => {
                         } else if (countKey === 'unread') {
                             next.inbox = unread;
                         } else if (countKey === 'allinbox') {
-                            next.allinbox = unread;
+                            next.allinbox = canAccessAllInbox(user) ? unread : 0;
                         } else if (countKey === 'allmail') {
                             next.allmail = unread;
                         }

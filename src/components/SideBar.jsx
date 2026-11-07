@@ -39,6 +39,7 @@ import {
   MdCloudUpload,
   MdArchive 
 } from "react-icons/md";
+import { canAccessAllInbox } from "../utils/accountUtils";
 
 const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) => {
   const { t } = useTranslation();
@@ -198,10 +199,13 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
     }
   };
 
-  const mainNavItems = ["Inbox", "Starred", "Sent", "Draft", "Trash", "Snoozed"];
+  const showAllInbox = canAccessAllInbox(user);
+
+  const mainNavItems = ["Inbox", "Starred", "Sent", "Draft", "Trash", "Snoozed"]
+    .filter(name => name !== "All Inbox" || showAllInbox);
 
   const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Analytics", "Mail Backup"]
-    .filter(name => name !== "All Inbox" || (getSessions && getSessions().length > 1));
+    .filter(name => name !== "All Inbox" || showAllInbox);
 
   return (
     <>

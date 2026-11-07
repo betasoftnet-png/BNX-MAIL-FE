@@ -13,6 +13,7 @@ import { MdRefresh, MdInbox, MdLocalOffer, MdPeople, MdInfo, MdLabelImportant, M
 import toast from "react-hot-toast";
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
+import { canAccessAllInbox } from "../utils/accountUtils";
 
 const Inbox = ({ searchQuery }) => {
   const { t } = useTranslation();
@@ -58,6 +59,12 @@ const Inbox = ({ searchQuery }) => {
 
   const isAllInbox = location.pathname === '/all-inbox';
   const isCategoryTab = ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(activeTab);
+
+  useEffect(() => {
+    if (isAllInbox && !canAccessAllInbox(user)) {
+      navigate('/inbox', { replace: true });
+    }
+  }, [isAllInbox, user, navigate]);
 
   const currentFolder = isAllInbox
     ? 'all-inbox'
