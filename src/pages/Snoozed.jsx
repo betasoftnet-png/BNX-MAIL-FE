@@ -15,20 +15,21 @@ const Snoozed = ({ searchQuery }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
-  const { 
-    emails, 
-    loading, 
+  const {
+    emails,
+    loading,
     isRefreshing,
-    fetchEmails, 
+    fetchEmails,
     refreshEmails,
-    handleToggleStar, 
-    handleMoveToTrash, 
-    handleApplyLabel, 
-    handleArchive, 
-    handleUnarchive, 
+    handleToggleStar,
+    handleMoveToTrash,
+    handleApplyLabel,
+    handleArchive,
+    handleUnarchive,
     handleSnooze,
+    handleUnsnooze,
     openCompose,
-    matchesDateFilter 
+    matchesDateFilter
   } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
@@ -75,7 +76,7 @@ const Snoozed = ({ searchQuery }) => {
     setSelectedEmailUid(email.uid);
   };
 
-  
+
   const handleForward = (email) => {
     openCompose({
       forward: true,
@@ -84,7 +85,7 @@ const Snoozed = ({ searchQuery }) => {
       originalEmail: email,
     });
   };
-const handleReply = (email) => {
+  const handleReply = (email) => {
     openCompose({
       replyTo: email.senderEmail || email.from,
       subject: `Re: ${email.subject || ""}`,
@@ -93,114 +94,120 @@ const handleReply = (email) => {
   };
 
   /* ---------------- MAIN UI ---------------- */
-  
+
   const detailsComponent = selectedEmail ? (
-<EmailDetails
+    <EmailDetails
       emailList={visibleEmails}
       onNavigate={(email) => {
         setSelectedEmailOverride(null);
         setSelectedEmailUid(email.uid);
       }}
-          email={selectedEmail}
-          onBack={() => {
-            setSelectedEmailOverride(null);
-            setSelectedEmailUid(null);
-          }}
-          onClose={() => {
-            setSelectedEmailOverride(null);
-            setSelectedEmailUid(null);
-          }}
-          onDelete={(uid) => {
-            handleMoveToTrash(uid, "snoozed");
-            setSelectedEmailOverride(null);
-            setSelectedEmailUid(null);
-          }}
-          onStar={(uid) => handleToggleStar(uid, "snoozed")}
-          onArchive={(uid) => {
-            handleArchive(uid, "snoozed");
-            setSelectedEmailOverride(null);
-            setSelectedEmailUid(null);
-          }}
-          onUnarchive={(uid) => {
-            handleUnarchive(uid);
-            setSelectedEmailOverride(null);
-            setSelectedEmailUid(null);
-          }}
-          onReply={handleReply}
-          onForward={handleForward}
-          onApplyLabel={handleApplyLabel}
-          onSnooze={handleSnooze}
-        />
+      email={selectedEmail}
+      onBack={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
+      onClose={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
+      onDelete={(uid) => {
+        handleMoveToTrash(uid, "snoozed");
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
+      onStar={(uid) => handleToggleStar(uid, "snoozed")}
+      onArchive={(uid) => {
+        handleArchive(uid, "snoozed");
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
+      onUnarchive={(uid) => {
+        handleUnarchive(uid);
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
+      onReply={handleReply}
+      onForward={handleForward}
+      onApplyLabel={handleApplyLabel}
+      onSnooze={handleSnooze}
+      onUnsnooze={(uid, emailObj) => {
+        handleUnsnooze(uid, emailObj);
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
+    />
   ) : null;
 
   const headerComponent = selectedIds.size > 0 ? (
 
-            <BulkActionsToolbar
-              selectedIds={selectedIds}
-              setSelectedIds={setSelectedIds}
-              visibleEmails={visibleEmails}
-              folder="snoozed"
-            />
-          
+    <BulkActionsToolbar
+      selectedIds={selectedIds}
+      setSelectedIds={setSelectedIds}
+      visibleEmails={visibleEmails}
+      folder="snoozed"
+    />
+
   ) : (
 
-            <div
-              className="p-4 sm:p-5 border-b flex items-center justify-between shrink-0 bg-transparent"
-              style={{ borderColor: theme.border }}
-            >
-              <h2
-                className="text-base font-bold flex items-center gap-2"
-                style={{ color: theme.text }}
-              >
-                <MdAccessTime className="text-blue-500" size={20} /> Snoozed
-                <span
-                  className="ml-2 text-xs font-normal"
-                  style={{ color: theme.subText }}
-                >
-                  ({emails.length})
-                </span>
-              </h2>
-              <button
-                onClick={() => refreshEmails("snoozed")}
-                disabled={loading || isRefreshing}
-                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
-                title={t("common.refresh", "Refresh mail")}
-              >
-                <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
-              </button>
-            </div>
-          
+    <div
+      className="p-4 sm:p-5 border-b flex items-center justify-between shrink-0 bg-transparent"
+      style={{ borderColor: theme.border }}
+    >
+      <h2
+        className="text-base font-bold flex items-center gap-2"
+        style={{ color: theme.text }}
+      >
+        <MdAccessTime className="text-blue-500" size={20} /> Snoozed
+        <span
+          className="ml-2 text-xs font-normal"
+          style={{ color: theme.subText }}
+        >
+          ({emails.length})
+        </span>
+      </h2>
+      <button
+        onClick={() => refreshEmails("snoozed")}
+        disabled={loading || isRefreshing}
+        className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
+        title={t("common.refresh", "Refresh mail")}
+      >
+        <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
+      </button>
+    </div>
+
   );
 
   const listComponent = (
     <div className="flex-1 flex flex-col overflow-hidden ">
-{emails.length === 0 ? (
-              <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-                <MdAccessTime className="text-5xl mb-4 text-blue-500 opacity-50" />
-                <p
-                  className="text-base font-semibold mb-1"
-                  style={{ color: theme.text }}
-                >
-                  No snoozed emails
-                </p>
-                <p className="text-sm" style={{ color: theme.subText }}>
-                  Snooze emails to hide them from your inbox until a later time
-                </p>
-              </div>
-            ) : (
-              <EmailList
-                emails={visibleEmails}
-                selectedEmailId={selectedEmailUid}
-                onSelectEmail={handleSelectEmail}
-                onStar={(uid) => handleToggleStar(uid, "snoozed")}
-                onArchive={(uid) => handleArchive(uid, "snoozed")}
-                onUnarchive={handleUnarchive}
-                onDelete={(uid) => handleMoveToTrash(uid, "snoozed")}
-                onSnooze={handleSnooze}
-                selectedIds={selectedIds}
-                onToggleSelect={handleToggleSelect}
-              />
-            )}
+      {emails.length === 0 ? (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
+          <MdAccessTime className="text-5xl mb-4 text-blue-500 opacity-50" />
+          <p
+            className="text-base font-semibold mb-1"
+            style={{ color: theme.text }}
+          >
+            No snoozed emails
+          </p>
+          <p className="text-sm" style={{ color: theme.subText }}>
+            Snooze emails to hide them from your inbox until a later time
+          </p>
+        </div>
+      ) : (
+        <EmailList
+          emails={visibleEmails}
+          selectedEmailId={selectedEmailUid}
+          onSelectEmail={handleSelectEmail}
+          onStar={(uid) => handleToggleStar(uid, "snoozed")}
+          onArchive={(uid) => handleArchive(uid, "snoozed")}
+          onUnarchive={handleUnarchive}
+          onDelete={(uid) => handleMoveToTrash(uid, "snoozed")}
+          onSnooze={handleSnooze}
+          onUnsnooze={handleUnsnooze}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+        />
+      )}
     </div>
   );
 

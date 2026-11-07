@@ -15,9 +15,15 @@ import {
   MdLabel,
   MdReply,
   MdClose,
-  MdBlock
+  MdBlock,
+  MdAlarmOff
 } from "react-icons/md";
 import toast from "react-hot-toast";
+import {
+  getSnoozeOptions as getStorageSnoozeOptions,
+  getLocalDatetimeInputString,
+  parseLocalDatetimeString,
+} from "../utils/snoozeStorage";
 
 const BulkActionsToolbar = ({
   selectedIds,
@@ -40,6 +46,7 @@ const BulkActionsToolbar = ({
     handleRestore,
     handleUnsubscribe,
     handleSnooze,
+    handleUnsnooze,
     handleApplyLabel,
     openCompose,
     isEmailRead
@@ -352,26 +359,28 @@ const BulkActionsToolbar = ({
     }
   };
 
-  // Bulk Snooze
-  const handleBulkSnooze = async (hours) => {
+  // Bulk Unsnooze
+  const handleBulkUnsnooze = useCallback(async () => {
+    if (!uniqueSelectedEmails.length) return;
     try {
-      toast.loading("Snoozing selected emails...", { id: "bulk-snooze" });
-      const wakeUpAt = new Date();
-      wakeUpAt.setHours(wakeUpAt.getHours() + hours);
-      await Promise.all(selectedEmails.map((e) => handleSnooze(e.uid, wakeUpAt.toISOString(), e.folderName || folder, true)));
+      toast.loading("Unsnoozing selected emails...", { id: "bulk-unsnooze" });
+      await Promise.all(uniqueSelectedEmails.map((e) => handleUnsnooze(e.uid, e, true)));
       setSelectedIds(new Set());
       setShowMoreMenu(false);
-      toast.success("Emails snoozed", { id: "bulk-snooze" });
+      setShowSnoozeSub(false);
+      setShowCustomSnoozeForm(false);
+      toast.success("Emails unsnoozed", { id: "bulk-unsnooze" });
     } catch (err) {
-      toast.error("Failed to snooze emails", { id: "bulk-snooze" });
+      toast.error("Failed to unsnooze some emails", { id: "bulk-unsnooze" });
     }
-  };
+  }, [uniqueSelectedEmails, handleUnsnooze, setSelectedIds]);
 
   // Bulk Snooze with custom Date ISO string
   const handleBulkSnoozeWithDate = async (wakeUpAtIso) => {
+    if (!uniqueSelectedEmails.length) return;
     try {
       toast.loading("Snoozing selected emails...", { id: "bulk-snooze" });
-      await Promise.all(selectedEmails.map((e) => handleSnooze(e.uid, wakeUpAtIso, e.folderName || folder, true)));
+      await Promise.all(uniqueSelectedEmails.map((e) => handleSnooze(e.uid, wakeUpAtIso, e, true)));
       setSelectedIds(new Set());
       setShowMoreMenu(false);
       setShowSnoozeSub(false);
@@ -437,6 +446,17 @@ const BulkActionsToolbar = ({
 
       {/* Bulk Action Buttons Row */}
       <div className="flex items-center gap-1 sm:gap-1.5 ml-auto shrink-0">
+        {/* Unsnooze (for snoozed folder) */}
+        {folder === "snoozed" && (
+          <button
+            onClick={handleBulkUnsnooze}
+            className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all cursor-pointer text-blue-600 dark:text-blue-400 flex items-center justify-center"
+            title={t("snooze.unsnooze", "Unsnooze / Return to Inbox")}
+          >
+            <MdAlarmOff size={19} />
+          </button>
+        )}
+
         {/* Archive/Unarchive */}
         {folder === "archive" || folder === "spam" || folder === "trash" ? (
           <button
@@ -446,7 +466,7 @@ const BulkActionsToolbar = ({
           >
             <MdUnarchive size={19} />
           </button>
-        ) : folder !== "scheduled" ? (
+        ) : folder !== "scheduled" && folder !== "snoozed" ? (
           <button
             onClick={handleBulkArchive}
             className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all cursor-pointer text-gray-600 dark:text-gray-300 flex items-center justify-center"
@@ -521,6 +541,19 @@ const BulkActionsToolbar = ({
                 }}
                 className="w-48 rounded-xl shadow-2xl dark:shadow-soft-dark border z-[99999] py-1 bg-white dark:bg-gray-900 text-xs text-left select-none animate-in fade-in zoom-in-95 duration-100"
               >
+                {/* Unsnooze option if in snoozed folder */}
+                {folder === "snoozed" && (
+                  <button
+                    onClick={() => {
+                      handleBulkUnsnooze();
+                      setShowMoreMenu(false);
+                    }}
+                    className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-blue-600 dark:text-blue-400 font-semibold cursor-pointer"
+                  >
+                    <MdAlarmOff size={16} /> {t("snooze.unsnooze", "Unsnooze / Move to Inbox")}
+                  </button>
+                )}
+
                 {/* Snooze Sub-Trigger */}
                 <div className="relative">
                   <button
@@ -546,6 +579,7 @@ const BulkActionsToolbar = ({
                           <input
                             type="datetime-local"
                             value={customSnoozeTime}
+                            min={getLocalDatetimeInputString(new Date())}
                             onChange={(e) => setCustomSnoozeTime(e.target.value)}
                             className="w-full p-1.5 rounded-lg border text-xs bg-gray-50 dark:bg-neutral-850 text-gray-900 dark:text-white outline-none border-gray-200 dark:border-neutral-700"
                           />
@@ -562,8 +596,12 @@ const BulkActionsToolbar = ({
                                   alert("Please select a valid date and time.");
                                   return;
                                 }
-                                const dateObj = new Date(customSnoozeTime);
-                                if (dateObj <= new Date()) {
+                                const dateObj = parseLocalDatetimeString(customSnoozeTime);
+                                if (!dateObj || isNaN(dateObj.getTime())) {
+                                  alert("Please select a valid date and time.");
+                                  return;
+                                }
+                                if (dateObj.getTime() <= Date.now()) {
                                   alert("Please select a future date and time.");
                                   return;
                                 }
@@ -577,17 +615,22 @@ const BulkActionsToolbar = ({
                         </div>
                       ) : (
                         <>
-                          <button onClick={() => handleBulkSnooze(2)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">{t("bulk_actions.later_today", "Later today")}</button>
-                          <button onClick={() => handleBulkSnooze(24)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">{t("bulk_actions.tomorrow", "Tomorrow")}</button>
-                          <button onClick={() => handleBulkSnooze(48)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">{t("bulk_actions.this_weekend", "This weekend")}</button>
-                          <button onClick={() => handleBulkSnooze(168)} className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">{t("bulk_actions.next_week", "Next week")}</button>
+                          {getStorageSnoozeOptions().map((opt, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => handleBulkSnoozeWithDate(opt.date.toISOString())}
+                              className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer flex items-center justify-between gap-1 text-[11px]"
+                            >
+                              <span className="font-medium text-gray-700 dark:text-gray-200 truncate">{opt.label}</span>
+                              <span className="text-[10px] text-gray-400 shrink-0">{opt.display}</span>
+                            </button>
+                          ))}
                           <div className="border-t border-gray-100 dark:border-neutral-800 my-1"></div>
                           <button
                             onClick={() => {
                               setShowCustomSnoozeForm(true);
-                              const defaultCustom = new Date();
-                              defaultCustom.setMinutes(defaultCustom.getMinutes() - defaultCustom.getTimezoneOffset());
-                              setCustomSnoozeTime(defaultCustom.toISOString().slice(0, 16));
+                              const defaultCustom = new Date(Date.now() + 3600000);
+                              setCustomSnoozeTime(getLocalDatetimeInputString(defaultCustom));
                             }}
                             className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-blue-500 font-semibold cursor-pointer"
                           >

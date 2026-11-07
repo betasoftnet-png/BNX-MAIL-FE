@@ -48,7 +48,8 @@ import {
   MdImage,
   MdLock,
   MdEditDocument,
-  MdCheck
+  MdCheck,
+  MdAlarmOff
 } from "react-icons/md";
 import { useMail } from "../context/MailContext";
 import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
@@ -66,6 +67,12 @@ import {
   getRecipientFullTooltip,
   getParsedRecipientGroups
 } from "../utils/recipientSuggestions";
+import {
+  getSnoozeOptions as getStorageSnoozeOptions,
+  formatSnoozeSchedule,
+  getLocalDatetimeInputString,
+  parseLocalDatetimeString,
+} from "../utils/snoozeStorage";
 
 const getMimeType = (fileName) => {
   const ext = fileName.split('.').pop().toLowerCase();
@@ -134,6 +141,7 @@ const EmailDetails = ({
   onArchive,
   onUnarchive,
   onSnooze,
+  onUnsnooze,
   onApplyLabel,
   onClose,
   isArchiveFolder = false,
@@ -148,7 +156,9 @@ const EmailDetails = ({
   const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze, isEmailStarred, handleToggleStar } = useMail();
+  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, isEmailStarred, handleToggleStar } = useMail();
+  const snoozeAction = onSnooze || contextHandleSnooze;
+  const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const isTrashMode = Boolean(
@@ -191,7 +201,6 @@ const EmailDetails = ({
     }
   }, [email?.uid, email?.id, email?.isRead, email?.read, handleMarkRead]);
 
-  const snoozeAction = onSnooze || handleSnooze;
   const applyLabelAction = onApplyLabel || handleApplyLabel;
 
   const [localLabels, setLocalLabels] = useState(email?.labels || []);
@@ -224,22 +233,10 @@ const EmailDetails = ({
     email?.wakeUpAt
   );
 
-  const snoozedUntilValue = localSnoozeUntil || email?.snoozedUntil || email?.wakeUpAt;
+  const snoozedUntilValue = localSnoozeUntil || email?.wakeUpAt || email?.snoozedUntil || email?.snoozeUntil;
   const snoozedUntilText = useMemo(() => {
     if (!snoozedUntilValue) return null;
-    try {
-      const d = new Date(snoozedUntilValue);
-      if (isNaN(d.getTime())) return String(snoozedUntilValue);
-      return d.toLocaleDateString([], {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      });
-    } catch {
-      return null;
-    }
+    return formatSnoozeSchedule(snoozedUntilValue);
   }, [snoozedUntilValue]);
 
   const isHtmlContent = Boolean(
@@ -749,13 +746,12 @@ const EmailDetails = ({
     if (isSnoozing) return;
     setIsSnoozing(true);
     try {
-      const targetFolder = email?.folderName || getFolder();
       setIsLocallySnoozed(true);
       setLocalSnoozeUntil(isoDate);
       setShowSnooze(false);
       setCustomSnooze(false);
       if (snoozeAction) {
-        await snoozeAction(targetUid || email?.uid || email?.id, isoDate, targetFolder);
+        await snoozeAction(targetUid || email?.uid || email?.id, isoDate, email);
       }
       if (handleClose) {
         handleClose();
@@ -764,6 +760,23 @@ const EmailDetails = ({
       console.error("Snooze error:", err);
     } finally {
       setIsSnoozing(false);
+    }
+  };
+
+  const handleUnsnoozeOption = async () => {
+    try {
+      setIsLocallySnoozed(false);
+      setLocalSnoozeUntil(null);
+      setShowSnooze(false);
+      setCustomSnooze(false);
+      if (unsnoozeAction) {
+        await unsnoozeAction(email?.uid || email?.id, email);
+      }
+      if (handleClose) {
+        handleClose();
+      }
+    } catch (err) {
+      console.error("Unsnooze error:", err);
     }
   };
 
@@ -1098,62 +1111,17 @@ const EmailDetails = ({
     setShowMoreOptions(false);
   };
 
-  const getSnoozeOptions = () => {
-    const now = new Date();
-    
-    // Later today: 6 PM today (or +3 hours if past 5 PM)
-    const laterToday = new Date(now);
-    if (now.getHours() >= 17) {
-      laterToday.setHours(now.getHours() + 3, 0, 0, 0);
-    } else {
-      laterToday.setHours(18, 0, 0, 0);
-    }
-
-    // Tomorrow: 8 AM tomorrow
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(8, 0, 0, 0);
-
-    // Later this week: Friday 8 AM (if Mon-Wed), else +2 days 8 AM
-    const laterThisWeek = new Date(now);
-    if (now.getDay() >= 1 && now.getDay() <= 3) {
-      laterThisWeek.setDate(now.getDate() + (5 - now.getDay()));
-    } else if (now.getDay() === 4) {
-      laterThisWeek.setDate(now.getDate() + 1);
-    } else {
-      let daysToFri = (5 - now.getDay() + 7) % 7;
-      if (daysToFri <= 0) daysToFri += 7;
-      laterThisWeek.setDate(now.getDate() + daysToFri);
-    }
-    laterThisWeek.setHours(8, 0, 0, 0);
-
-    // This weekend: Saturday 8 AM
-    const thisWeekend = new Date(now);
-    let daysToSaturday = 6 - now.getDay();
-    if (daysToSaturday <= 0) daysToSaturday += 7;
-    thisWeekend.setDate(now.getDate() + daysToSaturday);
-    thisWeekend.setHours(8, 0, 0, 0);
-
-    // Next week: Monday 8 AM
-    const nextWeek = new Date(now);
-    let daysToMonday = (8 - now.getDay()) % 7 || 7;
-    nextWeek.setDate(now.getDate() + daysToMonday);
-    nextWeek.setHours(8, 0, 0, 0);
-
-    const formatTime = (d) => {
-      const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const hours = d.getHours();
-      const minutes = String(d.getMinutes()).padStart(2, '0');
-      return `${weekday}, ${hours}:${minutes}`;
+  const getRenderSnoozeOptions = () => {
+    const iconMap = {
+      later_today: <MdToday size={18} className="text-amber-500 shrink-0" />,
+      tomorrow: <MdWbSunny size={18} className="text-yellow-500 shrink-0" />,
+      this_weekend: <MdNightsStay size={18} className="text-purple-500 shrink-0" />,
+      next_week: <MdUpdate size={18} className="text-emerald-500 shrink-0" />
     };
-
-    return [
-      { label: "Later today", time: laterToday, display: formatTime(laterToday), icon: <MdToday size={18} className="text-amber-500 shrink-0" /> },
-      { label: "Tomorrow", time: tomorrow, display: formatTime(tomorrow), icon: <MdWbSunny size={18} className="text-yellow-500 shrink-0" /> },
-      { label: "Later this week", time: laterThisWeek, display: formatTime(laterThisWeek), icon: <MdEvent size={18} className="text-indigo-500 shrink-0" /> },
-      { label: "This weekend", time: thisWeekend, display: formatTime(thisWeekend), icon: <MdNightsStay size={18} className="text-purple-500 shrink-0" /> },
-      { label: "Next week", time: nextWeek, display: formatTime(nextWeek), icon: <MdUpdate size={18} className="text-emerald-500 shrink-0" /> },
-    ];
+    return getStorageSnoozeOptions().map((opt) => ({
+      ...opt,
+      icon: iconMap[opt.key] || <MdAccessTime size={18} className="text-blue-500 shrink-0" />
+    }));
   };
 
   const getFolder = () => {
@@ -1547,7 +1515,7 @@ const EmailDetails = ({
                           <input
                             type="datetime-local"
                             value={customDateTime}
-                            min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                            min={getLocalDatetimeInputString(new Date())}
                             onChange={(e) => setCustomDateTime(e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
                           />
@@ -1567,8 +1535,12 @@ const EmailDetails = ({
                                   toast.error("Please select a valid date and time.");
                                   return;
                                 }
-                                const dateObj = new Date(customDateTime);
-                                if (isNaN(dateObj.getTime()) || dateObj <= new Date()) {
+                                const dateObj = parseLocalDatetimeString(customDateTime);
+                                if (!dateObj || isNaN(dateObj.getTime())) {
+                                  toast.error("Please select a valid date and time.");
+                                  return;
+                                }
+                                if (dateObj.getTime() <= Date.now()) {
                                   toast.error("Please select a future date and time.");
                                   return;
                                 }
@@ -1582,13 +1554,26 @@ const EmailDetails = ({
                         </div>
                       ) : (
                         <>
-                          {getSnoozeOptions().map((opt, idx) => (
+                          {isSnoozed && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleUnsnoozeOption}
+                                className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center gap-3 cursor-pointer transition-colors text-blue-600 dark:text-blue-400 font-semibold"
+                              >
+                                <MdAlarmOff size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                                <span>Unsnooze / Return to Inbox</span>
+                              </button>
+                              <div className="border-t border-gray-100 dark:border-neutral-800 my-1" />
+                            </>
+                          )}
+                          {getRenderSnoozeOptions().map((opt, idx) => (
                             <button
                               key={idx}
                               type="button"
                               disabled={isSnoozing}
                               onClick={() => {
-                                handleSnoozeOption(email?.uid ?? email?.id, opt.time.toISOString());
+                                handleSnoozeOption(email?.uid ?? email?.id, opt.date.toISOString());
                               }}
                               className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center justify-between gap-3 cursor-pointer transition-colors disabled:opacity-50"
                             >
@@ -1610,11 +1595,8 @@ const EmailDetails = ({
                             type="button"
                             onClick={() => {
                               setCustomSnooze(true);
-                              const defaultCustom = new Date();
-                              defaultCustom.setDate(defaultCustom.getDate() + 1);
-                              defaultCustom.setHours(8, 0, 0, 0);
-                              const localIso = new Date(defaultCustom.getTime() - defaultCustom.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                              setCustomDateTime(localIso);
+                              const defaultCustom = new Date(Date.now() + 3600000);
+                              setCustomDateTime(getLocalDatetimeInputString(defaultCustom));
                             }}
                             className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center gap-3 cursor-pointer transition-colors text-blue-500 dark:text-blue-400 font-medium text-xs sm:text-sm"
                           >
@@ -1645,10 +1627,19 @@ const EmailDetails = ({
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             {isSnoozed && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs">
                 <MdAccessTime size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>{snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed"}</span>
-              </span>
+                <button
+                  type="button"
+                  onClick={handleUnsnoozeOption}
+                  className="ml-1 px-2 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                  title="Unsnooze and return to Inbox"
+                >
+                  <MdAlarmOff size={12} />
+                  <span>Unsnooze</span>
+                </button>
+              </div>
             )}
             {localLabels?.map((label) => {
               const labelId = typeof label === 'string' ? label : (label.id || label.name);

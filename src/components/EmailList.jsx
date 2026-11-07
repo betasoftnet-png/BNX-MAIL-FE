@@ -1,7 +1,7 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile, MdRestore } from "react-icons/md";
+import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile, MdRestore, MdAlarmOff } from "react-icons/md";
 import { Pencil } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -14,6 +14,12 @@ import {
   extractEmailAddresses,
   isSelfSentEmail
 } from "../utils/recipientSuggestions";
+import {
+  getSnoozeOptions as getStorageSnoozeOptions,
+  formatSnoozeSchedule,
+  getLocalDatetimeInputString,
+  parseLocalDatetimeString,
+} from "../utils/snoozeStorage";
 
 const EmailList = ({
   emails,
@@ -26,6 +32,7 @@ const EmailList = ({
   onArchive,
   onUnarchive,
   onSnooze,
+  onUnsnooze,
   showTo = false,
   selectedIds = new Set(),
   onToggleSelect,
@@ -38,7 +45,7 @@ const EmailList = ({
   const { user } = useAuth();
   const location = useLocation();
   const { theme, emailsPerPage, backgroundImage } = useTheme();
-  const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead } = useMail();
+  const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead } = useMail();
   const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
   const isTrashFolder = Boolean(
     isTrash ||
@@ -73,6 +80,7 @@ const EmailList = ({
     location.pathname?.startsWith('/snoozed/')
   );
   const snoozeAction = onSnooze || contextHandleSnooze;
+  const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
 
   const [snoozeOpenUid, setSnoozeOpenUid] = useState(null);
   const [customPickerUid, setCustomPickerUid] = useState(null);
@@ -96,57 +104,17 @@ const EmailList = ({
     }
   }, [isScheduledFolder, currentPage, totalPages, handlePageChange]);
 
-  const getSnoozeOptions = () => {
-    const now = new Date();
-
-    // Later today: 6 PM today (or +3 hours if past 5 PM)
-    const laterToday = new Date(now);
-    if (now.getHours() >= 17) {
-      laterToday.setHours(now.getHours() + 3);
-    } else {
-      laterToday.setHours(18, 0, 0, 0);
-    }
-
-    // Tomorrow: 8 AM tomorrow
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(8, 0, 0, 0);
-
-    // Later this week: Thursday 8 AM (if today is Mon/Tue/Wed), else +2 days 8 AM
-    const laterThisWeek = new Date(now);
-    if (now.getDay() < 4) {
-      laterThisWeek.setDate(now.getDate() + (4 - now.getDay()));
-    } else {
-      laterThisWeek.setDate(now.getDate() + 2);
-    }
-    laterThisWeek.setHours(8, 0, 0, 0);
-
-    // This weekend: Saturday 8 AM
-    const thisWeekend = new Date(now);
-    const daysToSaturday = 6 - now.getDay();
-    thisWeekend.setDate(now.getDate() + (daysToSaturday === 0 ? 7 : daysToSaturday));
-    thisWeekend.setHours(8, 0, 0, 0);
-
-    // Next week: Monday 8 AM
-    const nextWeek = new Date(now);
-    const daysToMonday = (8 - now.getDay()) % 7 || 7;
-    nextWeek.setDate(now.getDate() + daysToMonday);
-    nextWeek.setHours(8, 0, 0, 0);
-
-    const formatTime = (d) => {
-      const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const hours = d.getHours();
-      const minutes = String(d.getMinutes()).padStart(2, '0');
-      return `${weekday}, ${hours}:${minutes}`;
+  const getRenderSnoozeOptions = () => {
+    const iconMap = {
+      later_today: <MdToday size={18} className="text-amber-500" />,
+      tomorrow: <MdWbSunny size={18} className="text-yellow-500" />,
+      this_weekend: <MdNightsStay size={18} className="text-purple-500" />,
+      next_week: <MdUpdate size={18} className="text-emerald-500" />
     };
-
-    return [
-      { label: "Later today", time: laterToday, display: formatTime(laterToday), icon: <MdToday size={18} className="text-amber-500" /> },
-      { label: "Tomorrow", time: tomorrow, display: formatTime(tomorrow), icon: <MdWbSunny size={18} className="text-yellow-500" /> },
-      { label: "Later this week", time: laterThisWeek, display: formatTime(laterThisWeek), icon: <MdEvent size={18} className="text-indigo-500" /> },
-      { label: "This weekend", time: thisWeekend, display: formatTime(thisWeekend), icon: <MdNightsStay size={18} className="text-purple-500" /> },
-      { label: "Next week", time: nextWeek, display: formatTime(nextWeek), icon: <MdUpdate size={18} className="text-emerald-500" /> },
-    ];
+    return getStorageSnoozeOptions().map((opt) => ({
+      ...opt,
+      icon: iconMap[opt.key] || <MdAccessTime size={18} className="text-blue-500" />
+    }));
   };
 
   const paginationControls = effectiveTotal > 0 && (
@@ -213,6 +181,7 @@ const EmailList = ({
                 <input
                   type="datetime-local"
                   value={customDateTime}
+                  min={getLocalDatetimeInputString(new Date())}
                   onChange={(e) => setCustomDateTime(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -229,12 +198,17 @@ const EmailList = ({
                         alert("Please select a valid date and time.");
                         return;
                       }
-                      const dateObj = new Date(customDateTime);
-                      if (dateObj <= new Date()) {
+                      const dateObj = parseLocalDatetimeString(customDateTime);
+                      if (!dateObj || isNaN(dateObj.getTime())) {
+                        alert("Please select a valid date and time.");
+                        return;
+                      }
+                      if (dateObj.getTime() <= Date.now()) {
                         alert("Please select a future date and time.");
                         return;
                       }
-                      snoozeAction?.(snoozeOpenUid, dateObj.toISOString());
+                      const targetEmail = emails.find((e) => e.uid === snoozeOpenUid);
+                      snoozeAction?.(snoozeOpenUid, dateObj.toISOString(), targetEmail);
                       setSnoozeOpenUid(null);
                       setCustomPickerUid(null);
                     }}
@@ -246,11 +220,28 @@ const EmailList = ({
               </div>
             ) : (
               <>
-                {getSnoozeOptions().map((opt, idx) => (
+                {isSnoozedFolder && (
+                  <>
+                    <button
+                      onClick={() => {
+                        const targetEmail = emails.find((e) => e.uid === snoozeOpenUid);
+                        unsnoozeAction?.(snoozeOpenUid, targetEmail);
+                        setSnoozeOpenUid(null);
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center gap-3 cursor-pointer transition-colors text-blue-600 dark:text-blue-400 font-semibold"
+                    >
+                      <MdAlarmOff size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span>Unsnooze / Return to Inbox</span>
+                    </button>
+                    <div className="border-t border-gray-100 dark:border-neutral-800 my-1" />
+                  </>
+                )}
+                {getRenderSnoozeOptions().map((opt, idx) => (
                   <button
                     key={idx}
                     onClick={() => {
-                      snoozeAction?.(snoozeOpenUid, opt.time.toISOString());
+                      const targetEmail = emails.find((e) => e.uid === snoozeOpenUid);
+                      snoozeAction?.(snoozeOpenUid, opt.date.toISOString(), targetEmail);
                       setSnoozeOpenUid(null);
                     }}
                     className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center justify-between gap-3 cursor-pointer transition-colors"
@@ -268,9 +259,8 @@ const EmailList = ({
                 <button
                   onClick={() => {
                     setCustomPickerUid(snoozeOpenUid);
-                    const defaultCustom = new Date();
-                    defaultCustom.setMinutes(defaultCustom.getMinutes() - defaultCustom.getTimezoneOffset());
-                    setCustomDateTime(defaultCustom.toISOString().slice(0, 16));
+                    const defaultCustom = new Date(Date.now() + 3600000);
+                    setCustomDateTime(getLocalDatetimeInputString(defaultCustom));
                   }}
                   className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center gap-3 cursor-pointer transition-colors text-blue-500 dark:text-blue-400 font-medium"
                 >
@@ -520,7 +510,7 @@ const EmailList = ({
                   )}
 
                   {/* Date / Hover Actions */}
-                  <div className={`${isSnoozedFolder ? 'min-w-[70px] sm:min-w-[110px]' : 'w-14 sm:w-20'} shrink-0 text-right relative flex justify-end items-center h-full ${snoozeOpenUid === email.uid ? 'z-50' : 'z-10'}`}>
+                  <div className={`${isSnoozedFolder ? 'min-w-[85px] sm:min-w-[130px]' : 'w-14 sm:w-20'} shrink-0 text-right relative flex justify-end items-center h-full ${snoozeOpenUid === email.uid ? 'z-50' : 'z-10'}`}>
                     <span
                       className={`text-xs whitespace-nowrap transition-opacity duration-100 group-hover:opacity-0 ${isUnread ? "font-bold text-primary" : "text-gray-400 dark:text-gray-500"
                         }`}
@@ -528,12 +518,8 @@ const EmailList = ({
                       {(() => {
                         const snoozeTarget = isSnoozedFolder && (email.wakeUpAt || email.snoozedUntil || email.snoozeUntil);
                         if (snoozeTarget) {
-                          const sParsed = new Date(snoozeTarget);
-                          if (!isNaN(sParsed.getTime())) {
-                            const timeStr = sParsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                            const dateStr = sParsed.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                            return `${dateStr}, ${timeStr}`;
-                          }
+                          const formatted = formatSnoozeSchedule(snoozeTarget);
+                          if (formatted) return formatted;
                         }
                         const raw = email.receivedDate || email.sentDate || email.date || email.createdAt || email.timestamp;
                         if (!raw) return "";
@@ -550,6 +536,18 @@ const EmailList = ({
                       className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 ${backgroundImage ? 'bg-transparent' : 'bg-white/90 dark:bg-gray-900/90'} backdrop-blur-sm rounded-lg px-1 transition-opacity duration-150 ${snoozeOpenUid === email.uid ? 'opacity-100 z-50' : 'opacity-0 group-hover:opacity-100 z-10'}`}
                       onClick={(e) => e.stopPropagation()}
                     >
+                      {isSnoozedFolder && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            unsnoozeAction?.(email.uid, email);
+                          }}
+                          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-blue-600 dark:text-blue-400 hover:text-blue-700 cursor-pointer"
+                          title="Unsnooze (Return to Inbox)"
+                        >
+                          <MdAlarmOff size={18} />
+                        </button>
+                      )}
                       {!isRowTrash && !isScheduledRow && !isRowSpam && (
                         <button
                           onClick={(e) => {
