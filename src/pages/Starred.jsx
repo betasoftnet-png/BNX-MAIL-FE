@@ -61,16 +61,23 @@ const Starred = ({ searchQuery }) => {
   }, [fetchEmails]);
 
   const visibleEmails = emails.filter((e) => {
-    const targetFolder = isDraftEmail(e) ? 'draft' : (e.folderName || 'starred');
-    const isItemStarred = (typeof isEmailStarred === 'function' && isEmailStarred(e.uid ?? e.id, targetFolder, e)) ||
-      Boolean(e.starred || e.isStarred);
+    // 1. Strictly exclude draft emails from Starred section
+    if (isDraftEmail(e)) return false;
+
+    // 2. Must be genuinely starred
+    const targetFolder = e.folderName || 'starred';
+    const isItemStarred = typeof isEmailStarred === 'function'
+      ? isEmailStarred(e.uid ?? e.id, targetFolder, e)
+      : Boolean(e.starred || e.isStarred);
     if (!isItemStarred) return false;
+
     return typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true;
   });
 
   const sortedEmails = useMemo(() => {
     const sentEmails = visibleEmails.filter(e => e.folderName?.toLowerCase() === 'sent');
     const filteredVisible = visibleEmails.filter(e => {
+      if (isDraftEmail(e)) return false;
       if (e.folderName?.toLowerCase() === 'scheduled') {
         const hasSentMatch = sentEmails.some(sent => matchesScheduledAndSentEmail(e, sent));
         if (hasSentMatch) return false;
@@ -81,12 +88,17 @@ const Starred = ({ searchQuery }) => {
     const seen = new Set();
     const uniqueEmails = [];
     for (const e of filteredVisible) {
+      if (isDraftEmail(e)) continue;
       const uidStr = String(e.uid ?? e.id ?? '');
       const folderKey = e.folderName?.toLowerCase() || '';
       const dedupeKey = `${folderKey}:${uidStr}`;
       if (!seen.has(dedupeKey)) {
         seen.add(dedupeKey);
-        uniqueEmails.push(e);
+        uniqueEmails.push({
+          ...e,
+          starred: true,
+          isStarred: true
+        });
       }
     }
 
@@ -116,16 +128,13 @@ const Starred = ({ searchQuery }) => {
     (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
 
   const handleSelectEmail = (email) => {
-    if (isDraftEmail(email)) {
-      openCompose({ draft: { ...email } });
-      return;
-    }
+    if (isDraftEmail(email)) return;
     setSelectedEmailUid(email.uid);
   };
 
   const handleUnstar = async (uid, folder) => {
     const email = sortedEmails.find((e) => String(e.uid) === String(uid));
-    const targetFolder = isDraftEmail(email) ? 'draft' : (email?.folderName || folder || 'starred');
+    const targetFolder = email?.folderName || folder || 'starred';
     await handleToggleStar(uid, targetFolder);
     if (String(selectedEmailUid) === String(uid)) {
       setSelectedEmailUid(null);
@@ -135,7 +144,7 @@ const Starred = ({ searchQuery }) => {
 
   const handleDelete = (uid, folder) => {
     const email = sortedEmails.find((e) => String(e.uid) === String(uid));
-    const targetFolder = isDraftEmail(email) ? 'draft' : (folder || 'starred');
+    const targetFolder = folder || email?.folderName || 'starred';
     handleMoveToTrash(uid, targetFolder);
     setSelectedEmailUid(null);
   };

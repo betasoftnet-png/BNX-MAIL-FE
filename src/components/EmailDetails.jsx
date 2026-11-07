@@ -940,7 +940,7 @@ const EmailDetails = ({
           handleEmailSent({
             draftId: sentDraftId,
             sentEmail: res.data?.data,
-            wasStarred: isStarred
+            wasStarred: false
           });
         } else if (fetchEmails) {
           fetchEmails(currentFolder || "inbox", true);

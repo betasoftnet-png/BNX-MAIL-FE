@@ -122,7 +122,7 @@ const Unread = ({ searchQuery }) => {
         setSelectedEmailOverride(null);
         setSelectedEmailUid(null);
       }}
-      onStar={(uid) => handleToggleStar(uid, "unread")}
+      onStar={(uid) => handleToggleStar(uid, selectedEmail?.folderName || "inbox", selectedEmail)}
       onArchive={(uid) => {
         handleArchive(uid, "unread");
         setSelectedEmailOverride(null);
@@ -193,7 +193,7 @@ const Unread = ({ searchQuery }) => {
           emails={visibleEmails}
           selectedEmailId={selectedEmailUid}
           onSelectEmail={handleSelectEmail}
-          onStar={(uid) => handleToggleStar(uid, "unread")}
+          onStar={(uid, folder) => handleToggleStar(uid, folder || "inbox")}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
         />

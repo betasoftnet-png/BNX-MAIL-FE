@@ -220,7 +220,7 @@ const AllMail = ({ searchQuery }) => {
             setSelectedEmailOverride(null);
             setSelectedEmailUid(null);
           }}
-          onStar={(uid) => handleToggleStar(uid, currentFolder || "inbox")}
+          onStar={(uid) => handleToggleStar(uid, selectedEmail?.folderName || currentFolder || "inbox", selectedEmail)}
           onArchive={(uid) => {
             handleArchive(uid, currentFolder || "inbox");
             setSelectedEmailOverride(null);

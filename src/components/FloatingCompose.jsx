@@ -1723,10 +1723,6 @@ const ComposeWindow = ({
     if (cleanCc) payload.cc = cleanCc;
     if (cleanBcc) payload.bcc = cleanBcc;
     if (cleanAttachments.length > 0) payload.attachments = cleanAttachments;
-    if (isStarredDraft) {
-      payload.isStarred = true;
-      payload.starred = true;
-    }
 
     const executeSend = async (tid) => {
       try {
@@ -1781,7 +1777,7 @@ const ComposeWindow = ({
               draftUid: currentDraftUid,
               imapDraftUid: currentImapDraftUid,
               sentEmail: response.data?.data,
-              wasStarred: isStarredDraft,
+              wasStarred: false,
               emailData: {
                 from: user?.email,
                 senderEmail: user?.email,
