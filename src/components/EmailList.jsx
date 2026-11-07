@@ -20,6 +20,7 @@ import {
   getLocalDatetimeInputString,
   parseLocalDatetimeString,
 } from "../utils/snoozeStorage";
+import { isLabelVisibleInMessageList } from "../utils/labelPreferences";
 
 const EmailList = ({
   emails,
@@ -47,6 +48,12 @@ const EmailList = ({
   const { theme, emailsPerPage, backgroundImage } = useTheme();
   const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead } = useMail();
   const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
+  const [, setPrefsTick] = useState(0);
+  useEffect(() => {
+    const handlePrefsChange = () => setPrefsTick((t) => t + 1);
+    window.addEventListener("bnx-label-prefs-changed", handlePrefsChange);
+    return () => window.removeEventListener("bnx-label-prefs-changed", handlePrefsChange);
+  }, []);
   const isTrashFolder = Boolean(
     isTrash ||
     currentFolder?.toLowerCase() === 'trash' ||
@@ -487,7 +494,12 @@ const EmailList = ({
                   {/* Labels */}
                   {email.labels && email.labels.length > 0 && (
                     <div className="hidden sm:flex gap-1 shrink-0 mr-2 select-none">
-                      {email.labels.map((label) => {
+                      {email.labels
+                        .filter((label) => {
+                          const labelId = typeof label === 'string' ? label : (label.id || label.name);
+                          return isLabelVisibleInMessageList(labelId);
+                        })
+                        .map((label) => {
                         const labelId = typeof label === 'string' ? label : (label.id || label.name);
                         const labelName = typeof label === 'string' ? label : (label.name || label.id);
                         const labelColor = typeof label === 'string' 

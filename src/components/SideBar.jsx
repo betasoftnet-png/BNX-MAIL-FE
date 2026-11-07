@@ -26,7 +26,8 @@ import {
   Archive,
   BarChart2,
   Bookmark,
-  Database
+  Database,
+  Tag
 } from "lucide-react";
 import { 
   MdLabel, 
@@ -40,6 +41,7 @@ import {
   MdArchive 
 } from "react-icons/md";
 import { canAccessAllInbox } from "../utils/accountUtils";
+import { isLabelVisibleInSidebar } from "../utils/labelPreferences";
 
 const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) => {
   const { t } = useTranslation();
@@ -69,6 +71,13 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
   const [newLabel, setNewLabel] = useState({ name: "", color: "#135bec", parentId: "" });
   const [editingLabel, setEditingLabel] = useState(null);
   const labelMenuRef = useRef(null);
+  const [, setPrefsTick] = useState(0);
+
+  useEffect(() => {
+    const handlePrefsChange = () => setPrefsTick((t) => t + 1);
+    window.addEventListener("bnx-label-prefs-changed", handlePrefsChange);
+    return () => window.removeEventListener("bnx-label-prefs-changed", handlePrefsChange);
+  }, []);
 
   const getItemLabel = (name) => {
     switch (name) {
@@ -96,6 +105,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
       case 'Vault': return t('sidebar.vault', 'Vault');
       case 'Storage Management': return t('sidebar.storage_management', 'Storage Management');
       case 'Subscriptions': return t('sidebar.subscriptions', 'Subscriptions');
+      case 'Manage Labels': return t('sidebar.manage_labels', 'Manage Labels');
       case 'Notification':
       case 'NotifyHub': return t('sidebar.notification', 'Notifications');
       case 'Settings': return t('sidebar.settings', 'Settings');
@@ -142,6 +152,8 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
         return <BarChart2 size={19} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Subscriptions':
         return <Bookmark size={19} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Manage Labels':
+        return <Tag size={19} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Mail Backup':
         return <Database size={19} strokeWidth={strokeWidth} className={iconClass} />;
       default:
@@ -204,7 +216,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
   const mainNavItems = ["Inbox", "Starred", "Sent", "Draft", "Trash", "Snoozed"]
     .filter(name => name !== "All Inbox" || showAllInbox);
 
-  const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Analytics", "Mail Backup"]
+  const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Manage Labels", "Analytics", "Mail Backup"]
     .filter(name => name !== "All Inbox" || showAllInbox);
 
   return (
@@ -533,7 +545,9 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
               {/* Labels list */}
               {(() => {
                 const renderLabelTree = (parentId, depth = 0) => {
-                  const children = labels.filter(l => l.parentId === parentId || (!l.parentId && parentId === null));
+                  const children = labels
+                    .filter(l => l.parentId === parentId || (!l.parentId && parentId === null))
+                    .filter(l => isLabelVisibleInSidebar(l.id));
                   return children.map(label => {
                     const isLabelActive = location.pathname === `/label/${label.id}`;
 

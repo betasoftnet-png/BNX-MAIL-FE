@@ -101,7 +101,9 @@ export const DEFAULT_SIDEBAR_PREFS = {
   Templates: true,
   Analytics: true,
   Subscriptions: true,
+  "Manage Labels": true,
   "Mail Backup": true,
+  Important: true,
 };
 
 export const ThemeProvider = ({ children }) => {

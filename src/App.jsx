@@ -56,6 +56,7 @@ const MailBackup = lazyRetry(() => import("./pages/MailBackup"), "MailBackup");
 const MailBackupViewer = lazyRetry(() => import("./pages/MailBackupViewer"), "MailBackupViewer");
 const AnalyticsApp = lazyRetry(() => import("./components/AnalyticsApp"), "AnalyticsApp");
 const RemoteConnectedApp = lazyRetry(() => import("./pages/RemoteConnectedApp"), "RemoteConnectedApp");
+const LabelManagement = lazyRetry(() => import("./pages/LabelManagement"), "LabelManagement");
 
 /* Signup Pages */
 const SignupLayout = lazyRetry(() => import("./pages/signup/SignupLayout"), "SignupLayout");
@@ -312,6 +313,8 @@ const AppContent = () => {
                   <Route path="/allmail" element={<AllMail />} />
                   <Route path="/templates" element={<Templates />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings/labels" element={<LabelManagement />} />
+                  <Route path="/labels" element={<LabelManagement />} />
                   <Route path="/colab" element={<Groups />} />
                   <Route path="/colab/archived" element={<Groups />} />
                   <Route path="/colab/starred" element={<Groups />} />

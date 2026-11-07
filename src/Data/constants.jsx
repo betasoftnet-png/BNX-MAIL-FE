@@ -19,7 +19,8 @@ import {
   MdLayers,
   MdMailOutline,
   MdNotificationsNone,
-  MdBackup
+  MdBackup,
+  MdLabel
 } from 'react-icons/md';
 
 export const SIDEBAR_ITEMS = [
@@ -117,6 +118,12 @@ export const SIDEBAR_ITEMS = [
     name: 'Subscriptions',
     icon: <MdNotifications size={20} />,
     path: '/subscriptions',
+    count: 0
+  },
+  {
+    name: 'Manage Labels',
+    icon: <MdLabel size={20} />,
+    path: '/settings/labels',
     count: 0
   },
   {

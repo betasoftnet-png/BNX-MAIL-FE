@@ -58,6 +58,7 @@ import { useNotificationPreferences } from "../context/NotificationPreferenceCon
 import toast from "react-hot-toast";
 import { formatActivityTimestamp, sortActivityLogs } from "../utils/activityDateUtils";
 import { canAccessAllInbox } from "../utils/accountUtils";
+import LabelManagement from "./LabelManagement";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import ImageResize from 'quill-image-resize-module-react';
@@ -2134,36 +2135,9 @@ const Settings = () => {
 
           {/* Labels Tab */}
           {activeTab === "labels" && (
-            <Section title={t("settings.labels_sidebar", "Sidebar Labels")} theme={theme}>
-              <p className="text-sm text-gray-500 mb-6">{t("settings.folder_label_desc", "Choose which labels are visible in the main sidebar.")}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-                {Object.keys({ ...DEFAULT_SIDEBAR_PREFS, ...(sidebarPreferences || {}) })
-                  .filter((itemName) => {
-                    if (itemName === "Bulk Mail" || itemName.toLowerCase() === "bulk mail" || itemName.toLowerCase() === "bulk") return false;
-                    if (itemName === "All Inbox" && !canAccessAllInbox(user)) return false;
-                    return true;
-                  })
-                  .map((itemName) => (
-                    <div key={itemName} className="flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-transparent" style={{ borderColor: theme.border }}>
-                      <span className="font-medium text-sm" style={{ color: theme.text }}>{getSidebarItemLabel(itemName)}</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={sidebarPreferences?.[itemName] !== false}
-                          onChange={(e) => {
-                            const newPrefs = { ...DEFAULT_SIDEBAR_PREFS, ...sidebarPreferences, [itemName]: e.target.checked };
-                            if (setSidebarPreferences) {
-                              setSidebarPreferences(newPrefs);
-                            }
-                          }}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
-                  ))}
-              </div>
-            </Section>
+            <div className="w-full">
+              <LabelManagement embedded={true} />
+            </div>
           )}
 
           {/* notifications Tab */}
