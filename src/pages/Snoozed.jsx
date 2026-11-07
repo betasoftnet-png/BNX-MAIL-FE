@@ -167,7 +167,11 @@ const Snoozed = ({ searchQuery }) => {
         </span>
       </h2>
       <button
-        onClick={() => refreshEmails("snoozed")}
+        onClick={() => {
+          setSelectedEmailOverride(null);
+          setSelectedIds(new Set());
+          refreshEmails("snoozed");
+        }}
         disabled={loading || isRefreshing}
         className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
         title={t("common.refresh", "Refresh mail")}

@@ -380,7 +380,7 @@ const BulkActionsToolbar = ({
     if (!uniqueSelectedEmails.length) return;
     try {
       toast.loading("Snoozing selected emails...", { id: "bulk-snooze" });
-      await Promise.all(uniqueSelectedEmails.map((e) => handleSnooze(e.uid, wakeUpAtIso, e, true)));
+      await Promise.all(uniqueSelectedEmails.map((e) => handleSnooze(e.uid, wakeUpAtIso, e.folderName || folder || 'INBOX', e, true)));
       setSelectedIds(new Set());
       setShowMoreMenu(false);
       setShowSnoozeSub(false);
@@ -618,7 +618,10 @@ const BulkActionsToolbar = ({
                           {getStorageSnoozeOptions().map((opt, idx) => (
                             <button
                               key={idx}
-                              onClick={() => handleBulkSnoozeWithDate(opt.date.toISOString())}
+                              onClick={() => {
+                                const d = opt.date || opt.time;
+                                if (d) handleBulkSnoozeWithDate(d.toISOString());
+                              }}
                               className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer flex items-center justify-between gap-1 text-[11px]"
                             >
                               <span className="font-medium text-gray-700 dark:text-gray-200 truncate">{opt.label}</span>

@@ -1060,7 +1060,7 @@ export const MailProvider = ({ children }) => {
 
                 // Calculate dynamic total count reflecting actual filtered unique emails
                 let calculatedTotal = normalizedEmails.length;
-                if (['all-inbox', 'allinbox', 'spam', 'all-mail', 'allmail'].includes(folderKey)) {
+                if (['all-inbox', 'allinbox', 'spam', 'all-mail', 'allmail', 'snoozed'].includes(folderKey)) {
                     calculatedTotal = normalizedEmails.length;
                 } else if (data.totalCount !== undefined && data.totalCount !== null) {
                     const rawCount = rawEmails.length;
@@ -1075,7 +1075,12 @@ export const MailProvider = ({ children }) => {
 
                 // Sync unread counts in real-time across all tabs and folders
                 const countKey = folderKey.replace('-', '').replace(' ', '');
-                if (countKey === 'inbox' || countKey === 'unread') {
+                if (countKey === 'snoozed') {
+                    setUnreadCounts(prev => ({
+                        ...prev,
+                        snoozed: normalizedEmails.length
+                    }));
+                } else if (countKey === 'inbox' || countKey === 'unread') {
                     const unread = (targetPage === 1 && normalizedEmails.length === 0)
                         ? 0
                         : (data.unreadCount !== undefined ? data.unreadCount : normalizedEmails.filter(e => !e.isRead).length);
@@ -2325,32 +2330,55 @@ export const MailProvider = ({ children }) => {
         }
     };
 
-    const handleSnooze = async (uid, wakeUpAt, folder = 'INBOX', silent = false) => {
-        const targetFolder = folder || currentFolderRef.current || 'INBOX';
+    const handleSnooze = async (uid, wakeUpAt, folderOrEmail = 'INBOX', emailObjOrSilent = null, silent = false) => {
+        let targetFolder = 'INBOX';
+        let passedEmailObj = null;
+        let isSilent = false;
+
+        if (typeof folderOrEmail === 'object' && folderOrEmail !== null) {
+            passedEmailObj = folderOrEmail;
+            targetFolder = folderOrEmail.folderName || currentFolderRef.current || 'INBOX';
+            if (typeof emailObjOrSilent === 'boolean') {
+                isSilent = emailObjOrSilent;
+            }
+        } else if (typeof folderOrEmail === 'string' && folderOrEmail.trim()) {
+            targetFolder = folderOrEmail.trim();
+            if (typeof emailObjOrSilent === 'object' && emailObjOrSilent !== null) {
+                passedEmailObj = emailObjOrSilent;
+                if (typeof silent === 'boolean') isSilent = silent;
+            } else if (typeof emailObjOrSilent === 'boolean') {
+                isSilent = emailObjOrSilent;
+            }
+        } else {
+            targetFolder = currentFolderRef.current || 'INBOX';
+        }
+
+        if (typeof targetFolder !== 'string') {
+            targetFolder = 'INBOX';
+        }
+        if (targetFolder.toLowerCase() === 'snoozed') {
+            targetFolder = passedEmailObj?.originalFolderName || 'INBOX';
+        }
+
         const strUid = String(uid);
 
         if (!wakeUpAt) {
-            if (!silent) toast.error('Please select a valid date and time.');
+            if (!isSilent) toast.error('Please select a valid date and time.');
             return false;
         }
         const wakeDate = new Date(wakeUpAt);
         if (isNaN(wakeDate.getTime()) || wakeDate.getTime() <= Date.now()) {
-            if (!silent) toast.error('Please select a future date and time.');
+            if (!isSilent) toast.error('Please select a future date and time.');
             return false;
         }
 
-        let snoozedItem = null;
-        // 1. Locate the email and optimistically remove from active list
-        setEmails(prev => {
-            snoozedItem = prev.find(m => String(m.uid) === strUid || String(m.id) === strUid);
-            return prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid);
-        });
-
+        // Synchronously locate the email object BEFORE queued state update
+        let snoozedItem = passedEmailObj || emails.find(m => String(m.uid ?? m.id) === strUid);
         if (!snoozedItem) {
             for (const fKey of Object.keys(pagesCache.current)) {
                 if (pagesCache.current[fKey]) {
                     for (const pKey of Object.keys(pagesCache.current[fKey])) {
-                        const match = pagesCache.current[fKey][pKey]?.find?.(m => String(m.uid) === strUid || String(m.id) === strUid);
+                        const match = pagesCache.current[fKey][pKey]?.find?.(m => String(m.uid ?? m.id) === strUid);
                         if (match) {
                             snoozedItem = match;
                             break;
@@ -2361,6 +2389,9 @@ export const MailProvider = ({ children }) => {
             }
         }
 
+        // 1. Optimistically remove from active list immediately
+        setEmails(prev => prev.filter(m => String(m.uid ?? m.id) !== strUid));
+
         // 2. Persist in snoozeStorage
         const snoozeRecord = saveSnoozedEmail(user?.email, {
             email: snoozedItem || { uid: strUid },
@@ -2368,12 +2399,18 @@ export const MailProvider = ({ children }) => {
             originalFolderName: targetFolder
         });
 
-        // 3. Decrement unread counts if email was unread
-        if (snoozedItem && !snoozedItem.isRead) {
+        // 3. Update unread & snoozed counts
+        if (snoozedItem && !snoozedItem.isRead && !snoozedItem.read) {
             setUnreadCounts(c => ({
                 ...c,
                 inbox: Math.max(0, (c.inbox || 0) - 1),
-                unread: Math.max(0, (c.unread || 0) - 1)
+                unread: Math.max(0, (c.unread || 0) - 1),
+                snoozed: (c.snoozed || 0) + 1
+            }));
+        } else {
+            setUnreadCounts(c => ({
+                ...c,
+                snoozed: (c.snoozed || 0) + 1
             }));
         }
         setTotalEmails(prev => Math.max(0, prev - 1));
@@ -2384,7 +2421,7 @@ export const MailProvider = ({ children }) => {
                 Object.keys(pagesCache.current[fKey]).forEach(pKey => {
                     if (Array.isArray(pagesCache.current[fKey][pKey])) {
                         pagesCache.current[fKey][pKey] = pagesCache.current[fKey][pKey].filter(
-                            m => String(m.uid) !== strUid && String(m.id) !== strUid
+                            m => String(m.uid ?? m.id) !== strUid
                         );
                     }
                 });
@@ -2397,7 +2434,7 @@ export const MailProvider = ({ children }) => {
             const existingSnoozed = pagesCache.current['snoozed'][1] || [];
             const updatedSnoozed = [
                 snoozeRecord.emailData,
-                ...existingSnoozed.filter(m => String(m.uid) !== strUid && (!snoozeRecord.messageId || m.messageId !== snoozeRecord.messageId))
+                ...existingSnoozed.filter(m => String(m.uid ?? m.id) !== strUid && (!snoozeRecord.messageId || m.messageId !== snoozeRecord.messageId))
             ];
             pagesCache.current['snoozed'][1] = updatedSnoozed;
             pagesCache.current['snoozed_total'] = updatedSnoozed.length;
@@ -2417,41 +2454,55 @@ export const MailProvider = ({ children }) => {
 
         try {
             await mailAPI.snooze(uid, wakeDate.toISOString(), targetFolder);
-            if (!silent && notifPrefsRef.current?.snoozedNotifications) toast.success('Email snoozed');
+            if (!isSilent && notifPrefsRef.current?.snoozedNotifications) toast.success('Email snoozed');
             return true;
         } catch (error) {
-            console.error('Failed to snooze email on backend:', error);
-            if (snoozedItem && !snoozedItem.isRead) {
-                setUnreadCounts(c => ({
-                    ...c,
-                    inbox: (c.inbox || 0) + 1,
-                    unread: (c.unread || 0) + 1
-                }));
+            console.warn('Backend mailAPI.snooze responded with error:', error?.message || error);
+            // Revert only on 401 Unauthorized
+            if (error?.response?.status === 401) {
+                if (snoozedItem && !snoozedItem.isRead && !snoozedItem.read) {
+                    setUnreadCounts(c => ({
+                        ...c,
+                        inbox: (c.inbox || 0) + 1,
+                        unread: (c.unread || 0) + 1,
+                        snoozed: Math.max(0, (c.snoozed || 0) - 1)
+                    }));
+                }
+                if (snoozeRecord) removeSnoozedEmail(user?.email, strUid);
+                if (currentFolderRef.current?.startsWith('label-')) {
+                    const labelId = currentFolderRef.current.replace('label-', '');
+                    fetchLabelEmails(labelId, true, currentPageRef.current);
+                } else {
+                    fetchEmails(currentFolderRef.current, true, currentPageRef.current);
+                }
+                if (!isSilent) toast.error('Session expired. Please log in again.');
+                throw error;
             }
-            if (!silent) toast.error(error.response?.data?.message || 'Failed to snooze');
-            // Refresh current folder to restore state on error
-            if (currentFolderRef.current?.startsWith('label-')) {
-                const labelId = currentFolderRef.current.replace('label-', '');
-                fetchLabelEmails(labelId, true, currentPageRef.current);
-            } else {
-                fetchEmails(currentFolderRef.current, true, currentPageRef.current);
+            // Keep optimistic local snooze so email remains snoozed on frontend
+            if (!isSilent && notifPrefsRef.current?.snoozedNotifications) {
+                toast.success('Email snoozed');
             }
-            throw error;
+            return true;
         }
     };
 
     const handleUnsnooze = async (uid, emailObj = null, silent = false) => {
         const strUid = String(uid);
-        const targetEmail = emailObj || emails.find(m => String(m.uid) === strUid || String(m.id) === strUid);
+        const targetEmail = emailObj || emails.find(m => String(m.uid ?? m.id) === strUid);
 
         // 1. Mark as unsnoozed in storage
         const unsnoozeRecord = markEmailUnsnoozed(user?.email, strUid);
 
         // 2. If viewing snoozed folder, immediately remove from active list
         if (currentFolderRef.current?.toLowerCase() === 'snoozed') {
-            setEmails(prev => prev.filter(m => String(m.uid) !== strUid && String(m.id) !== strUid));
+            setEmails(prev => prev.filter(m => String(m.uid ?? m.id) !== strUid));
             setTotalEmails(prev => Math.max(0, prev - 1));
         }
+
+        setUnreadCounts(prev => ({
+            ...prev,
+            snoozed: Math.max(0, (prev.snoozed || 0) - 1)
+        }));
 
         // 3. Invalidate affected caches
         invalidateCache('snoozed');
@@ -2468,7 +2519,7 @@ export const MailProvider = ({ children }) => {
 
         if (['inbox', 'all-inbox', 'allinbox'].includes(currentFolderRef.current?.toLowerCase()) && itemData) {
             setEmails(prev => {
-                const exists = prev.some(m => String(m.uid) === strUid || (itemData.messageId && m.messageId === itemData.messageId));
+                const exists = prev.some(m => String(m.uid ?? m.id) === strUid || (itemData.messageId && m.messageId === itemData.messageId));
                 if (exists) return prev;
                 return [{
                     ...itemData,

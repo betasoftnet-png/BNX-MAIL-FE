@@ -751,7 +751,8 @@ const EmailDetails = ({
       setShowSnooze(false);
       setCustomSnooze(false);
       if (snoozeAction) {
-        await snoozeAction(targetUid || email?.uid || email?.id, isoDate, email);
+        const targetFolder = email?.folderName || currentFolder || 'INBOX';
+        await snoozeAction(targetUid || email?.uid || email?.id, isoDate, targetFolder, email);
       }
       if (handleClose) {
         handleClose();
@@ -1120,7 +1121,7 @@ const EmailDetails = ({
     };
     return getStorageSnoozeOptions().map((opt) => ({
       ...opt,
-      icon: iconMap[opt.key] || <MdAccessTime size={18} className="text-blue-500 shrink-0" />
+      icon: iconMap[opt.key || opt.id] || <MdAccessTime size={18} className="text-blue-500 shrink-0" />
     }));
   };
 
@@ -1573,7 +1574,10 @@ const EmailDetails = ({
                               type="button"
                               disabled={isSnoozing}
                               onClick={() => {
-                                handleSnoozeOption(email?.uid ?? email?.id, opt.date.toISOString());
+                                const snoozeDate = opt.date || opt.time;
+                                if (snoozeDate) {
+                                  handleSnoozeOption(email?.uid ?? email?.id, snoozeDate.toISOString());
+                                }
                               }}
                               className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center justify-between gap-3 cursor-pointer transition-colors disabled:opacity-50"
                             >

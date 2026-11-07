@@ -115,26 +115,34 @@ export const getSnoozeOptions = (baseDate = new Date()) => {
   return [
     {
       id: "later_today",
+      key: "later_today",
       label: "Later today",
       time: laterToday,
+      date: laterToday,
       display: formatDisplay(laterToday),
     },
     {
       id: "tomorrow",
+      key: "tomorrow",
       label: "Tomorrow",
       time: tomorrow,
+      date: tomorrow,
       display: formatDisplay(tomorrow),
     },
     {
       id: "this_weekend",
+      key: "this_weekend",
       label: "This weekend",
       time: thisWeekend,
+      date: thisWeekend,
       display: formatDisplay(thisWeekend),
     },
     {
       id: "next_week",
+      key: "next_week",
       label: "Next week",
       time: nextWeek,
+      date: nextWeek,
       display: formatDisplay(nextWeek),
     },
   ];
@@ -437,6 +445,13 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
     const stored = list.find(item => {
       if (uidStr && (String(item.uid) === uidStr || String(item.originalUid) === uidStr)) return true;
       if (msgId && item.messageId && item.messageId === msgId) return true;
+      if (item.subject && apiEmail.subject && item.subject.trim() === apiEmail.subject.trim()) {
+        const itemSender = (item.from || '').toLowerCase();
+        const apiSender = (apiEmail.from || apiEmail.senderEmail || '').toLowerCase();
+        if (itemSender && apiSender && (itemSender.includes(apiSender) || apiSender.includes(itemSender))) {
+          return true;
+        }
+      }
       return false;
     });
 
@@ -445,7 +460,11 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
       if (stored.status !== 'snoozed' || stored.wakeUpTime <= now) {
         return;
       }
-      matchedStoredKeys.add(stored.uid || stored.originalUid || stored.messageId);
+      if (stored.uid) matchedStoredKeys.add(String(stored.uid));
+      if (stored.originalUid) matchedStoredKeys.add(String(stored.originalUid));
+      if (stored.messageId) matchedStoredKeys.add(stored.messageId);
+      if (uidStr) matchedStoredKeys.add(uidStr);
+      if (msgId) matchedStoredKeys.add(msgId);
 
       const merged = {
         ...apiEmail,
@@ -459,9 +478,12 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
         folderName: 'Snoozed',
       };
 
-      const dedupKey = msgId || merged.uid;
+      const dedupKey = msgId || String(merged.uid);
       if (!seenDedupKeys.has(dedupKey)) {
         seenDedupKeys.add(dedupKey);
+        if (msgId) seenDedupKeys.add(msgId);
+        if (merged.uid) seenDedupKeys.add(String(merged.uid));
+        if (stored.originalUid) seenDedupKeys.add(String(stored.originalUid));
         result.push(merged);
       }
     } else {
@@ -477,6 +499,8 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
       const dedupKey = msgId || uidStr;
       if (!seenDedupKeys.has(dedupKey)) {
         seenDedupKeys.add(dedupKey);
+        if (msgId) seenDedupKeys.add(msgId);
+        if (uidStr) seenDedupKeys.add(uidStr);
         result.push({
           ...apiEmail,
           folderName: 'Snoozed',
@@ -488,10 +512,17 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
 
   // 2. Add active snoozed emails from storage not yet reflected in backend response
   activeRecords.forEach(stored => {
-    const key = stored.uid || stored.originalUid || stored.messageId;
-    const dedupKey = stored.messageId || stored.uid || stored.originalUid;
-    if (!matchedStoredKeys.has(key) && !seenDedupKeys.has(dedupKey)) {
+    const isAlreadyMatched = (
+      (stored.uid && (matchedStoredKeys.has(String(stored.uid)) || seenDedupKeys.has(String(stored.uid)))) ||
+      (stored.originalUid && (matchedStoredKeys.has(String(stored.originalUid)) || seenDedupKeys.has(String(stored.originalUid)))) ||
+      (stored.messageId && (matchedStoredKeys.has(stored.messageId) || seenDedupKeys.has(stored.messageId)))
+    );
+    if (!isAlreadyMatched) {
+      const dedupKey = stored.messageId || String(stored.uid) || String(stored.originalUid);
       seenDedupKeys.add(dedupKey);
+      if (stored.messageId) seenDedupKeys.add(stored.messageId);
+      if (stored.uid) seenDedupKeys.add(String(stored.uid));
+      if (stored.originalUid) seenDedupKeys.add(String(stored.originalUid));
       result.push({
         ...stored.emailData,
         uid: stored.uid || stored.originalUid,

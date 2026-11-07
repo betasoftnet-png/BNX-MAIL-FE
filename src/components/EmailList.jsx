@@ -113,7 +113,7 @@ const EmailList = ({
     };
     return getStorageSnoozeOptions().map((opt) => ({
       ...opt,
-      icon: iconMap[opt.key] || <MdAccessTime size={18} className="text-blue-500" />
+      icon: iconMap[opt.key || opt.id] || <MdAccessTime size={18} className="text-blue-500" />
     }));
   };
 
@@ -207,8 +207,9 @@ const EmailList = ({
                         alert("Please select a future date and time.");
                         return;
                       }
-                      const targetEmail = emails.find((e) => e.uid === snoozeOpenUid);
-                      snoozeAction?.(snoozeOpenUid, dateObj.toISOString(), targetEmail);
+                      const targetEmail = emails.find((e) => String(e.uid ?? e.id) === String(snoozeOpenUid));
+                      const targetFolder = targetEmail?.folderName || currentFolder || 'INBOX';
+                      snoozeAction?.(snoozeOpenUid, dateObj.toISOString(), targetFolder, targetEmail);
                       setSnoozeOpenUid(null);
                       setCustomPickerUid(null);
                     }}
@@ -224,7 +225,7 @@ const EmailList = ({
                   <>
                     <button
                       onClick={() => {
-                        const targetEmail = emails.find((e) => e.uid === snoozeOpenUid);
+                        const targetEmail = emails.find((e) => String(e.uid ?? e.id) === String(snoozeOpenUid));
                         unsnoozeAction?.(snoozeOpenUid, targetEmail);
                         setSnoozeOpenUid(null);
                       }}
@@ -240,8 +241,11 @@ const EmailList = ({
                   <button
                     key={idx}
                     onClick={() => {
-                      const targetEmail = emails.find((e) => e.uid === snoozeOpenUid);
-                      snoozeAction?.(snoozeOpenUid, opt.date.toISOString(), targetEmail);
+                      const targetEmail = emails.find((e) => String(e.uid ?? e.id) === String(snoozeOpenUid));
+                      const targetFolder = targetEmail?.folderName || currentFolder || 'INBOX';
+                      const snoozeDate = opt.date || opt.time;
+                      if (!snoozeDate) return;
+                      snoozeAction?.(snoozeOpenUid, snoozeDate.toISOString(), targetFolder, targetEmail);
                       setSnoozeOpenUid(null);
                     }}
                     className="w-full text-left px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center justify-between gap-3 cursor-pointer transition-colors"
