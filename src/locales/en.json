@@ -131,6 +131,7 @@
     "star": "Star",
     "unstar": "Unstar",
     "snooze": "Snooze",
+    "resend_otp": "Resend OTP",
     "move_to": "Move to",
     "report_spam": "Report Spam",
     "enable": "Enable",
@@ -417,7 +418,9 @@
     "received": "Received",
     "verifying": "Verifying...",
     "enter_otp": "Enter 6-digit OTP",
-    "verify_and_proceed": "Verify & Proceed"
+    "verify_and_proceed": "Verify & Proceed",
+    "resend_otp": "Resend OTP",
+    "otp_required": "Please enter a complete 6-digit OTP."
   },
   "storage": {
     "title": "Storage Management",

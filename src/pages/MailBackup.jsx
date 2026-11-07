@@ -1,10 +1,10 @@
-﻿import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { mailBackupAPI } from "../services/mailBackupApi";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../context/LanguageContext";
-import { MdBackup, MdAttachFile, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdRefresh, MdSecurity } from "react-icons/md";
+import { MdBackup, MdAttachFile, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdRefresh, MdSecurity, MdWarningAmber } from "react-icons/md";
 import toast from "react-hot-toast";
 
 const MailBackup = () => {
@@ -100,18 +100,40 @@ const MailBackup = () => {
 
   // OTP inputs keyboard shifting handlers
   const handleOtpChange = (value, index) => {
-    // Accept only numeric input
-    if (value && isNaN(value)) return;
+    // Keep only numeric characters
+    const cleaned = (value || "").replace(/\D/g, "");
+    if (!cleaned) {
+      const newOtp = [...otp];
+      newOtp[index] = "";
+      setOtp(newOtp);
+      setOtpError(null);
+      return;
+    }
+
+    // If multiple digits pasted or autofilled in this single field
+    if (cleaned.length > 1) {
+      const digits = cleaned.slice(0, 6).split("");
+      const newOtp = [...otp];
+      digits.forEach((d, i) => {
+        if (index + i < 6) {
+          newOtp[index + i] = d;
+        }
+      });
+      setOtp(newOtp);
+      setOtpError(null);
+      const nextFocus = Math.min(index + digits.length, 5);
+      inputRefs[nextFocus]?.current?.focus();
+      return;
+    }
 
     const newOtp = [...otp];
-    // Cache only the latest typed character in the box
-    newOtp[index] = value ? value.substring(value.length - 1) : "";
+    newOtp[index] = cleaned;
     setOtp(newOtp);
     setOtpError(null);
 
     // Auto focus next box
-    if (value && index < 5) {
-      inputRefs[index + 1].current.focus();
+    if (index < 5) {
+      inputRefs[index + 1]?.current?.focus();
     }
   };
 
@@ -122,36 +144,41 @@ const MailBackup = () => {
         const newOtp = [...otp];
         newOtp[index - 1] = "";
         setOtp(newOtp);
-        inputRefs[index - 1].current.focus();
+        inputRefs[index - 1]?.current?.focus();
       } else {
         const newOtp = [...otp];
         newOtp[index] = "";
         setOtp(newOtp);
       }
       setOtpError(null);
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      inputRefs[index - 1]?.current?.focus();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      inputRefs[index + 1]?.current?.focus();
     }
   };
 
   const handleOtpPaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").trim();
+    const pastedData = (e.clipboardData.getData("text") || "").trim();
+    const digitsOnly = pastedData.replace(/\D/g, "");
     
     // Ensure pasted text is exactly a 6-digit numeric code
-    if (!/^\d{6}$/.test(pastedData)) {
-      setOtpError("Please paste a valid 6-digit number");
+    if (digitsOnly.length !== 6) {
+      setOtpError("Please enter a complete 6-digit OTP.");
       return;
     }
 
-    const newOtp = pastedData.split("");
+    const newOtp = digitsOnly.split("");
     setOtp(newOtp);
     setOtpError(null);
-    inputRefs[5].current.focus();
+    inputRefs[5]?.current?.focus();
   };
 
   const handleVerifyOtp = async () => {
-    const fullOtp = otp.join("");
-    if (fullOtp.length < 6) {
-      setOtpError("Please enter a complete 6-digit OTP");
+    const fullOtp = otp.join("").trim();
+    if (!fullOtp || fullOtp.length < 6 || !/^\d{6}$/.test(fullOtp)) {
+      setOtpError("Please enter a complete 6-digit OTP.");
       return;
     }
 
@@ -229,17 +256,17 @@ const MailBackup = () => {
 
           {/* Secure Title */}
           <h2 className="text-lg font-bold mb-1.5" style={{ color: theme.text }}>
-            {t('mail_backup.secure_mail_backup', 'Secure Mail Backup')}
+            Secure Mail Backup
           </h2>
 
           {/* Description */}
           <p className="text-xs sm:text-sm leading-relaxed mb-6 px-2" style={{ color: theme.subText }}>
-            {t('mail_backup.verify_description', 'Your Mail Backup contains protected copies of your emails. Verify your identity to continue.')}
+            Your Mail Backup contains protected copies of your emails. Verify your identity to continue.
           </p>
 
           {/* Masked Email */}
           <div className="text-xs font-bold bg-black/[0.02] dark:bg-white/[0.02] py-2 px-4 rounded-full border border-gray-200/50 dark:border-gray-800/80 mb-6">
-            <span style={{ color: theme.subText }}>{t('mail_backup.otp_sent_to', 'OTP sent to: ')}</span>
+            <span style={{ color: theme.subText }}>OTP sent to: </span>
             <span style={{ color: theme.text }}>{maskEmail(user?.email)}</span>
           </div>
 
@@ -250,9 +277,13 @@ const MailBackup = () => {
                 key={idx}
                 ref={inputRefs[idx]}
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="one-time-code"
                 maxLength={1}
                 value={digit}
                 disabled={verifying}
+                aria-label={`Digit ${idx + 1}`}
                 onChange={(e) => handleOtpChange(e.target.value, idx)}
                 onKeyDown={(e) => handleOtpKeyDown(e, idx)}
                 className="w-10 h-12 sm:w-11 sm:h-13 text-center text-lg font-bold rounded-xl border outline-none transition-all focus:ring-2 focus:ring-primary/20 bg-white dark:bg-gray-900"
@@ -275,13 +306,17 @@ const MailBackup = () => {
 
           {/* Errors display */}
           {otpError && (
-            <div className="mb-4 text-xs font-bold text-red-500 flex items-center gap-1 animate-fade-in">
-              <span>⚠️ ï¸</span> {otpError}
+            <div 
+              className="mb-4 text-xs font-semibold text-red-500 dark:text-red-400 text-center animate-fade-in"
+              role="alert"
+            >
+              {otpError}
             </div>
           )}
 
           {/* Verify OTP Button */}
           <button
+            type="button"
             onClick={handleVerifyOtp}
             disabled={verifying}
             className="w-full py-3 rounded-xl text-sm font-bold text-white shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-4"
@@ -293,21 +328,22 @@ const MailBackup = () => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                {t('mail_backup.verifying', 'Verifying...')}
+                Verifying...
               </>
             ) : (
-              t('mail_backup.verify_and_proceed', 'Verify & Proceed')
+              "Verify & Proceed"
             )}
           </button>
 
           {/* Resend Option */}
           <button
+            type="button"
             onClick={handleResendOtp}
             disabled={verifying || resendTimer > 0}
             className="text-xs font-bold hover:underline transition-all cursor-pointer disabled:opacity-50 disabled:no-underline"
             style={{ color: theme.accent || "#1E6FD9" }}
           >
-            {resendTimer > 0 ? `${t('mail_backup.resend_otp_in', 'Resend OTP in')} ${resendTimer}s` : t('common.resend_otp', 'Resend OTP')}
+            {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend OTP"}
           </button>
         </div>
       </div>
@@ -394,7 +430,7 @@ const MailBackup = () => {
         ) : error ? (
           // Error State
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto">
-            <span className="text-4xl mb-4 opacity-50">⚠️ ï¸</span>
+            <MdWarningAmber size={40} className="mb-4 text-amber-500 opacity-70" />
             <h3 className="text-base font-bold mb-1" style={{ color: theme.text }}>
               Unable to load backup emails
             </h3>

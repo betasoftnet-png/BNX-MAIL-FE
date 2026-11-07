@@ -2,7 +2,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { mailBackupAPI } from "../services/mailBackupApi";
 import { useTheme } from "../context/ThemeContext";
-import { MdBackup, MdArrowBack, MdAttachFile, MdFileDownload, MdInsertDriveFile } from "react-icons/md";
+import { MdBackup, MdArrowBack, MdAttachFile, MdFileDownload, MdInsertDriveFile, MdWarningAmber } from "react-icons/md";
 import { sanitizeAndTargetEmailLinks, linkifyPlainText } from "../utils/htmlUtils";
 
 const MailBackupViewer = () => {
@@ -107,7 +107,7 @@ const MailBackupViewer = () => {
         ) : error ? (
           // Error state
           <div className="flex flex-col items-center justify-center p-8 text-center my-auto">
-            <span className="text-4xl mb-4 opacity-50">⚠️ ï¸</span>
+            <MdWarningAmber size={40} className="mb-4 text-amber-500 opacity-70" />
             <h3 className="text-base font-bold mb-1" style={{ color: theme.text }}>
               Unable to load backup email
             </h3>
