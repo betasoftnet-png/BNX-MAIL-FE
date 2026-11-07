@@ -265,7 +265,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                 .map((item) => {
                   const isActive = location.pathname === item.path || (location.pathname === "/" && item.path === "/inbox");
                   const unreadKey = item.name.toLowerCase().replace(' ', '').replace('-', '');
-                  const count = unreadCounts[unreadKey] || 0;
+                  const count = (item.name === 'Starred' || item.name === 'Snoozed') ? 0 : (unreadCounts[unreadKey] || 0);
 
                   return (
                     <button
@@ -300,7 +300,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                       </div>
 
                       {/* Unread badge on the right */}
-                      {item.name !== 'Starred' && count > 0 && (
+                      {item.name !== 'Starred' && item.name !== 'Snoozed' && count > 0 && (
                         <span
                           className={`text-xs px-2.5 py-0.5 rounded-full hide-on-collapse font-sans shrink-0 ${
                             isActive
@@ -346,7 +346,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                         .map((item) => {
                           const isActive = location.pathname === item.path;
                           const unreadKey = item.name === "NotifyHub" ? "notification" : item.name.toLowerCase().replace(' ', '').replace('-', '');
-                          const count = unreadCounts[unreadKey] || 0;
+                          const count = (item.name === 'Starred' || item.name === 'Snoozed') ? 0 : (unreadCounts[unreadKey] || 0);
 
                           return (
                             <button
@@ -376,7 +376,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                                 </span>
                               </div>
 
-                              {item.name !== 'Starred' && count > 0 && (
+                              {item.name !== 'Starred' && item.name !== 'Snoozed' && count > 0 && (
                                 <span
                                   className={`text-xs px-2.5 py-0.5 rounded-full hide-on-collapse font-sans shrink-0 ${
                                     isActive
