@@ -1,6 +1,6 @@
 import { getEmailPreviewSnippet } from './htmlUtils';
 import { isEmailIdStarred } from './starredStorage';
-import { isEmailActivelySnoozed, isEmailReturnedOrUnsnoozed } from './snoozeStorage';
+import { isEmailCurrentlySnoozed, isEmailActivelySnoozed, isEmailReturnedOrUnsnoozed } from './snoozeStorage';
 
 /**
  * Normalizes an email address or string for case-insensitive comparison.
@@ -202,19 +202,7 @@ export const matchesFolderScope = (email, activeFolder, user) => {
     email.isStarred === true ||
     isEmailIdStarred(email.uid ?? email.id, user?.email, isDraft ? 'draft' : (email.folderName || folder), email)
   );
-  const isSnoozed = Boolean(
-    !isEmailReturnedOrUnsnoozed(email, user?.email) && (
-      isEmailActivelySnoozed(email, user?.email) ||
-      (
-        (email.snoozedUntil || email.wakeUpAt || email.snoozeUntil) &&
-        new Date(email.snoozedUntil || email.wakeUpAt || email.snoozeUntil).getTime() > Date.now()
-      ) ||
-      (
-        (email.folderName?.toLowerCase() === 'snoozed' || email.isSnoozed) &&
-        !isEmailReturnedOrUnsnoozed(email, user?.email)
-      )
-    )
-  );
+  const isSnoozed = Boolean(isEmailCurrentlySnoozed(email, user?.email));
   const isArchived = Boolean(
     email.isArchived || email.archived || email.folderName?.toLowerCase() === 'archive'
   );

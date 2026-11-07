@@ -31,6 +31,9 @@ import {
     markEmailReturned,
     removeSnoozedEmail,
     isEmailActivelySnoozed,
+    isEmailCurrentlySnoozed,
+    getActiveSnoozedCount,
+    deduplicateSnoozedEmails,
     getDueSnoozedEmails,
     syncSnoozedList,
     syncInboxList
@@ -350,7 +353,20 @@ export const MailProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const isRefreshingRef = useRef(false);
-    const [unreadCounts, setUnreadCounts] = useState({ inbox: 0, unread: 0, spam: 0, trash: 0 });
+    const [unreadCounts, setUnreadCounts] = useState(() => ({
+        inbox: 0,
+        unread: 0,
+        spam: 0,
+        trash: 0,
+        snoozed: getActiveSnoozedCount(user?.email)
+    }));
+
+    useEffect(() => {
+        setUnreadCounts(prev => ({
+            ...prev,
+            snoozed: getActiveSnoozedCount(user?.email)
+        }));
+    }, [user?.email]);
     const [labels, setLabels] = useState([]);
     const [totalEmails, setTotalEmails] = useState(0);
     const [pendingUndoDelete, setPendingUndoDelete] = useState(null);
@@ -1362,7 +1378,7 @@ export const MailProvider = ({ children }) => {
                 
                 // Calculate dynamic total count reflecting actual filtered unique emails
                 let calculatedTotal = normalizedEmails.length;
-                if (['all-inbox', 'allinbox', 'spam', 'all-mail', 'allmail', 'scheduled'].includes(folderKey)) {
+                if (['all-inbox', 'allinbox', 'spam', 'all-mail', 'allmail', 'scheduled', 'snoozed'].includes(folderKey)) {
                     calculatedTotal = normalizedEmails.length;
                 } else if (data.totalCount !== undefined && data.totalCount !== null) {
                     const rawCount = rawEmails.length;
@@ -1377,23 +1393,30 @@ export const MailProvider = ({ children }) => {
                 
                 // Sync unread counts in real-time across all tabs and folders
                 const countKey = folderKey.replace('-', '').replace(' ', '');
-                const unread = folderKey === 'spam'
-                    ? normalizedEmails.filter(e => !e.isRead).length
-                    : (folderKey === 'scheduled' ? normalizedEmails.length : (data.unreadCount !== undefined ? data.unreadCount : normalizedEmails.filter(e => !e.isRead).length));
+                if (countKey === 'snoozed') {
+                    setUnreadCounts(prev => ({
+                        ...prev,
+                        snoozed: normalizedEmails.length
+                    }));
+                } else {
+                    const unread = folderKey === 'spam'
+                        ? normalizedEmails.filter(e => !e.isRead).length
+                        : (folderKey === 'scheduled' ? normalizedEmails.length : (data.unreadCount !== undefined ? data.unreadCount : normalizedEmails.filter(e => !e.isRead).length));
 
-                setUnreadCounts(prev => {
-                    const next = { ...prev, [countKey]: unread };
-                    if (countKey === 'inbox') {
-                        next.unread = unread;
-                    } else if (countKey === 'unread') {
-                        next.inbox = unread;
-                    } else if (countKey === 'allinbox') {
-                        next.allinbox = unread;
-                    } else if (countKey === 'allmail') {
-                        next.allmail = unread;
-                    }
-                    return next;
-                });
+                    setUnreadCounts(prev => {
+                        const next = { ...prev, [countKey]: unread };
+                        if (countKey === 'inbox') {
+                            next.unread = unread;
+                        } else if (countKey === 'unread') {
+                            next.inbox = unread;
+                        } else if (countKey === 'allinbox') {
+                            next.allinbox = unread;
+                        } else if (countKey === 'allmail') {
+                            next.allmail = unread;
+                        }
+                        return next;
+                    });
+                }
 
                 // Only update active screen if it matches the current folder
                 if (currentFolderRef.current.toLowerCase() === folderKey) {
@@ -1557,6 +1580,12 @@ export const MailProvider = ({ children }) => {
                 invalidateCache('snoozed');
                 invalidateCache('unread');
 
+                // Synchronize sidebar Snoozed count
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    snoozed: getActiveSnoozedCount(user?.email)
+                }));
+
                 if (currentFolderRef.current?.toLowerCase() === 'snoozed') {
                     const dueIds = new Set(dueSnoozed.map(d => String(d.uid)));
                     setEmails(prev => prev.filter(m => !dueIds.has(String(m.uid))));
@@ -1594,6 +1623,12 @@ export const MailProvider = ({ children }) => {
                 invalidateCache('allmail');
                 invalidateCache('unread');
 
+                // Synchronize sidebar Snoozed count
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    snoozed: getActiveSnoozedCount(user?.email)
+                }));
+
                 if (currentFolderRef.current?.toLowerCase() === 'snoozed') {
                     const dueIds = new Set(dueSnoozed.map(d => String(d.uid)));
                     setEmails(prev => prev.filter(m => !dueIds.has(String(m.uid))));
@@ -1601,6 +1636,15 @@ export const MailProvider = ({ children }) => {
                 } else if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(currentFolderRef.current?.toLowerCase())) {
                     fetchEmailsSilently(currentFolderRef.current);
                 }
+            } else {
+                // Keep sidebar Snoozed count synchronized with active snoozed list
+                const currentCount = getActiveSnoozedCount(user?.email);
+                setUnreadCounts(prev => {
+                    if (prev.snoozed !== currentCount) {
+                        return { ...prev, snoozed: currentCount };
+                    }
+                    return prev;
+                });
             }
         };
 
@@ -2260,6 +2304,10 @@ export const MailProvider = ({ children }) => {
         targetList.forEach(tItem => {
             removeSnoozedEmail(user?.email, tItem.uid);
         });
+        setUnreadCounts(c => ({
+            ...c,
+            snoozed: getActiveSnoozedCount(user?.email)
+        }));
 
         // If part of rapid batch (< 150ms), append items to existing pending undo
         if (isRapidBatch && pendingUndoDeleteRef.current) {
@@ -2320,6 +2368,10 @@ export const MailProvider = ({ children }) => {
     const handleDeletePermanently = async (uid, silent = false) => {
         try {
             removeSnoozedEmail(user?.email, uid);
+            setUnreadCounts(c => ({
+                ...c,
+                snoozed: getActiveSnoozedCount(user?.email)
+            }));
             await mailAPI.permanentDelete(uid);
             setEmails(prev => prev.filter(m => String(m.uid) !== String(uid)));
             invalidateCache('trash');
@@ -2400,17 +2452,18 @@ export const MailProvider = ({ children }) => {
         });
 
         // 3. Update unread & snoozed counts
+        const updatedSnoozedCount = getActiveSnoozedCount(user?.email);
         if (snoozedItem && !snoozedItem.isRead && !snoozedItem.read) {
             setUnreadCounts(c => ({
                 ...c,
                 inbox: Math.max(0, (c.inbox || 0) - 1),
                 unread: Math.max(0, (c.unread || 0) - 1),
-                snoozed: (c.snoozed || 0) + 1
+                snoozed: updatedSnoozedCount
             }));
         } else {
             setUnreadCounts(c => ({
                 ...c,
-                snoozed: (c.snoozed || 0) + 1
+                snoozed: updatedSnoozedCount
             }));
         }
         setTotalEmails(prev => Math.max(0, prev - 1));
@@ -2460,15 +2513,21 @@ export const MailProvider = ({ children }) => {
             console.warn('Backend mailAPI.snooze responded with error:', error?.message || error);
             // Revert only on 401 Unauthorized
             if (error?.response?.status === 401) {
+                if (snoozeRecord) removeSnoozedEmail(user?.email, strUid);
+                const restoredSnoozedCount = getActiveSnoozedCount(user?.email);
                 if (snoozedItem && !snoozedItem.isRead && !snoozedItem.read) {
                     setUnreadCounts(c => ({
                         ...c,
                         inbox: (c.inbox || 0) + 1,
                         unread: (c.unread || 0) + 1,
-                        snoozed: Math.max(0, (c.snoozed || 0) - 1)
+                        snoozed: restoredSnoozedCount
+                    }));
+                } else {
+                    setUnreadCounts(c => ({
+                        ...c,
+                        snoozed: restoredSnoozedCount
                     }));
                 }
-                if (snoozeRecord) removeSnoozedEmail(user?.email, strUid);
                 if (currentFolderRef.current?.startsWith('label-')) {
                     const labelId = currentFolderRef.current.replace('label-', '');
                     fetchLabelEmails(labelId, true, currentPageRef.current);
@@ -2501,7 +2560,7 @@ export const MailProvider = ({ children }) => {
 
         setUnreadCounts(prev => ({
             ...prev,
-            snoozed: Math.max(0, (prev.snoozed || 0) - 1)
+            snoozed: getActiveSnoozedCount(user?.email)
         }));
 
         // 3. Invalidate affected caches
@@ -2792,6 +2851,10 @@ export const MailProvider = ({ children }) => {
             invalidateCache('unread');
             invalidateCache('snoozed');
             removeSnoozedEmail(user?.email, strUid);
+            setUnreadCounts(c => ({
+                ...c,
+                snoozed: getActiveSnoozedCount(user?.email)
+            }));
             await mailAPI.archive(uid, folder);
             if (!silent) toast.success('Email archived');
         } catch (error) {
@@ -2866,6 +2929,10 @@ export const MailProvider = ({ children }) => {
             invalidateCache('unread');
             invalidateCache('snoozed');
             removeSnoozedEmail(user?.email, strUid);
+            setUnreadCounts(c => ({
+                ...c,
+                snoozed: getActiveSnoozedCount(user?.email)
+            }));
             if (folder) invalidateCache(folder);
             await mailAPI.markSpam(uid, folder);
             if (!silent) toast.success('Reported as spam');

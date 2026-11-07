@@ -80,7 +80,6 @@ export const getSnoozeOptions = (baseDate = new Date()) => {
   tomorrow.setHours(8, 0, 0, 0);
 
   // 3. This weekend: Saturday 8:00 AM
-  // getDay(): 0 = Sun, 1 = Mon, ..., 6 = Sat
   const thisWeekend = new Date(now);
   const currentDay = now.getDay();
   let daysToSaturday;
@@ -200,6 +199,136 @@ export const getStoredSnoozedList = (userEmail) => {
 };
 
 /**
+ * Derives a canonical identity string for an email to detect duplicates across UID reassignments.
+ */
+export const getEmailCanonicalId = (email) => {
+  if (!email) return '';
+  if (email.messageId && String(email.messageId).trim()) {
+    return `msg:${String(email.messageId).trim()}`;
+  }
+  if (email.originalUid && String(email.originalUid).trim()) {
+    return `uid:${String(email.originalUid).trim()}`;
+  }
+  const uid = email.uid ?? email.id;
+  if (uid !== undefined && uid !== null && String(uid).trim() !== '') {
+    return `uid:${String(uid).trim()}`;
+  }
+  const from = (email.from || email.senderEmail || '').trim().toLowerCase();
+  const date = email.sentDate || email.receivedDate || email.date || email.createdAt || '';
+  const subj = (email.subject || '').trim().toLowerCase();
+  if (from || subj) {
+    return `fp:${from}|${date}|${subj}`;
+  }
+  return '';
+};
+
+/**
+ * Strictly deduplicates a list of emails by messageId, UID, originalUid, and canonical key.
+ * Guarantees each email appears at most once.
+ */
+export const deduplicateSnoozedEmails = (emails = []) => {
+  if (!Array.isArray(emails)) return [];
+  const result = [];
+  const seenKeys = new Set();
+
+  for (const email of emails) {
+    if (!email) continue;
+    const msgId = email.messageId ? String(email.messageId).trim() : '';
+    const origUid = email.originalUid ? String(email.originalUid).trim() : '';
+    const uid = (email.uid ?? email.id) !== undefined && (email.uid ?? email.id) !== null ? String(email.uid ?? email.id).trim() : '';
+    const canon = getEmailCanonicalId(email);
+
+    const isSeen = (
+      (msgId && seenKeys.has(`msg:${msgId}`)) ||
+      (origUid && seenKeys.has(`uid:${origUid}`)) ||
+      (uid && seenKeys.has(`uid:${uid}`)) ||
+      (canon && seenKeys.has(canon))
+    );
+
+    if (!isSeen) {
+      if (msgId) seenKeys.add(`msg:${msgId}`);
+      if (origUid) seenKeys.add(`uid:${origUid}`);
+      if (uid) seenKeys.add(`uid:${uid}`);
+      if (canon) seenKeys.add(canon);
+      result.push(email);
+    }
+  }
+
+  return result;
+};
+
+/**
+ * Checks if an email is genuinely in active Snoozed status:
+ * 1. Not in Trash, Spam, or Draft.
+ * 2. Not marked unsnoozed or returned.
+ * 3. Has an active scheduled wake-up time strictly in the future.
+ */
+export const isEmailCurrentlySnoozed = (email, userEmail) => {
+  if (!email) return false;
+
+  // 1. Exclude Trash, Spam, Drafts
+  const folder = (email.folderName || '').toLowerCase();
+  if (folder === 'trash' || email.isTrash || email.deleted || email.isDeleted) return false;
+  if (folder === 'spam' || email.isSpam) return false;
+  if (folder.includes('draft') || email.isDraft || email.draft) return false;
+
+  // 2. Exclude if explicitly marked returned or unsnoozed
+  if (isEmailReturnedOrUnsnoozed(email, userEmail)) return false;
+
+  const now = Date.now();
+  const uidStr = String(email.uid ?? email.id ?? '');
+  const msgId = email.messageId ? String(email.messageId).trim() : '';
+
+  // 3. Check storage for active record
+  const list = getStoredSnoozedList(userEmail);
+  const stored = list.find(item => {
+    if (uidStr && (String(item.uid) === uidStr || String(item.originalUid) === uidStr)) return true;
+    if (msgId && item.messageId && item.messageId === msgId) return true;
+    if (item.subject && email.subject && item.subject.trim() === email.subject.trim()) {
+      const itemSender = (item.from || '').toLowerCase();
+      const emailSender = (email.from || email.senderEmail || '').toLowerCase();
+      if (itemSender && emailSender && (itemSender.includes(emailSender) || emailSender.includes(itemSender))) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  if (stored) {
+    if (stored.status !== 'snoozed') return false;
+    return Boolean(stored.wakeUpTime && stored.wakeUpTime > now);
+  }
+
+  // 4. Check email object's own scheduled return timestamp (from API)
+  const rawWake = email.wakeUpAt || email.snoozedUntil || email.snoozeUntil;
+  if (rawWake) {
+    const wakeTime = new Date(rawWake).getTime();
+    if (!isNaN(wakeTime)) {
+      return wakeTime > now;
+    }
+  }
+
+  return false;
+};
+
+/**
+ * Returns total count of unique currently snoozed emails for sidebar display.
+ */
+export const getActiveSnoozedCount = (userEmail) => {
+  const activeRecords = getActiveSnoozedEmails(userEmail);
+  const deduped = deduplicateSnoozedEmails(activeRecords.map(r => ({
+    uid: r.uid,
+    originalUid: r.originalUid,
+    messageId: r.messageId,
+    subject: r.subject,
+    from: r.from,
+    sentDate: r.sentDate,
+    receivedDate: r.receivedDate
+  })));
+  return deduped.length;
+};
+
+/**
  * Saves or updates a snoozed email entry in localStorage.
  */
 export const saveSnoozedEmail = (userEmail, { email, wakeUpAt, originalFolderName = 'INBOX' }) => {
@@ -217,7 +346,7 @@ export const saveSnoozedEmail = (userEmail, { email, wakeUpAt, originalFolderNam
 
   const record = {
     uid,
-    originalUid: uid,
+    originalUid: email.originalUid || uid,
     messageId,
     subject: email.subject || '',
     from: email.from || email.senderEmail || '',
@@ -243,10 +372,17 @@ export const saveSnoozedEmail = (userEmail, { email, wakeUpAt, originalFolderNam
     }
   };
 
-  // Remove any previous record matching this email by UID or messageId
+  // Remove any previous record matching this email by UID, originalUid, messageId, or subject+sender
   const filtered = existing.filter(item => {
     if (uid && (String(item.uid) === uid || String(item.originalUid) === uid)) return false;
     if (messageId && item.messageId && item.messageId === messageId) return false;
+    if (item.subject && email.subject && item.subject.trim() === email.subject.trim()) {
+      const itemSender = (item.from || '').toLowerCase();
+      const emailSender = (email.from || email.senderEmail || '').toLowerCase();
+      if (itemSender && emailSender && (itemSender.includes(emailSender) || emailSender.includes(itemSender))) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -346,21 +482,7 @@ export const removeSnoozedEmail = (userEmail, identifier) => {
  * Checks if an email is actively snoozed (wakeUpTime in future, status === 'snoozed').
  */
 export const isEmailActivelySnoozed = (email, userEmail) => {
-  if (!email) return false;
-  const list = getStoredSnoozedList(userEmail);
-  const now = Date.now();
-  const uid = String(email.uid ?? email.id ?? '');
-  const messageId = email.messageId || '';
-
-  const found = list.find(item => {
-    if (item.status !== 'snoozed') return false;
-    if (item.wakeUpTime <= now) return false; // Expired
-    if (uid && (String(item.uid) === uid || String(item.originalUid) === uid)) return true;
-    if (messageId && item.messageId && item.messageId === messageId) return true;
-    return false;
-  });
-
-  return Boolean(found);
+  return isEmailCurrentlySnoozed(email, userEmail);
 };
 
 /**
@@ -434,12 +556,22 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
   const activeRecords = list.filter(item => item.status === 'snoozed' && item.wakeUpTime > now);
   const result = [];
   const matchedStoredKeys = new Set();
-  const seenDedupKeys = new Set();
 
   // 1. Process API emails from backend
   (apiEmails || []).forEach(apiEmail => {
+    if (!apiEmail) return;
+
+    // Check if Trash, Spam, or Draft
+    const folder = (apiEmail.folderName || '').toLowerCase();
+    if (folder === 'trash' || apiEmail.isTrash || apiEmail.deleted || apiEmail.isDeleted) return;
+    if (folder === 'spam' || apiEmail.isSpam) return;
+    if (folder.includes('draft') || apiEmail.isDraft || apiEmail.draft) return;
+
+    // Check if marked returned or unsnoozed
+    if (isEmailReturnedOrUnsnoozed(apiEmail, userEmail)) return;
+
     const uidStr = String(apiEmail.uid ?? apiEmail.id ?? '');
-    const msgId = apiEmail.messageId || '';
+    const msgId = apiEmail.messageId ? String(apiEmail.messageId).trim() : '';
 
     // Match with storage
     const stored = list.find(item => {
@@ -470,6 +602,7 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
         ...apiEmail,
         ...stored.emailData,
         uid: apiEmail.uid || stored.uid,
+        originalUid: stored.originalUid || stored.uid,
         wakeUpAt: stored.wakeUpAt,
         snoozedUntil: stored.wakeUpAt,
         snoozeUntil: stored.wakeUpAt,
@@ -477,35 +610,22 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
         isSnoozed: true,
         folderName: 'Snoozed',
       };
-
-      const dedupKey = msgId || String(merged.uid);
-      if (!seenDedupKeys.has(dedupKey)) {
-        seenDedupKeys.add(dedupKey);
-        if (msgId) seenDedupKeys.add(msgId);
-        if (merged.uid) seenDedupKeys.add(String(merged.uid));
-        if (stored.originalUid) seenDedupKeys.add(String(stored.originalUid));
-        result.push(merged);
-      }
+      result.push(merged);
     } else {
-      // Email is in Snoozed folder without local storage record
+      // Email in Snoozed without local storage record: only include if it has an active API snooze schedule
       const rawWake = apiEmail.wakeUpAt || apiEmail.snoozedUntil || apiEmail.snoozeUntil;
       if (rawWake) {
         const parsed = new Date(rawWake).getTime();
-        if (parsed > 0 && parsed <= now) {
-          // Expired
-          return;
+        if (parsed > now) {
+          result.push({
+            ...apiEmail,
+            wakeUpAt: new Date(rawWake).toISOString(),
+            snoozedUntil: new Date(rawWake).toISOString(),
+            snoozeUntil: new Date(rawWake).toISOString(),
+            folderName: 'Snoozed',
+            isSnoozed: true,
+          });
         }
-      }
-      const dedupKey = msgId || uidStr;
-      if (!seenDedupKeys.has(dedupKey)) {
-        seenDedupKeys.add(dedupKey);
-        if (msgId) seenDedupKeys.add(msgId);
-        if (uidStr) seenDedupKeys.add(uidStr);
-        result.push({
-          ...apiEmail,
-          folderName: 'Snoozed',
-          isSnoozed: true,
-        });
       }
     }
   });
@@ -513,19 +633,18 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
   // 2. Add active snoozed emails from storage not yet reflected in backend response
   activeRecords.forEach(stored => {
     const isAlreadyMatched = (
-      (stored.uid && (matchedStoredKeys.has(String(stored.uid)) || seenDedupKeys.has(String(stored.uid)))) ||
-      (stored.originalUid && (matchedStoredKeys.has(String(stored.originalUid)) || seenDedupKeys.has(String(stored.originalUid)))) ||
-      (stored.messageId && (matchedStoredKeys.has(stored.messageId) || seenDedupKeys.has(stored.messageId)))
+      (stored.uid && matchedStoredKeys.has(String(stored.uid))) ||
+      (stored.originalUid && matchedStoredKeys.has(String(stored.originalUid))) ||
+      (stored.messageId && matchedStoredKeys.has(stored.messageId))
     );
     if (!isAlreadyMatched) {
-      const dedupKey = stored.messageId || String(stored.uid) || String(stored.originalUid);
-      seenDedupKeys.add(dedupKey);
-      if (stored.messageId) seenDedupKeys.add(stored.messageId);
-      if (stored.uid) seenDedupKeys.add(String(stored.uid));
-      if (stored.originalUid) seenDedupKeys.add(String(stored.originalUid));
+      if (stored.uid) matchedStoredKeys.add(String(stored.uid));
+      if (stored.originalUid) matchedStoredKeys.add(String(stored.originalUid));
+      if (stored.messageId) matchedStoredKeys.add(stored.messageId);
       result.push({
         ...stored.emailData,
         uid: stored.uid || stored.originalUid,
+        originalUid: stored.originalUid || stored.uid,
         wakeUpAt: stored.wakeUpAt,
         snoozedUntil: stored.wakeUpAt,
         snoozeUntil: stored.wakeUpAt,
@@ -546,7 +665,8 @@ export const syncSnoozedList = (apiEmails = [], userEmail) => {
     return 0;
   });
 
-  return result;
+  // 4. Strict ID-based deduplication
+  return deduplicateSnoozedEmails(result);
 };
 
 /**
@@ -564,26 +684,27 @@ export const syncInboxList = (apiEmails = [], userEmail) => {
 
   // 1. Process API emails, filtering out actively snoozed ones
   (apiEmails || []).forEach(apiEmail => {
-    const uidStr = String(apiEmail.uid ?? apiEmail.id ?? '');
-    const msgId = apiEmail.messageId || '';
+    if (!apiEmail) return;
 
-    // Check if actively snoozed
-    const activeSnooze = list.find(item => {
-      if (item.status !== 'snoozed') return false;
-      if (item.wakeUpTime <= now) return false;
-      if (uidStr && (String(item.uid) === uidStr || String(item.originalUid) === uidStr)) return true;
-      if (msgId && item.messageId && item.messageId === msgId) return true;
-      return false;
-    });
-
-    if (activeSnooze) {
+    if (isEmailCurrentlySnoozed(apiEmail, userEmail)) {
       // Actively snoozed -> Exclude from Inbox!
       return;
     }
 
-    const dedupKey = msgId || uidStr;
-    if (!seenDedupKeys.has(dedupKey)) {
-      seenDedupKeys.add(dedupKey);
+    const uidStr = String(apiEmail.uid ?? apiEmail.id ?? '');
+    const msgId = apiEmail.messageId ? String(apiEmail.messageId).trim() : '';
+    const canon = getEmailCanonicalId(apiEmail);
+
+    const isSeen = (
+      (msgId && seenDedupKeys.has(`msg:${msgId}`)) ||
+      (uidStr && seenDedupKeys.has(`uid:${uidStr}`)) ||
+      (canon && seenDedupKeys.has(canon))
+    );
+
+    if (!isSeen) {
+      if (msgId) seenDedupKeys.add(`msg:${msgId}`);
+      if (uidStr) seenDedupKeys.add(`uid:${uidStr}`);
+      if (canon) seenDedupKeys.add(canon);
       result.push(apiEmail);
     }
   });
@@ -596,9 +717,20 @@ export const syncInboxList = (apiEmails = [], userEmail) => {
   });
 
   returnedOrUnsnoozed.forEach(item => {
-    const dedupKey = item.messageId || item.originalUid || item.uid;
-    if (!seenDedupKeys.has(dedupKey)) {
-      seenDedupKeys.add(dedupKey);
+    const msgId = item.messageId ? String(item.messageId).trim() : '';
+    const origUid = item.originalUid ? String(item.originalUid).trim() : '';
+    const uid = item.uid ? String(item.uid).trim() : '';
+
+    const isSeen = (
+      (msgId && seenDedupKeys.has(`msg:${msgId}`)) ||
+      (origUid && seenDedupKeys.has(`uid:${origUid}`)) ||
+      (uid && seenDedupKeys.has(`uid:${uid}`))
+    );
+
+    if (!isSeen) {
+      if (msgId) seenDedupKeys.add(`msg:${msgId}`);
+      if (origUid) seenDedupKeys.add(`uid:${origUid}`);
+      if (uid) seenDedupKeys.add(`uid:${uid}`);
       const emailObj = item.emailData || {};
       const originalRead = item.isRead !== undefined ? item.isRead : Boolean(emailObj.isRead ?? emailObj.read);
       result.unshift({
@@ -617,4 +749,3 @@ export const syncInboxList = (apiEmails = [], userEmail) => {
 
   return result;
 };
-

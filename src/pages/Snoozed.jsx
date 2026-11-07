@@ -1,11 +1,13 @@
 import { useTranslation } from "../context/LanguageContext";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
+import { useAuth } from "../context/AuthContext";
 import { MdAccessTime, MdRefresh } from "react-icons/md";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
+import { isEmailCurrentlySnoozed, deduplicateSnoozedEmails } from "../utils/snoozeStorage";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
@@ -15,6 +17,7 @@ const Snoozed = ({ searchQuery }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
+  const { user } = useAuth();
   const {
     emails,
     loading,
@@ -33,7 +36,6 @@ const Snoozed = ({ searchQuery }) => {
   } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
-  const selectedEmail = selectedEmailOverride || emails.find((e) => String(e.uid) === String(selectedEmailUid));
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const handleToggleSelect = (uid) => {
@@ -67,9 +69,18 @@ const Snoozed = ({ searchQuery }) => {
     return () => window.removeEventListener("bnx-open-email", handleBnxOpenEmail);
   }, []);
 
-  const visibleEmails = emails.filter((e) =>
-    typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
-  );
+  const visibleEmails = useMemo(() => {
+    // 1. Ensure only genuinely snoozed emails are displayed
+    const snoozedOnly = (emails || []).filter((e) => isEmailCurrentlySnoozed(e, user?.email));
+    // 2. Prevent duplicate entries using unique identifier deduplication
+    const deduped = deduplicateSnoozedEmails(snoozedOnly);
+    // 3. Apply date filter if set
+    return deduped.filter((e) =>
+      typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true
+    );
+  }, [emails, user?.email, matchesDateFilter]);
+
+  const selectedEmail = selectedEmailOverride || visibleEmails.find((e) => String(e.uid) === String(selectedEmailUid));
 
   const handleSelectEmail = (email) => {
     setSelectedEmailOverride(null);
@@ -163,7 +174,7 @@ const Snoozed = ({ searchQuery }) => {
           className="ml-2 text-xs font-normal"
           style={{ color: theme.subText }}
         >
-          ({emails.length})
+          ({visibleEmails.length})
         </span>
       </h2>
       <button
@@ -184,7 +195,7 @@ const Snoozed = ({ searchQuery }) => {
 
   const listComponent = (
     <div className="flex-1 flex flex-col overflow-hidden ">
-      {emails.length === 0 ? (
+      {visibleEmails.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
           <MdAccessTime className="text-5xl mb-4 text-blue-500 opacity-50" />
           <p
