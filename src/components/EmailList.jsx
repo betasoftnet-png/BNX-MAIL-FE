@@ -412,9 +412,9 @@ const EmailList = ({
                             aria-label={isItemStarred ? "Unstar email" : "Star email"}
                           >
                             {isItemStarred ? (
-                              <MdStar size={18} className="text-yellow-500 fill-current" />
+                              <MdStar size={20} className="text-yellow-500 fill-current" />
                             ) : (
-                              <MdStarBorder size={18} className="text-gray-400 dark:text-gray-500" />
+                              <MdStarBorder size={20} className="text-gray-400 dark:text-gray-500" />
                             )}
                           </button>
                         );
@@ -561,7 +561,7 @@ const EmailList = ({
                           className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-blue-600 dark:text-blue-400 hover:text-blue-700 cursor-pointer"
                           title="Unsnooze (Return to Inbox)"
                         >
-                          <MdAlarmOff size={18} />
+                          <MdAlarmOff size={19} />
                         </button>
                       )}
                       {!isRowTrash && !isScheduledRow && !isRowSpam && (
@@ -578,7 +578,7 @@ const EmailList = ({
                           className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer"
                           title={isActuallyArchived ? "Unarchive" : "Archive"}
                         >
-                          {isActuallyArchived ? <MdUnarchive size={18} /> : <MdArchive size={18} />}
+                          {isActuallyArchived ? <MdUnarchive size={19} /> : <MdArchive size={19} />}
                         </button>
                       )}
                       {isRowTrash && onRestore && (
@@ -590,7 +590,7 @@ const EmailList = ({
                           className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-green-500 cursor-pointer"
                           title="Restore"
                         >
-                          <MdRestore size={18} />
+                          <MdRestore size={19} />
                         </button>
                       )}
                       <button
@@ -598,7 +598,7 @@ const EmailList = ({
                         className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-red-500 cursor-pointer"
                         title={isRowTrash ? "Delete permanently" : "Delete"}
                       >
-                        <MdDelete size={18} />
+                        <MdDelete size={19} />
                       </button>
                       <div className="relative">
                         <button
@@ -620,7 +620,7 @@ const EmailList = ({
                           className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-blue-500 cursor-pointer"
                           title="Snooze"
                         >
-                          <MdAccessTime size={18} />
+                          <MdAccessTime size={19} />
                         </button>
                       </div>
                     </div>

@@ -122,42 +122,42 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
     switch (name) {
       case 'Inbox':
-        return <Mail size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Mail size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Starred':
-        return <Star size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Star size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Snoozed':
-        return <Clock size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Clock size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Sent':
-        return <Send size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Send size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Draft':
       case 'Drafts':
-        return <FileText size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <FileText size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Trash':
-        return <Trash2 size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Trash2 size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'All Inbox':
-        return <Layers size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Layers size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Scheduled':
-        return <Calendar size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Calendar size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Spam':
-        return <AlertOctagon size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <AlertOctagon size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'All Mail':
-        return <LucideInbox size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <LucideInbox size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Archive':
-        return <Archive size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Archive size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Unread':
-        return <Mail size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Mail size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Templates':
-        return <FileText size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <FileText size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Analytics':
-        return <BarChart2 size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <BarChart2 size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Subscriptions':
-        return <Bookmark size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Bookmark size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Manage Labels':
-        return <Tag size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Tag size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Mail Backup':
-        return <Database size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Database size={20} strokeWidth={strokeWidth} className={iconClass} />;
       default:
-        return <Mail size={19} strokeWidth={strokeWidth} className={iconClass} />;
+        return <Mail size={20} strokeWidth={strokeWidth} className={iconClass} />;
     }
   };
 
@@ -266,7 +266,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
               >
                 <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
                 <div className="w-5 flex items-center justify-center shrink-0">
-                  <MdCloudUpload size={19} className="text-[#1a56db] dark:text-blue-400 shrink-0" />
+                  <MdCloudUpload size={20} className="text-[#1a56db] dark:text-blue-400 shrink-0" />
                 </div>
                 <span className="ml-3.5 text-sm font-semibold hide-on-collapse">{t('sidebar.my_vault', 'My Vault')}</span>
               </button>
@@ -305,7 +305,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                         </div>
                         {/* Label */}
                         <span
-                          className={`ml-3.5 text-[14px] truncate whitespace-nowrap hide-on-collapse ${
+                          className={`ml-3.5 text-sm truncate whitespace-nowrap hide-on-collapse ${
                             isActive
                               ? "text-[#1a56db] dark:text-blue-400 font-semibold"
                               : "text-[#2d3f59] dark:text-slate-200 font-medium"
@@ -341,12 +341,12 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                     <div className="flex items-center min-w-0 flex-1">
                       <div className="w-5 flex items-center justify-center shrink-0">
                         {isMoreOpen ? (
-                          <ChevronUp size={19} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
+                          <ChevronUp size={20} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
                         ) : (
-                          <ChevronDown size={19} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
+                          <ChevronDown size={20} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
                         )}
                       </div>
-                      <span className="ml-3.5 text-[14px] font-medium text-[#2d3f59] dark:text-slate-200 hide-on-collapse">
+                      <span className="ml-3.5 text-sm font-medium text-[#2d3f59] dark:text-slate-200 hide-on-collapse">
                         {isMoreOpen ? t('sidebar.less', 'Less') : t('sidebar.more', 'More')}
                       </span>
                     </div>
@@ -382,7 +382,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                                   {getNavIcon(item.name, isActive)}
                                 </div>
                                 <span
-                                  className={`ml-3.5 text-[14px] truncate whitespace-nowrap hide-on-collapse ${
+                                  className={`ml-3.5 text-sm truncate whitespace-nowrap hide-on-collapse ${
                                     isActive
                                       ? "text-[#1a56db] dark:text-blue-400 font-semibold"
                                       : "text-[#2d3f59] dark:text-slate-200 font-medium"
@@ -426,7 +426,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                   <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
                 )}
                 <div className="w-5 flex items-center justify-center shrink-0">
-                  <MdChat size={19} className="shrink-0" />
+                  <MdChat size={20} className="shrink-0" />
                 </div>
                 <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">{t('sidebar.casbox', 'Casbox')}</span>
               </button>
@@ -445,7 +445,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                     <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
                   )}
                   <div className="w-5 flex items-center justify-center shrink-0">
-                    <MdGroup size={19} className="shrink-0" />
+                    <MdGroup size={20} className="shrink-0" />
                   </div>
                   <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">{t('sidebar.colab', 'Colab')}</span>
                   <button
@@ -459,9 +459,9 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                     aria-label={isColabExpanded ? "Collapse Archived" : "Expand Archived"}
                   >
                     {isColabExpanded ? (
-                      <ChevronUp size={18} strokeWidth={1.8} />
+                      <ChevronUp size={19} strokeWidth={1.8} />
                     ) : (
-                      <ChevronDown size={18} strokeWidth={1.8} />
+                      <ChevronDown size={19} strokeWidth={1.8} />
                     )}
                   </button>
                 </div>
@@ -488,7 +488,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                         <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
                       )}
                       <div className="w-5 flex items-center justify-center shrink-0">
-                        <MdArchive size={19} className="shrink-0" />
+                        <MdArchive size={20} className="shrink-0" />
                       </div>
                       <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">
                         {t('sidebar.archive', 'Archive')}
@@ -508,7 +508,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                         <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
                       )}
                       <div className="w-5 flex items-center justify-center shrink-0">
-                        <Star size={18} strokeWidth={1.8} className="shrink-0" />
+                        <Star size={20} strokeWidth={1.8} className="shrink-0" />
                       </div>
                       <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">
                         {t('sidebar.star', 'Star')}
@@ -530,7 +530,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
               {/* Labels header */}
               <div className="px-4 flex items-center justify-between mb-1.5 hide-on-collapse">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b9cb5] dark:text-gray-400">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#8b9cb5] dark:text-gray-400">
                   {t('sidebar.labels', 'LABELS')}
                 </span>
                 <button
@@ -538,7 +538,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                   className="p-1 rounded-md text-[#2d3f59] dark:text-gray-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   title={t('sidebar.new_label', 'New Label')}
                 >
-                  <Plus size={16} strokeWidth={2.2} />
+                  <Plus size={17} strokeWidth={2.2} />
                 </button>
               </div>
 
@@ -565,10 +565,10 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                           <div className="flex items-center min-w-0 flex-1">
                             {/* Simple colored tag icon aligned strictly in column */}
                             <div className="w-5 flex items-center justify-center shrink-0">
-                              <MdLabel style={{ color: label.colorHex || "#135bec" }} size={17} className="shrink-0" />
+                              <MdLabel style={{ color: label.colorHex || "#135bec" }} size={18} className="shrink-0" />
                             </div>
                             <span
-                              className={`ml-3.5 text-[14px] truncate hide-on-collapse ${
+                              className={`ml-3.5 text-sm truncate hide-on-collapse ${
                                 isLabelActive
                                   ? "text-[#1a56db] dark:text-blue-400 font-semibold"
                                   : "text-[#2d3f59] dark:text-gray-200 font-medium"
@@ -644,7 +644,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
             className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] cursor-pointer text-[#2d3f59] dark:text-slate-200 text-sm font-medium tracking-wide btn-collapse"
           >
             <div className="w-5 flex items-center justify-center shrink-0">
-              <Settings size={19} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
+              <Settings size={20} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
             </div>
             <span className="ml-3.5 hide-on-collapse">{t('sidebar.settings', 'Settings')}</span>
           </button>
@@ -655,7 +655,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
             className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] cursor-pointer text-[#2d3f59] dark:text-slate-200 text-sm font-medium tracking-wide btn-collapse"
           >
             <div className="w-5 flex items-center justify-center shrink-0">
-              <HelpCircle size={19} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
+              <HelpCircle size={20} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
             </div>
             <span className="ml-3.5 hide-on-collapse">{t('sidebar.support', 'Support & Help')}</span>
           </button>

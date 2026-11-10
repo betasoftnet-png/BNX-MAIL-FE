@@ -10,6 +10,16 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --base-font-size: 16px;
+    font-size: var(--base-font-size);
+  }
+  @media (min-width: 768px) {
+    :root {
+      --base-font-size: 17.6px; /* 110% root font scaling for desktop/laptop displays */
+      font-size: var(--base-font-size);
+    }
+  }
   html, body, #root {
     height: 100%;
     width: 100%;
@@ -169,7 +179,7 @@
 /* Sidebar Collapsed Mode (Desktop Toggle) */
 @media (min-width: 768px) {
   aside.sidebar-collapsed {
-    width: 60px !important;
+    width: 66px !important;
     overflow-x: hidden !important;
     align-items: center !important;
   }
@@ -178,8 +188,8 @@
   }
   aside.sidebar-collapsed button.btn-collapse,
   aside.sidebar-collapsed .btn-collapse {
-    width: 44px !important;
-    height: 44px !important;
+    width: 48px !important;
+    height: 48px !important;
     padding: 0 !important;
     justify-content: center !important;
     margin-left: auto !important;
@@ -194,7 +204,7 @@
     gap: 0 !important;
   }
   aside.sidebar-collapsed hr {
-    width: 32px !important;
+    width: 36px !important;
     margin-left: auto !important;
     margin-right: auto !important;
   }

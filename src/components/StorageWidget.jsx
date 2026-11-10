@@ -73,12 +73,12 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
       {/* Top row: Cloud icon, Storage title, percentage */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Cloud size={19} className="text-blue-500 fill-blue-500 shrink-0" />
-          <span className="text-[14px] font-semibold text-[#1e293b] dark:text-gray-100 font-sans">
+          <Cloud size={20} className="text-blue-500 fill-blue-500 shrink-0" />
+          <span className="text-sm font-semibold text-[#1e293b] dark:text-gray-100 font-sans">
             {t('storage.storage_widget_title', 'Storage')}
           </span>
         </div>
-        <span className="text-[13px] font-bold text-[#1d4ed8] dark:text-blue-400 font-sans">
+        <span className="text-xs font-bold text-[#1d4ed8] dark:text-blue-400 font-sans">
           {storageData.percentage.toFixed(0)}%
         </span>
       </div>
@@ -92,7 +92,7 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
       </div>
 
       {/* Subtext */}
-      <div className="text-[12px] text-[#64748b] dark:text-gray-400 font-medium font-sans">
+      <div className="text-xs text-[#64748b] dark:text-gray-400 font-medium font-sans">
         {formatSize(storageData.used)} of 1 GB {t('storage.used_of', 'used')}
       </div>
     </a>

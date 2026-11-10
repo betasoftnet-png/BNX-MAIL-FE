@@ -155,7 +155,7 @@ export const ThemeProvider = ({ children }) => {
     if (savedFontSize) {
       const parsed = parseFloat(savedFontSize);
       setCustomFontSize(parsed);
-      document.documentElement.style.fontSize = `${parsed * 16}px`;
+      document.documentElement.style.fontSize = `${parsed * 17.6}px`;
     }
   }, []);
 
@@ -253,10 +253,10 @@ export const ThemeProvider = ({ children }) => {
     setCustomFontSize(size);
     if (size) {
       localStorage.setItem("bnx_font_size", size.toString());
-      document.documentElement.style.fontSize = `${size * 16}px`;
+      document.documentElement.style.fontSize = `${size * 17.6}px`;
     } else {
       localStorage.removeItem("bnx_font_size");
-      document.documentElement.style.fontSize = '16px';
+      document.documentElement.style.fontSize = '';
     }
   };
 
