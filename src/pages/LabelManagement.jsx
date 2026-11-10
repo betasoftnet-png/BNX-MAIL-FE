@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useTranslation } from "../context/LanguageContext";
-import { Tag } from "lucide-react";
+import { Tag, ArrowLeft } from "lucide-react";
 import {
   MdLabel,
   MdArrowBack,
@@ -374,17 +374,17 @@ const LabelManagement = ({ embedded = false }) => {
           : "#f0f5fc"
       }}
     >
-      {/* Top Breadcrumb Navigation */}
+      {/* Top Back Button */}
       {!embedded && (
         <div className="pt-3 sm:pt-4 px-2 sm:px-6 md:px-8 pb-1">
           <button
+            type="button"
             onClick={() => navigate("/settings")}
-            className="inline-flex items-center gap-1.5 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:opacity-80 transition-opacity cursor-pointer select-none"
+            className="p-1.5 -ml-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer select-none inline-flex items-center justify-center"
+            title="Back to Settings"
+            aria-label="Back to Settings"
           >
-            <MdArrowBack size={16} className="text-[#135bec] dark:text-blue-400" />
-            <span className="text-[#135bec] dark:text-blue-400 hover:underline">Settings</span>
-            <span className="text-gray-400 dark:text-gray-500 font-normal">&gt;</span>
-            <span className="text-gray-900 dark:text-gray-100 font-bold">Label management</span>
+            <ArrowLeft size={20} className="shrink-0" />
           </button>
         </div>
       )}
