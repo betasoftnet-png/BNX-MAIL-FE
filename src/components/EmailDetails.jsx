@@ -172,7 +172,7 @@ const EmailDetails = ({
 
   const availableLabelOptions = useMemo(() => {
     return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
-  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick, showLabels]);
+  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick]);
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
