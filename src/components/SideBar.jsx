@@ -280,7 +280,6 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
               {mainNavItems
                 .map(name => SIDEBAR_ITEMS.find(item => item.name === name))
                 .filter(Boolean)
-                .filter(item => item.name === "Inbox" || (item.name === "Draft" ? (sidebarPreferences?.["Draft"] !== false && sidebarPreferences?.["Drafts"] !== false) : sidebarPreferences?.[item.name] !== false))
                 .map((item) => {
                   const isActive = location.pathname === item.path || (location.pathname === "/" && item.path === "/inbox");
                   const unreadKey = item.name.toLowerCase().replace(' ', '').replace('-', '');
@@ -335,7 +334,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                 })}
 
               {/* MORE DROPDOWN ITEM */}
-              {moreNavItems.some(name => sidebarPreferences?.[name] !== false) && (
+              {moreNavItems.length > 0 && (
                 <div>
                   <button
                     onClick={() => setIsMoreOpen(!isMoreOpen)}
@@ -361,7 +360,6 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                       {moreNavItems
                         .map(name => SIDEBAR_ITEMS.find(item => item.name === name))
                         .filter(Boolean)
-                        .filter(item => sidebarPreferences?.[item.name] !== false)
                         .map((item) => {
                           const isActive = location.pathname === item.path;
                           const unreadKey = item.name === "NotifyHub" ? "notification" : item.name.toLowerCase().replace(' ', '').replace('-', '');

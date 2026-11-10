@@ -208,3 +208,97 @@ export const setAllImapPreferences = (newPrefsMap) => {
   }
 };
 
+/**
+ * System labels available for labeling (with their default colors and preference keys)
+ */
+export const SYSTEM_LABEL_DEFINITIONS = [
+  { id: "Starred", name: "Starred", prefKey: "Starred", colorHex: "#f59e0b" },
+  { id: "Snoozed", name: "Snoozed", prefKey: "Snoozed", colorHex: "#f59e0b" },
+  { id: "Important", name: "Important", prefKey: "Important", colorHex: "#eab308" },
+  { id: "Sent", name: "Sent", prefKey: "Sent", colorHex: "#135bec" },
+  { id: "Scheduled", name: "Scheduled", prefKey: "Scheduled", colorHex: "#06b6d4" },
+  { id: "Drafts", name: "Drafts", prefKey: "Draft", colorHex: "#64748b" },
+  { id: "All Mail", name: "All Mail", prefKey: "All Mail", colorHex: "#3b82f6" },
+  { id: "Spam", name: "Spam", prefKey: "Spam", colorHex: "#ef4444" },
+  { id: "Trash", name: "Trash", prefKey: "Trash", colorHex: "#ef4444" },
+];
+
+/**
+ * Check if a system label is visible in the label list according to sidebarPreferences
+ */
+export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = {}) => {
+  if (!keyOrName) return true;
+  if (keyOrName === "Draft" || keyOrName === "Drafts") {
+    return sidebarPreferences?.["Draft"] !== false && sidebarPreferences?.["Drafts"] !== false;
+  }
+  return sidebarPreferences?.[keyOrName] !== false;
+};
+
+/**
+ * Returns all active labels for the "Label as..." menu:
+ * - System labels whose "Show in label list" setting is true (default true)
+ * - Custom labels whose "Show in label list" setting is true (default true)
+ */
+export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences = {}) => {
+  // 1. System labels filtered by user preference
+  const visibleSystemLabels = SYSTEM_LABEL_DEFINITIONS.filter((sl) =>
+    isSystemLabelVisibleInLabelList(sl.prefKey || sl.name, sidebarPreferences)
+  ).map((sl) => ({
+    ...sl,
+    isSystem: true,
+  }));
+
+  // 2. Custom labels filtered by user preference
+  const visibleCustomLabels = (customLabels || []).filter((lbl) =>
+    isLabelVisibleInSidebar(lbl.id)
+  ).map((lbl) => ({
+    ...lbl,
+    isSystem: false,
+  }));
+
+  return [...visibleSystemLabels, ...visibleCustomLabels];
+};
+
+const SYSTEM_EMAIL_LABELS_KEY = 'bnx_system_email_labels';
+
+export const getStoredSystemEmailLabels = () => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(SYSTEM_EMAIL_LABELS_KEY) : null;
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+export const saveAppliedSystemLabel = (uid, labelObj) => {
+  if (!uid || !labelObj) return;
+  try {
+    const map = getStoredSystemEmailLabels();
+    const strUid = String(uid);
+    const existing = map[strUid] || [];
+    if (!existing.some((l) => String(l.id) === String(labelObj.id) || l.name === labelObj.name)) {
+      map[strUid] = [...existing, labelObj];
+      localStorage.setItem(SYSTEM_EMAIL_LABELS_KEY, JSON.stringify(map));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: { type: 'system-label-applied', uid: strUid } }));
+      }
+    }
+  } catch (e) {}
+};
+
+export const removeAppliedSystemLabel = (uid, labelIdOrName) => {
+  if (!uid || !labelIdOrName) return;
+  try {
+    const map = getStoredSystemEmailLabels();
+    const strUid = String(uid);
+    const existing = map[strUid] || [];
+    const target = String(labelIdOrName);
+    map[strUid] = existing.filter((l) => String(l.id) !== target && l.name !== target);
+    localStorage.setItem(SYSTEM_EMAIL_LABELS_KEY, JSON.stringify(map));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: { type: 'system-label-removed', uid: strUid } }));
+    }
+  } catch (e) {}
+};
+
+

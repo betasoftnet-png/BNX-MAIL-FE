@@ -43,6 +43,12 @@ import {
     getAssociatedBusinessEmails,
     deduplicateAllInboxEmails
 } from '../utils/accountUtils';
+import {
+    SYSTEM_LABEL_DEFINITIONS,
+    getStoredSystemEmailLabels,
+    saveAppliedSystemLabel,
+    removeAppliedSystemLabel
+} from '../utils/labelPreferences';
 
 // Clean up any legacy persisted read UIDs from previous sessions to prevent stale overrides
 try {
@@ -426,6 +432,26 @@ export const MailProvider = ({ children }) => {
         try {
             sessionStorage.setItem('bnx_sent_email_labels', JSON.stringify(sentEmailLabelsRef.current));
         } catch (e) {}
+    }, []);
+
+    const attachStoredSystemLabels = useCallback((emailList) => {
+        if (!Array.isArray(emailList)) return emailList;
+        const sysLabelsMap = getStoredSystemEmailLabels();
+        return emailList.map((m) => {
+            const uidStr = String(m.uid ?? m.id ?? '');
+            const extraSys = sysLabelsMap[uidStr];
+            if (extraSys && extraSys.length > 0) {
+                const existing = Array.isArray(m.labels) ? m.labels : [];
+                const combined = [...existing];
+                extraSys.forEach((s) => {
+                    if (!combined.some((c) => String(c.id) === String(s.id) || c.name === s.name)) {
+                        combined.push(s);
+                    }
+                });
+                return { ...m, labels: combined };
+            }
+            return m;
+        });
     }, []);
 
     useEffect(() => {
@@ -1060,6 +1086,8 @@ export const MailProvider = ({ children }) => {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
                 }
 
+                normalizedEmails = attachStoredSystemLabels(normalizedEmails);
+
                 if (folderKey === 'scheduled') {
                     normalizedEmails = normalizedEmails.filter(isEmailValidScheduled);
                 }
@@ -1360,6 +1388,8 @@ export const MailProvider = ({ children }) => {
                 if (folderKey === 'spam') {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
                 }
+
+                normalizedEmails = attachStoredSystemLabels(normalizedEmails);
 
                 if (folderKey === 'scheduled') {
                     normalizedEmails = normalizedEmails.filter(isEmailValidScheduled);
@@ -2716,7 +2746,8 @@ export const MailProvider = ({ children }) => {
         const strUid = String(uid);
         const strLabelId = String(labelId);
         const targetLabel = labels.find(l => String(l.id) === strLabelId || l.name?.toLowerCase() === strLabelId.toLowerCase());
-        const labelToAdd = targetLabel || { id: labelId, name: labelId, colorHex: '#135bec' };
+        const systemDef = SYSTEM_LABEL_DEFINITIONS.find(s => s.id === strLabelId || s.name?.toLowerCase() === strLabelId.toLowerCase());
+        const labelToAdd = targetLabel || (systemDef ? { id: systemDef.id, name: systemDef.name, colorHex: systemDef.colorHex } : { id: labelId, name: labelId, colorHex: '#135bec' });
 
         let wasAlreadyApplied = false;
 
@@ -2726,7 +2757,8 @@ export const MailProvider = ({ children }) => {
                 const currentLabels = Array.isArray(m.labels) ? m.labels : [];
                 const alreadyHas = currentLabels.some(l => 
                     String(l.id) === strLabelId || 
-                    (targetLabel && (String(l.id) === String(targetLabel.id) || l.name === targetLabel.name))
+                    (targetLabel && (String(l.id) === String(targetLabel.id) || l.name === targetLabel.name)) ||
+                    (systemDef && (String(l.id) === systemDef.id || l.name === systemDef.name))
                 );
                 if (alreadyHas) {
                     wasAlreadyApplied = true;
@@ -2754,7 +2786,8 @@ export const MailProvider = ({ children }) => {
                                 const currentLabels = Array.isArray(m.labels) ? m.labels : [];
                                 const alreadyHas = currentLabels.some(l => 
                                     String(l.id) === strLabelId || 
-                                    (targetLabel && (String(l.id) === String(targetLabel.id) || l.name === targetLabel.name))
+                                    (targetLabel && (String(l.id) === String(targetLabel.id) || l.name === targetLabel.name)) ||
+                                    (systemDef && (String(l.id) === systemDef.id || l.name === systemDef.name))
                                 );
                                 if (alreadyHas) return m;
                                 return {
@@ -2779,24 +2812,32 @@ export const MailProvider = ({ children }) => {
             invalidateCache(currentFolderRef.current);
         }
 
-        try {
-            await mailAPI.applyLabel(uid, labelId, targetFolder);
+        const isNumeric = /^\d+$/.test(strLabelId) || typeof labelId === 'number';
+
+        if (isNumeric) {
+            try {
+                await mailAPI.applyLabel(uid, labelId, targetFolder);
+                if (!silent) toast.success('Label applied');
+                return true;
+            } catch (error) {
+                console.error('Failed to apply label:', error);
+                // Revert optimistic update
+                setEmails(prev => prev.map(m => {
+                    if (String(m.uid) === strUid || String(m.id) === strUid) {
+                        return {
+                            ...m,
+                            labels: (m.labels || []).filter(l => String(l.id) !== strLabelId && l.name !== labelToAdd.name)
+                        };
+                    }
+                    return m;
+                }));
+                if (!silent) toast.error(error.response?.data?.message || 'Failed to apply label');
+                throw error;
+            }
+        } else {
+            saveAppliedSystemLabel(strUid, labelToAdd);
             if (!silent) toast.success('Label applied');
             return true;
-        } catch (error) {
-            console.error('Failed to apply label:', error);
-            // Revert optimistic update
-            setEmails(prev => prev.map(m => {
-                if (String(m.uid) === strUid || String(m.id) === strUid) {
-                    return {
-                        ...m,
-                        labels: (m.labels || []).filter(l => String(l.id) !== strLabelId && l.name !== labelToAdd.name)
-                    };
-                }
-                return m;
-            }));
-            if (!silent) toast.error(error.response?.data?.message || 'Failed to apply label');
-            throw error;
         }
     };
 
@@ -2862,26 +2903,35 @@ export const MailProvider = ({ children }) => {
             invalidateCache(currentFolderRef.current);
         }
 
-        try {
-            await mailAPI.removeLabel(uid, labelId, targetFolder);
+        const isNumeric = /^\d+$/.test(strLabelId) || typeof labelId === 'number';
+
+        if (isNumeric) {
+            try {
+                await mailAPI.removeLabel(uid, labelId, targetFolder);
+                if (!silent) toast.success('Label removed');
+                return true;
+            } catch (error) {
+                console.error('Failed to remove label:', error);
+                // Revert on error
+                if (removedLabel) {
+                    setEmails(prev => prev.map(m => {
+                        if (String(m.uid) === strUid || String(m.id) === strUid) {
+                            return {
+                                ...m,
+                                labels: [...(m.labels || []), removedLabel]
+                            };
+                        }
+                        return m;
+                    }));
+                }
+                if (!silent) toast.error(error.response?.data?.message || 'Failed to remove label');
+                throw error;
+            }
+        } else {
+            removeAppliedSystemLabel(strUid, strLabelId);
             if (!silent) toast.success('Label removed');
             return true;
-        } catch (error) {
-            console.error('Failed to remove label:', error);
-            // Revert on error
-            if (removedLabel) {
-                setEmails(prev => prev.map(m => {
-                    if (String(m.uid) === strUid || String(m.id) === strUid) {
-                        return {
-                            ...m,
-                            labels: [...(m.labels || []), removedLabel]
-                        };
-                    }
-                    return m;
-                }));
-            }
-            if (!silent) toast.error(error.response?.data?.message || 'Failed to remove label');
-            throw error;
+        }
         }
     };
 

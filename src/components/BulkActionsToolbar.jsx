@@ -24,6 +24,7 @@ import {
   getLocalDatetimeInputString,
   parseLocalDatetimeString,
 } from "../utils/snoozeStorage";
+import { getAvailableLabelAsOptions } from "../utils/labelPreferences";
 
 const BulkActionsToolbar = ({
   selectedIds,
@@ -32,7 +33,7 @@ const BulkActionsToolbar = ({
   folder,
 }) => {
   const { t } = useTranslation();
-  const { theme } = useTheme();
+  const { theme, sidebarPreferences } = useTheme();
   const {
     labels,
     handleMoveToTrash,
@@ -58,6 +59,17 @@ const BulkActionsToolbar = ({
   const [showCustomSnoozeForm, setShowCustomSnoozeForm] = useState(false);
   const [customSnoozeTime, setCustomSnoozeTime] = useState("");
   const menuRef = useRef(null);
+
+  const [prefsTick, setPrefsTick] = useState(0);
+  useEffect(() => {
+    const onPrefsChanged = () => setPrefsTick((t) => t + 1);
+    window.addEventListener("bnx-label-prefs-changed", onPrefsChanged);
+    return () => window.removeEventListener("bnx-label-prefs-changed", onPrefsChanged);
+  }, []);
+
+  const availableLabels = useMemo(() => {
+    return getAvailableLabelAsOptions(labels, sidebarPreferences);
+  }, [labels, sidebarPreferences, prefsTick]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState({
@@ -656,17 +668,17 @@ const BulkActionsToolbar = ({
                   </button>
                   {showLabelSub && (
                     <div 
-                      className={`absolute ${dropdownPos.openSubRight ? "left-full ml-1" : "right-full mr-1"} ${dropdownPos.openUpwards ? "bottom-0" : "top-0"} w-44 max-h-48 overflow-y-auto rounded-xl shadow-2xl border bg-white dark:bg-gray-900 py-1 z-[100000] hidden-scrollbar`}
+                      className={`absolute ${dropdownPos.openSubRight ? "left-full ml-1" : "right-full mr-1"} ${dropdownPos.openUpwards ? "bottom-0" : "top-0"} w-48 max-h-56 overflow-y-auto rounded-xl shadow-2xl border bg-white dark:bg-gray-900 py-1 z-[100000] hidden-scrollbar`}
                       style={{ borderColor: theme.border }}
                     >
-                      {labels.length === 0 ? (
-                        <div className="px-4 py-2 text-gray-400">{t("bulk_actions.no_labels", "No labels found")}</div>
+                      {availableLabels.length === 0 ? (
+                        <div className="px-4 py-2 text-xs text-gray-400">{t("bulk_actions.no_labels", "No labels found")}</div>
                       ) : (
-                        labels.map((lbl) => (
+                        availableLabels.map((lbl) => (
                           <button 
                             key={lbl.id} 
                             onClick={() => handleBulkApplyLabel(lbl.id)} 
-                            className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1.5 cursor-pointer"
+                            className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 cursor-pointer text-xs"
                           >
                             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
                             <span className="truncate">{lbl.name}</span>
