@@ -257,39 +257,6 @@ export const getStoredSidebarPreferences = () => {
   }
 };
 
-/**
- * Check if a system label is visible in the label list according to sidebarPreferences
- */
-export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = {}) => {
-  if (!keyOrName) return true;
-
-  const stored = getStoredSidebarPreferences() || {};
-  const effective = { ...stored, ...(sidebarPreferences || {}) };
-
-  const lookup = (key) => {
-    if (effective[key] !== undefined) return effective[key];
-    const lower = String(key).toLowerCase();
-    for (const k of Object.keys(effective)) {
-      if (k.toLowerCase() === lower) return effective[k];
-    }
-    return undefined;
-  };
-
-  if (keyOrName === "Draft" || keyOrName === "Drafts" || keyOrName === "draft") {
-    if (lookup("Draft") === false || lookup("Drafts") === false || lookup("draft") === false) {
-      return false;
-    }
-    return true;
-  }
-
-  const val = lookup(keyOrName);
-  if (val === false) {
-    return false;
-  }
-
-  return true;
-};
-
 export const SYSTEM_LABEL_NAMES = new Set([
   'inbox',
   'starred',
@@ -307,6 +274,95 @@ export const SYSTEM_LABEL_NAMES = new Set([
 ]);
 
 /**
+ * Checks if any label (system or custom) is marked as visible in the label list.
+ * Evaluates both centralized React state and persisted preferences.
+ */
+export const isLabelShownInLabelList = (lbl, sidebarPreferences = {}, customLabelPreferences = null) => {
+  if (!lbl) return false;
+
+  const id = typeof lbl === 'object' ? (lbl.id ?? lbl.name) : lbl;
+  const name = typeof lbl === 'object' ? (lbl.name ?? lbl.id) : lbl;
+  const prefKey = typeof lbl === 'object' ? (lbl.prefKey || lbl.name || lbl.id) : lbl;
+
+  const strId = String(id);
+  const strName = String(name);
+  const strPrefKey = String(prefKey);
+  const lowerName = strName.trim().toLowerCase();
+  const lowerId = strId.trim().toLowerCase();
+  const lowerPrefKey = strPrefKey.trim().toLowerCase();
+
+  // 1. Check custom label preferences (both passed in context and stored in localStorage)
+  let customPrefs = customLabelPreferences;
+  if (!customPrefs || typeof customPrefs !== 'object') {
+    try {
+      const activeEmail = typeof window !== 'undefined' ? localStorage.getItem("bnx_active_email") : null;
+      const raw = typeof window !== 'undefined'
+        ? ((activeEmail && localStorage.getItem(`bnx_custom_label_prefs_${activeEmail}`)) || localStorage.getItem('bnx_custom_label_prefs'))
+        : null;
+      customPrefs = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      customPrefs = {};
+    }
+  }
+
+  const customEntry = customPrefs?.[strId] ?? customPrefs?.[strName] ?? customPrefs?.[strPrefKey] ??
+                      customPrefs?.[lowerId] ?? customPrefs?.[lowerName] ?? customPrefs?.[lowerPrefKey];
+
+  if (customEntry !== undefined) {
+    if (typeof customEntry === 'boolean') {
+      if (customEntry === false) return false;
+    } else if (typeof customEntry === 'object' && customEntry !== null) {
+      if (customEntry.showInLabelList === false) return false;
+    }
+  }
+
+  // 2. Check sidebar preferences (both passed in context and stored in localStorage)
+  let sidebarPrefs = sidebarPreferences;
+  try {
+    const activeEmail = typeof window !== 'undefined' ? localStorage.getItem("bnx_active_email") : null;
+    const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
+    const raw = typeof window !== 'undefined'
+      ? ((userKey && localStorage.getItem(userKey)) || localStorage.getItem('bnx_sidebar_prefs'))
+      : null;
+    const stored = raw ? JSON.parse(raw) : {};
+    sidebarPrefs = { ...stored, ...(sidebarPreferences || {}) };
+  } catch (e) {}
+
+  const checkSidebar = (key) => {
+    if (!key) return undefined;
+    if (sidebarPrefs[key] !== undefined) return sidebarPrefs[key];
+    const target = String(key).trim().toLowerCase();
+    for (const k of Object.keys(sidebarPrefs)) {
+      if (k.trim().toLowerCase() === target) return sidebarPrefs[k];
+    }
+    return undefined;
+  };
+
+  const keysToCheck = [strPrefKey, strName, strId];
+  if (lowerName === 'draft' || lowerName === 'drafts' || lowerPrefKey === 'draft') {
+    keysToCheck.push('Draft', 'Drafts', 'draft', 'drafts');
+  }
+
+  for (const k of keysToCheck) {
+    const val = checkSidebar(k);
+    if (val !== undefined) {
+      if (val === false) return false;
+      if (typeof val === 'object' && val !== null && val.showInLabelList === false) return false;
+    }
+  }
+
+  // Default to visible (true)
+  return true;
+};
+
+/**
+ * Check if a system label is visible in the label list according to sidebarPreferences
+ */
+export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = {}) => {
+  return isLabelShownInLabelList(keyOrName, sidebarPreferences, null);
+};
+
+/**
  * Returns active labels for the "Label as..." dropdown:
  * - System labels whose "Show in label list" setting is true
  * - Custom labels whose "Show in label list" setting is true
@@ -318,7 +374,7 @@ export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences
 
   // 1. System labels filtered by user preference ("Show in label list")
   const visibleSystemLabels = SYSTEM_LABEL_DEFINITIONS.filter((sl) =>
-    isSystemLabelVisibleInLabelList(sl.prefKey || sl.name, effectiveSidebarPrefs)
+    isLabelShownInLabelList(sl, effectiveSidebarPrefs, customLabelPreferences)
   ).map((sl) => ({
     ...sl,
     isSystem: true,
@@ -327,7 +383,10 @@ export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences
   // 2. Custom labels filtered by user preference ("Show in label list")
   const visibleCustomLabels = (customLabels || []).filter((lbl) => {
     if (!lbl) return false;
-    return isLabelVisibleInSidebar(lbl.id, lbl.name, customLabelPreferences);
+    // Exclude system labels from custom labels list so they don't bypass system settings
+    const nameLower = String(lbl.name || lbl.id || '').trim().toLowerCase();
+    if (SYSTEM_LABEL_NAMES.has(nameLower)) return false;
+    return isLabelShownInLabelList(lbl, effectiveSidebarPrefs, customLabelPreferences);
   }).map((lbl) => ({
     ...lbl,
     isSystem: false,

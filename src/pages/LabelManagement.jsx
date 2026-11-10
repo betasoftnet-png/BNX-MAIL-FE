@@ -243,9 +243,12 @@ const LabelManagement = ({ embedded = false }) => {
     setDraftSidebarPrefs((prev) => {
       const updated = {
         ...prev,
-        [prefKey]: nextVal
+        [prefKey]: nextVal,
+        [item.name]: nextVal,
+        [item.id]: nextVal
       };
-      if (prefKey === "Draft") {
+      if (prefKey === "Draft" || item.name === "Drafts") {
+        updated["Draft"] = nextVal;
         updated["Drafts"] = nextVal;
         updated["draft"] = nextVal;
       }
@@ -310,6 +313,25 @@ const LabelManagement = ({ embedded = false }) => {
           fullCustomVisibility[lbl.name] = val;
           fullCustomVisibility[lbl.name.toLowerCase()] = val;
         }
+      });
+
+      // Synchronize all system labels' showInLabelList state into both stores
+      systemLabels.forEach((item) => {
+        const prefKey = item.prefKey || item.name;
+        const isShown = draftSidebarPrefs?.[prefKey] !== false;
+        finalSidebarPrefs[prefKey] = isShown;
+        finalSidebarPrefs[item.name] = isShown;
+        finalSidebarPrefs[item.id] = isShown;
+        if (prefKey === "Draft" || item.name === "Drafts") {
+          finalSidebarPrefs["Draft"] = isShown;
+          finalSidebarPrefs["Drafts"] = isShown;
+          finalSidebarPrefs["draft"] = isShown;
+        }
+
+        fullCustomVisibility[prefKey] = { showInLabelList: isShown, showInMessageList: true };
+        fullCustomVisibility[item.name] = { showInLabelList: isShown, showInMessageList: true };
+        fullCustomVisibility[item.id] = { showInLabelList: isShown, showInMessageList: true };
+        fullCustomVisibility[item.name.toLowerCase()] = { showInLabelList: isShown, showInMessageList: true };
       });
 
       // 3. Commit to centralized React Context and localStorage

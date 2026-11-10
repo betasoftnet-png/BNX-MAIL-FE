@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import FontSizeDropdown from "./FontSizeDropdown";
-import { getAvailableLabelAsOptions, SYSTEM_LABEL_DEFINITIONS } from "../utils/labelPreferences";
+import { getAvailableLabelAsOptions, SYSTEM_LABEL_DEFINITIONS, isLabelShownInLabelList } from "../utils/labelPreferences";
 
 const Size = Quill.import('attributors/style/size');
 Size.whitelist = [
@@ -1667,10 +1667,12 @@ const EmailDetails = ({
                     <div className="px-3 py-1.5 font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-neutral-800 text-[11px] uppercase tracking-wider">
                       {t("bulk_actions.label_as", "Label as")}
                     </div>
-                    {availableLabelOptions.length === 0 ? (
+                    {availableLabelOptions.filter((lbl) => isLabelShownInLabelList(lbl, sidebarPreferences, customLabelPreferences)).length === 0 ? (
                       <div className="px-3 py-2 text-gray-400 text-center">{t("bulk_actions.no_labels", "No labels found")}</div>
                     ) : (
-                      availableLabelOptions.map((lbl) => {
+                      availableLabelOptions
+                        .filter((lbl) => isLabelShownInLabelList(lbl, sidebarPreferences, customLabelPreferences))
+                        .map((lbl) => {
                         const isApplied = (localLabels || []).some(
                           (l) => String(l.id || l) === String(lbl.id) || l.name === lbl.name || (lbl.prefKey && (l.name === lbl.prefKey || String(l.id) === String(lbl.prefKey)))
                         );

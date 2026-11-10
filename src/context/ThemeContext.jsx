@@ -156,9 +156,15 @@ export const ThemeProvider = ({ children }) => {
 
   // Global listener for cross-component preference synchronization
   useEffect(() => {
-    const handleGlobalPrefsSync = () => {
+    const handleGlobalPrefsSync = (e) => {
       try {
-        if (typeof window !== 'undefined') {
+        if (e?.detail?.sysPrefs) {
+          const cleaned = { ...e.detail.sysPrefs };
+          delete cleaned["Bulk Mail"];
+          delete cleaned["bulk mail"];
+          delete cleaned["bulk"];
+          setSidebarPreferencesState(cleaned);
+        } else if (typeof window !== 'undefined') {
           const activeEmail = localStorage.getItem("bnx_active_email");
           const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
           const savedSidebar = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_sidebar_prefs");
@@ -167,21 +173,25 @@ export const ThemeProvider = ({ children }) => {
             delete parsed["Bulk Mail"];
             delete parsed["bulk mail"];
             delete parsed["bulk"];
-            setSidebarPreferencesState((prev) => ({
+            setSidebarPreferencesState({
               ...DEFAULT_SIDEBAR_PREFS,
-              ...prev,
               ...parsed,
-            }));
+            });
           }
+        }
 
+        if (e?.detail?.customPrefs) {
+          setCustomLabelPreferencesState(e.detail.customPrefs);
+        } else if (typeof window !== 'undefined') {
+          const activeEmail = localStorage.getItem("bnx_active_email");
           const userCustomKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
           const savedCustom = (userCustomKey && localStorage.getItem(userCustomKey)) || localStorage.getItem("bnx_custom_label_prefs");
           if (savedCustom) {
             setCustomLabelPreferencesState(JSON.parse(savedCustom));
           }
-          setLabelPrefsVersion((v) => v + 1);
         }
-      } catch (e) {}
+        setLabelPrefsVersion((v) => v + 1);
+      } catch (err) {}
     };
 
     window.addEventListener("bnx-label-prefs-changed", handleGlobalPrefsSync);
