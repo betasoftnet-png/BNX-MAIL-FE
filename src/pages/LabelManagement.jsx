@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useTranslation } from "../context/LanguageContext";
+import { Tag } from "lucide-react";
 import {
   MdLabel,
   MdArrowBack,
@@ -375,57 +376,55 @@ const LabelManagement = ({ embedded = false }) => {
     >
       {/* Top Breadcrumb Navigation */}
       {!embedded && (
-        <div className="pt-4 px-4 sm:px-6 md:px-8 pb-1">
+        <div className="pt-3 sm:pt-4 px-2 sm:px-6 md:px-8 pb-1">
           <button
             onClick={() => navigate("/settings")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white/70 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 shadow-xs transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:opacity-80 transition-opacity cursor-pointer select-none"
           >
-            <MdArrowBack size={15} />
-            <span>Settings</span>
+            <MdArrowBack size={16} className="text-[#135bec] dark:text-blue-400" />
+            <span className="text-[#135bec] dark:text-blue-400 hover:underline">Settings</span>
             <span className="text-gray-400 dark:text-gray-500 font-normal">&gt;</span>
-            <span className="text-blue-600 dark:text-blue-400 font-bold">Label management</span>
+            <span className="text-gray-900 dark:text-gray-100 font-bold">Label management</span>
           </button>
         </div>
       )}
 
       {/* Page Title Header */}
-      <div className="px-4 sm:px-6 md:px-8 pt-3 pb-5 flex items-center gap-3 shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-xs">
-          <MdLabel size={20} />
-        </div>
+      <div className="px-2 sm:px-6 md:px-8 pt-2 sm:pt-3 pb-3 sm:pb-5 flex items-start sm:items-center gap-2.5 sm:gap-3 shrink-0">
+        <Tag size={28} className="text-[#135bec] dark:text-blue-400 shrink-0 mt-0.5 sm:mt-0" strokeWidth={2.2} />
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
             Label management
           </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             Create, edit, remove, and manage how labels appear in your BNXmail.
           </p>
         </div>
       </div>
 
       {/* Main Content Sections */}
-      <div className="px-4 sm:px-6 md:px-8 pb-10 flex flex-col gap-6 w-full max-w-6xl">
+      <div className="px-2 sm:px-6 md:px-8 pb-10 flex flex-col gap-4 sm:gap-6 w-full max-w-6xl">
         {/* ========================================================= */}
         {/* 1. SYSTEM LABELS CARD */}
         {/* ========================================================= */}
-        <section className="bg-white dark:bg-gray-800/90 rounded-2xl border border-blue-100/70 dark:border-gray-700/80 shadow-sm overflow-hidden">
-          <div className="px-5 pt-4 pb-2 border-b border-gray-100 dark:border-gray-700/60">
-            <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+        <section className="bg-white dark:bg-gray-800/90 rounded-2xl border border-blue-100/70 dark:border-gray-700/80 shadow-xs overflow-hidden">
+          <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-4 pb-2 border-b border-gray-100 dark:border-gray-700/60">
+            <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">
               System labels
             </h2>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="w-full">
+            <table className="w-full text-left border-collapse text-[11px] sm:text-xs table-fixed">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 font-semibold select-none">
-                  <th className="py-2.5 px-5 w-[40%] font-semibold">Label</th>
-                  <th className="py-2.5 px-4 w-[35%] font-semibold">Show in label list</th>
-                  <th className="py-2.5 px-4 w-[25%] font-semibold">
-                    <span className="inline-flex items-center gap-1">
+                <tr className="border-b border-gray-100 dark:border-gray-700/60 bg-[#edf4fe] dark:bg-gray-800/80 text-gray-900 dark:text-gray-100 font-semibold select-none">
+                  <th className="py-2.5 px-2 sm:px-5 w-[31%] sm:w-[40%] font-semibold truncate">Label</th>
+                  <th className="py-2.5 px-1.5 sm:px-4 w-[47%] sm:w-[35%] font-semibold truncate">Show in label list</th>
+                  <th className="py-2.5 px-1.5 sm:px-4 w-[22%] sm:w-[25%] font-semibold truncate">
+                    <span className="inline-flex items-center gap-0.5 sm:gap-1">
                       Show in IMAP
                       <span
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help text-[11px]"
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help text-[11px] shrink-0"
                         title="Display this folder/label in external IMAP email clients"
                       >
                         ⓘ
@@ -448,46 +447,46 @@ const LabelManagement = ({ embedded = false }) => {
                       className="hover:bg-blue-50/30 dark:hover:bg-gray-750/30 transition-colors"
                     >
                       {/* Label Name & Icon */}
-                      <td className="py-2 px-5 font-medium text-gray-800 dark:text-gray-200">
-                        <div className="flex items-center gap-2.5">
+                      <td className="py-2 px-2 sm:px-5 font-medium text-gray-800 dark:text-gray-200 min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
                           <span className="shrink-0">{item.icon}</span>
                           <span className="truncate">{item.name}</span>
                         </div>
                       </td>
 
                       {/* Show in label list */}
-                      <td className="py-2 px-4">
+                      <td className="py-2 px-1.5 sm:px-4 min-w-0">
                         {item.alwaysShown ? (
-                          <label className="inline-flex items-center gap-2 text-gray-400 dark:text-gray-500 cursor-not-allowed select-none">
+                          <label className="inline-flex items-center gap-1.5 sm:gap-2 text-gray-400 dark:text-gray-500 cursor-not-allowed select-none truncate">
                             <input
                               type="checkbox"
                               checked={true}
                               disabled={true}
-                              className="rounded text-gray-400 border-gray-300 dark:border-gray-600 focus:ring-0 cursor-not-allowed"
+                              className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-gray-400 border-gray-300 dark:border-gray-600 focus:ring-0 cursor-not-allowed shrink-0"
                             />
-                            <span>Always shown</span>
+                            <span className="truncate text-[11px] sm:text-xs">Always show</span>
                           </label>
                         ) : (
-                          <label className="inline-flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                          <label className="inline-flex items-center gap-1.5 sm:gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none truncate">
                             <input
                               type="checkbox"
                               checked={isVisibleInSidebar}
                               onChange={() => handleToggleSystemSidebar(item)}
-                              className="rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer"
+                              className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer shrink-0"
                             />
-                            <span>Show in label list</span>
+                            <span className="truncate text-[11px] sm:text-xs">Show in label list</span>
                           </label>
                         )}
                       </td>
 
                       {/* Show in IMAP */}
-                      <td className="py-2 px-4">
+                      <td className="py-2 px-1.5 sm:px-4 min-w-0">
                         <label className="inline-flex items-center gap-2 cursor-pointer select-none">
                           <input
                             type="checkbox"
                             checked={isImapEnabled}
                             onChange={() => handleToggleSystemImap(item.name)}
-                            className="rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer"
+                            className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer shrink-0"
                           />
                         </label>
                       </td>
@@ -502,20 +501,20 @@ const LabelManagement = ({ embedded = false }) => {
         {/* ========================================================= */}
         {/* 2. CATEGORIES CARD */}
         {/* ========================================================= */}
-        <section className="bg-white dark:bg-gray-800/90 rounded-2xl border border-blue-100/70 dark:border-gray-700/80 shadow-sm overflow-hidden">
-          <div className="px-5 pt-4 pb-2 border-b border-gray-100 dark:border-gray-700/60">
-            <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+        <section className="bg-white dark:bg-gray-800/90 rounded-2xl border border-blue-100/70 dark:border-gray-700/80 shadow-xs overflow-hidden">
+          <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-4 pb-2 border-b border-gray-100 dark:border-gray-700/60">
+            <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">
               Categories
             </h2>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="w-full">
+            <table className="w-full text-left border-collapse text-[11px] sm:text-xs table-fixed">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 font-semibold select-none">
-                  <th className="py-2.5 px-5 w-[40%] font-semibold">Category</th>
-                  <th className="py-2.5 px-4 w-[35%] font-semibold">Show in label list</th>
-                  <th className="py-2.5 px-4 w-[25%] font-semibold">Show in message list</th>
+                <tr className="border-b border-gray-100 dark:border-gray-700/60 bg-[#edf4fe] dark:bg-gray-800/80 text-gray-900 dark:text-gray-100 font-semibold select-none">
+                  <th className="py-2.5 px-2 sm:px-5 w-[36%] sm:w-[40%] font-semibold truncate">Category</th>
+                  <th className="py-2.5 px-1.5 sm:px-4 w-[32%] sm:w-[35%] font-semibold truncate">Show in label list</th>
+                  <th className="py-2.5 px-1.5 sm:px-4 w-[32%] sm:w-[25%] font-semibold truncate">Show in message list</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
@@ -531,36 +530,36 @@ const LabelManagement = ({ embedded = false }) => {
                       className="hover:bg-blue-50/30 dark:hover:bg-gray-750/30 transition-colors"
                     >
                       {/* Category Name & Icon */}
-                      <td className="py-2 px-5 font-medium text-gray-800 dark:text-gray-200">
-                        <div className="flex items-center gap-2.5">
+                      <td className="py-2 px-2 sm:px-5 font-medium text-gray-800 dark:text-gray-200 min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
                           <span className="shrink-0">{cat.icon}</span>
                           <span className="truncate">{cat.name}</span>
                         </div>
                       </td>
 
                       {/* Show in label list */}
-                      <td className="py-2 px-4">
-                        <label className="inline-flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                      <td className="py-2 px-1.5 sm:px-4 min-w-0">
+                        <label className="inline-flex items-center gap-1.5 sm:gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
                           <input
                             type="checkbox"
                             checked={prefs.showInLabelList !== false}
                             onChange={() => handleToggleCategory(cat.name, "showInLabelList")}
-                            className="rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer"
+                            className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer shrink-0"
                           />
-                          <span>Show</span>
+                          <span className="text-[11px] sm:text-xs">Show</span>
                         </label>
                       </td>
 
                       {/* Show in message list */}
-                      <td className="py-2 px-4">
-                        <label className="inline-flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                      <td className="py-2 px-1.5 sm:px-4 min-w-0">
+                        <label className="inline-flex items-center gap-1.5 sm:gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
                           <input
                             type="checkbox"
                             checked={prefs.showInMessageList !== false}
                             onChange={() => handleToggleCategory(cat.name, "showInMessageList")}
-                            className="rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer"
+                            className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer shrink-0"
                           />
-                          <span>Show</span>
+                          <span className="text-[11px] sm:text-xs">Show</span>
                         </label>
                       </td>
                     </tr>
@@ -574,28 +573,28 @@ const LabelManagement = ({ embedded = false }) => {
         {/* ========================================================= */}
         {/* 3. CUSTOM LABELS CARD */}
         {/* ========================================================= */}
-        <section className="bg-white dark:bg-gray-800/90 rounded-2xl border border-blue-100/70 dark:border-gray-700/80 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+        <section className="bg-white dark:bg-gray-800/90 rounded-2xl border border-blue-100/70 dark:border-gray-700/80 shadow-xs overflow-hidden">
+          <div className="px-3.5 sm:px-5 py-3 sm:py-3.5 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-2">
+            <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">
               Labels
             </h2>
             <button
               onClick={handleOpenCreateModal}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#135bec] hover:bg-blue-600 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer select-none"
+              className="px-3 sm:px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold text-white bg-[#135bec] hover:bg-blue-600 transition-all flex items-center gap-1 sm:gap-1.5 shadow-xs cursor-pointer select-none shrink-0"
             >
               <MdAdd size={16} />
               <span>Create new label</span>
             </button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="w-full">
+            <table className="w-full text-left border-collapse text-[11px] sm:text-xs table-fixed">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 font-semibold select-none">
-                  <th className="py-2.5 px-5 w-[35%] font-semibold">Label</th>
-                  <th className="py-2.5 px-4 w-[25%] font-semibold">Show in label list</th>
-                  <th className="py-2.5 px-4 w-[25%] font-semibold">Show in message list</th>
-                  <th className="py-2.5 px-4 w-[15%] text-right pr-6 font-semibold">Actions</th>
+                <tr className="border-b border-gray-100 dark:border-gray-700/60 bg-[#edf4fe] dark:bg-gray-800/80 text-gray-900 dark:text-gray-100 font-semibold select-none">
+                  <th className="py-2.5 px-2 sm:px-5 w-[25%] sm:w-[35%] font-semibold truncate">Label</th>
+                  <th className="py-2.5 px-1 sm:px-4 w-[23%] sm:w-[25%] font-semibold truncate">Show in label list</th>
+                  <th className="py-2.5 px-1 sm:px-4 w-[24%] sm:w-[25%] font-semibold truncate">Show in message list</th>
+                  <th className="py-2.5 px-1 sm:px-4 w-[28%] sm:w-[15%] text-left sm:text-right sm:pr-6 font-semibold truncate">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
@@ -603,7 +602,7 @@ const LabelManagement = ({ embedded = false }) => {
                   <tr>
                     <td
                       colSpan={4}
-                      className="py-8 text-center text-gray-400 dark:text-gray-500 italic text-xs"
+                      className="py-8 text-center text-gray-400 dark:text-gray-500 italic text-[11px] sm:text-xs px-4"
                     >
                       No custom labels yet. Click &quot;Create new label&quot; to add your first label.
                     </td>
@@ -622,61 +621,61 @@ const LabelManagement = ({ embedded = false }) => {
                         className="hover:bg-blue-50/30 dark:hover:bg-gray-750/30 transition-colors"
                       >
                         {/* Label Name & Color Icon */}
-                        <td className="py-2.5 px-5 font-medium text-gray-800 dark:text-gray-200">
-                          <div className="flex items-center gap-2.5">
+                        <td className="py-2.5 px-2 sm:px-5 font-medium text-gray-800 dark:text-gray-200 min-w-0">
+                          <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
                             <span
-                              className="w-3.5 h-3.5 rounded-sm shrink-0 flex items-center justify-center shadow-2xs"
+                              className="w-3.5 h-3.5 rounded-xs shrink-0 shadow-2xs"
                               style={{ backgroundColor: lbl.colorHex || "#135bec" }}
                             />
-                            <span className="font-semibold truncate max-w-[220px]" title={lbl.name}>
+                            <span className="font-semibold truncate min-w-0 flex-1 text-gray-900 dark:text-gray-100" title={lbl.name}>
                               {lbl.name}
                             </span>
                           </div>
                         </td>
 
                         {/* Show in label list */}
-                        <td className="py-2.5 px-4">
-                          <label className="inline-flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                        <td className="py-2.5 px-1 sm:px-4 min-w-0">
+                          <label className="inline-flex items-center gap-1 sm:gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
                             <input
                               type="checkbox"
                               checked={prefs.showInLabelList !== false}
                               onChange={() => handleToggleCustomVisibility(lbl.id, "showInLabelList")}
-                              className="rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer"
+                              className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer shrink-0"
                             />
-                            <span>Show</span>
+                            <span className="text-[11px] sm:text-xs">Show</span>
                           </label>
                         </td>
 
                         {/* Show in message list */}
-                        <td className="py-2.5 px-4">
-                          <label className="inline-flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                        <td className="py-2.5 px-1 sm:px-4 min-w-0">
+                          <label className="inline-flex items-center gap-1 sm:gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
                             <input
                               type="checkbox"
                               checked={prefs.showInMessageList !== false}
                               onChange={() => handleToggleCustomVisibility(lbl.id, "showInMessageList")}
-                              className="rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer"
+                              className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer shrink-0"
                             />
-                            <span>Show</span>
+                            <span className="text-[11px] sm:text-xs">Show</span>
                           </label>
                         </td>
 
                         {/* Actions: Edit & Remove */}
-                        <td className="py-2.5 px-4 text-right pr-6">
-                          <div className="inline-flex items-center justify-end gap-3 select-none">
+                        <td className="py-2.5 px-1 sm:px-4 text-left sm:text-right sm:pr-6 min-w-0">
+                          <div className="inline-flex items-center justify-start sm:justify-end gap-1.5 sm:gap-3 select-none">
                             <button
                               onClick={() => handleOpenEditModal(lbl)}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                              className="inline-flex items-center gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer shrink-0"
                               title="Edit label"
                             >
-                              <MdEdit size={14} />
+                              <MdEdit size={13} className="shrink-0" />
                               <span>Edit</span>
                             </button>
                             <button
                               onClick={() => setLabelToDelete(lbl)}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer"
+                              className="inline-flex items-center gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-semibold text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer shrink-0"
                               title="Remove label"
                             >
-                              <MdDeleteOutline size={15} />
+                              <MdDeleteOutline size={14} className="shrink-0" />
                               <span>Remove</span>
                             </button>
                           </div>
