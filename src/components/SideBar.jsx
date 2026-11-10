@@ -272,12 +272,12 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
               </button>
             </div>
           ) : !isChatMode ? (
-            /* MAIN NAV: Inbox, Starred, Snoozed, Sent, Draft, Trash */
+            /* MAIN NAV: Inbox, Starred, Sent, Draft, Trash, Snoozed */
             <>
               {mainNavItems
                 .map(name => SIDEBAR_ITEMS.find(item => item.name === name))
                 .filter(Boolean)
-                .filter(item => sidebarPreferences?.[item.name] !== false)
+                .filter(item => item.name === "Inbox" || item.name === "Starred" || sidebarPreferences?.[item.name] !== false)
                 .map((item) => {
                   const isActive = location.pathname === item.path || (location.pathname === "/" && item.path === "/inbox");
                   const unreadKey = item.name.toLowerCase().replace(' ', '').replace('-', '');

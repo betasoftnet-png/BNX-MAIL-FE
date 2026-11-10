@@ -143,9 +143,18 @@ export const ThemeProvider = ({ children }) => {
         delete parsed["Bulk Mail"];
         delete parsed["bulk mail"];
         delete parsed["bulk"];
+        // Ensure primary core navigation items like Inbox and Starred are always visible
+        if (parsed.Starred === false) {
+          parsed.Starred = true;
+          try {
+            localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(parsed));
+          } catch (e) {}
+        }
         setSidebarPreferencesState({
           ...DEFAULT_SIDEBAR_PREFS,
           ...parsed,
+          Inbox: true,
+          Starred: true,
         });
       } catch (e) {}
     }
