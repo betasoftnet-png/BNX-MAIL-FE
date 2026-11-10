@@ -304,7 +304,17 @@ const LabelManagement = ({ embedded = false }) => {
       setSidebarPreferences(finalSidebarPrefs);
 
       // 2. Commit custom labels visibility
-      setAllCustomLabelVisibility(draftCustomVisibility);
+      const fullCustomVisibility = { ...draftCustomVisibility };
+      (labels || []).forEach((lbl) => {
+        const idKey = String(lbl.id);
+        const val = draftCustomVisibility[idKey] || { showInLabelList: true, showInMessageList: true };
+        fullCustomVisibility[idKey] = val;
+        if (lbl.name) {
+          fullCustomVisibility[lbl.name] = val;
+          fullCustomVisibility[lbl.name.toLowerCase()] = val;
+        }
+      });
+      setAllCustomLabelVisibility(fullCustomVisibility);
       setCustomVisibility(draftCustomVisibility);
 
       // 3. Commit category preferences

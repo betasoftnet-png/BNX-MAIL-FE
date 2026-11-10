@@ -163,7 +163,11 @@ const EmailDetails = ({
   useEffect(() => {
     const onPrefsChanged = () => setPrefsTick((tick) => tick + 1);
     window.addEventListener("bnx-label-prefs-changed", onPrefsChanged);
-    return () => window.removeEventListener("bnx-label-prefs-changed", onPrefsChanged);
+    window.addEventListener("storage", onPrefsChanged);
+    return () => {
+      window.removeEventListener("bnx-label-prefs-changed", onPrefsChanged);
+      window.removeEventListener("storage", onPrefsChanged);
+    };
   }, []);
 
   const availableLabelOptions = useMemo(() => {

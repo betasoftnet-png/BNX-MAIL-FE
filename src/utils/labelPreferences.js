@@ -8,13 +8,23 @@ const IMAP_PREFS_KEY = 'bnx_imap_prefs';
  * Returns visibility settings for a custom label by ID.
  * Defaults to { showInLabelList: true, showInMessageList: true }
  */
-export const getCustomLabelVisibility = (labelId) => {
-  if (!labelId && labelId !== 0) return { showInLabelList: true, showInMessageList: true };
-  const strId = String(labelId);
+export const getCustomLabelVisibility = (labelOrId, fallbackName = null) => {
+  if (labelOrId === undefined || labelOrId === null) {
+    return { showInLabelList: true, showInMessageList: true };
+  }
+  const id = typeof labelOrId === 'object' && labelOrId !== null ? (labelOrId.id ?? labelOrId.name) : labelOrId;
+  const name = typeof labelOrId === 'object' && labelOrId !== null ? labelOrId.name : fallbackName;
+  const strId = String(id);
   try {
     const raw = typeof window !== 'undefined' ? localStorage.getItem(CUSTOM_LABEL_PREFS_KEY) : null;
     const prefs = raw ? JSON.parse(raw) : {};
-    const item = prefs[strId];
+    const item = prefs[strId] !== undefined
+      ? prefs[strId]
+      : (name && prefs[String(name)] !== undefined
+          ? prefs[String(name)]
+          : (name && prefs[String(name).toLowerCase()] !== undefined
+              ? prefs[String(name).toLowerCase()]
+              : (typeof id === 'string' ? prefs[id.toLowerCase()] : undefined)));
     return {
       showInLabelList: item?.showInLabelList !== false,
       showInMessageList: item?.showInMessageList !== false
@@ -65,15 +75,15 @@ export const setAllCustomLabelVisibility = (newPrefsMap) => {
 /**
  * Check if a custom label is visible in the sidebar
  */
-export const isLabelVisibleInSidebar = (labelId) => {
-  return getCustomLabelVisibility(labelId).showInLabelList !== false;
+export const isLabelVisibleInSidebar = (labelOrId, fallbackName = null) => {
+  return getCustomLabelVisibility(labelOrId, fallbackName).showInLabelList !== false;
 };
 
 /**
  * Check if a custom label is visible on email badges in the message list
  */
-export const isLabelVisibleInMessageList = (labelId) => {
-  return getCustomLabelVisibility(labelId).showInMessageList !== false;
+export const isLabelVisibleInMessageList = (labelOrId, fallbackName = null) => {
+  return getCustomLabelVisibility(labelOrId, fallbackName).showInMessageList !== false;
 };
 
 /**
@@ -212,6 +222,7 @@ export const setAllImapPreferences = (newPrefsMap) => {
  * System labels available for labeling (with their default colors and preference keys)
  */
 export const SYSTEM_LABEL_DEFINITIONS = [
+  { id: "Inbox", name: "Inbox", prefKey: "Inbox", colorHex: "#3b82f6", alwaysShown: true },
   { id: "Starred", name: "Starred", prefKey: "Starred", colorHex: "#f59e0b" },
   { id: "Snoozed", name: "Snoozed", prefKey: "Snoozed", colorHex: "#f59e0b" },
   { id: "Important", name: "Important", prefKey: "Important", colorHex: "#eab308" },
@@ -224,14 +235,40 @@ export const SYSTEM_LABEL_DEFINITIONS = [
 ];
 
 /**
+ * Returns saved sidebar preferences directly from localStorage
+ */
+export const getStoredSidebarPreferences = () => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('bnx_sidebar_prefs') : null;
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+/**
  * Check if a system label is visible in the label list according to sidebarPreferences
  */
 export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = {}) => {
   if (!keyOrName) return true;
+  if (keyOrName === "Inbox") return true;
+
+  const stored = getStoredSidebarPreferences();
+  const effective = stored ? { ...sidebarPreferences, ...stored } : (sidebarPreferences || {});
+
   if (keyOrName === "Draft" || keyOrName === "Drafts") {
-    return sidebarPreferences?.["Draft"] !== false && sidebarPreferences?.["Drafts"] !== false;
+    if (effective?.["Draft"] === false || effective?.["Drafts"] === false || effective?.["draft"] === false) {
+      return false;
+    }
+    return true;
   }
-  return sidebarPreferences?.[keyOrName] !== false;
+  if (effective?.[keyOrName] === false) {
+    return false;
+  }
+  if (sidebarPreferences?.[keyOrName] === false) {
+    return false;
+  }
+  return true;
 };
 
 /**
@@ -240,9 +277,12 @@ export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = 
  * - Custom labels whose "Show in label list" setting is true (default true)
  */
 export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences = {}) => {
+  const stored = getStoredSidebarPreferences();
+  const effectiveSidebarPrefs = stored ? { ...sidebarPreferences, ...stored } : (sidebarPreferences || {});
+
   // 1. System labels filtered by user preference
   const visibleSystemLabels = SYSTEM_LABEL_DEFINITIONS.filter((sl) =>
-    isSystemLabelVisibleInLabelList(sl.prefKey || sl.name, sidebarPreferences)
+    isSystemLabelVisibleInLabelList(sl.prefKey || sl.name, effectiveSidebarPrefs)
   ).map((sl) => ({
     ...sl,
     isSystem: true,
@@ -250,13 +290,24 @@ export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences
 
   // 2. Custom labels filtered by user preference
   const visibleCustomLabels = (customLabels || []).filter((lbl) =>
-    isLabelVisibleInSidebar(lbl.id)
+    isLabelVisibleInSidebar(lbl.id, lbl.name)
   ).map((lbl) => ({
     ...lbl,
     isSystem: false,
   }));
 
-  return [...visibleSystemLabels, ...visibleCustomLabels];
+  // Deduplicate in case a custom label shares an ID or name with a system label
+  const seen = new Set();
+  const result = [];
+  for (const item of [...visibleSystemLabels, ...visibleCustomLabels]) {
+    const key = String(item.id || item.name).toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(item);
+    }
+  }
+
+  return result;
 };
 
 const SYSTEM_EMAIL_LABELS_KEY = 'bnx_system_email_labels';

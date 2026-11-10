@@ -116,7 +116,23 @@ export const ThemeProvider = ({ children }) => {
   const [customAccentColor, setCustomAccentColor] = useState(null);
   const [customFontSize, setCustomFontSize] = useState(1.0);
   
-  const [sidebarPreferences, setSidebarPreferencesState] = useState(DEFAULT_SIDEBAR_PREFS);
+  const [sidebarPreferences, setSidebarPreferencesState] = useState(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem("bnx_sidebar_prefs") : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        delete parsed["Bulk Mail"];
+        delete parsed["bulk mail"];
+        delete parsed["bulk"];
+        return {
+          ...DEFAULT_SIDEBAR_PREFS,
+          ...parsed,
+          Inbox: true,
+        };
+      }
+    } catch (e) {}
+    return DEFAULT_SIDEBAR_PREFS;
+  });
 
   // Load theme + background on first mount
   useEffect(() => {

@@ -16,7 +16,8 @@ import {
   MdReply,
   MdClose,
   MdBlock,
-  MdAlarmOff
+  MdAlarmOff,
+  MdCheck
 } from "react-icons/md";
 import toast from "react-hot-toast";
 import {
@@ -49,6 +50,7 @@ const BulkActionsToolbar = ({
     handleSnooze,
     handleUnsnooze,
     handleApplyLabel,
+    handleRemoveLabel,
     openCompose,
     isEmailRead
   } = useMail();
@@ -64,12 +66,16 @@ const BulkActionsToolbar = ({
   useEffect(() => {
     const onPrefsChanged = () => setPrefsTick((t) => t + 1);
     window.addEventListener("bnx-label-prefs-changed", onPrefsChanged);
-    return () => window.removeEventListener("bnx-label-prefs-changed", onPrefsChanged);
+    window.addEventListener("storage", onPrefsChanged);
+    return () => {
+      window.removeEventListener("bnx-label-prefs-changed", onPrefsChanged);
+      window.removeEventListener("storage", onPrefsChanged);
+    };
   }, []);
 
   const availableLabels = useMemo(() => {
     return getAvailableLabelAsOptions(labels, sidebarPreferences);
-  }, [labels, sidebarPreferences, prefsTick]);
+  }, [labels, sidebarPreferences, prefsTick, showMoreMenu, showLabelSub]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState({
@@ -403,16 +409,26 @@ const BulkActionsToolbar = ({
     }
   };
 
-  // Bulk Apply Label
-  const handleBulkApplyLabel = async (labelId) => {
+  // Bulk Apply / Remove Label
+  const handleBulkToggleLabel = async (labelId, isCurrentlyAssigned) => {
     try {
-      toast.loading("Applying label...", { id: "bulk-label" });
-      await Promise.all(selectedEmails.map((e) => handleApplyLabel(e.uid, labelId, e.folderName || folder, true)));
-      setSelectedIds(new Set());
-      setShowMoreMenu(false);
-      toast.success("Label applied", { id: "bulk-label" });
+      if (isCurrentlyAssigned && typeof handleRemoveLabel === "function") {
+        toast.loading("Removing label...", { id: "bulk-label" });
+        await Promise.all(selectedEmails.map((e) => handleRemoveLabel(e.uid, labelId, e.folderName || folder, true)));
+        setSelectedIds(new Set());
+        setShowMoreMenu(false);
+        setShowLabelSub(false);
+        toast.success("Label removed", { id: "bulk-label" });
+      } else {
+        toast.loading("Applying label...", { id: "bulk-label" });
+        await Promise.all(selectedEmails.map((e) => handleApplyLabel(e.uid, labelId, e.folderName || folder, true)));
+        setSelectedIds(new Set());
+        setShowMoreMenu(false);
+        setShowLabelSub(false);
+        toast.success("Label applied", { id: "bulk-label" });
+      }
     } catch (err) {
-      toast.error("Failed to apply label", { id: "bulk-label" });
+      toast.error(isCurrentlyAssigned ? "Failed to remove label" : "Failed to apply label", { id: "bulk-label" });
     }
   };
 
@@ -674,16 +690,26 @@ const BulkActionsToolbar = ({
                       {availableLabels.length === 0 ? (
                         <div className="px-4 py-2 text-xs text-gray-400">{t("bulk_actions.no_labels", "No labels found")}</div>
                       ) : (
-                        availableLabels.map((lbl) => (
-                          <button 
-                            key={lbl.id} 
-                            onClick={() => handleBulkApplyLabel(lbl.id)} 
-                            className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 cursor-pointer text-xs"
-                          >
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
-                            <span className="truncate">{lbl.name}</span>
-                          </button>
-                        ))
+                        availableLabels.map((lbl) => {
+                          const isAssigned = selectedEmails.length > 0 && selectedEmails.every((e) =>
+                            (e.labels || []).some(
+                              (l) => String(l.id || l) === String(lbl.id) || l.name === lbl.name || (lbl.isSystem && (l.name === lbl.prefKey || l.name === lbl.name))
+                            )
+                          );
+                          return (
+                            <button 
+                              key={lbl.id} 
+                              onClick={() => handleBulkToggleLabel(lbl.id, isAssigned)} 
+                              className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between gap-2 cursor-pointer text-xs"
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
+                                <span className="truncate">{lbl.name}</span>
+                              </div>
+                              {isAssigned && <MdCheck size={16} className="text-blue-500 shrink-0" />}
+                            </button>
+                          );
+                        })
                       )}
                     </div>
                   )}
