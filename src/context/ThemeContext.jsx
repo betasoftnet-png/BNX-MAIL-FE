@@ -179,25 +179,6 @@ export const ThemeProvider = ({ children }) => {
       setCustomFontSize(parsed);
       document.documentElement.style.fontSize = `${parsed * 17.6}px`;
     }
-
-    // Attempt to sync saved label preferences from backend database
-    const syncBackendSettings = async () => {
-      try {
-        const token = localStorage.getItem("accessToken");
-        if (!token) return;
-        const res = await userAPI.getSettings();
-        const d = res.data?.data || res.data || {};
-        if (d.sidebarPreferences) {
-          const parsed = typeof d.sidebarPreferences === "string" ? JSON.parse(d.sidebarPreferences) : d.sidebarPreferences;
-          setSidebarPreferences(parsed);
-        }
-        if (d.customLabelPreferences) {
-          const parsed = typeof d.customLabelPreferences === "string" ? JSON.parse(d.customLabelPreferences) : d.customLabelPreferences;
-          setAllCustomLabelVisibility(parsed);
-        }
-      } catch (e) {}
-    };
-    syncBackendSettings();
   }, []);
 
   // Calculate brightness of background image to determine font color

@@ -121,6 +121,24 @@ export const getCategoryPreferences = () => {
 };
 
 /**
+ * Check if a category is visible in the label list
+ */
+export const isCategoryVisibleInLabelList = (categoryName) => {
+  if (!categoryName) return true;
+  const prefs = getCategoryPreferences();
+  return prefs[categoryName]?.showInLabelList !== false;
+};
+
+/**
+ * Check if a category is visible in the message list
+ */
+export const isCategoryVisibleInMessageList = (categoryName) => {
+  if (!categoryName) return true;
+  const prefs = getCategoryPreferences();
+  return prefs[categoryName]?.showInMessageList !== false;
+};
+
+/**
  * Update category visibility preferences
  */
 export const setCategoryPreference = (categoryName, updates) => {

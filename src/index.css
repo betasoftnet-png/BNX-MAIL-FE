@@ -36,6 +36,23 @@
   .dark body {
     @apply text-slate-100 bg-background-dark;
   }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+  @keyframes bnx-spin {
+    to { transform: rotate(360deg); }
+  }
 }
 
 @layer utilities {

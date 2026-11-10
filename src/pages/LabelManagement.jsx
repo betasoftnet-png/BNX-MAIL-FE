@@ -324,17 +324,7 @@ const LabelManagement = ({ embedded = false }) => {
       setAllImapPreferences(draftImapPrefs);
       setImapPrefs(draftImapPrefs);
 
-      // 5. Persist to backend database asynchronously
-      try {
-        if (typeof userAPI?.updateSettings === "function") {
-          userAPI.updateSettings({
-            sidebarPreferences: JSON.stringify(finalSidebarPrefs),
-            customLabelPreferences: JSON.stringify(fullCustomVisibility)
-          }).catch((e) => console.warn("Backend settings update failed:", e));
-        }
-      } catch (beErr) {}
-
-      // 6. Notify all listeners
+      // 5. Notify all listeners across the frontend
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed"));
       }
