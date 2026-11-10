@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useTranslation } from "../context/LanguageContext";
-import { Tag, ArrowLeft } from "lucide-react";
+import { Tag } from "lucide-react";
 import {
   MdLabel,
   MdArrowBack,
@@ -374,23 +374,8 @@ const LabelManagement = ({ embedded = false }) => {
           : "#f0f5fc"
       }}
     >
-      {/* Top Back Button */}
-      {!embedded && (
-        <div className="pt-3 sm:pt-4 px-2 sm:px-6 md:px-8 pb-1">
-          <button
-            type="button"
-            onClick={() => navigate("/settings")}
-            className="p-1.5 -ml-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer select-none inline-flex items-center justify-center"
-            title="Back to Settings"
-            aria-label="Back to Settings"
-          >
-            <ArrowLeft size={20} className="shrink-0" />
-          </button>
-        </div>
-      )}
-
       {/* Page Title Header */}
-      <div className="px-2 sm:px-6 md:px-8 pt-2 sm:pt-3 pb-3 sm:pb-5 flex items-start sm:items-center gap-2.5 sm:gap-3 shrink-0">
+      <div className="px-2 sm:px-6 md:px-8 pt-4 sm:pt-6 pb-3 sm:pb-5 flex items-start sm:items-center gap-2.5 sm:gap-3 shrink-0">
         <Tag size={28} className="text-[#135bec] dark:text-blue-400 shrink-0 mt-0.5 sm:mt-0" strokeWidth={2.2} />
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
