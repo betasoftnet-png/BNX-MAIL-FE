@@ -271,36 +271,44 @@ export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = 
   return true;
 };
 
+export const SYSTEM_LABEL_NAMES = new Set([
+  'inbox',
+  'starred',
+  'snoozed',
+  'important',
+  'sent',
+  'scheduled',
+  'draft',
+  'drafts',
+  'all mail',
+  'allmail',
+  'spam',
+  'trash',
+  'deleted'
+]);
+
 /**
- * Returns all active labels for the "Label as..." menu:
- * - System labels whose "Show in label list" setting is true (default true)
- * - Custom labels whose "Show in label list" setting is true (default true)
+ * Returns active user-created custom labels for the "Label as..." menu:
+ * - Only user-created custom labels whose "Show in label list" setting is true (default true)
+ * - Excludes all system labels (Inbox, Starred, Snoozed, Important, Sent, Scheduled, Drafts, All Mail, Spam, Trash)
  */
 export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences = {}) => {
-  const stored = getStoredSidebarPreferences();
-  const effectiveSidebarPrefs = stored ? { ...sidebarPreferences, ...stored } : (sidebarPreferences || {});
-
-  // 1. System labels filtered by user preference
-  const visibleSystemLabels = SYSTEM_LABEL_DEFINITIONS.filter((sl) =>
-    isSystemLabelVisibleInLabelList(sl.prefKey || sl.name, effectiveSidebarPrefs)
-  ).map((sl) => ({
-    ...sl,
-    isSystem: true,
-  }));
-
-  // 2. Custom labels filtered by user preference
-  const visibleCustomLabels = (customLabels || []).filter((lbl) =>
-    isLabelVisibleInSidebar(lbl.id, lbl.name)
-  ).map((lbl) => ({
+  // Return ONLY enabled user-created custom labels (no system labels)
+  const visibleCustomLabels = (customLabels || []).filter((lbl) => {
+    if (!lbl) return false;
+    const nameLower = String(lbl.name || lbl.id || '').trim().toLowerCase();
+    if (SYSTEM_LABEL_NAMES.has(nameLower)) return false;
+    return isLabelVisibleInSidebar(lbl.id, lbl.name);
+  }).map((lbl) => ({
     ...lbl,
     isSystem: false,
   }));
 
-  // Deduplicate in case a custom label shares an ID or name with a system label
+  // Deduplicate by ID and name
   const seen = new Set();
   const result = [];
-  for (const item of [...visibleSystemLabels, ...visibleCustomLabels]) {
-    const key = String(item.id || item.name).toLowerCase();
+  for (const item of visibleCustomLabels) {
+    const key = String(item.id ?? item.name).toLowerCase();
     if (!seen.has(key)) {
       seen.add(key);
       result.push(item);

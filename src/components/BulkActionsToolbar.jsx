@@ -693,7 +693,7 @@ const BulkActionsToolbar = ({
                         availableLabels.map((lbl) => {
                           const isAssigned = selectedEmails.length > 0 && selectedEmails.every((e) =>
                             (e.labels || []).some(
-                              (l) => String(l.id || l) === String(lbl.id) || l.name === lbl.name || (lbl.isSystem && (l.name === lbl.prefKey || l.name === lbl.name))
+                              (l) => String(l.id || l) === String(lbl.id) || l.name === lbl.name
                             )
                           );
                           return (
