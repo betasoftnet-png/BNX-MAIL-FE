@@ -2932,7 +2932,6 @@ export const MailProvider = ({ children }) => {
             if (!silent) toast.success('Label removed');
             return true;
         }
-        }
     };
 
     const handleArchive = async (uid, folder, silent = false) => {
