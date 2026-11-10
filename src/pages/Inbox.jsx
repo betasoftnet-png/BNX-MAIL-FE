@@ -25,7 +25,24 @@ const Inbox = ({ searchQuery }) => {
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
-  const [activeTab, setActiveTab] = useState('ALL');
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const t = sp.get('tab');
+      if (t && ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(t.toUpperCase())) {
+        return t.toUpperCase();
+      }
+    } catch (e) {}
+    return 'ALL';
+  });
+
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    const t = sp.get('tab');
+    if (t && ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(t.toUpperCase())) {
+      setActiveTab(t.toUpperCase());
+    }
+  }, [location.search]);
   const baseSelectedEmail = emails.find((e) => String(e.uid ?? e.id) === String(selectedEmailUid)) ||
     (selectedEmailOverride && (String(selectedEmailOverride.uid ?? selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
   const selectedEmail = baseSelectedEmail ? {

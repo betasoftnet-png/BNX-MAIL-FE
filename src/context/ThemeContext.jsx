@@ -143,18 +143,10 @@ export const ThemeProvider = ({ children }) => {
         delete parsed["Bulk Mail"];
         delete parsed["bulk mail"];
         delete parsed["bulk"];
-        // Ensure primary core navigation items like Inbox and Starred are always visible
-        if (parsed.Starred === false) {
-          parsed.Starred = true;
-          try {
-            localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(parsed));
-          } catch (e) {}
-        }
         setSidebarPreferencesState({
           ...DEFAULT_SIDEBAR_PREFS,
           ...parsed,
           Inbox: true,
-          Starred: true,
         });
       } catch (e) {}
     }
@@ -270,12 +262,17 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const setSidebarPreferences = (prefs) => {
-    const cleaned = { ...prefs };
+    const cleaned = { ...prefs, Inbox: true };
     delete cleaned["Bulk Mail"];
     delete cleaned["bulk mail"];
     delete cleaned["bulk"];
     setSidebarPreferencesState(cleaned);
-    localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleaned));
+    try {
+      localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleaned));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: cleaned }));
+      }
+    } catch (e) {}
   };
 
   // Merge dynamic text color into the current theme

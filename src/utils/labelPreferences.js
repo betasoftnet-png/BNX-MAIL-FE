@@ -48,6 +48,21 @@ export const setCustomLabelVisibility = (labelId, updates) => {
 };
 
 /**
+ * Bulk updates visibility settings for all custom labels and dispatches sync event.
+ */
+export const setAllCustomLabelVisibility = (newPrefsMap) => {
+  if (!newPrefsMap || typeof newPrefsMap !== 'object') return;
+  try {
+    localStorage.setItem(CUSTOM_LABEL_PREFS_KEY, JSON.stringify(newPrefsMap));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: newPrefsMap }));
+    }
+  } catch (e) {
+    console.error('Failed to bulk save custom label visibility:', e);
+  }
+};
+
+/**
  * Check if a custom label is visible in the sidebar
  */
 export const isLabelVisibleInSidebar = (labelId) => {
@@ -112,6 +127,21 @@ export const setCategoryPreference = (categoryName, updates) => {
 };
 
 /**
+ * Bulk updates category visibility preferences and dispatches sync event.
+ */
+export const setAllCategoryPreferences = (newPrefsMap) => {
+  if (!newPrefsMap || typeof newPrefsMap !== 'object') return;
+  try {
+    localStorage.setItem(CATEGORY_PREFS_KEY, JSON.stringify(newPrefsMap));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: newPrefsMap }));
+    }
+  } catch (e) {
+    console.error('Failed to bulk save category preferences:', e);
+  }
+};
+
+/**
  * Default IMAP preferences for System labels
  */
 export const DEFAULT_IMAP_PREFS = {
@@ -160,6 +190,21 @@ export const setImapPreference = (labelName, isEnabled) => {
     }
   } catch (e) {
     console.error('Failed to save IMAP preference:', e);
+  }
+};
+
+/**
+ * Bulk updates IMAP preferences and dispatches sync event.
+ */
+export const setAllImapPreferences = (newPrefsMap) => {
+  if (!newPrefsMap || typeof newPrefsMap !== 'object') return;
+  try {
+    localStorage.setItem(IMAP_PREFS_KEY, JSON.stringify(newPrefsMap));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: newPrefsMap }));
+    }
+  } catch (e) {
+    console.error('Failed to bulk save IMAP preferences:', e);
   }
 };
 

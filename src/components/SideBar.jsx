@@ -85,6 +85,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
       case 'Inbox': return t('sidebar.inbox', 'Inbox');
       case 'Analytics': return t('sidebar.analytics', 'Analytics');
       case 'Starred': return t('sidebar.starred', 'Starred');
+      case 'Important': return t('sidebar.important', 'Important');
       case 'Sent': return t('sidebar.sent', 'Sent');
       case 'Draft':
       case 'Drafts': return t('sidebar.draft', t('sidebar.drafts', 'Drafts'));
@@ -125,6 +126,8 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
         return <Mail size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Starred':
         return <Star size={20} strokeWidth={strokeWidth} className={iconClass} />;
+      case 'Important':
+        return <Bookmark size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Snoozed':
         return <Clock size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Sent':
@@ -216,7 +219,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
   const mainNavItems = ["Inbox", "Starred", "Sent", "Draft", "Trash", "Snoozed"]
     .filter(name => name !== "All Inbox" || showAllInbox);
 
-  const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Manage Labels", "Analytics", "Mail Backup"]
+  const moreNavItems = ["All Inbox", "Important", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Manage Labels", "Analytics", "Mail Backup"]
     .filter(name => name !== "All Inbox" || showAllInbox);
 
   return (
@@ -277,7 +280,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
               {mainNavItems
                 .map(name => SIDEBAR_ITEMS.find(item => item.name === name))
                 .filter(Boolean)
-                .filter(item => item.name === "Inbox" || item.name === "Starred" || sidebarPreferences?.[item.name] !== false)
+                .filter(item => item.name === "Inbox" || (item.name === "Draft" ? (sidebarPreferences?.["Draft"] !== false && sidebarPreferences?.["Drafts"] !== false) : sidebarPreferences?.[item.name] !== false))
                 .map((item) => {
                   const isActive = location.pathname === item.path || (location.pathname === "/" && item.path === "/inbox");
                   const unreadKey = item.name.toLowerCase().replace(' ', '').replace('-', '');

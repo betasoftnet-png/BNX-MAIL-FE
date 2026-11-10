@@ -33,10 +33,13 @@ import toast from "react-hot-toast";
 import {
   getCustomLabelVisibility,
   setCustomLabelVisibility,
+  setAllCustomLabelVisibility,
   getCategoryPreferences,
   setCategoryPreference,
+  setAllCategoryPreferences,
   getImapPreferences,
-  setImapPreference
+  setImapPreference,
+  setAllImapPreferences
 } from "../utils/labelPreferences";
 
 const LABEL_COLORS = [
@@ -64,10 +67,18 @@ const LabelManagement = ({ embedded = false }) => {
     handleDeleteLabel
   } = useMail();
 
-  // Local state for IMAP and Categories
+  // Baseline persisted state for IMAP and Categories
   const [imapPrefs, setImapPrefs] = useState(() => getImapPreferences());
   const [catPrefs, setCatPrefs] = useState(() => getCategoryPreferences());
   const [customVisibility, setCustomVisibility] = useState({});
+
+  // Working draft states (buffered until user clicks Save)
+  const [draftSidebarPrefs, setDraftSidebarPrefs] = useState(() => ({ ...sidebarPreferences }));
+  const [draftCustomVisibility, setDraftCustomVisibility] = useState({});
+  const [draftCatPrefs, setDraftCatPrefs] = useState(() => ({ ...getCategoryPreferences() }));
+  const [draftImapPrefs, setDraftImapPrefs] = useState(() => ({ ...getImapPreferences() }));
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -92,6 +103,9 @@ const LabelManagement = ({ embedded = false }) => {
       map[String(lbl.id)] = getCustomLabelVisibility(lbl.id);
     });
     setCustomVisibility(map);
+    if (!hasUnsavedChanges) {
+      setDraftCustomVisibility(map);
+    }
   };
 
   useEffect(() => {
@@ -99,14 +113,28 @@ const LabelManagement = ({ embedded = false }) => {
   }, [labels]);
 
   useEffect(() => {
+    if (!hasUnsavedChanges) {
+      setDraftSidebarPrefs({ ...sidebarPreferences });
+      setDraftCatPrefs({ ...catPrefs });
+      setDraftImapPrefs({ ...imapPrefs });
+    }
+  }, [sidebarPreferences, catPrefs, imapPrefs, hasUnsavedChanges]);
+
+  useEffect(() => {
     const handleSync = () => {
-      setImapPrefs(getImapPreferences());
-      setCatPrefs(getCategoryPreferences());
+      const imap = getImapPreferences();
+      const cat = getCategoryPreferences();
+      setImapPrefs(imap);
+      setCatPrefs(cat);
       loadCustomVisibility();
+      if (!hasUnsavedChanges) {
+        setDraftImapPrefs(imap);
+        setDraftCatPrefs(cat);
+      }
     };
     window.addEventListener("bnx-label-prefs-changed", handleSync);
     return () => window.removeEventListener("bnx-label-prefs-changed", handleSync);
-  }, [labels]);
+  }, [labels, hasUnsavedChanges]);
 
   // System Labels Definitions
   const systemLabels = useMemo(
@@ -207,58 +235,113 @@ const LabelManagement = ({ embedded = false }) => {
     []
   );
 
-  // Handle System Label Sidebar Toggle
+  // Handle Draft System Label Sidebar Toggle
   const handleToggleSystemSidebar = (item) => {
     if (item.alwaysShown) return;
     const prefKey = item.prefKey || item.name;
-    const currentVal = sidebarPreferences?.[prefKey] !== false;
+    const currentVal = draftSidebarPrefs?.[prefKey] !== false;
     const nextVal = !currentVal;
-    const updated = {
-      ...sidebarPreferences,
-      [prefKey]: nextVal
-    };
-    if (prefKey === "Draft") {
-      updated["Drafts"] = nextVal;
-      updated["draft"] = nextVal;
-    }
-    setSidebarPreferences(updated);
+    setDraftSidebarPrefs((prev) => {
+      const updated = {
+        ...prev,
+        [prefKey]: nextVal
+      };
+      if (prefKey === "Draft") {
+        updated["Drafts"] = nextVal;
+        updated["draft"] = nextVal;
+      }
+      return updated;
+    });
+    setHasUnsavedChanges(true);
   };
 
-  // Handle System Label IMAP Toggle
+  // Handle Draft System Label IMAP Toggle
   const handleToggleSystemImap = (labelName) => {
-    const current = imapPrefs[labelName] !== false;
+    const current = draftImapPrefs[labelName] !== false;
     const next = !current;
-    setImapPreference(labelName, next);
-    setImapPrefs((prev) => ({ ...prev, [labelName]: next }));
+    setDraftImapPrefs((prev) => ({ ...prev, [labelName]: next }));
+    setHasUnsavedChanges(true);
   };
 
-  // Handle Category Toggle
+  // Handle Draft Category Toggle
   const handleToggleCategory = (catName, field) => {
-    const current = catPrefs[catName] || { showInLabelList: true, showInMessageList: true };
+    const current = draftCatPrefs[catName] || { showInLabelList: true, showInMessageList: true };
     const nextVal = !current[field];
-    setCategoryPreference(catName, { [field]: nextVal });
-    setCatPrefs((prev) => ({
+    setDraftCatPrefs((prev) => ({
       ...prev,
       [catName]: {
         ...(prev[catName] || { showInLabelList: true, showInMessageList: true }),
         [field]: nextVal
       }
     }));
+    setHasUnsavedChanges(true);
   };
 
-  // Handle Custom Label Visibility Toggle
+  // Handle Draft Custom Label Visibility Toggle
   const handleToggleCustomVisibility = (labelId, field) => {
     const strId = String(labelId);
-    const current = customVisibility[strId] || { showInLabelList: true, showInMessageList: true };
+    const current = draftCustomVisibility[strId] || { showInLabelList: true, showInMessageList: true };
     const nextVal = !current[field];
-    setCustomLabelVisibility(labelId, { [field]: nextVal });
-    setCustomVisibility((prev) => ({
+    setDraftCustomVisibility((prev) => ({
       ...prev,
       [strId]: {
         ...(prev[strId] || { showInLabelList: true, showInMessageList: true }),
         [field]: nextVal
       }
     }));
+    setHasUnsavedChanges(true);
+  };
+
+  // Save All Action: Applies draft settings to persistent storage and sidebar
+  const handleSaveAll = () => {
+    setIsSaving(true);
+    try {
+      // 1. Commit system labels to ThemeContext and localStorage
+      const finalSidebarPrefs = {
+        ...draftSidebarPrefs,
+        Inbox: true // Inbox is permanently visible per Gmail-like behavior
+      };
+      setSidebarPreferences(finalSidebarPrefs);
+
+      // 2. Commit custom labels visibility
+      setAllCustomLabelVisibility(draftCustomVisibility);
+      setCustomVisibility(draftCustomVisibility);
+
+      // 3. Commit category preferences
+      setAllCategoryPreferences(draftCatPrefs);
+      setCatPrefs(draftCatPrefs);
+
+      // 4. Commit IMAP preferences
+      setAllImapPreferences(draftImapPrefs);
+      setImapPrefs(draftImapPrefs);
+
+      // 5. Notify all listeners
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed"));
+      }
+
+      setHasUnsavedChanges(false);
+      toast.success(t("settings.labels_saved", "Label visibility preferences saved successfully."));
+    } catch (err) {
+      console.error("Failed to save label visibility preferences:", err);
+      toast.error("Failed to save preferences. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Discard Changes Action: Reverts draft states to current saved settings
+  const handleDiscardChanges = () => {
+    setDraftSidebarPrefs({ ...sidebarPreferences });
+    const map = {};
+    labels.forEach((lbl) => {
+      map[String(lbl.id)] = getCustomLabelVisibility(lbl.id);
+    });
+    setDraftCustomVisibility(map);
+    setDraftCatPrefs({ ...getCategoryPreferences() });
+    setDraftImapPrefs({ ...getImapPreferences() });
+    setHasUnsavedChanges(false);
+    toast("Changes discarded", { icon: "↩️" });
   };
 
   // Create Label Handler
@@ -375,15 +458,43 @@ const LabelManagement = ({ embedded = false }) => {
       }}
     >
       {/* Page Title Header */}
-      <div className="px-2 sm:px-6 md:px-8 pt-4 sm:pt-6 pb-3 sm:pb-5 flex items-start sm:items-center gap-2.5 sm:gap-3 shrink-0">
-        <Tag size={28} className="text-[#135bec] dark:text-blue-400 shrink-0 mt-0.5 sm:mt-0" strokeWidth={2.2} />
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
-            Label management
-          </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Create, edit, remove, and manage how labels appear in your BNXmail.
-          </p>
+      <div className="px-2 sm:px-6 md:px-8 pt-4 sm:pt-6 pb-3 sm:pb-5 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3">
+          <Tag size={28} className="text-[#135bec] dark:text-blue-400 shrink-0 mt-0.5 sm:mt-0" strokeWidth={2.2} />
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
+              Label management
+            </h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Create, edit, remove, and manage how labels appear in your BNXmail.
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons: Save & Discard */}
+        <div className="flex items-center gap-2 shrink-0">
+          {hasUnsavedChanges && (
+            <button
+              type="button"
+              onClick={handleDiscardChanges}
+              className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200/70 dark:hover:bg-gray-700 transition-colors cursor-pointer select-none"
+            >
+              Discard
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={isSaving}
+            className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs font-semibold text-white transition-all shadow-xs flex items-center gap-1.5 cursor-pointer select-none ${
+              hasUnsavedChanges
+                ? "bg-[#135bec] hover:bg-blue-600 ring-2 ring-blue-400/40 ring-offset-1"
+                : "bg-[#135bec] hover:bg-blue-600 opacity-90"
+            }`}
+          >
+            <MdCheck size={16} />
+            <span>{isSaving ? "Saving..." : "Save"}</span>
+          </button>
         </div>
       </div>
 
@@ -423,8 +534,8 @@ const LabelManagement = ({ embedded = false }) => {
                   const prefKey = item.prefKey || item.name;
                   const isVisibleInSidebar = item.alwaysShown
                     ? true
-                    : sidebarPreferences?.[prefKey] !== false;
-                  const isImapEnabled = imapPrefs[item.name] !== false;
+                    : draftSidebarPrefs?.[prefKey] !== false;
+                  const isImapEnabled = draftImapPrefs[item.name] !== false;
 
                   return (
                     <tr
@@ -504,7 +615,7 @@ const LabelManagement = ({ embedded = false }) => {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
                 {categories.map((cat) => {
-                  const prefs = catPrefs[cat.name] || {
+                  const prefs = draftCatPrefs[cat.name] || {
                     showInLabelList: true,
                     showInMessageList: true
                   };
@@ -595,7 +706,7 @@ const LabelManagement = ({ embedded = false }) => {
                 ) : (
                   labels.map((lbl) => {
                     const strId = String(lbl.id);
-                    const prefs = customVisibility[strId] || {
+                    const prefs = draftCustomVisibility[strId] || {
                       showInLabelList: true,
                       showInMessageList: true
                     };
@@ -673,6 +784,32 @@ const LabelManagement = ({ embedded = false }) => {
             </table>
           </div>
         </section>
+
+        {/* Bottom Save Action Bar */}
+        <div className="flex items-center justify-end gap-3 pt-2 pb-6">
+          {hasUnsavedChanges && (
+            <button
+              type="button"
+              onClick={handleDiscardChanges}
+              className="px-4 py-2 text-xs font-semibold rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200/70 dark:hover:bg-gray-700 transition-colors cursor-pointer select-none"
+            >
+              Discard changes
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={isSaving}
+            className={`px-6 py-2 text-xs font-semibold text-white rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer select-none ${
+              hasUnsavedChanges
+                ? "bg-[#135bec] hover:bg-blue-600 ring-2 ring-blue-400/40 ring-offset-1"
+                : "bg-[#135bec] hover:bg-blue-600 opacity-90"
+            }`}
+          >
+            <MdCheck size={16} />
+            <span>{isSaving ? "Saving..." : "Save"}</span>
+          </button>
+        </div>
       </div>
 
       {/* ========================================================= */}

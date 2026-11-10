@@ -20,7 +20,8 @@ import {
   MdMailOutline,
   MdNotificationsNone,
   MdBackup,
-  MdLabel
+  MdLabel,
+  MdLabelImportant
 } from 'react-icons/md';
 
 export const SIDEBAR_ITEMS = [
@@ -46,6 +47,12 @@ export const SIDEBAR_ITEMS = [
     name: 'Snoozed',
     icon: <MdAccessTime size={20} />,
     path: '/snoozed',
+    count: 0
+  },
+  {
+    name: 'Important',
+    icon: <MdLabelImportant size={20} />,
+    path: '/inbox?tab=IMPORTANT',
     count: 0
   },
   {
