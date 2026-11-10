@@ -16,10 +16,7 @@ export const getCustomLabelVisibility = (labelOrId, fallbackName = null) => {
   const name = typeof labelOrId === 'object' && labelOrId !== null ? labelOrId.name : fallbackName;
   const strId = String(id);
   try {
-    if (typeof window === 'undefined') return { showInLabelList: true, showInMessageList: true };
-    const activeEmail = localStorage.getItem('bnx_active_email');
-    const userKey = activeEmail ? `${CUSTOM_LABEL_PREFS_KEY}_${activeEmail}` : null;
-    const raw = (userKey && localStorage.getItem(userKey)) || localStorage.getItem(CUSTOM_LABEL_PREFS_KEY);
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(CUSTOM_LABEL_PREFS_KEY) : null;
     const prefs = raw ? JSON.parse(raw) : {};
     const item = prefs[strId] !== undefined
       ? prefs[strId]
@@ -67,10 +64,6 @@ export const setAllCustomLabelVisibility = (newPrefsMap) => {
   if (!newPrefsMap || typeof newPrefsMap !== 'object') return;
   try {
     localStorage.setItem(CUSTOM_LABEL_PREFS_KEY, JSON.stringify(newPrefsMap));
-    const activeEmail = localStorage.getItem('bnx_active_email');
-    if (activeEmail) {
-      localStorage.setItem(`${CUSTOM_LABEL_PREFS_KEY}_${activeEmail}`, JSON.stringify(newPrefsMap));
-    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: newPrefsMap }));
     }
@@ -118,24 +111,6 @@ export const getCategoryPreferences = () => {
   } catch (e) {
     return DEFAULT_CATEGORY_PREFS;
   }
-};
-
-/**
- * Check if a category is visible in the label list
- */
-export const isCategoryVisibleInLabelList = (categoryName) => {
-  if (!categoryName) return true;
-  const prefs = getCategoryPreferences();
-  return prefs[categoryName]?.showInLabelList !== false;
-};
-
-/**
- * Check if a category is visible in the message list
- */
-export const isCategoryVisibleInMessageList = (categoryName) => {
-  if (!categoryName) return true;
-  const prefs = getCategoryPreferences();
-  return prefs[categoryName]?.showInMessageList !== false;
 };
 
 /**
@@ -264,10 +239,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
  */
 export const getStoredSidebarPreferences = () => {
   try {
-    if (typeof window === 'undefined') return null;
-    const activeEmail = localStorage.getItem('bnx_active_email');
-    const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
-    const raw = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('bnx_sidebar_prefs');
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('bnx_sidebar_prefs') : null;
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
     return null;
@@ -279,11 +251,12 @@ export const getStoredSidebarPreferences = () => {
  */
 export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = {}) => {
   if (!keyOrName) return true;
+  if (keyOrName === "Inbox") return true;
 
   const stored = getStoredSidebarPreferences();
   const effective = stored ? { ...sidebarPreferences, ...stored } : (sidebarPreferences || {});
 
-  if (keyOrName === "Draft" || keyOrName === "Drafts" || keyOrName === "draft") {
+  if (keyOrName === "Draft" || keyOrName === "Drafts") {
     if (effective?.["Draft"] === false || effective?.["Drafts"] === false || effective?.["draft"] === false) {
       return false;
     }

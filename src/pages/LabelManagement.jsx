@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useTranslation } from "../context/LanguageContext";
-import { userAPI } from "../services/api";
 import { Tag } from "lucide-react";
 import {
   MdLabel,
@@ -144,7 +143,7 @@ const LabelManagement = ({ embedded = false }) => {
         id: "Inbox",
         name: "Inbox",
         icon: <MdInbox size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Inbox"
+        alwaysShown: true
       },
       {
         id: "Starred",
@@ -238,6 +237,7 @@ const LabelManagement = ({ embedded = false }) => {
 
   // Handle Draft System Label Sidebar Toggle
   const handleToggleSystemSidebar = (item) => {
+    if (item.alwaysShown) return;
     const prefKey = item.prefKey || item.name;
     const currentVal = draftSidebarPrefs?.[prefKey] !== false;
     const nextVal = !currentVal;
@@ -299,6 +299,7 @@ const LabelManagement = ({ embedded = false }) => {
       // 1. Commit system labels to ThemeContext and localStorage
       const finalSidebarPrefs = {
         ...draftSidebarPrefs,
+        Inbox: true // Inbox is permanently visible per Gmail-like behavior
       };
       setSidebarPreferences(finalSidebarPrefs);
 
@@ -324,7 +325,7 @@ const LabelManagement = ({ embedded = false }) => {
       setAllImapPreferences(draftImapPrefs);
       setImapPrefs(draftImapPrefs);
 
-      // 5. Notify all listeners across the frontend
+      // 5. Notify all listeners
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed"));
       }
@@ -541,7 +542,9 @@ const LabelManagement = ({ embedded = false }) => {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
                 {systemLabels.map((item) => {
                   const prefKey = item.prefKey || item.name;
-                  const isVisibleInSidebar = draftSidebarPrefs?.[prefKey] !== false;
+                  const isVisibleInSidebar = item.alwaysShown
+                    ? true
+                    : draftSidebarPrefs?.[prefKey] !== false;
                   const isImapEnabled = draftImapPrefs[item.name] !== false;
 
                   return (
@@ -559,15 +562,27 @@ const LabelManagement = ({ embedded = false }) => {
 
                       {/* Show in label list */}
                       <td className="py-2 px-1.5 sm:px-4 min-w-0">
-                        <label className="inline-flex items-center gap-1.5 sm:gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none truncate">
-                          <input
-                            type="checkbox"
-                            checked={isVisibleInSidebar}
-                            onChange={() => handleToggleSystemSidebar(item)}
-                            className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer shrink-0"
-                          />
-                          <span className="truncate text-[11px] sm:text-xs">Show in label list</span>
-                        </label>
+                        {item.alwaysShown ? (
+                          <label className="inline-flex items-center gap-1.5 sm:gap-2 text-gray-400 dark:text-gray-500 cursor-not-allowed select-none truncate">
+                            <input
+                              type="checkbox"
+                              checked={true}
+                              disabled={true}
+                              className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-gray-400 border-gray-300 dark:border-gray-600 focus:ring-0 cursor-not-allowed shrink-0"
+                            />
+                            <span className="truncate text-[11px] sm:text-xs">Always show</span>
+                          </label>
+                        ) : (
+                          <label className="inline-flex items-center gap-1.5 sm:gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none truncate">
+                            <input
+                              type="checkbox"
+                              checked={isVisibleInSidebar}
+                              onChange={() => handleToggleSystemSidebar(item)}
+                              className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                            />
+                            <span className="truncate text-[11px] sm:text-xs">Show in label list</span>
+                          </label>
+                        )}
                       </td>
 
                       {/* Show in IMAP */}

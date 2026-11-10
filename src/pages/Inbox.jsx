@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { useAuth } from "../context/AuthContext";
@@ -9,84 +9,29 @@ import { mailAPI } from "../services/api";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
-import {
-  MdRefresh,
-  MdInbox,
-  MdLocalOffer,
-  MdPeople,
-  MdInfo,
-  MdLabelImportant,
-  MdSend,
-  MdDrafts,
-  MdStar,
-  MdDelete,
-  MdEdit,
-  MdCheck,
-  MdWork,
-  MdSchedule,
-  MdAccessTime,
-  MdMailOutline,
-  MdReport,
-  MdShoppingBag,
-  MdForum,
-  MdLabel
-} from "react-icons/md";
+import { MdRefresh, MdInbox, MdLocalOffer, MdPeople, MdInfo, MdLabelImportant, MdSend, MdDrafts, MdStar, MdDelete, MdEdit, MdCheck, MdWork } from "react-icons/md";
 import toast from "react-hot-toast";
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import { canAccessAllInbox } from "../utils/accountUtils";
-import {
-  isSystemLabelVisibleInLabelList,
-  isCategoryVisibleInLabelList,
-  isLabelVisibleInSidebar
-} from "../utils/labelPreferences";
 
 const Inbox = ({ searchQuery }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme, readingPaneMode, sidebarPreferences } = useTheme();
+  const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
-  const {
-    emails,
-    loading,
-    isRefreshing,
-    fetchEmails,
-    refreshEmails,
-    handleToggleStar,
-    handleMoveToTrash,
-    handleMarkRead,
-    handleSnooze,
-    handleApplyLabel,
-    handleArchive,
-    openCompose,
-    matchesDateFilter,
-    dateFilter,
-    customDateRange,
-    resetDateFilter,
-    isEmailRead,
-    labels = []
-  } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter, dateFilter, customDateRange, resetDateFilter, isEmailRead } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
-  const [prefsTick, setPrefsTick] = useState(0);
-
-  useEffect(() => {
-    const handlePrefsChange = () => setPrefsTick((t) => t + 1);
-    window.addEventListener("bnx-label-prefs-changed", handlePrefsChange);
-    window.addEventListener("storage", handlePrefsChange);
-    return () => {
-      window.removeEventListener("bnx-label-prefs-changed", handlePrefsChange);
-      window.removeEventListener("storage", handlePrefsChange);
-    };
-  }, []);
-
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const sp = new URLSearchParams(window.location.search);
       const t = sp.get('tab');
-      if (t) return t.toUpperCase();
+      if (t && ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(t.toUpperCase())) {
+        return t.toUpperCase();
+      }
     } catch (e) {}
     return 'ALL';
   });
@@ -94,11 +39,10 @@ const Inbox = ({ searchQuery }) => {
   useEffect(() => {
     const sp = new URLSearchParams(location.search);
     const t = sp.get('tab');
-    if (t) {
+    if (t && ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(t.toUpperCase())) {
       setActiveTab(t.toUpperCase());
     }
   }, [location.search]);
-
   const baseSelectedEmail = emails.find((e) => String(e.uid ?? e.id) === String(selectedEmailUid)) ||
     (selectedEmailOverride && (String(selectedEmailOverride.uid ?? selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
   const selectedEmail = baseSelectedEmail ? {
@@ -117,71 +61,21 @@ const Inbox = ({ searchQuery }) => {
     });
   };
 
-  const availableTabs = useMemo(() => {
-    const system = [
-      { id: 'ALL', label: t('sidebar.inbox', 'Inbox'), icon: MdInbox, color: theme.accent || '#135bec', sysKey: 'Inbox', category: true },
-      { id: 'STARRED', label: t('sidebar.starred', 'Starred'), icon: MdStar, color: '#eab308', sysKey: 'Starred', category: false },
-      { id: 'SNOOZED', label: t('sidebar.snoozed', 'Snoozed'), icon: MdAccessTime, color: '#f59e0b', sysKey: 'Snoozed', category: false },
-      { id: 'IMPORTANT', label: t('sidebar.important', 'Important'), icon: MdLabelImportant, color: '#eab308', sysKey: 'Important', category: true },
-      { id: 'SENT', label: t('sidebar.sent', 'Sent'), icon: MdSend, color: '#8b5cf6', sysKey: 'Sent', category: false },
-      { id: 'SCHEDULED', label: t('sidebar.scheduled', 'Scheduled'), icon: MdSchedule, color: '#06b6d4', sysKey: 'Scheduled', category: false },
-      { id: 'DRAFT', label: t('sidebar.draft', 'Drafts'), icon: MdDrafts, color: '#64748b', sysKey: 'Draft', category: false },
-      { id: 'ALL_MAIL', label: t('sidebar.all_mail', 'All Mail'), icon: MdMailOutline, color: '#3b82f6', sysKey: 'All Mail', category: false },
-      { id: 'SPAM', label: t('sidebar.spam', 'Spam'), icon: MdReport, color: '#ef4444', sysKey: 'Spam', category: false },
-      { id: 'TRASH', label: t('sidebar.trash', 'Trash'), icon: MdDelete, color: '#ef4444', sysKey: 'Trash', category: false },
-    ];
-
-    const categoryList = [
-      { id: 'PURCHASES', label: 'Purchases', icon: MdShoppingBag, color: '#0ea5e9', catKey: 'Purchases', category: true },
-      { id: 'SOCIAL', label: 'Social', icon: MdPeople, color: '#3b82f6', catKey: 'Social', category: true },
-      { id: 'UPDATES', label: 'Updates', icon: MdInfo, color: '#f97316', catKey: 'Updates', category: true },
-      { id: 'FORUMS', label: 'Forums', icon: MdForum, color: '#8b5cf6', catKey: 'Forums', category: true },
-      { id: 'PROMOTIONS', label: 'Promotions', icon: MdLocalOffer, color: '#22c55e', catKey: 'Promotions', category: true },
-    ];
-
-    const customList = (labels || []).map((lbl) => ({
-      id: `LABEL_${lbl.id}`,
-      label: lbl.name,
-      icon: MdLabel,
-      color: lbl.colorHex || '#135bec',
-      customKey: lbl.id,
-      customName: lbl.name,
-      isCustomLabel: true,
-      category: false,
-    }));
-
-    return [...system, ...categoryList, ...customList];
-  }, [theme.accent, labels, t]);
-
-  const isLabelOptionVisible = (tab) => {
-    if (tab.sysKey) {
-      return isSystemLabelVisibleInLabelList(tab.sysKey, sidebarPreferences);
-    }
-    if (tab.catKey) {
-      return isCategoryVisibleInLabelList(tab.catKey);
-    }
-    if (tab.customKey !== undefined) {
-      return isLabelVisibleInSidebar(tab.customKey, tab.customName);
-    }
-    return true;
-  };
-
-  const displayedTabs = useMemo(() => {
-    const visible = availableTabs.filter(isLabelOptionVisible);
-    if (visible.length === 0 && availableTabs.length > 0) {
-      return [availableTabs[0]];
-    }
-    return visible;
-  }, [availableTabs, sidebarPreferences, prefsTick]);
-
-  useEffect(() => {
-    if (displayedTabs.length > 0 && !displayedTabs.some((t) => t.id === activeTab)) {
-      setActiveTab(displayedTabs[0].id);
-    }
-  }, [displayedTabs, activeTab]);
+  const availableTabs = [
+    { id: 'ALL', label: 'All', icon: MdInbox, color: theme.accent || '#135bec', category: true },
+    { id: 'IMPORTANT', label: 'Important', icon: MdLabelImportant, color: '#eab308', category: true },
+    { id: 'PROMOTIONS', label: 'Promotions', icon: MdLocalOffer, color: '#22c55e', category: true },
+    { id: 'SOCIAL', label: 'Social', icon: MdPeople, color: '#3b82f6', category: true },
+    { id: 'UPDATES', label: 'Updates', icon: MdInfo, color: '#f97316', category: true },
+    { id: 'JOB', label: 'Job', icon: MdWork, color: '#0d9488', category: true },
+    { id: 'SENT', label: 'Sent', icon: MdSend, color: '#8b5cf6', category: false },
+    { id: 'DRAFT', label: 'Drafts', icon: MdDrafts, color: '#64748b', category: false },
+    { id: 'STARRED', label: 'Starred', icon: MdStar, color: '#eab308', category: false },
+    { id: 'TRASH', label: 'Trash', icon: MdDelete, color: '#ef4444', category: false }
+  ];
 
   const isAllInbox = location.pathname === '/all-inbox';
-  const isCategoryTab = ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'PURCHASES', 'FORUMS', 'JOB'].includes(activeTab);
+  const isCategoryTab = ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(activeTab);
 
   useEffect(() => {
     if (isAllInbox && !canAccessAllInbox(user)) {
@@ -189,26 +83,9 @@ const Inbox = ({ searchQuery }) => {
     }
   }, [isAllInbox, user, navigate]);
 
-  const currentFolder = useMemo(() => {
-    if (isAllInbox) return 'all-inbox';
-    if (activeTab.startsWith('LABEL_')) {
-      const labelId = activeTab.replace('LABEL_', '');
-      return `label-${labelId}`;
-    }
-    const tabObj = availableTabs.find((t) => t.id === activeTab);
-    if (!tabObj || tabObj.category) return 'inbox';
-    switch (activeTab) {
-      case 'SENT': return 'sent';
-      case 'DRAFT': return 'draft';
-      case 'STARRED': return 'starred';
-      case 'TRASH': return 'trash';
-      case 'SNOOZED': return 'snoozed';
-      case 'SCHEDULED': return 'scheduled';
-      case 'SPAM': return 'spam';
-      case 'ALL_MAIL': return 'allmail';
-      default: return 'inbox';
-    }
-  }, [isAllInbox, activeTab, availableTabs]);
+  const currentFolder = isAllInbox
+    ? 'all-inbox'
+    : (availableTabs.find(t => t.id === activeTab)?.category ? 'inbox' : activeTab.toLowerCase());
 
   useEffect(() => {
     fetchEmails(currentFolder);
@@ -222,23 +99,19 @@ const Inbox = ({ searchQuery }) => {
         return 'IMPORTANT';
       }
     }
-    if (e.isImportant || e.important) {
-      return 'IMPORTANT';
-    }
     const cat = (e.category || 'ALL').toUpperCase();
     return cat === 'PRIMARY' ? 'ALL' : cat;
   };
 
-  const visibleEmails = emails.filter((e) => {
-    let matchesTab = true;
-    if (isCategoryTab) {
-      matchesTab = (activeTab === 'ALL' || getTabCategory(e) === activeTab);
-    } else if (activeTab.startsWith('LABEL_')) {
-      const labelId = activeTab.replace('LABEL_', '');
-      matchesTab = !Array.isArray(e.labels) || e.labels.some((l) => String(l.id) === String(labelId) || String(l.labelId) === String(labelId));
+  const visibleEmails = emails.filter(
+    (e) => {
+      const matchesTab = isCategoryTab
+        ? (activeTab === 'ALL' || getTabCategory(e) === activeTab)
+        : true;
+      return matchesTab &&
+        (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true);
     }
-    return matchesTab && (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true);
-  });
+  );
 
   useEffect(() => {
     setSelectedEmailUid(null);
@@ -303,15 +176,38 @@ const Inbox = ({ searchQuery }) => {
     }
   };
 
+  const [activeTabs, setActiveTabs] = useState(() => {
+    const saved = localStorage.getItem('inbox_visible_tabs');
+    if (saved) {
+      let parsed = JSON.parse(saved);
+      if (parsed.includes('PRIMARY')) {
+        parsed = parsed.map(t => t === 'PRIMARY' ? 'ALL' : t);
+        localStorage.setItem('inbox_visible_tabs', JSON.stringify(parsed));
+      }
+      if (!parsed.includes('ALL')) parsed.unshift('ALL');
+      return parsed;
+    }
+    return ['ALL'];
+  });
+
+  const [showTabMenu, setShowTabMenu] = useState(false);
+
+  const toggleTab = (tabId) => {
+    if (tabId === 'ALL') return;
+    setActiveTabs(prev => {
+      const next = prev.includes(tabId) ? prev.filter(t => t !== tabId) : [...prev, tabId];
+      localStorage.setItem('inbox_visible_tabs', JSON.stringify(next));
+      if (activeTab === tabId && prev.includes(tabId)) {
+        setActiveTab('ALL');
+      }
+      return next;
+    });
+  };
+
   const getUnreadCount = (tabId) => {
     if (tabId === 'ALL') return 0; // Unread count badge is shown only beside Inbox in the left sidebar
-    if (tabId.startsWith('LABEL_')) {
-      const lId = tabId.replace('LABEL_', '');
-      return emails.filter(e => e.labels?.some(l => String(l.id) === String(lId) || String(l.labelId) === String(lId)) && !e.isRead && !e.read).length;
-    }
-    const tabObj = availableTabs.find(t => t.id === tabId);
-    if (!tabObj?.category) return 0; // Don't show unread for folders here
-    return emails.filter(e => getTabCategory(e) === tabId && !e.isRead && !e.read).length;
+    if (!availableTabs.find(t => t.id === tabId)?.category) return 0; // Don't show unread for folders here
+    return emails.filter(e => getTabCategory(e) === tabId && !e.isRead).length;
   };
 
   const listComponent = (
@@ -361,15 +257,43 @@ const Inbox = ({ searchQuery }) => {
     <div className="flex flex-col border-b border-gray-100 dark:border-gray-800 bg-transparent shrink-0">
       {/* TABS */}
       <div className="flex px-4 pt-1 items-center gap-2 sm:gap-3 text-sm font-medium">
-        {/* Manage Labels Link */}
+        {/* Edit Button */}
         <div className="relative shrink-0 border-r border-gray-200 dark:border-gray-700 pr-2">
           <button
-            onClick={() => navigate('/settings/labels')}
+            onClick={() => setShowTabMenu(!showTabMenu)}
             className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 transition-colors cursor-pointer"
-            title={t('sidebar.manage_labels', 'Manage Labels')}
+            title="Edit Tabs"
           >
             <MdEdit size={18} />
           </button>
+
+          {showTabMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowTabMenu(false)} />
+              <div className="absolute left-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 py-2 overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Customize Tabs</div>
+                {availableTabs.map(tab => {
+                  const Icon = tab.icon;
+                  const isVisible = activeTabs.includes(tab.id);
+                  const isPrimary = tab.id === 'ALL';
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => toggleTab(tab.id)}
+                      disabled={isPrimary}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer ${isPrimary ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                        <Icon size={16} style={{ color: tab.color }} />
+                        {tab.label}
+                      </div>
+                      {isVisible && <MdCheck size={16} className="text-primary" style={{ color: theme.accent || "#135bec" }} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Refresh Button */}
@@ -382,9 +306,9 @@ const Inbox = ({ searchQuery }) => {
           <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
         </button>
 
-        {/* Dynamic Label Options Tabs */}
+        {/* All Tabs */}
         <div className="flex gap-2 sm:gap-6 overflow-x-auto hidden-scrollbar flex-1">
-          {displayedTabs.map(tab => renderTab(tab))}
+          {availableTabs.filter(t => activeTabs.includes(t.id)).map(tab => renderTab(tab))}
         </div>
       </div>
     </div>
