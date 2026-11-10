@@ -1667,7 +1667,7 @@ const EmailDetails = ({
                     ) : (
                       availableLabelOptions.map((lbl) => {
                         const isApplied = (localLabels || []).some(
-                          (l) => String(l.id || l) === String(lbl.id) || l.name === lbl.name
+                          (l) => String(l.id || l) === String(lbl.id) || l.name === lbl.name || (lbl.prefKey && (l.name === lbl.prefKey || String(l.id) === String(lbl.prefKey)))
                         );
                         return (
                           <button

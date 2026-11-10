@@ -41,7 +41,6 @@ import {
   MdArchive 
 } from "react-icons/md";
 import { canAccessAllInbox } from "../utils/accountUtils";
-import { isLabelVisibleInSidebar } from "../utils/labelPreferences";
 
 const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) => {
   const { t } = useTranslation();
@@ -547,8 +546,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
               {(() => {
                 const renderLabelTree = (parentId, depth = 0) => {
                   const children = labels
-                    .filter(l => l.parentId === parentId || (!l.parentId && parentId === null))
-                    .filter(l => isLabelVisibleInSidebar(l.id));
+                    .filter(l => l.parentId === parentId || (!l.parentId && parentId === null));
                   return children.map(label => {
                     const isLabelActive = location.pathname === `/label/${label.id}`;
 

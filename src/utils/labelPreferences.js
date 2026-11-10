@@ -222,7 +222,7 @@ export const setAllImapPreferences = (newPrefsMap) => {
  * System labels available for labeling (with their default colors and preference keys)
  */
 export const SYSTEM_LABEL_DEFINITIONS = [
-  { id: "Inbox", name: "Inbox", prefKey: "Inbox", colorHex: "#3b82f6", alwaysShown: true },
+  { id: "Inbox", name: "Inbox", prefKey: "Inbox", colorHex: "#3b82f6" },
   { id: "Starred", name: "Starred", prefKey: "Starred", colorHex: "#f59e0b" },
   { id: "Snoozed", name: "Snoozed", prefKey: "Snoozed", colorHex: "#f59e0b" },
   { id: "Important", name: "Important", prefKey: "Important", colorHex: "#eab308" },
@@ -251,12 +251,11 @@ export const getStoredSidebarPreferences = () => {
  */
 export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = {}) => {
   if (!keyOrName) return true;
-  if (keyOrName === "Inbox") return true;
 
   const stored = getStoredSidebarPreferences();
   const effective = stored ? { ...sidebarPreferences, ...stored } : (sidebarPreferences || {});
 
-  if (keyOrName === "Draft" || keyOrName === "Drafts") {
+  if (keyOrName === "Draft" || keyOrName === "Drafts" || keyOrName === "draft") {
     if (effective?.["Draft"] === false || effective?.["Drafts"] === false || effective?.["draft"] === false) {
       return false;
     }
@@ -288,26 +287,36 @@ export const SYSTEM_LABEL_NAMES = new Set([
 ]);
 
 /**
- * Returns active user-created custom labels for the "Label as..." menu:
- * - Only user-created custom labels whose "Show in label list" setting is true (default true)
- * - Excludes all system labels (Inbox, Starred, Snoozed, Important, Sent, Scheduled, Drafts, All Mail, Spam, Trash)
+ * Returns active labels for the "Label as..." dropdown:
+ * - System labels whose "Show in label list" setting is true
+ * - Custom labels whose "Show in label list" setting is true
+ * Visibility is controlled by Settings -> Manage Labels ("Show in label list")
  */
 export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences = {}) => {
-  // Return ONLY enabled user-created custom labels (no system labels)
+  const stored = getStoredSidebarPreferences();
+  const effectiveSidebarPrefs = stored ? { ...sidebarPreferences, ...stored } : (sidebarPreferences || {});
+
+  // 1. System labels filtered by user preference ("Show in label list")
+  const visibleSystemLabels = SYSTEM_LABEL_DEFINITIONS.filter((sl) =>
+    isSystemLabelVisibleInLabelList(sl.prefKey || sl.name, effectiveSidebarPrefs)
+  ).map((sl) => ({
+    ...sl,
+    isSystem: true,
+  }));
+
+  // 2. Custom labels filtered by user preference ("Show in label list")
   const visibleCustomLabels = (customLabels || []).filter((lbl) => {
     if (!lbl) return false;
-    const nameLower = String(lbl.name || lbl.id || '').trim().toLowerCase();
-    if (SYSTEM_LABEL_NAMES.has(nameLower)) return false;
     return isLabelVisibleInSidebar(lbl.id, lbl.name);
   }).map((lbl) => ({
     ...lbl,
     isSystem: false,
   }));
 
-  // Deduplicate by ID and name
+  // Deduplicate by ID and name (custom labels first, then system labels)
   const seen = new Set();
   const result = [];
-  for (const item of visibleCustomLabels) {
+  for (const item of [...visibleCustomLabels, ...visibleSystemLabels]) {
     const key = String(item.id ?? item.name).toLowerCase();
     if (!seen.has(key)) {
       seen.add(key);

@@ -118,17 +118,20 @@ export const ThemeProvider = ({ children }) => {
   
   const [sidebarPreferences, setSidebarPreferencesState] = useState(() => {
     try {
-      const saved = typeof window !== 'undefined' ? localStorage.getItem("bnx_sidebar_prefs") : null;
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        delete parsed["Bulk Mail"];
-        delete parsed["bulk mail"];
-        delete parsed["bulk"];
-        return {
-          ...DEFAULT_SIDEBAR_PREFS,
-          ...parsed,
-          Inbox: true,
-        };
+      if (typeof window !== 'undefined') {
+        const activeEmail = localStorage.getItem("bnx_active_email");
+        const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
+        const saved = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_sidebar_prefs");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          delete parsed["Bulk Mail"];
+          delete parsed["bulk mail"];
+          delete parsed["bulk"];
+          return {
+            ...DEFAULT_SIDEBAR_PREFS,
+            ...parsed,
+          };
+        }
       }
     } catch (e) {}
     return DEFAULT_SIDEBAR_PREFS;
@@ -152,7 +155,9 @@ export const ThemeProvider = ({ children }) => {
     if (savedEmailsPerPage) {
       setEmailsPerPage(parseInt(savedEmailsPerPage, 10));
     }
-    const savedSidebarPrefs = localStorage.getItem("bnx_sidebar_prefs");
+    const activeEmail = localStorage.getItem("bnx_active_email");
+    const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
+    const savedSidebarPrefs = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_sidebar_prefs");
     if (savedSidebarPrefs) {
       try {
         const parsed = JSON.parse(savedSidebarPrefs);
@@ -162,7 +167,6 @@ export const ThemeProvider = ({ children }) => {
         setSidebarPreferencesState({
           ...DEFAULT_SIDEBAR_PREFS,
           ...parsed,
-          Inbox: true,
         });
       } catch (e) {}
     }
@@ -278,13 +282,17 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const setSidebarPreferences = (prefs) => {
-    const cleaned = { ...prefs, Inbox: true };
+    const cleaned = { ...prefs };
     delete cleaned["Bulk Mail"];
     delete cleaned["bulk mail"];
     delete cleaned["bulk"];
     setSidebarPreferencesState(cleaned);
     try {
       localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleaned));
+      const activeEmail = localStorage.getItem("bnx_active_email");
+      if (activeEmail) {
+        localStorage.setItem(`bnx_sidebar_prefs_${activeEmail}`, JSON.stringify(cleaned));
+      }
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: cleaned }));
       }
