@@ -8,7 +8,7 @@ const IMAP_PREFS_KEY = 'bnx_imap_prefs';
  * Returns visibility settings for a custom label by ID.
  * Defaults to { showInLabelList: true, showInMessageList: true }
  */
-export const getCustomLabelVisibility = (labelOrId, fallbackName = null) => {
+export const getCustomLabelVisibility = (labelOrId, fallbackName = null, customPrefsObj = null) => {
   if (labelOrId === undefined || labelOrId === null) {
     return { showInLabelList: true, showInMessageList: true };
   }
@@ -16,8 +16,14 @@ export const getCustomLabelVisibility = (labelOrId, fallbackName = null) => {
   const name = typeof labelOrId === 'object' && labelOrId !== null ? labelOrId.name : fallbackName;
   const strId = String(id);
   try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem(CUSTOM_LABEL_PREFS_KEY) : null;
-    const prefs = raw ? JSON.parse(raw) : {};
+    let prefs = customPrefsObj;
+    if (!prefs || typeof prefs !== 'object') {
+      const activeEmail = typeof window !== 'undefined' ? localStorage.getItem("bnx_active_email") : null;
+      const raw = typeof window !== 'undefined'
+        ? ((activeEmail && localStorage.getItem(`${CUSTOM_LABEL_PREFS_KEY}_${activeEmail}`)) || localStorage.getItem(CUSTOM_LABEL_PREFS_KEY))
+        : null;
+      prefs = raw ? JSON.parse(raw) : {};
+    }
     const item = prefs[strId] !== undefined
       ? prefs[strId]
       : (name && prefs[String(name)] !== undefined
@@ -75,8 +81,8 @@ export const setAllCustomLabelVisibility = (newPrefsMap) => {
 /**
  * Check if a custom label is visible in the sidebar
  */
-export const isLabelVisibleInSidebar = (labelOrId, fallbackName = null) => {
-  return getCustomLabelVisibility(labelOrId, fallbackName).showInLabelList !== false;
+export const isLabelVisibleInSidebar = (labelOrId, fallbackName = null, customPrefsObj = null) => {
+  return getCustomLabelVisibility(labelOrId, fallbackName, customPrefsObj).showInLabelList !== false;
 };
 
 /**
@@ -239,8 +245,13 @@ export const SYSTEM_LABEL_DEFINITIONS = [
  */
 export const getStoredSidebarPreferences = () => {
   try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('bnx_sidebar_prefs') : null;
-    return raw ? JSON.parse(raw) : null;
+    if (typeof window !== 'undefined') {
+      const activeEmail = localStorage.getItem("bnx_active_email");
+      const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
+      const raw = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('bnx_sidebar_prefs');
+      return raw ? JSON.parse(raw) : null;
+    }
+    return null;
   } catch (e) {
     return null;
   }
@@ -252,21 +263,30 @@ export const getStoredSidebarPreferences = () => {
 export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = {}) => {
   if (!keyOrName) return true;
 
-  const stored = getStoredSidebarPreferences();
-  const effective = stored ? { ...sidebarPreferences, ...stored } : (sidebarPreferences || {});
+  const stored = getStoredSidebarPreferences() || {};
+  const effective = { ...stored, ...(sidebarPreferences || {}) };
+
+  const lookup = (key) => {
+    if (effective[key] !== undefined) return effective[key];
+    const lower = String(key).toLowerCase();
+    for (const k of Object.keys(effective)) {
+      if (k.toLowerCase() === lower) return effective[k];
+    }
+    return undefined;
+  };
 
   if (keyOrName === "Draft" || keyOrName === "Drafts" || keyOrName === "draft") {
-    if (effective?.["Draft"] === false || effective?.["Drafts"] === false || effective?.["draft"] === false) {
+    if (lookup("Draft") === false || lookup("Drafts") === false || lookup("draft") === false) {
       return false;
     }
     return true;
   }
-  if (effective?.[keyOrName] === false) {
+
+  const val = lookup(keyOrName);
+  if (val === false) {
     return false;
   }
-  if (sidebarPreferences?.[keyOrName] === false) {
-    return false;
-  }
+
   return true;
 };
 
@@ -292,9 +312,9 @@ export const SYSTEM_LABEL_NAMES = new Set([
  * - Custom labels whose "Show in label list" setting is true
  * Visibility is controlled by Settings -> Manage Labels ("Show in label list")
  */
-export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences = {}) => {
-  const stored = getStoredSidebarPreferences();
-  const effectiveSidebarPrefs = stored ? { ...sidebarPreferences, ...stored } : (sidebarPreferences || {});
+export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences = {}, customLabelPreferences = null) => {
+  const stored = getStoredSidebarPreferences() || {};
+  const effectiveSidebarPrefs = { ...stored, ...(sidebarPreferences || {}) };
 
   // 1. System labels filtered by user preference ("Show in label list")
   const visibleSystemLabels = SYSTEM_LABEL_DEFINITIONS.filter((sl) =>
@@ -307,7 +327,7 @@ export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences
   // 2. Custom labels filtered by user preference ("Show in label list")
   const visibleCustomLabels = (customLabels || []).filter((lbl) => {
     if (!lbl) return false;
-    return isLabelVisibleInSidebar(lbl.id, lbl.name);
+    return isLabelVisibleInSidebar(lbl.id, lbl.name, customLabelPreferences);
   }).map((lbl) => ({
     ...lbl,
     isSystem: false,

@@ -153,7 +153,7 @@ const EmailDetails = ({
   emailList = [],
   onNavigate,
 }) => {
-  const { theme, readingPaneMode, sidebarPreferences } = useTheme();
+  const { theme, readingPaneMode, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
   const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -171,8 +171,8 @@ const EmailDetails = ({
   }, []);
 
   const availableLabelOptions = useMemo(() => {
-    return getAvailableLabelAsOptions(labels, sidebarPreferences);
-  }, [labels, sidebarPreferences, prefsTick]);
+    return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
+  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick, showLabels]);
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
@@ -838,11 +838,16 @@ const EmailDetails = ({
     }
   };
 
-  const handleRemoveLabelOption = async (labelId) => {
+  const handleRemoveLabelOption = async (labelId, labelName = null, prefKey = null) => {
     const strLabelId = String(labelId);
     const prevLabels = localLabels;
     setLocalLabels((prev) =>
-      prev.filter((l) => String(l.id || l) !== strLabelId && l.name !== labelId)
+      prev.filter((l) => {
+        const idMatch = String(l.id || l) === strLabelId;
+        const nameMatch = (labelName && (l.name === labelName || String(l.id) === labelName)) || l.name === labelId;
+        const prefMatch = prefKey && (l.name === prefKey || String(l.id) === prefKey);
+        return !idMatch && !nameMatch && !prefMatch;
+      })
     );
     try {
       const targetFolder = email?.folderName || getFolder();
@@ -1675,7 +1680,7 @@ const EmailDetails = ({
                             type="button"
                             onClick={() => {
                               if (isApplied) {
-                                handleRemoveLabelOption(lbl.id);
+                                handleRemoveLabelOption(lbl.id, lbl.name, lbl.prefKey);
                               } else {
                                 handleApplyLabelOption(lbl.id);
                               }

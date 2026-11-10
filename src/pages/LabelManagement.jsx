@@ -58,7 +58,7 @@ const LABEL_COLORS = [
 const LabelManagement = ({ embedded = false }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { theme, sidebarPreferences, setSidebarPreferences } = useTheme();
+  const { theme, sidebarPreferences, setSidebarPreferences, saveLabelVisibilityPreferences } = useTheme();
   const {
     labels = [],
     fetchLabels,
@@ -295,13 +295,12 @@ const LabelManagement = ({ embedded = false }) => {
   const handleSaveAll = () => {
     setIsSaving(true);
     try {
-      // 1. Commit system labels to ThemeContext and localStorage
+      // 1. Prepare system labels preferences
       const finalSidebarPrefs = {
         ...draftSidebarPrefs,
       };
-      setSidebarPreferences(finalSidebarPrefs);
 
-      // 2. Commit custom labels visibility
+      // 2. Prepare custom labels visibility
       const fullCustomVisibility = { ...draftCustomVisibility };
       (labels || []).forEach((lbl) => {
         const idKey = String(lbl.id);
@@ -312,6 +311,14 @@ const LabelManagement = ({ embedded = false }) => {
           fullCustomVisibility[lbl.name.toLowerCase()] = val;
         }
       });
+
+      // 3. Commit to centralized React Context and localStorage
+      if (typeof saveLabelVisibilityPreferences === "function") {
+        saveLabelVisibilityPreferences(finalSidebarPrefs, fullCustomVisibility);
+      } else {
+        setSidebarPreferences(finalSidebarPrefs);
+        setAllCustomLabelVisibility(fullCustomVisibility);
+      }
       setAllCustomLabelVisibility(fullCustomVisibility);
       setCustomVisibility(draftCustomVisibility);
 

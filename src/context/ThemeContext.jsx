@@ -91,6 +91,7 @@ export const DEFAULT_SIDEBAR_PREFS = {
   Snoozed: true,
   Sent: true,
   Draft: true,
+  Drafts: true,
   Trash: true,
   Notification: true,
   Archive: true,
@@ -137,6 +138,60 @@ export const ThemeProvider = ({ children }) => {
     return DEFAULT_SIDEBAR_PREFS;
   });
 
+  const [customLabelPreferences, setCustomLabelPreferencesState] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const activeEmail = localStorage.getItem("bnx_active_email");
+        const userKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
+        const saved = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_custom_label_prefs");
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      }
+    } catch (e) {}
+    return {};
+  });
+
+  const [labelPrefsVersion, setLabelPrefsVersion] = useState(0);
+
+  // Global listener for cross-component preference synchronization
+  useEffect(() => {
+    const handleGlobalPrefsSync = () => {
+      try {
+        if (typeof window !== 'undefined') {
+          const activeEmail = localStorage.getItem("bnx_active_email");
+          const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
+          const savedSidebar = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_sidebar_prefs");
+          if (savedSidebar) {
+            const parsed = JSON.parse(savedSidebar);
+            delete parsed["Bulk Mail"];
+            delete parsed["bulk mail"];
+            delete parsed["bulk"];
+            setSidebarPreferencesState((prev) => ({
+              ...DEFAULT_SIDEBAR_PREFS,
+              ...prev,
+              ...parsed,
+            }));
+          }
+
+          const userCustomKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
+          const savedCustom = (userCustomKey && localStorage.getItem(userCustomKey)) || localStorage.getItem("bnx_custom_label_prefs");
+          if (savedCustom) {
+            setCustomLabelPreferencesState(JSON.parse(savedCustom));
+          }
+          setLabelPrefsVersion((v) => v + 1);
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener("bnx-label-prefs-changed", handleGlobalPrefsSync);
+    window.addEventListener("storage", handleGlobalPrefsSync);
+    return () => {
+      window.removeEventListener("bnx-label-prefs-changed", handleGlobalPrefsSync);
+      window.removeEventListener("storage", handleGlobalPrefsSync);
+    };
+  }, []);
+
   // Load theme + background on first mount
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
@@ -168,6 +223,13 @@ export const ThemeProvider = ({ children }) => {
           ...DEFAULT_SIDEBAR_PREFS,
           ...parsed,
         });
+      } catch (e) {}
+    }
+    const userCustomKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
+    const savedCustomPrefs = (userCustomKey && localStorage.getItem(userCustomKey)) || localStorage.getItem("bnx_custom_label_prefs");
+    if (savedCustomPrefs) {
+      try {
+        setCustomLabelPreferencesState(JSON.parse(savedCustomPrefs));
       } catch (e) {}
     }
     const savedAccent = localStorage.getItem("bnx_accent_color");
@@ -287,6 +349,7 @@ export const ThemeProvider = ({ children }) => {
     delete cleaned["bulk mail"];
     delete cleaned["bulk"];
     setSidebarPreferencesState(cleaned);
+    setLabelPrefsVersion((v) => v + 1);
     try {
       localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleaned));
       const activeEmail = localStorage.getItem("bnx_active_email");
@@ -297,6 +360,55 @@ export const ThemeProvider = ({ children }) => {
         window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: cleaned }));
       }
     } catch (e) {}
+  };
+
+  const setCustomLabelPreferences = (prefs) => {
+    const cleaned = { ...prefs };
+    setCustomLabelPreferencesState(cleaned);
+    setLabelPrefsVersion((v) => v + 1);
+    try {
+      localStorage.setItem("bnx_custom_label_prefs", JSON.stringify(cleaned));
+      const activeEmail = localStorage.getItem("bnx_active_email");
+      if (activeEmail) {
+        localStorage.setItem(`bnx_custom_label_prefs_${activeEmail}`, JSON.stringify(cleaned));
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: cleaned }));
+      }
+    } catch (e) {}
+  };
+
+  const saveLabelVisibilityPreferences = (sysPrefs, customPrefs) => {
+    const activeEmail = typeof window !== 'undefined' ? localStorage.getItem("bnx_active_email") : null;
+
+    if (sysPrefs) {
+      const cleaned = { ...sysPrefs };
+      delete cleaned["Bulk Mail"];
+      delete cleaned["bulk mail"];
+      delete cleaned["bulk"];
+      setSidebarPreferencesState(cleaned);
+      try {
+        localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleaned));
+        if (activeEmail) {
+          localStorage.setItem(`bnx_sidebar_prefs_${activeEmail}`, JSON.stringify(cleaned));
+        }
+      } catch (e) {}
+    }
+
+    if (customPrefs) {
+      setCustomLabelPreferencesState(customPrefs);
+      try {
+        localStorage.setItem("bnx_custom_label_prefs", JSON.stringify(customPrefs));
+        if (activeEmail) {
+          localStorage.setItem(`bnx_custom_label_prefs_${activeEmail}`, JSON.stringify(customPrefs));
+        }
+      } catch (e) {}
+    }
+
+    setLabelPrefsVersion((v) => v + 1);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: { sysPrefs, customPrefs } }));
+    }
   };
 
   // Merge dynamic text color into the current theme
@@ -325,6 +437,10 @@ export const ThemeProvider = ({ children }) => {
         setEmailsPerPageState,
         sidebarPreferences,
         setSidebarPreferences,
+        customLabelPreferences,
+        setCustomLabelPreferences,
+        saveLabelVisibilityPreferences,
+        labelPrefsVersion,
         customAccentColor,
         updateCustomAccentColor,
         customFontSize,
@@ -353,13 +469,17 @@ export const useTheme = () => {
       readingPaneMode: 'no_split',
       emailsPerPage: 50,
       sidebarPreferences: DEFAULT_SIDEBAR_PREFS,
+      customLabelPreferences: {},
+      labelPrefsVersion: 0,
+      setSidebarPreferences: () => {},
+      setCustomLabelPreferences: () => {},
+      saveLabelVisibilityPreferences: () => {},
       backgroundImage: '',
       changeTheme: () => {},
       setBackgroundImage: () => {},
       clearBackgroundImage: () => {},
       setReadingPaneModeState: () => {},
       setEmailsPerPageState: () => {},
-      setSidebarPreferences: () => {},
       updateCustomAccentColor: () => {},
       updateCustomFontSize: () => {},
     };
