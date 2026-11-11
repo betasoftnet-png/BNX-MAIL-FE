@@ -124,10 +124,10 @@ const LabelManagement = ({ embedded = false }) => {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   // Sync custom labels visibility state
-  const loadCustomVisibility = () => {
+  const loadCustomVisibility = (prefsOverride = customLabelPreferences) => {
     const map = {};
     labels.forEach((lbl) => {
-      map[String(lbl.id)] = getCustomLabelVisibility(lbl.id, null, customLabelPreferences);
+      map[String(lbl.id)] = getCustomLabelVisibility(lbl.id, null, prefsOverride);
     });
     setCustomVisibility(map);
     if (!hasUnsavedChanges) {
@@ -166,7 +166,7 @@ const LabelManagement = ({ embedded = false }) => {
       const cat = getCategoryPreferences();
       setImapPrefs(imap);
       setCatPrefs(cat);
-      loadCustomVisibility();
+      loadCustomVisibility(null);
       if (!hasUnsavedChanges) {
         setDraftImapPrefs(imap);
         setDraftCatPrefs(cat);
@@ -174,7 +174,7 @@ const LabelManagement = ({ embedded = false }) => {
     };
     window.addEventListener("bnx-label-prefs-changed", handleSync);
     return () => window.removeEventListener("bnx-label-prefs-changed", handleSync);
-  }, [labels, hasUnsavedChanges]);
+  }, [labels, hasUnsavedChanges, customLabelPreferences]);
 
   // System Labels Definitions (derived from shared SYSTEM_LABEL_DEFINITIONS, omitting Important from Manage Labels UI)
   const systemLabels = useMemo(
