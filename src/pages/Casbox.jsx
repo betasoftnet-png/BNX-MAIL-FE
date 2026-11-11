@@ -8431,7 +8431,7 @@ const Casbox = () => {
 
   return (
     <>
-      <div className="flex flex-col h-full w-full bg-white dark:bg-[#121212] relative overflow-hidden">
+      <div className="flex flex-col h-full w-full bg-white dark:bg-[#121212] relative overflow-hidden casbox-content-root">
         <ReadingPaneLayout
           mode={readingPaneMode || 'no_split'}
           hasSelection={Boolean(selectedSentDetail || selectedMessage)}

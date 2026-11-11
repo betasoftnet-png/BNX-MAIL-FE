@@ -95,7 +95,7 @@ const GroupDetails = () => {
     };
 
     return (
-        <div className="flex-1 p-6 h-full overflow-y-auto" style={{ background: theme.bg, color: theme.text }}>
+        <div className="flex-1 p-6 h-full overflow-y-auto colab-page-root chat-room-root" style={{ background: theme.bg, color: theme.text }}>
             <button
                 onClick={() => navigate("/colab")}
                 className="flex items-center gap-1 text-sm mb-4 transition-colors hover:underline"

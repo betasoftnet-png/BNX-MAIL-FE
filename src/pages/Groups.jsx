@@ -663,7 +663,7 @@ const Groups = () => {
     };
 
     return (
-        <div className="flex flex-col h-full overflow-hidden bg-transparent">
+        <div className="flex flex-col h-full overflow-hidden bg-transparent colab-page-root chat-room-root">
             {/* HEADER */}
             <div className="p-6 border-b border-gray-200/50 dark:border-gray-800/50 flex items-center justify-between bg-white/30 dark:bg-gray-900/30 backdrop-blur-md shrink-0 relative z-10">
                 <div>
