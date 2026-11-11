@@ -500,7 +500,7 @@ const EmailList = ({
                       {email.labels
                         .filter((label) => {
                           const labelId = typeof label === 'string' ? label : (label.id || label.name);
-                          return isLabelVisibleInMessageList(labelId);
+                          return isLabelVisibleInMessageList(labelId, null, label);
                         })
                         .map((label) => {
                         const labelId = typeof label === 'string' ? label : (label.id || label.name);

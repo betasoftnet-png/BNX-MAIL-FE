@@ -22,6 +22,8 @@ import {
   MdPeople,
   MdInfoOutline,
   MdCampaign,
+  MdWork,
+  MdLabelImportant,
   MdAdd,
   MdEdit,
   MdClose,
@@ -206,6 +208,16 @@ const LabelManagement = ({ embedded = false }) => {
         id: "Promotions",
         name: "Promotions",
         icon: <MdCampaign size={18} className="text-gray-500 dark:text-gray-400" />
+      },
+      {
+        id: "Job",
+        name: "Job",
+        icon: <MdWork size={18} className="text-gray-500 dark:text-gray-400" />
+      },
+      {
+        id: "Important",
+        name: "Important",
+        icon: <MdLabelImportant size={18} className="text-gray-500 dark:text-gray-400" />
       }
     ],
     []

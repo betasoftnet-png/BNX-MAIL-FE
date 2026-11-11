@@ -148,9 +148,17 @@ export const isLabelVisibleInSidebar = (labelOrId, fallbackName = null, customPr
 };
 
 /**
- * Check if a custom label is visible on email badges in the message list
+ * Check if a custom label or category badge is visible in the message list
  */
-export const isLabelVisibleInMessageList = (labelOrId, fallbackName = null) => {
+export const isLabelVisibleInMessageList = (labelOrId, fallbackName = null, labelRecord = null) => {
+  const candidate = labelRecord && typeof labelRecord === 'object' ? labelRecord : labelOrId;
+  if (
+    candidate &&
+    typeof candidate === 'object' &&
+    String(candidate.type || candidate.labelType || '').trim().toUpperCase() === 'CATEGORY'
+  ) {
+    return isCategoryVisibleInMessageList(candidate.name || candidate.id || fallbackName);
+  }
   return getCustomLabelVisibility(labelOrId, fallbackName).showInMessageList !== false;
 };
 
@@ -162,22 +170,33 @@ export const DEFAULT_CATEGORY_PREFS = {
   Social: { showInLabelList: true, showInMessageList: true },
   Updates: { showInLabelList: true, showInMessageList: true },
   Forums: { showInLabelList: true, showInMessageList: true },
-  Promotions: { showInLabelList: true, showInMessageList: true }
+  Promotions: { showInLabelList: true, showInMessageList: true },
+  Job: { showInLabelList: true, showInMessageList: true },
+  Important: { showInLabelList: true, showInMessageList: true }
 };
+
+const normalizeCategoryPrefEntry = (entry) => ({
+  showInLabelList: entry?.showInLabelList !== false,
+  showInMessageList: entry?.showInMessageList !== false
+});
 
 /**
  * Get category visibility preferences
  */
 export const getCategoryPreferences = () => {
   try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem(CATEGORY_PREFS_KEY) : null;
-    const saved = raw ? JSON.parse(raw) : {};
-    return {
+    const saved = readUserScopedJson(CATEGORY_PREFS_KEY, {});
+    const merged = {
       ...DEFAULT_CATEGORY_PREFS,
-      ...saved
+      ...(saved && typeof saved === 'object' ? saved : {})
     };
+    const normalized = {};
+    Object.keys(merged).forEach((key) => {
+      normalized[key] = normalizeCategoryPrefEntry(merged[key]);
+    });
+    return normalized;
   } catch (e) {
-    return DEFAULT_CATEGORY_PREFS;
+    return { ...DEFAULT_CATEGORY_PREFS };
   }
 };
 
@@ -190,12 +209,12 @@ export const setCategoryPreference = (categoryName, updates) => {
     const current = getCategoryPreferences();
     const updated = {
       ...current,
-      [categoryName]: {
+      [categoryName]: normalizeCategoryPrefEntry({
         ...(current[categoryName] || { showInLabelList: true, showInMessageList: true }),
         ...updates
-      }
+      })
     };
-    localStorage.setItem(CATEGORY_PREFS_KEY, JSON.stringify(updated));
+    writeUserScopedJson(CATEGORY_PREFS_KEY, updated);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: { category: categoryName, ...updates } }));
     }
@@ -210,13 +229,37 @@ export const setCategoryPreference = (categoryName, updates) => {
 export const setAllCategoryPreferences = (newPrefsMap) => {
   if (!newPrefsMap || typeof newPrefsMap !== 'object') return;
   try {
-    localStorage.setItem(CATEGORY_PREFS_KEY, JSON.stringify(newPrefsMap));
+    const normalized = {};
+    Object.keys(newPrefsMap).forEach((key) => {
+      normalized[key] = normalizeCategoryPrefEntry(newPrefsMap[key]);
+    });
+    writeUserScopedJson(CATEGORY_PREFS_KEY, normalized);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: newPrefsMap }));
+      window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: normalized }));
     }
   } catch (e) {
     console.error('Failed to bulk save category preferences:', e);
   }
+};
+
+export const isCategoryVisibleInLabelList = (categoryName, categoryPrefsObj = null) => {
+  if (!categoryName) return true;
+  const prefs =
+    categoryPrefsObj && typeof categoryPrefsObj === 'object'
+      ? categoryPrefsObj
+      : getCategoryPreferences();
+  const key = Object.keys(prefs).find((k) => k.toLowerCase() === String(categoryName).trim().toLowerCase());
+  return key ? prefs[key]?.showInLabelList !== false : true;
+};
+
+export const isCategoryVisibleInMessageList = (categoryName, categoryPrefsObj = null) => {
+  if (!categoryName) return true;
+  const prefs =
+    categoryPrefsObj && typeof categoryPrefsObj === 'object'
+      ? categoryPrefsObj
+      : getCategoryPreferences();
+  const key = Object.keys(prefs).find((k) => k.toLowerCase() === String(categoryName).trim().toLowerCase());
+  return key ? prefs[key]?.showInMessageList !== false : true;
 };
 
 /**
