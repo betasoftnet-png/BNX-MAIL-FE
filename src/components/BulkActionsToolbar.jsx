@@ -27,7 +27,9 @@ import {
 } from "../utils/snoozeStorage";
 import {
   getAvailableLabelAsOptions,
+  isLabelAsOptionVisibleInFolder,
   matchesLabelIdentity,
+  resolveViewFolderForVisibility,
 } from "../utils/labelPreferences";
 
 const BulkActionsToolbar = ({
@@ -35,6 +37,7 @@ const BulkActionsToolbar = ({
   setSelectedIds,
   visibleEmails,
   folder,
+  visibilityFolder = null,
 }) => {
   const { t } = useTranslation();
   const { theme, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
@@ -79,6 +82,21 @@ const BulkActionsToolbar = ({
   const availableLabels = useMemo(() => {
     return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
   }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu, showLabelSub]);
+
+  const activeVisibilityFolder = resolveViewFolderForVisibility({
+    folder,
+    visibilityFolder,
+    pathname: typeof window !== "undefined" ? window.location.pathname : "",
+    search: typeof window !== "undefined" ? window.location.search : "",
+  });
+
+  const isLabelAsMenuVisible = useMemo(() => {
+    return isLabelAsOptionVisibleInFolder(activeVisibilityFolder, {
+      sidebarPreferences,
+      customLabelPreferences,
+      customLabels: labels,
+    });
+  }, [activeVisibilityFolder, labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState({
@@ -677,46 +695,48 @@ const BulkActionsToolbar = ({
                 </div>
 
                 {/* Label As Sub-Trigger */}
-                <div className="relative">
-                  <button
-                    onMouseEnter={() => { setShowLabelSub(true); setShowSnoozeSub(false); }}
-                    onClick={() => setShowLabelSub(!showLabelSub)}
-                    className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300 cursor-pointer"
-                  >
-                    <MdLabel size={16} className="text-gray-400" /> {t("bulk_actions.label_as", "Label as...")}
-                  </button>
-                  {showLabelSub && (
-                    <div 
-                      className={`absolute ${dropdownPos.openSubRight ? "left-full ml-1" : "right-full mr-1"} ${dropdownPos.openUpwards ? "bottom-0" : "top-0"} w-48 max-h-56 overflow-y-auto rounded-xl shadow-2xl border bg-white dark:bg-gray-900 py-1 z-[100000] hidden-scrollbar`}
-                      style={{ borderColor: theme.border }}
+                {isLabelAsMenuVisible && (
+                  <div className="relative">
+                    <button
+                      onMouseEnter={() => { setShowLabelSub(true); setShowSnoozeSub(false); }}
+                      onClick={() => setShowLabelSub(!showLabelSub)}
+                      className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300 cursor-pointer"
                     >
-                      {availableLabels.length === 0 ? (
-                        <div className="px-4 py-2 text-xs text-gray-400">{t("bulk_actions.no_labels", "No labels found")}</div>
-                      ) : (
-                        availableLabels.map((lbl) => {
-                          const isAssigned =
-                            selectedEmails.length > 0 &&
-                            selectedEmails.every((e) =>
-                              (e.labels || []).some((l) => matchesLabelIdentity(l, lbl))
+                      <MdLabel size={16} className="text-gray-400" /> {t("bulk_actions.label_as", "Label as...")}
+                    </button>
+                    {showLabelSub && (
+                      <div 
+                        className={`absolute ${dropdownPos.openSubRight ? "left-full ml-1" : "right-full mr-1"} ${dropdownPos.openUpwards ? "bottom-0" : "top-0"} w-48 max-h-56 overflow-y-auto rounded-xl shadow-2xl border bg-white dark:bg-gray-900 py-1 z-[100000] hidden-scrollbar`}
+                        style={{ borderColor: theme.border }}
+                      >
+                        {availableLabels.length === 0 ? (
+                          <div className="px-4 py-2 text-xs text-gray-400">{t("bulk_actions.no_labels", "No labels found")}</div>
+                        ) : (
+                          availableLabels.map((lbl) => {
+                            const isAssigned =
+                              selectedEmails.length > 0 &&
+                              selectedEmails.every((e) =>
+                                (e.labels || []).some((l) => matchesLabelIdentity(l, lbl))
+                              );
+                            return (
+                              <button 
+                                key={lbl.id} 
+                                onClick={() => handleBulkToggleLabel(lbl.id, isAssigned)} 
+                                className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between gap-2 cursor-pointer text-xs"
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
+                                  <span className="truncate">{lbl.name}</span>
+                                </div>
+                                {isAssigned && <MdCheck size={16} className="text-blue-500 shrink-0" />}
+                              </button>
                             );
-                          return (
-                            <button 
-                              key={lbl.id} 
-                              onClick={() => handleBulkToggleLabel(lbl.id, isAssigned)} 
-                              className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between gap-2 cursor-pointer text-xs"
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
-                                <span className="truncate">{lbl.name}</span>
-                              </div>
-                              {isAssigned && <MdCheck size={16} className="text-blue-500 shrink-0" />}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Unsubscribe */}
                 <button

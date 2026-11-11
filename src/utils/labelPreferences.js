@@ -375,7 +375,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
     colorHex: '#6366f1',
     type: 'SYSTEM',
     isSystem: true,
-    aliases: ['All Mail', 'all mail', 'ALL MAIL', 'ALL_MAIL', 'allmail', 'AllMail'],
+    aliases: ['All Mail', 'all mail', 'ALL MAIL', 'ALL_MAIL', 'allmail', 'AllMail', 'all-mail'],
   },
   {
     id: 'Spam',
@@ -665,10 +665,6 @@ export const isLabelShownInLabelList = (lbl, sidebarPreferences = null, customLa
   }
   if (!isValidLabelRecord(lbl)) return false;
 
-  if (lbl.showInLabelList === false) {
-    return false;
-  }
-
   const isSystemRecord = lbl.isSystem === true || normalizeLabelType(lbl) === 'SYSTEM';
   if (isSystemRecord) {
     return isSystemLabelShownInLabelList(lbl, sidebarPreferences);
@@ -681,9 +677,13 @@ export const isLabelShownInLabelList = (lbl, sidebarPreferences = null, customLa
 
   if (entry !== undefined) {
     if (typeof entry === 'boolean') return entry;
-    if (typeof entry === 'object' && entry !== null) {
+    if (typeof entry === 'object' && entry !== null && 'showInLabelList' in entry) {
       return entry.showInLabelList !== false;
     }
+  }
+
+  if (lbl.showInLabelList === false) {
+    return false;
   }
 
   return true;
@@ -758,6 +758,126 @@ export const getAvailableLabelAsOptions = (
   }
 
   return result;
+};
+
+const ROUTE_TO_FOLDER_KEY = {
+  '/starred': 'starred',
+  '/snoozed': 'snoozed',
+  '/sent': 'sent',
+  '/scheduled': 'scheduled',
+  '/draft': 'draft',
+  '/drafts': 'draft',
+  '/all-mail': 'all-mail',
+  '/allmail': 'all-mail',
+  '/spam': 'spam',
+  '/trash': 'trash',
+  '/important': 'important',
+  '/notifyhub': 'notification',
+  '/notification': 'notification',
+  '/notifications': 'notification',
+  '/archive': 'archive',
+  '/unread': 'unread',
+  '/bulk-mail': 'bulk',
+  '/bulk': 'bulk',
+  '/outbox': 'outbox',
+  '/all-inbox': 'all-inbox',
+};
+
+/**
+ * Resolves the active view/folder key used to check whether the "Label as..." menu should be shown.
+ */
+export const resolveViewFolderForVisibility = ({
+  folder = '',
+  visibilityFolder = '',
+  pathname = '',
+  search = '',
+  currentFolder = '',
+} = {}) => {
+  if (typeof visibilityFolder === 'string' && visibilityFolder.trim()) {
+    return visibilityFolder.trim();
+  }
+
+  const cleanPath = String(pathname || '').trim().toLowerCase().replace(/\/+$/, '') || '/';
+  const isImportantTab =
+    typeof search === 'string' &&
+    search.trim() !== '' &&
+    String(new URLSearchParams(search).get('tab') || '').toUpperCase() === 'IMPORTANT';
+
+  if (typeof folder === 'string' && folder.trim()) {
+    const trimmedFolder = folder.trim();
+    if (trimmedFolder.toLowerCase() === 'inbox' && (cleanPath === '/' || cleanPath === '/inbox') && isImportantTab) {
+      return 'important';
+    }
+    return trimmedFolder;
+  }
+
+  if (pathname) {
+    const labelMatch = cleanPath.match(/^\/label\/([^/]+)/);
+    if (labelMatch) {
+      try {
+        return `label-${decodeURIComponent(labelMatch[1])}`;
+      } catch {
+        return `label-${labelMatch[1]}`;
+      }
+    }
+
+    if (ROUTE_TO_FOLDER_KEY[cleanPath]) {
+      return ROUTE_TO_FOLDER_KEY[cleanPath];
+    }
+
+    if (cleanPath === '/' || cleanPath === '/inbox') {
+      if (isImportantTab) return 'important';
+      if (typeof currentFolder === 'string' && currentFolder.trim()) {
+        return currentFolder.trim();
+      }
+      return 'inbox';
+    }
+  }
+
+  return typeof currentFolder === 'string' ? currentFolder.trim() : '';
+};
+
+/**
+ * Determines whether the "Label as..." menu trigger itself should be shown while viewing a folder
+ * or custom label page, based on that folder/label's "Show in label list" Manage Labels setting.
+ */
+export const isLabelAsOptionVisibleInFolder = (
+  folderOrKey,
+  { sidebarPreferences = null, customLabelPreferences = null, customLabels = [] } = {}
+) => {
+  const raw = typeof folderOrKey === 'string' ? folderOrKey.trim() : '';
+  if (!raw) return true;
+
+  const labelRouteMatch = raw.match(/^label-(.+)$/i);
+  if (labelRouteMatch) {
+    const targetId = labelRouteMatch[1].trim();
+    if (!targetId) return true;
+
+    const list = Array.isArray(customLabels) ? customLabels : [];
+    const matchedLabel = list.find(
+      (lbl) =>
+        lbl &&
+        ((lbl.id !== undefined && lbl.id !== null && String(lbl.id) === targetId) ||
+          (typeof lbl.name === 'string' && lbl.name.toLowerCase() === targetId.toLowerCase()))
+    );
+
+    if (matchedLabel) {
+      return isLabelShownInLabelList(matchedLabel, sidebarPreferences, customLabelPreferences);
+    }
+
+    return isLabelShownInLabelList(
+      { id: targetId, name: targetId },
+      sidebarPreferences,
+      customLabelPreferences
+    );
+  }
+
+  const sysDef = findSystemLabelDefinition(raw);
+  if (sysDef) {
+    return isSystemLabelShownInLabelList(sysDef, sidebarPreferences);
+  }
+
+  return true;
 };
 
 /**

@@ -252,6 +252,7 @@ const Inbox = ({ searchQuery }) => {
       setSelectedIds={setSelectedIds}
       visibleEmails={visibleEmails}
       folder={currentFolder}
+      visibilityFolder={activeTab === 'IMPORTANT' ? 'important' : currentFolder}
     />
   ) : (
     <div className="flex flex-col border-b border-gray-100 dark:border-gray-800 bg-transparent shrink-0">
@@ -316,6 +317,7 @@ const Inbox = ({ searchQuery }) => {
 
   const detailsComponent = selectedEmail ? (
     <EmailDetails
+      visibilityFolder={activeTab === 'IMPORTANT' ? 'important' : currentFolder}
       emailList={visibleEmails}
       onNavigate={(email) => {
         setSelectedEmailOverride(null);

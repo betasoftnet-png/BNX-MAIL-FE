@@ -6,7 +6,9 @@ import FontSizeDropdown from "./FontSizeDropdown";
 import {
   getAvailableLabelAsOptions,
   findSystemLabelDefinition,
-  matchesLabelIdentity
+  isLabelAsOptionVisibleInFolder,
+  matchesLabelIdentity,
+  resolveViewFolderForVisibility,
 } from "../utils/labelPreferences";
 
 const Size = Quill.import('attributors/style/size');
@@ -137,6 +139,7 @@ const getFileIcon = (fileName) => {
 };
 
 const EmailDetails = ({
+  visibilityFolder = null,
   email,
   onBack,
   onReply,
@@ -177,6 +180,21 @@ const EmailDetails = ({
   const availableLabelOptions = useMemo(() => {
     return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
   }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick]);
+
+  const activeVisibilityFolder = resolveViewFolderForVisibility({
+    visibilityFolder,
+    pathname: typeof window !== "undefined" ? window.location.pathname : "",
+    search: typeof window !== "undefined" ? window.location.search : "",
+    currentFolder,
+  });
+
+  const isLabelAsMenuVisible = useMemo(() => {
+    return isLabelAsOptionVisibleInFolder(activeVisibilityFolder, {
+      sidebarPreferences,
+      customLabelPreferences,
+      customLabels: labels,
+    });
+  }, [activeVisibilityFolder, labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick]);
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
@@ -1646,62 +1664,64 @@ const EmailDetails = ({
               </div>
 
               {/* Labels dropdown */}
-              <div className="relative" ref={labelsRef}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLabels(!showLabels);
-                    setShowSnooze(false);
-                  }}
-                  className={`p-2 rounded-full cursor-pointer transition-colors relative flex items-center justify-center ${
-                    showLabels
-                      ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
-                      : "text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10"
-                  }`}
-                  title={t("bulk_actions.label_as", "Label as...")}
-                  aria-label="Label email"
-                >
-                  <MdLabel size={20} />
-                </button>
-
-                {showLabels && (
-                  <div
-                    className="absolute right-0 mt-2 w-48 max-h-56 overflow-y-auto rounded-xl shadow-2xl z-30 border bg-white dark:bg-neutral-900 py-1 text-xs select-none"
-                    style={{ borderColor: theme.border }}
+              {isLabelAsMenuVisible && (
+                <div className="relative" ref={labelsRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLabels(!showLabels);
+                      setShowSnooze(false);
+                    }}
+                    className={`p-2 rounded-full cursor-pointer transition-colors relative flex items-center justify-center ${
+                      showLabels
+                        ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
+                        : "text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10"
+                    }`}
+                    title={t("bulk_actions.label_as", "Label as...")}
+                    aria-label="Label email"
                   >
-                    <div className="px-3 py-1.5 font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-neutral-800 text-[11px] uppercase tracking-wider">
-                      {t("bulk_actions.label_as", "Label as")}
+                    <MdLabel size={20} />
+                  </button>
+
+                  {showLabels && (
+                    <div
+                      className="absolute right-0 mt-2 w-48 max-h-56 overflow-y-auto rounded-xl shadow-2xl z-30 border bg-white dark:bg-neutral-900 py-1 text-xs select-none"
+                      style={{ borderColor: theme.border }}
+                    >
+                      <div className="px-3 py-1.5 font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-neutral-800 text-[11px] uppercase tracking-wider">
+                        {t("bulk_actions.label_as", "Label as")}
+                      </div>
+                      {availableLabelOptions.length === 0 ? (
+                        <div className="px-3 py-2 text-gray-400 text-center">{t("bulk_actions.no_labels", "No labels found")}</div>
+                      ) : (
+                        availableLabelOptions.map((lbl) => {
+                          const isApplied = (localLabels || []).some((l) => matchesLabelIdentity(l, lbl));
+                          return (
+                            <button
+                              key={lbl.id}
+                              type="button"
+                              onClick={() => {
+                                if (isApplied) {
+                                  handleRemoveLabelOption(lbl.id, lbl.name, lbl.prefKey);
+                                } else {
+                                  handleApplyLabelOption(lbl.id);
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-neutral-800 flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
+                                <span className="truncate text-gray-800 dark:text-gray-200">{lbl.name}</span>
+                              </div>
+                              {isApplied && <MdCheck size={16} className="text-blue-500 shrink-0" />}
+                            </button>
+                          );
+                        })
+                      )}
                     </div>
-                    {availableLabelOptions.length === 0 ? (
-                      <div className="px-3 py-2 text-gray-400 text-center">{t("bulk_actions.no_labels", "No labels found")}</div>
-                    ) : (
-                      availableLabelOptions.map((lbl) => {
-                        const isApplied = (localLabels || []).some((l) => matchesLabelIdentity(l, lbl));
-                        return (
-                          <button
-                            key={lbl.id}
-                            type="button"
-                            onClick={() => {
-                              if (isApplied) {
-                                handleRemoveLabelOption(lbl.id, lbl.name, lbl.prefKey);
-                              } else {
-                                handleApplyLabelOption(lbl.id);
-                              }
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-neutral-800 flex items-center justify-between gap-2 cursor-pointer transition-colors"
-                          >
-                            <div className="flex items-center gap-2 truncate">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
-                              <span className="truncate text-gray-800 dark:text-gray-200">{lbl.name}</span>
-                            </div>
-                            {isApplied && <MdCheck size={16} className="text-blue-500 shrink-0" />}
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
