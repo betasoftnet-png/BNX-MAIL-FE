@@ -336,6 +336,8 @@ export const mailAPI = {
     deleteLabel: (id) => api.delete(`${API_ENDPOINTS.MAIL.LABELS}/${id}`),
     applyLabel: (uid, labelId, folder = 'INBOX') => api.post(`${API_ENDPOINTS.MAIL.APPLY_LABEL}/${uid}?labelId=${encodeURIComponent(labelId)}&folder=${encodeURIComponent(folder)}`),
     removeLabel: (uid, labelId, folder = 'INBOX') => api.delete(`${API_ENDPOINTS.MAIL.REMOVE_LABEL}/${uid}?labelId=${encodeURIComponent(labelId)}&folder=${encodeURIComponent(folder)}`),
+    getSystemLabelSettings: () => api.get(API_ENDPOINTS.MAIL.SYSTEM_LABEL_SETTINGS),
+    updateSystemLabelSettings: (settings) => api.put(API_ENDPOINTS.MAIL.SYSTEM_LABEL_SETTINGS, { settings }),
     getCategory: (category) => api.get(`${API_ENDPOINTS.MAIL.CATEGORY}/${category}`),
 };
 

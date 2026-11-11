@@ -301,6 +301,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
     id: 'Inbox',
     name: 'Inbox',
     prefKey: 'Inbox',
+    backendKey: 'INBOX',
     colorHex: '#3b82f6',
     type: 'SYSTEM',
     isSystem: true,
@@ -310,6 +311,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
     id: 'Starred',
     name: 'Starred',
     prefKey: 'Starred',
+    backendKey: 'STARRED',
     colorHex: '#f59e0b',
     type: 'SYSTEM',
     isSystem: true,
@@ -319,6 +321,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
     id: 'Snoozed',
     name: 'Snoozed',
     prefKey: 'Snoozed',
+    backendKey: 'SNOOZED',
     colorHex: '#8b5cf6',
     type: 'SYSTEM',
     isSystem: true,
@@ -328,6 +331,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
     id: 'Important',
     name: 'Important',
     prefKey: 'Important',
+    backendKey: 'IMPORTANT',
     colorHex: '#eab308',
     type: 'SYSTEM',
     isSystem: true,
@@ -337,6 +341,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
     id: 'Sent',
     name: 'Sent',
     prefKey: 'Sent',
+    backendKey: 'SENT',
     colorHex: '#10b981',
     type: 'SYSTEM',
     isSystem: true,
@@ -346,6 +351,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
     id: 'Scheduled',
     name: 'Scheduled',
     prefKey: 'Scheduled',
+    backendKey: 'SCHEDULED',
     colorHex: '#06b6d4',
     type: 'SYSTEM',
     isSystem: true,
@@ -355,24 +361,27 @@ export const SYSTEM_LABEL_DEFINITIONS = [
     id: 'Drafts',
     name: 'Drafts',
     prefKey: 'Draft',
+    backendKey: 'DRAFTS',
     colorHex: '#f97316',
     type: 'SYSTEM',
     isSystem: true,
-    aliases: ['Draft', 'Drafts', 'draft', 'drafts', 'DRAFTS'],
+    aliases: ['Draft', 'Drafts', 'draft', 'drafts', 'DRAFTS', 'DRAFT'],
   },
   {
     id: 'All Mail',
     name: 'All Mail',
     prefKey: 'All Mail',
+    backendKey: 'ALL_MAIL',
     colorHex: '#6366f1',
     type: 'SYSTEM',
     isSystem: true,
-    aliases: ['All Mail', 'all mail', 'ALL MAIL', 'allmail', 'AllMail'],
+    aliases: ['All Mail', 'all mail', 'ALL MAIL', 'ALL_MAIL', 'allmail', 'AllMail'],
   },
   {
     id: 'Spam',
     name: 'Spam',
     prefKey: 'Spam',
+    backendKey: 'SPAM',
     colorHex: '#ef4444',
     type: 'SYSTEM',
     isSystem: true,
@@ -382,6 +391,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
     id: 'Trash',
     name: 'Trash',
     prefKey: 'Trash',
+    backendKey: 'TRASH',
     colorHex: '#64748b',
     type: 'SYSTEM',
     isSystem: true,
@@ -391,7 +401,7 @@ export const SYSTEM_LABEL_DEFINITIONS = [
 
 const SYSTEM_LABEL_LOOKUP = new Map();
 SYSTEM_LABEL_DEFINITIONS.forEach((def) => {
-  [def.id, def.name, def.prefKey, ...(def.aliases || [])].forEach((token) => {
+  [def.id, def.name, def.prefKey, def.backendKey, ...(def.aliases || [])].forEach((token) => {
     if (token !== undefined && token !== null) {
       SYSTEM_LABEL_LOOKUP.set(String(token).trim().toLowerCase(), def);
     }
@@ -404,6 +414,8 @@ export const findSystemLabelDefinition = (labelOrKey) => {
     const candidates = [
       labelOrKey.id,
       labelOrKey.prefKey,
+      labelOrKey.backendKey,
+      labelOrKey.labelName,
       labelOrKey.name,
       ...(Array.isArray(labelOrKey.aliases) ? labelOrKey.aliases : []),
     ];
@@ -422,7 +434,7 @@ export const getSystemLabelPrefKeys = (defOrKey) => {
   const def = findSystemLabelDefinition(defOrKey) || (typeof defOrKey === 'object' ? defOrKey : null);
   if (!def) return defOrKey ? [String(defOrKey)] : [];
   return Array.from(
-    new Set([def.prefKey, def.id, def.name, ...(def.aliases || [])].filter(Boolean))
+    new Set([def.prefKey, def.id, def.name, def.backendKey, ...(def.aliases || [])].filter(Boolean))
   );
 };
 
@@ -465,6 +477,43 @@ export const normalizeSystemLabelPrefsMap = (prefsObj = {}) => {
     }
   });
   return normalized;
+};
+
+/**
+ * Serializes the frontend sidebar preferences map into the backend PUT payload
+ * array: [{ labelName: 'INBOX', showInLabelList: true }, ...]
+ */
+export const toBackendSystemLabelSettingsPayload = (prefsObj = {}) => {
+  const normalized = normalizeSystemLabelPrefsMap(prefsObj);
+  return SYSTEM_LABEL_DEFINITIONS.map((def) => ({
+    labelName: def.backendKey,
+    showInLabelList: normalized[def.prefKey] !== false && normalized[def.id] !== false,
+  }));
+};
+
+/**
+ * Maps a backend system label settings response (or raw settings list) into a
+ * normalized frontend sidebar preferences map, preserving any extra UI keys in basePrefs.
+ * Returns null if no valid settings array is present so callers never wipe saved state.
+ */
+export const mergeBackendSystemLabelSettings = (apiPayloadOrList, basePrefs = {}) => {
+  const settingsList = Array.isArray(apiPayloadOrList)
+    ? apiPayloadOrList
+    : (Array.isArray(apiPayloadOrList?.data?.settings)
+        ? apiPayloadOrList.data.settings
+        : (Array.isArray(apiPayloadOrList?.settings) ? apiPayloadOrList.settings : null));
+
+  if (!settingsList) return null;
+
+  const merged = { ...(basePrefs || {}) };
+  settingsList.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const def = findSystemLabelDefinition(item.labelName || item.name || item.id);
+    if (!def) return;
+    const isShown = item.showInLabelList !== false;
+    setSystemLabelPrefKeys(merged, def, isShown);
+  });
+  return normalizeSystemLabelPrefsMap(merged);
 };
 
 /**

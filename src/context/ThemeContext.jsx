@@ -1,10 +1,16 @@
-import { settingsAPI } from "../services/api";
-import { normalizeSystemLabelPrefsMap, writeUserScopedJson } from "../utils/labelPreferences";
+import { settingsAPI, mailAPI } from "../services/api";
+import {
+  normalizeSystemLabelPrefsMap,
+  mergeBackendSystemLabelSettings,
+  writeUserScopedJson
+} from "../utils/labelPreferences";
 import React, {
   createContext,
   useContext,
   useState,
   useEffect,
+  useCallback,
+  useRef,
 } from "react";
 
 const ThemeContext = createContext();
@@ -172,14 +178,48 @@ export const ThemeProvider = ({ children }) => {
 
   const [labelPrefsVersion, setLabelPrefsVersion] = useState(0);
 
+  const syncSeqRef = useRef(0);
+
+  const syncSystemLabelSettingsFromServer = useCallback(async () => {
+    if (typeof window === "undefined") return null;
+    const tokenAtStart = localStorage.getItem("accessToken");
+    if (!tokenAtStart) return null;
+
+    const reqSeq = ++syncSeqRef.current;
+    try {
+      const response = await mailAPI.getSystemLabelSettings();
+      if (reqSeq !== syncSeqRef.current) return null;
+      if (localStorage.getItem("accessToken") !== tokenAtStart) return null;
+
+      const base = readStoredSidebarPrefs();
+      const merged = mergeBackendSystemLabelSettings(response?.data, base);
+      if (!merged) return null;
+
+      const cleaned = sanitizeSidebarPrefs(merged);
+      setSidebarPreferencesState(cleaned);
+      try {
+        writeUserScopedJson("bnx_sidebar_prefs", cleaned);
+      } catch (e) {}
+      setLabelPrefsVersion((v) => v + 1);
+      return cleaned;
+    } catch (err) {
+      // Do not wipe or mutate existing saved state when backend fetch fails
+      return null;
+    }
+  }, []);
+
   // Global listener for cross-component preference synchronization
   useEffect(() => {
     const handleGlobalPrefsSync = (e) => {
       try {
         if (e?.detail?.accountChanged) {
+          syncSeqRef.current += 1;
           setSidebarPreferencesState(readStoredSidebarPrefs());
           setCustomLabelPreferencesState(readStoredCustomPrefs());
           setLabelPrefsVersion((v) => v + 1);
+          if (localStorage.getItem("accessToken")) {
+            syncSystemLabelSettingsFromServer();
+          }
           return;
         }
 
@@ -226,6 +266,9 @@ export const ThemeProvider = ({ children }) => {
     }
     setSidebarPreferencesState(readStoredSidebarPrefs());
     setCustomLabelPreferencesState(readStoredCustomPrefs());
+    if (localStorage.getItem("accessToken")) {
+      syncSystemLabelSettingsFromServer();
+    }
     const savedAccent = localStorage.getItem("bnx_accent_color");
     if (savedAccent) setCustomAccentColor(savedAccent);
     const savedFontSize = localStorage.getItem("bnx_font_size");
@@ -362,6 +405,7 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const saveLabelVisibilityPreferences = (sysPrefs, customPrefs) => {
+    syncSeqRef.current += 1;
     const cleanedSysPrefs = sysPrefs ? sanitizeSidebarPrefs(sysPrefs) : undefined;
 
     if (cleanedSysPrefs) {
@@ -413,6 +457,7 @@ export const ThemeProvider = ({ children }) => {
         customLabelPreferences,
         setCustomLabelPreferences,
         saveLabelVisibilityPreferences,
+        refreshSystemLabelSettings: syncSystemLabelSettingsFromServer,
         labelPrefsVersion,
         customAccentColor,
         updateCustomAccentColor,
@@ -447,6 +492,7 @@ export const useTheme = () => {
       setSidebarPreferences: () => {},
       setCustomLabelPreferences: () => {},
       saveLabelVisibilityPreferences: () => {},
+      refreshSystemLabelSettings: async () => null,
       backgroundImage: '',
       changeTheme: () => {},
       setBackgroundImage: () => {},

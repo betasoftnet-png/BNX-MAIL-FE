@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useTranslation } from "../context/LanguageContext";
+import { mailAPI } from "../services/api";
 import { Tag } from "lucide-react";
 import {
   MdLabel,
@@ -43,6 +44,8 @@ import {
   SYSTEM_LABEL_DEFINITIONS,
   isSystemLabelShownInLabelList,
   setSystemLabelPrefKeys,
+  toBackendSystemLabelSettingsPayload,
+  mergeBackendSystemLabelSettings,
   readStoredCustomLabelPrefs
 } from "../utils/labelPreferences";
 
@@ -80,7 +83,8 @@ const LabelManagement = ({ embedded = false }) => {
     sidebarPreferences,
     customLabelPreferences,
     setSidebarPreferences,
-    saveLabelVisibilityPreferences
+    saveLabelVisibilityPreferences,
+    refreshSystemLabelSettings
   } = useTheme();
   const {
     labels = [],
@@ -102,6 +106,7 @@ const LabelManagement = ({ embedded = false }) => {
   const [draftImapPrefs, setDraftImapPrefs] = useState(() => ({ ...getImapPreferences() }));
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingSystemLabels, setIsLoadingSystemLabels] = useState(false);
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -134,6 +139,19 @@ const LabelManagement = ({ embedded = false }) => {
   useEffect(() => {
     loadCustomVisibility();
   }, [labels, customLabelPreferences]);
+
+  useEffect(() => {
+    let active = true;
+    if (typeof refreshSystemLabelSettings === "function" && typeof window !== "undefined" && localStorage.getItem("accessToken")) {
+      setIsLoadingSystemLabels(true);
+      Promise.resolve(refreshSystemLabelSettings()).finally(() => {
+        if (active) setIsLoadingSystemLabels(false);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [refreshSystemLabelSettings]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -246,8 +264,9 @@ const LabelManagement = ({ embedded = false }) => {
     setHasUnsavedChanges(true);
   };
 
-  // Save All Action: Applies draft settings to persistent storage and sidebar
-  const handleSaveAll = () => {
+  // Save All Action: Persists system label visibility to backend, then commits to context/storage
+  const handleSaveAll = async () => {
+    if (isSaving) return;
     setIsSaving(true);
     try {
       // 1. Prepare system labels preferences (normalized across all aliases)
@@ -260,7 +279,14 @@ const LabelManagement = ({ embedded = false }) => {
         setSystemLabelPrefKeys(finalSidebarPrefs, item, isShown);
       });
 
-      // 2. Prepare custom labels visibility keyed strictly by existing label ID
+      // 2. Persist system label visibility to backend MySQL database first.
+      // Failed API calls intentionally abort before mutating saved state/localStorage.
+      const backendPayload = toBackendSystemLabelSettingsPayload(finalSidebarPrefs);
+      const response = await mailAPI.updateSystemLabelSettings(backendPayload);
+      const confirmedSidebarPrefs =
+        mergeBackendSystemLabelSettings(response?.data, finalSidebarPrefs) || finalSidebarPrefs;
+
+      // 3. Prepare custom labels visibility keyed strictly by existing label ID
       const fullCustomVisibility =
         Array.isArray(labels) && labels.length > 0
           ? {}
@@ -279,20 +305,21 @@ const LabelManagement = ({ embedded = false }) => {
         };
       });
 
-      // 3. Commit to centralized React Context and localStorage (also broadcasts bnx-label-prefs-changed)
+      // 4. Commit to centralized React Context and localStorage (also broadcasts bnx-label-prefs-changed)
       if (typeof saveLabelVisibilityPreferences === "function") {
-        saveLabelVisibilityPreferences(finalSidebarPrefs, fullCustomVisibility);
+        saveLabelVisibilityPreferences(confirmedSidebarPrefs, fullCustomVisibility);
       } else {
-        setSidebarPreferences(finalSidebarPrefs);
+        setSidebarPreferences(confirmedSidebarPrefs);
         setAllCustomLabelVisibility(fullCustomVisibility);
       }
+      setDraftSidebarPrefs(confirmedSidebarPrefs);
       setCustomVisibility(fullCustomVisibility);
 
-      // 4. Commit category preferences
+      // 5. Commit category preferences
       setAllCategoryPreferences(draftCatPrefs);
       setCatPrefs(draftCatPrefs);
 
-      // 5. Commit IMAP preferences
+      // 6. Commit IMAP preferences
       setAllImapPreferences(draftImapPrefs);
       setImapPrefs(draftImapPrefs);
 
@@ -300,7 +327,11 @@ const LabelManagement = ({ embedded = false }) => {
       toast.success(t("settings.labels_saved", "Label visibility preferences saved successfully."));
     } catch (err) {
       console.error("Failed to save label visibility preferences:", err);
-      toast.error("Failed to save preferences. Please try again.");
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to save preferences. Please try again.";
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -480,10 +511,15 @@ const LabelManagement = ({ embedded = false }) => {
         {/* 1. SYSTEM LABELS CARD */}
         {/* ========================================================= */}
         <section className="bg-white dark:bg-gray-800/90 rounded-2xl border border-blue-100/70 dark:border-gray-700/80 shadow-xs overflow-hidden">
-          <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-4 pb-2 border-b border-gray-100 dark:border-gray-700/60">
+          <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-4 pb-2 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-2">
             <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">
               System labels
             </h2>
+            {isLoadingSystemLabels && (
+              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                Syncing...
+              </span>
+            )}
           </div>
 
           <div className="w-full">

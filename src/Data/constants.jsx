@@ -192,6 +192,7 @@ export const API_ENDPOINTS = {
     LABELS: '/api/mail/labels',
     APPLY_LABEL: '/api/mail/labels/apply',
     REMOVE_LABEL: '/api/mail/labels/remove',
+    SYSTEM_LABEL_SETTINGS: '/api/labels/system-settings',
     CATEGORY: '/api/mail/category',
     UNSUBSCRIBE: '/api/mail/unsubscribe',
     SUBSCRIBE: '/api/mail/subscribe',
