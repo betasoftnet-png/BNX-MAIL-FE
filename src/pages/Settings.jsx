@@ -1496,14 +1496,18 @@ const Settings = () => {
     { id: "shortcuts", label: t("settings.keyboard_shortcuts", "Keyboard Shortcuts"), icon: <MdKeyboard size={20} /> },
   ];
 
+  const activeTabItem = tabs.find(tab => tab.id === activeTab) || tabs[0];
+
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: theme.cardBg }}>
+    <div className="settings-page flex flex-1 h-full min-h-0 w-full min-w-0 overflow-hidden" style={{ background: theme.cardBg }}>
       {/* Side Tabs Bar */}
       <aside
-        className="w-64 lg:w-72 border-r p-4 md:p-5 flex flex-col gap-1.5 shrink-0 overflow-y-auto"
+        aria-label={t("settings.title", "Settings")}
+        className="settings-sidebar w-64 lg:w-72 border-r p-4 md:p-5 flex flex-col gap-1.5 shrink-0 overflow-y-auto overflow-x-hidden hidden-scrollbar"
         style={{ background: theme.cardBg, borderColor: theme.border }}
       >
         <button
+          type="button"
           onClick={() => {
             if (window.history.length > 1) {
               navigate(-1);
@@ -1511,13 +1515,15 @@ const Settings = () => {
               navigate("/inbox");
             }
           }}
-          className="text-sm font-semibold mb-3 hover:underline text-left cursor-pointer flex items-center gap-1.5 transition-colors hover:text-primary"
+          title={t("common.back", "Back")}
+          aria-label={t("common.back", "Back")}
+          className="settings-back-btn text-sm font-semibold mb-3 hover:underline text-left cursor-pointer flex items-center gap-1.5 transition-colors hover:text-primary"
           style={{ color: theme.accent }}
         >
-          <ArrowLeft size={16} />
-          <span>{t("common.back", "Back")}</span>
+          <ArrowLeft size={16} className="shrink-0" />
+          <span className="settings-sidebar-label">{t("common.back", "Back")}</span>
         </button>
-        <h2 className="text-2xl font-bold mb-4 px-2" style={{ color: theme.text }}>{t("settings.title", "Settings")}</h2>
+        <h2 className="settings-sidebar-heading text-2xl font-bold mb-4 px-2" style={{ color: theme.text }}>{t("settings.title", "Settings")}</h2>
 
         {tabs.map(tab => (
           <SideTab
@@ -1541,14 +1547,24 @@ const Settings = () => {
       </aside>
 
       {/* Settings Options Pane */}
-      <main ref={mainContentRef} className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto hidden-scrollbar flex justify-start" style={{ background: theme.cardBg }}>
+      <main ref={mainContentRef} className="settings-main flex-1 min-w-0 p-4 md:p-6 lg:p-8 overflow-y-auto overflow-x-hidden hidden-scrollbar flex justify-start" style={{ background: theme.cardBg }}>
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="w-full"
+          className="settings-content-inner w-full min-w-0"
         >
+          {/* Mobile-only Active Setting Header (displays selected setting name when left sidebar shows icons only) */}
+          <div className="settings-mobile-header" style={{ borderColor: theme.border }}>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              {t("settings.title", "Settings")}
+            </span>
+            <h1 className="text-lg font-bold leading-tight truncate" style={{ color: theme.text }}>
+              {activeTabItem?.label}
+            </h1>
+          </div>
+
           {/* accounts Tab */}
           {activeTab === "accounts" && (
             <div className="flex flex-col gap-5 md:gap-6">
@@ -1572,22 +1588,22 @@ const Settings = () => {
                       <div
                         key={session.email}
                         onClick={() => switchAccount(session.email)}
-                        className="flex items-center justify-between p-4 sm:p-5 rounded-2xl border hover:shadow-sm transition-shadow cursor-pointer w-full"
+                        className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 p-4 sm:p-5 rounded-2xl border hover:shadow-sm transition-shadow cursor-pointer w-full min-w-0"
                         style={{ borderColor: theme.border, background: user?.email === session.email ? theme.accent + '11' : theme.cardBg }}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-sm">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-sm shrink-0">
                             {(session.email || "M").charAt(0).toUpperCase()}
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold" style={{ color: theme.text }}>{session.email}</span>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-sm font-semibold break-all sm:break-normal sm:truncate" style={{ color: theme.text }}>{session.email}</span>
                             <span className="text-[11px] text-gray-400">{t("settings.bnx_account", "BNX Mail Account")}</span>
                           </div>
                         </div>
                         {user?.email === session.email ? (
-                          <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">{t("settings.active", "Active")}</span>
+                          <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300 shrink-0">{t("settings.active", "Active")}</span>
                         ) : (
-                          <span className="text-xs text-gray-400 font-medium hover:text-gray-600 transition-colors">{t("settings.switch_account", "Switch Account")}</span>
+                          <span className="text-xs text-gray-400 font-medium hover:text-gray-600 transition-colors shrink-0">{t("settings.switch_account", "Switch Account")}</span>
                         )}
                       </div>
                     ))
@@ -1600,19 +1616,19 @@ const Settings = () => {
               {/* 1. Account Information */}
               <Section title={t("settings.account_info", "Account Information")} theme={theme}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-                  <div className="flex flex-col gap-1 p-4 rounded-xl border" style={{ borderColor: theme.border }}>
+                  <div className="flex flex-col gap-1 p-4 rounded-xl border min-w-0" style={{ borderColor: theme.border }}>
                     <span className="text-xs font-semibold text-gray-400 uppercase">{t("settings.full_name_username", "Full Name / Username")}</span>
-                    <span className="text-sm font-semibold truncate" style={{ color: theme.text }}>{user?.name || user?.username || (user?.email ? user.email.split('@')[0] : t("settings.not_specified", "Not specified"))}</span>
+                    <span className="text-sm font-semibold break-words sm:truncate" style={{ color: theme.text }}>{user?.name || user?.username || (user?.email ? user.email.split('@')[0] : t("settings.not_specified", "Not specified"))}</span>
                   </div>
-                  <div className="flex flex-col gap-1 p-4 rounded-xl border" style={{ borderColor: theme.border }}>
+                  <div className="flex flex-col gap-1 p-4 rounded-xl border min-w-0" style={{ borderColor: theme.border }}>
                     <span className="text-xs font-semibold text-gray-400 uppercase">{t("settings.primary_email", "Primary Email")}</span>
-                    <span className="text-sm font-semibold truncate" style={{ color: theme.text }}>{user?.email || t("settings.not_available", "Not available")}</span>
+                    <span className="text-sm font-semibold break-all sm:break-normal sm:truncate" style={{ color: theme.text }}>{user?.email || t("settings.not_available", "Not available")}</span>
                   </div>
-                  <div className="flex flex-col gap-1 p-4 rounded-xl border" style={{ borderColor: theme.border }}>
+                  <div className="flex flex-col gap-1 p-4 rounded-xl border min-w-0" style={{ borderColor: theme.border }}>
                     <span className="text-xs font-semibold text-gray-400 uppercase">{t("settings.account_role", "Account Role")}</span>
                     <span className="text-sm font-semibold" style={{ color: theme.text }}>{user?.role || t("settings.standard_user", "Standard User")}</span>
                   </div>
-                  <div className="flex flex-col gap-1 p-4 rounded-xl border" style={{ borderColor: theme.border }}>
+                  <div className="flex flex-col gap-1 p-4 rounded-xl border min-w-0" style={{ borderColor: theme.border }}>
                     <span className="text-xs font-semibold text-gray-400 uppercase">{t("settings.account_status", "Account Status")}</span>
                     <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t("settings.active_verified", "Active & Verified ✓")}</span>
                   </div>
@@ -1635,8 +1651,8 @@ const Settings = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-t pt-4" style={{ borderColor: theme.border }}>
                     {/* 4. Recovery Email */}
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">{t("settings.recovery_email_address", "Recovery Email Address")}</label>
                         {isRecoveryEmailVerified ? (
                           <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
@@ -1656,14 +1672,14 @@ const Settings = () => {
                           setRecoveryInfo({ ...recoveryInfo, recoveryEmail: e.target.value });
                           setIsRecoveryEmailVerified(false);
                         }}
-                        className="p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                        className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                       />
                     </div>
 
                     {/* 5. Recovery Phone Number */}
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">{t("settings.recovery_phone_number", "Recovery Phone Number")}</label>
                         {isRecoveryPhoneVerified ? (
                           <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
@@ -1686,7 +1702,7 @@ const Settings = () => {
                           setRecoveryInfo({ ...recoveryInfo, phoneNumber: digitsOnly });
                           setIsRecoveryPhoneVerified(false);
                         }}
-                        className="p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                        className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                       />
                     </div>
@@ -1729,7 +1745,7 @@ const Settings = () => {
                     <select
                       value={securityToggles.idleTimeout}
                       onChange={e => setSecurityToggles({ ...securityToggles, idleTimeout: e.target.value })}
-                      className="p-3 text-sm rounded-xl border outline-none cursor-pointer focus:ring-2 focus:border-transparent transition-all"
+                      className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none cursor-pointer focus:ring-2 focus:border-transparent transition-all"
                       style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                     >
                       <option value="never">{t("settings.timeout_never", "Never")}</option>
@@ -1868,7 +1884,7 @@ const Settings = () => {
                     </div>
 
                     <form onSubmit={handleVerifyOtpSubmit} className="flex flex-col gap-5">
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-center gap-1.5 sm:gap-2">
                         {otpDigits.map((digit, idx) => (
                           <input
                             key={idx}
@@ -1879,7 +1895,7 @@ const Settings = () => {
                             value={digit}
                             onChange={e => handleDigitChange(idx, e.target.value)}
                             onKeyDown={e => handleDigitKeyDown(idx, e)}
-                            className="w-11 h-12 text-center text-lg font-bold rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                            className="w-9 h-11 sm:w-11 sm:h-12 text-center text-lg font-bold rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                             style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border, color: theme.text }}
                           />
                         ))}
@@ -1986,13 +2002,13 @@ const Settings = () => {
                 {/* 3. Default Text Style */}
                 <div className="flex flex-col gap-4 border-t pt-6 mt-2" style={{ borderColor: theme.border }}>
                   <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t("settings.default_text_style", "DEFAULT TEXT STYLE")}</h4>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="flex flex-col gap-2 min-w-0">
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("settings.font_family", "Font Family")}</span>
                       <select
                         value={defaultFontFamily}
                         onChange={e => setDefaultFontFamily(e.target.value)}
-                        className="w-full p-3 text-sm rounded-xl border outline-none cursor-pointer focus:ring-2 focus:border-transparent transition-all"
+                        className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none cursor-pointer focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                       >
                         <option value="Arial" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>Arial</option>
@@ -2006,12 +2022,12 @@ const Settings = () => {
                       </select>
                     </div>
 
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 min-w-0">
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("settings.font_size", "Font Size")}</span>
                       <select
                         value={defaultFontSize}
                         onChange={e => setDefaultFontSize(e.target.value)}
-                        className="w-full p-3 text-sm rounded-xl border outline-none cursor-pointer focus:ring-2 focus:border-transparent transition-all"
+                        className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none cursor-pointer focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                       >
                         <option value="Small" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ backgroundColor: theme.mode === 'dark' ? '#1f2937' : '#ffffff', color: theme.mode === 'dark' ? '#f3f4f6' : '#111827' }}>{t("settings.font_size_small", "Small")}</option>
@@ -2022,7 +2038,7 @@ const Settings = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 mt-2">
+                  <div className="flex flex-wrap items-center gap-3 mt-2">
                     <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t("settings.text_color", "Text Color:")}</span>
                     <input
                       type="color"
@@ -2031,7 +2047,7 @@ const Settings = () => {
                       className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent shrink-0 outline-none"
                     />
                     <span
-                      className="px-3 py-1.5 text-xs rounded-lg border font-medium bg-white dark:bg-gray-800"
+                      className="px-3 py-1.5 text-xs rounded-lg border font-medium bg-white dark:bg-gray-800 max-w-full break-words"
                       style={{ fontFamily: defaultFontFamily, color: defaultTextColor, borderColor: theme.border }}
                     >
                       {t("settings.text_style_preview", "Sample Default Text Style Preview")}
@@ -2041,12 +2057,12 @@ const Settings = () => {
 
                 {/* 4. Email Signatures Section */}
                 <div className="flex flex-col gap-4 border-t pt-6 mt-2" style={{ borderColor: theme.border }}>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t("settings.email_signatures", "EMAIL SIGNATURES")}</h4>
                     <button
                       type="button"
                       onClick={addSignature}
-                      className="text-xs px-3 py-1.5 rounded-lg font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 transition cursor-pointer"
+                      className="text-xs px-3 py-1.5 rounded-lg font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 transition cursor-pointer shrink-0"
                     >
                       {t("settings.add_signature", "+ Add Signature")}
                     </button>
@@ -2063,7 +2079,7 @@ const Settings = () => {
                             key={sig.id}
                             type="button"
                             onClick={() => setEditingSignatureId(sig.id)}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition cursor-pointer border ${editingSignatureId === sig.id ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/5'}`}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition cursor-pointer border max-w-full ${editingSignatureId === sig.id ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/5'}`}
                           >
                             {sig.name || t("settings.unnamed", "Unnamed")}
                             {sig.isDefault && <span className="ml-2 text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1 rounded-sm">{t("settings.default", "Default")}</span>}
@@ -2073,20 +2089,20 @@ const Settings = () => {
 
                       {/* Active Signature Editor */}
                       {signatures.filter(s => s.id === editingSignatureId).map((sig) => (
-                        <div key={sig.id} className="border rounded-xl p-4 flex flex-col gap-3 shadow-sm bg-white dark:bg-transparent" style={{ borderColor: theme.border }}>
-                          <div className="flex items-center gap-3">
+                        <div key={sig.id} className="border rounded-xl p-3 sm:p-4 flex flex-col gap-3 shadow-sm bg-white dark:bg-transparent min-w-0" style={{ borderColor: theme.border }}>
+                          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3">
                             <input
                               type="text"
                               value={sig.name}
                               onChange={(e) => updateSignature(sig.id, "name", e.target.value)}
-                              className="flex-1 bg-transparent border-b outline-none text-sm font-semibold focus:border-blue-500 pb-1"
+                              className="flex-1 min-w-0 bg-transparent border-b outline-none text-sm font-semibold focus:border-blue-500 pb-1"
                               style={{ color: theme.text, borderColor: theme.border }}
                               placeholder={t("settings.signature_name", "Signature Name")}
                             />
                             <button
                               type="button"
                               onClick={() => setDefaultSignature(sig.id)}
-                              className={`text-xs px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${sig.isDefault ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10"}`}
+                              className={`text-xs px-2.5 py-1 rounded-md font-medium transition cursor-pointer shrink-0 ${sig.isDefault ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10"}`}
                             >
                               {sig.isDefault ? t("settings.is_default", "Default ✓") : t("settings.set_default", "Set Default")}
                             </button>
@@ -2098,13 +2114,13 @@ const Settings = () => {
                                   setEditingSignatureId(signatures.find(s => s.id !== sig.id)?.id || null);
                                 }
                               }}
-                              className="text-red-500 hover:text-red-700 px-2 py-1 cursor-pointer font-bold"
+                              className="text-red-500 hover:text-red-700 px-2 py-1 cursor-pointer font-bold shrink-0"
                               title={t("settings.delete_signature", "Delete Signature")}
                             >
                               ✕
                             </button>
                           </div>
-                          <div className="bg-white text-black rounded-md border relative">
+                          <div className="settings-quill-wrapper bg-white text-black rounded-md border relative min-w-0">
                             <ReactQuill
                               theme="snow"
                               modules={quillModules}
@@ -2135,7 +2151,7 @@ const Settings = () => {
 
           {/* Labels Tab */}
           {activeTab === "labels" && (
-            <div className="w-full">
+            <div className="settings-labels-container w-full min-w-0">
               <LabelManagement embedded={true} />
             </div>
           )}
@@ -2211,7 +2227,7 @@ const Settings = () => {
                 {/* Accent Color picker */}
                 <div className="flex flex-col gap-3">
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("settings.accent_color", "Custom Accent Color")}</label>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     <input
                       type="color"
                       value={accentColor}
@@ -2252,7 +2268,7 @@ const Settings = () => {
                 {/* Theme palettes picker */}
                 <div className="flex flex-col gap-3 border-t pt-6" style={{ borderColor: theme.border }}>
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("settings.visual_theme_palette", "Visual Theme Palette")}</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 w-full">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3 w-full">
                     {[
                       { key: "Classic", label: t("settings.classic", "Classic") },
                       { key: "Dark", label: t("settings.dark", "Dark") },
@@ -2268,7 +2284,7 @@ const Settings = () => {
                           setSelectedTheme(tKey);
                           setThemeMode(tKey);
                         }}
-                        className={`h-[46px] px-2.5 text-[13px] font-medium rounded-xl border cursor-pointer transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 ${selectedTheme === tKey ? "border-primary ring-2 ring-primary" : "hover:bg-black/5 dark:hover:bg-white/5"}`}
+                        className={`w-full min-w-0 overflow-hidden h-[46px] px-2 sm:px-2.5 text-[13px] font-medium rounded-xl border cursor-pointer transition-all shadow-sm flex items-center justify-center gap-1.5 ${selectedTheme === tKey ? "border-primary ring-2 ring-primary" : "hover:bg-black/5 dark:hover:bg-white/5"}`}
                         style={selectedTheme === tKey ? { borderColor: theme.accent, color: theme.accent } : { borderColor: theme.border, color: theme.text }}
                       >
                         <span className="truncate">{label}</span>
@@ -2342,13 +2358,13 @@ const Settings = () => {
                   </div>
 
                   {/* Custom URL input */}
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
                     <input
                       type="url"
                       placeholder={t("settings.paste_custom_url", "Paste custom image URL...")}
                       value={customBgUrl}
                       onChange={(e) => setCustomBgUrl(e.target.value)}
-                      className="flex-1 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                      className="flex-1 w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                       style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                     />
                     <button
@@ -2360,7 +2376,7 @@ const Settings = () => {
                           toast.success("Custom background selected (click Save Layout Settings to apply)", { id: "wallpaper-toast", duration: 3000 });
                         }
                       }}
-                      className="px-5 py-3 rounded-xl text-sm font-medium text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all shrink-0 shadow-sm"
+                      className="px-5 py-3 rounded-xl text-sm font-medium text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all shrink-0 shadow-sm w-full sm:w-auto"
                       style={{ background: theme.accent }}
                     >
                       {t("settings.apply", "Apply")}
@@ -2444,33 +2460,33 @@ const Settings = () => {
                 <form onSubmit={handleSaveSecuritySettings} className="flex flex-col gap-5">
                   <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("settings.profile_info", "Profile Information")}</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 min-w-0">
                       <label className="text-xs font-semibold text-gray-500">{t("settings.job_title", "Job Title")}</label>
                       <input
                         placeholder={t("settings.enter_job", "e.g. Lead Software Architect")}
                         value={jobTitle}
                         onChange={e => setJobTitle(e.target.value)}
-                        className="p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                        className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                       />
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 min-w-0">
                       <label className="text-xs font-semibold text-gray-500">{t("settings.location", "Location")}</label>
                       <input
                         placeholder={t("settings.enter_location", "e.g. San Francisco, CA")}
                         value={location}
                         onChange={e => setLocation(e.target.value)}
-                        className="p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                        className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                       />
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 min-w-0">
                       <label className="text-xs font-semibold text-gray-500">{t("settings.phone_contact", "Phone Contact")}</label>
                       <input
                         placeholder={t("settings.enter_phone", "+1 (555) 019-2834")}
                         value={phoneNumber}
                         onChange={e => setPhoneNumber(e.target.value)}
-                        className="p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                        className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                       />
                     </div>
@@ -2500,7 +2516,7 @@ const Settings = () => {
                       placeholder={t("settings.current_password", "Current Password")}
                       value={passwords.oldPassword}
                       onChange={e => setPasswords({ ...passwords, oldPassword: e.target.value })}
-                      className="w-full p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                      className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                       style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                     />
                     <input
@@ -2508,7 +2524,7 @@ const Settings = () => {
                       placeholder={t("settings.new_password", "New Password")}
                       value={passwords.newPassword}
                       onChange={e => setPasswords({ ...passwords, newPassword: e.target.value })}
-                      className="w-full p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                      className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                       style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                     />
                   </div>
@@ -2524,25 +2540,25 @@ const Settings = () => {
                 <form onSubmit={handleUpdateRecovery} className="flex flex-col gap-4 border-t pt-8" style={{ borderColor: theme.border }}>
                   <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t("settings.password_recovery_contacts", "Backup Account Recovery")}</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 min-w-0">
                       <label className="text-xs font-semibold text-gray-500">{t("settings.recovery_email_address", "Recovery Email Address")}</label>
                       <input
                         type="email"
                         placeholder="backup@example.com"
                         value={recoveryInfo.recoveryEmail || ""}
                         onChange={e => setRecoveryInfo({ ...recoveryInfo, recoveryEmail: e.target.value })}
-                        className="w-full p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                        className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                       />
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 min-w-0">
                       <label className="text-xs font-semibold text-gray-500">{t("settings.recovery_phone_number", "Backup Phone Number")}</label>
                       <input
                         type="text"
                         placeholder="+1234567890"
                         value={recoveryInfo.phoneNumber || ""}
                         onChange={e => setRecoveryInfo({ ...recoveryInfo, phoneNumber: e.target.value })}
-                        className="w-full p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
+                        className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
                       />
                     </div>
@@ -2568,27 +2584,27 @@ const Settings = () => {
                   {sessions.length > 0 ? sessions.map((s) => {
                     const device = parseUserAgent(s.userAgent);
                     return (
-                      <div key={s.id} className="p-5 rounded-2xl border flex justify-between items-center shadow-sm hover:shadow transition-shadow" style={{ borderColor: theme.border, background: theme.cardBg }}>
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5" style={{ color: theme.accent }}>
+                      <div key={s.id} className="p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 shadow-sm hover:shadow transition-shadow min-w-0" style={{ borderColor: theme.border, background: theme.cardBg }}>
+                        <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                          <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 shrink-0" style={{ color: theme.accent }}>
                             {device.type === 'phone' ? <MdPhoneAndroid size={20} /> :
                               device.type === 'tablet' ? <MdTabletMac size={20} /> : <MdComputer size={20} />}
                           </div>
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base font-semibold" style={{ color: theme.text }}>{device.name}</span>
+                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                            <div className="flex items-center flex-wrap gap-2">
+                              <span className="text-base font-semibold break-words" style={{ color: theme.text }}>{device.name}</span>
                               {s.isCurrentSession && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-green-500 uppercase tracking-wider">{t("settings.this_device", "This device")}</span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-green-500 uppercase tracking-wider shrink-0">{t("settings.this_device", "This device")}</span>
                               )}
                             </div>
-                            <p className="text-sm text-gray-500">{s.ipAddress} — {device.browser}</p>
+                            <p className="text-sm text-gray-500 break-words">{s.ipAddress} — {device.browser}</p>
                             <p className="text-xs text-gray-400 mt-1">{t("settings.logged_in", "Logged in:")} {formatActivityTimestamp(s.createdAt)}</p>
                           </div>
                         </div>
                         {!s.isCurrentSession && (
                           <button
                             onClick={() => handleRevokeSession(s.id)}
-                            className="px-4 py-2 text-xs font-bold rounded-xl text-red-500 border border-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer"
+                            className="px-4 py-2 text-xs font-bold rounded-xl text-red-500 border border-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer self-start sm:self-center shrink-0"
                           >
                             {t("settings.sign_out", "Sign Out")}
                           </button>
@@ -2603,7 +2619,7 @@ const Settings = () => {
 
               <Section title={t("settings.recent_activity_logs", "Security Activity Log")} theme={theme}>
                 <p className="text-sm text-gray-500 mb-6">{t("settings.activity_logs_desc", "Audit history of recent security-critical adjustments on your account.")}</p>
-                <div className="flex flex-col gap-3 max-h-96 overflow-y-auto hidden-scrollbar pr-2">
+                <div className="flex flex-col gap-3 max-h-96 overflow-y-auto hidden-scrollbar pr-0 sm:pr-2">
                   {activityLogs.length > 0 ? activityLogs.filter(Boolean).map((log, idx) => {
                     const actionText = log.action || log.activity || log.event || log.description || log.type;
                     const ip = log.ipAddress || log.ip || log.clientIp;
@@ -2611,12 +2627,12 @@ const Settings = () => {
                     const timeStr = formatActivityTimestamp(rawTime);
 
                     return (
-                      <div key={log.id ? `${log.id}-${idx}` : idx} className="p-4 border rounded-xl flex justify-between items-center bg-black/5 dark:bg-white/5" style={{ borderColor: theme.border }}>
-                        <div className="flex flex-col gap-1">
-                          {actionText && <p className="font-semibold text-sm" style={{ color: theme.text }}>{actionText}</p>}
-                          <p className="text-xs text-gray-500">{ip || ""}</p>
+                      <div key={log.id ? `${log.id}-${idx}` : idx} className="p-3.5 sm:p-4 border rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 sm:gap-4 bg-black/5 dark:bg-white/5 min-w-0" style={{ borderColor: theme.border }}>
+                        <div className="flex flex-col gap-1 min-w-0 flex-1">
+                          {actionText && <p className="font-semibold text-sm break-words" style={{ color: theme.text }}>{actionText}</p>}
+                          <p className="text-xs text-gray-500 break-all">{ip || ""}</p>
                         </div>
-                        <span className="text-xs text-gray-400 font-medium text-right">{timeStr}</span>
+                        <span className="text-xs text-gray-400 font-medium text-left sm:text-right shrink-0">{timeStr}</span>
                       </div>
                     );
                   }) : (
@@ -2635,23 +2651,23 @@ const Settings = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-col gap-6 w-full max-w-5xl"
+              className="flex flex-col gap-5 sm:gap-6 w-full max-w-5xl min-w-0"
             >
               {/* 1. Top Hero Banner Card */}
               <div
-                className="w-full p-6 sm:p-7 md:p-8 rounded-2xl md:rounded-3xl border shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative"
+                className="w-full p-4 sm:p-7 md:p-8 rounded-2xl md:rounded-3xl border shadow-sm flex flex-col md:flex-row items-center justify-between gap-5 sm:gap-6 overflow-hidden relative min-w-0"
                 style={{
                   background: theme.cardBg,
                   borderColor: theme.border,
                 }}
               >
-                <div className="flex-1 z-10">
-                  <div className="flex items-start gap-4 mb-2">
-                    <div className="w-12 h-12 rounded-full bg-[#2563eb] text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
-                      <MdPersonAdd size={24} />
+                <div className="flex-1 w-full min-w-0 z-10">
+                  <div className="flex items-start gap-3 sm:gap-4 mb-2">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#2563eb] text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
+                      <MdPersonAdd size={22} />
                     </div>
-                    <div>
-                      <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: theme.text }}>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight" style={{ color: theme.text }}>
                         Invite Friends
                       </h2>
                       <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-0.5">
@@ -2664,18 +2680,18 @@ const Settings = () => {
                   </p>
                 </div>
 
-                <div className="shrink-0 flex items-center justify-center">
+                <div className="shrink-0 flex items-center justify-center w-full md:w-auto">
                   <img
                     src={inviteFriendsIllustration}
                     alt="Invite Friends Illustration"
-                    className="w-60 sm:w-72 md:w-80 h-auto max-h-48 object-contain mix-blend-multiply dark:mix-blend-normal"
+                    className="w-full max-w-[220px] sm:max-w-none sm:w-72 md:w-80 h-auto max-h-48 object-contain mix-blend-multiply dark:mix-blend-normal"
                   />
                 </div>
               </div>
 
               {/* 2. Your Invitation Link Card */}
               <div
-                className="w-full p-6 sm:p-7 md:p-8 rounded-2xl md:rounded-3xl border shadow-sm"
+                className="w-full p-4 sm:p-7 md:p-8 rounded-2xl md:rounded-3xl border shadow-sm min-w-0"
                 style={{
                   background: theme.cardBg,
                   borderColor: theme.border,
@@ -2685,7 +2701,7 @@ const Settings = () => {
                   <div className="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0">
                     <MdLink size={20} />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h3 className="text-base font-bold" style={{ color: theme.text }}>
                       Your Invitation Link
                     </h3>
@@ -2699,7 +2715,7 @@ const Settings = () => {
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   {/* Read-only URL Field with embedded copy icon */}
                   <div
-                    className="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-colors bg-gray-50/80 dark:bg-slate-900/40"
+                    className="flex-1 min-w-0 flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-xl border transition-colors bg-gray-50/80 dark:bg-slate-900/40"
                     style={{ borderColor: theme.border }}
                   >
                     <input
@@ -2707,7 +2723,7 @@ const Settings = () => {
                       readOnly
                       value={getInvitationUrl()}
                       onClick={(e) => e.target.select()}
-                      className="w-full bg-transparent border-none outline-none font-mono text-xs sm:text-sm text-gray-700 dark:text-gray-200 truncate select-all"
+                      className="w-full min-w-0 bg-transparent border-none outline-none font-mono text-xs sm:text-sm text-gray-700 dark:text-gray-200 truncate select-all"
                     />
                     <button
                       type="button"
@@ -2742,17 +2758,17 @@ const Settings = () => {
 
                 {/* Dismissible Green Copied Success Banner */}
                 {copySuccess && (
-                  <div className="mt-4 p-3.5 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-medium transition-all animate-fadeIn">
-                    <div className="flex items-center gap-2.5">
+                  <div className="mt-4 p-3.5 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-medium transition-all animate-fadeIn min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
                         ✓
                       </span>
-                      <span>Invitation link copied successfully!</span>
+                      <span className="break-words">Invitation link copied successfully!</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setCopySuccess(false)}
-                      className="text-emerald-600 hover:text-emerald-800 dark:text-emerald-300 cursor-pointer p-0.5 ml-2"
+                      className="text-emerald-600 hover:text-emerald-800 dark:text-emerald-300 cursor-pointer p-0.5 ml-2 shrink-0"
                       title="Dismiss"
                     >
                       <MdClose size={18} />
@@ -2763,23 +2779,23 @@ const Settings = () => {
 
               {/* 3. Why Invite Friends? Section */}
               <div className="mt-1">
-                <h3 className="text-xl font-bold mb-4" style={{ color: theme.text }}>
+                <h3 className="text-lg sm:text-xl font-bold mb-4" style={{ color: theme.text }}>
                   Why Invite Friends?
                 </h3>
                 <div
-                  className="w-full p-6 sm:p-7 md:p-8 rounded-2xl md:rounded-3xl border shadow-sm"
+                  className="w-full p-4 sm:p-7 md:p-8 rounded-2xl md:rounded-3xl border shadow-sm min-w-0"
                   style={{
                     background: theme.cardBg,
                     borderColor: theme.border,
                   }}
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 lg:gap-8">
                     {/* Item 1: Secure & Private */}
-                    <div className="flex items-start gap-3.5">
+                    <div className="flex items-start gap-3.5 min-w-0">
                       <div className="w-11 h-11 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                         <MdSecurity size={22} />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <h4 className="font-bold text-sm" style={{ color: theme.text }}>
                           Secure & Private
                         </h4>
@@ -2790,11 +2806,11 @@ const Settings = () => {
                     </div>
 
                     {/* Item 2: Connect Easily */}
-                    <div className="flex items-start gap-3.5">
+                    <div className="flex items-start gap-3.5 min-w-0">
                       <div className="w-11 h-11 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
                         <MdGroup size={22} />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <h4 className="font-bold text-sm" style={{ color: theme.text }}>
                           Connect Easily
                         </h4>
@@ -2805,11 +2821,11 @@ const Settings = () => {
                     </div>
 
                     {/* Item 3: Simple & Modern */}
-                    <div className="flex items-start gap-3.5">
+                    <div className="flex items-start gap-3.5 min-w-0">
                       <div className="w-11 h-11 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                         <MdFlashOn size={22} />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <h4 className="font-bold text-sm" style={{ color: theme.text }}>
                           Simple & Modern
                         </h4>
@@ -2820,11 +2836,11 @@ const Settings = () => {
                     </div>
 
                     {/* Item 4: Be a Part */}
-                    <div className="flex items-start gap-3.5">
+                    <div className="flex items-start gap-3.5 min-w-0">
                       <div className="w-11 h-11 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                         <MdCardGiftcard size={22} />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <h4 className="font-bold text-sm" style={{ color: theme.text }}>
                           Be a Part
                         </h4>
@@ -2847,11 +2863,11 @@ const Settings = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-col gap-5 w-full max-w-6xl"
+              className="flex flex-col gap-5 w-full max-w-6xl min-w-0"
             >
               {/* Shortcuts Search / Filter Bar */}
               <div
-                className="w-full px-4 py-3 rounded-2xl border flex items-center gap-3 shadow-sm"
+                className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl border flex items-center gap-3 shadow-sm min-w-0"
                 style={{ background: theme.cardBg, borderColor: theme.border }}
               >
                 <MdSearch size={20} className="text-gray-400 shrink-0" />
@@ -2860,14 +2876,14 @@ const Settings = () => {
                   value={shortcutFilter}
                   onChange={(e) => setShortcutFilter(e.target.value)}
                   placeholder="Search shortcuts (e.g. compose, reply, inbox, delete)..."
-                  className="w-full bg-transparent border-none outline-none text-sm placeholder:text-gray-400"
+                  className="w-full min-w-0 bg-transparent border-none outline-none text-sm placeholder:text-gray-400"
                   style={{ color: theme.text }}
                 />
                 {shortcutFilter && (
                   <button
                     type="button"
                     onClick={() => setShortcutFilter("")}
-                    className="text-xs font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                    className="text-xs font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer shrink-0"
                   >
                     Clear
                   </button>
@@ -2875,20 +2891,20 @@ const Settings = () => {
               </div>
 
               {/* Sections Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {/* Section 1: Mail Navigation */}
                 {(!shortcutFilter || [
                   "go to inbox", "go to sent", "go to drafts", "go to starred", "go to trash", "navigation", "inbox", "sent", "drafts", "starred", "trash"
                 ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
                     <div
-                      className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
+                      className="p-4 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full min-w-0"
                       style={{ background: theme.cardBg, borderColor: theme.border }}
                     >
                       <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
                         <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                           <MdInbox size={22} />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-base" style={{ color: theme.text }}>
                             Mail Navigation
                           </h3>
@@ -2948,14 +2964,14 @@ const Settings = () => {
                   "compose a new email", "reply to an email", "forward an email", "search emails", "archive selected email", "delete selected email", "actions", "compose", "reply", "forward", "search", "archive", "delete"
                 ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
                     <div
-                      className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
+                      className="p-4 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full min-w-0"
                       style={{ background: theme.cardBg, borderColor: theme.border }}
                     >
                       <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
                         <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
                           <MdFlashOn size={22} />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-base" style={{ color: theme.text }}>
                             Email Actions
                           </h3>
@@ -3010,14 +3026,14 @@ const Settings = () => {
                   "close the current popup", "return to the previous view", "open keyboard shortcuts help", "general", "close", "escape", "esc", "help", "back"
                 ].some(k => k.includes(shortcutFilter.toLowerCase()))) && (
                     <div
-                      className="p-5 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full"
+                      className="p-4 sm:p-6 rounded-2xl border shadow-sm flex flex-col h-full min-w-0"
                       style={{ background: theme.cardBg, borderColor: theme.border }}
                     >
                       <div className="flex items-center gap-3 pb-4 mb-3 border-b" style={{ borderColor: theme.border }}>
                         <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                           <MdTune size={22} />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-base" style={{ color: theme.text }}>
                             General
                           </h3>
@@ -3067,7 +3083,7 @@ const Settings = () => {
 
               {/* Tips Card */}
               <div
-                className="w-full p-4 sm:p-5 rounded-2xl border shadow-sm flex items-center gap-3.5"
+                className="w-full p-4 sm:p-5 rounded-2xl border shadow-sm flex items-start md:items-center gap-3 sm:gap-3.5 min-w-0"
                 style={{
                   background: theme.mode === "dark" ? "rgba(59, 130, 246, 0.08)" : "#eff6ff",
                   borderColor: theme.mode === "dark" ? "rgba(59, 130, 246, 0.2)" : "#dbeafe",
@@ -3080,21 +3096,21 @@ const Settings = () => {
                   <span className="font-bold text-sm text-blue-900 dark:text-blue-200 shrink-0">
                     Tips
                   </span>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs text-gray-600 dark:text-gray-300 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs text-gray-600 dark:text-gray-300 flex-1 w-full min-w-0">
+                    <div className="flex items-start sm:items-center gap-2 min-w-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5 sm:mt-0" />
                       <span>Use <strong className="font-semibold text-gray-900 dark:text-gray-100">Ctrl</strong> (Windows/Linux) or <strong className="font-semibold text-gray-900 dark:text-gray-100">Cmd</strong> (Mac) for shortcuts.</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                    <div className="flex items-start sm:items-center gap-2 min-w-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5 sm:mt-0" />
                       <span>Shortcuts are disabled while typing in input fields.</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                    <div className="flex items-start sm:items-center gap-2 min-w-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5 sm:mt-0" />
                       <span>Some actions work only when a message is selected or open.</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                    <div className="flex items-start sm:items-center gap-2 min-w-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5 sm:mt-0" />
                       <span>Press <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 font-mono text-[10px] font-bold">?</kbd> anytime to view this help.</span>
                     </div>
                   </div>
@@ -3110,24 +3126,31 @@ const Settings = () => {
 
 const SideTab = ({ icon, label, active, onClick, theme }) => (
   <button
+    type="button"
     onClick={onClick}
-    className="flex items-center gap-3 px-4 py-3 rounded-xl transition text-sm font-medium text-left cursor-pointer w-full hover:bg-black/5 dark:hover:bg-white/5"
+    title={label}
+    aria-label={label}
+    aria-current={active ? "page" : undefined}
+    className={`settings-sidebar-tab ${active ? "settings-sidebar-tab-active" : ""} flex items-center gap-3 px-4 py-3 rounded-xl transition text-sm font-medium text-left cursor-pointer w-full hover:bg-black/5 dark:hover:bg-white/5`}
     style={{
       background: active ? (theme.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') : "transparent",
       color: active ? theme.accent : theme.text
     }}
   >
-    {icon} {label}
+    <span className="settings-sidebar-icon shrink-0 flex items-center justify-center">
+      {icon}
+    </span>
+    <span className="settings-sidebar-label truncate">{label}</span>
   </button>
 );
 
 const Section = ({ title, children, theme }) => (
   <div
-    className="w-full p-5 md:p-6 rounded-2xl md:rounded-3xl border shadow-sm"
+    className="settings-section w-full min-w-0 p-5 md:p-6 rounded-2xl md:rounded-3xl border shadow-sm"
     style={{ background: theme.cardBg, borderColor: theme.border, color: theme.text }}
   >
     {title && (
-      <h3 className="text-xl font-bold border-b pb-3 mb-4 flex items-center gap-2" style={{ borderColor: theme.border }}>
+      <h3 className="settings-section-title text-xl font-bold border-b pb-3 mb-4 flex items-center gap-2" style={{ borderColor: theme.border }}>
         {title}
       </h3>
     )}
@@ -3136,16 +3159,16 @@ const Section = ({ title, children, theme }) => (
 );
 
 const ToggleRow = ({ label, checked, onChange, theme, disabled = false }) => (
-  <div className="flex items-center justify-between py-3">
-    <span className="text-sm font-medium" style={{ color: theme.text }}>{label}</span>
+  <div className="flex items-center justify-between gap-3 py-3 min-w-0">
+    <span className="text-sm font-medium min-w-0 flex-1 leading-snug" style={{ color: theme.text }}>{label}</span>
     <button
       type="button"
       disabled={disabled}
       onClick={() => !disabled && onChange(!checked)}
-      className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 outline-none flex items-center ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${checked ? 'justify-end' : 'justify-start'}`}
+      className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 outline-none flex items-center shrink-0 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${checked ? 'justify-end' : 'justify-start'}`}
       style={{ backgroundColor: checked ? theme.accent : 'rgba(156,163,175,0.4)' }}
     >
-      <span className="w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300" />
+      <span className="w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 shrink-0" />
     </button>
   </div>
 );

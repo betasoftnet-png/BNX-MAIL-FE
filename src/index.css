@@ -1084,3 +1084,168 @@
     font-size: 22px !important;
   }
 }
+
+/* ==========================================================================
+   Settings Page Mobile Responsive Layout (Mobile Only <= 767px)
+   ========================================================================== */
+.settings-mobile-header {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  aside.settings-sidebar {
+    width: 56px !important;
+    min-width: 56px !important;
+    max-width: 56px !important;
+    padding: 12px 6px !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  aside.settings-sidebar .settings-sidebar-heading,
+  aside.settings-sidebar .settings-sidebar-label {
+    display: none !important;
+  }
+
+  aside.settings-sidebar button.settings-back-btn,
+  aside.settings-sidebar button.settings-sidebar-tab {
+    width: 42px !important;
+    height: 42px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    border-radius: 12px !important;
+    flex-shrink: 0 !important;
+  }
+
+  aside.settings-sidebar button.settings-back-btn {
+    margin-bottom: 4px !important;
+  }
+
+  aside.settings-sidebar button.settings-sidebar-tab-active {
+    box-shadow: inset 0 0 0 1.5px currentColor;
+  }
+
+  main.settings-main {
+    padding: 14px 12px !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  .settings-mobile-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    min-width: 0;
+  }
+
+  .settings-section {
+    padding: 14px !important;
+    border-radius: 16px !important;
+    min-width: 0 !important;
+  }
+
+  .settings-section-title {
+    font-size: 1.05rem !important;
+    line-height: 1.35 !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 12px !important;
+    overflow-wrap: anywhere;
+  }
+
+  /* Embedded Label Management layout adjustments on mobile Settings view */
+  .settings-labels-container > div > div:first-child,
+  .settings-labels-container > div > div:nth-child(2) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .settings-labels-container table th,
+  .settings-labels-container table td {
+    white-space: normal !important;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  .settings-labels-container table th {
+    font-size: 10.5px !important;
+    line-height: 1.25 !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    vertical-align: middle;
+  }
+
+  .settings-labels-container table th .inline-flex {
+    flex-wrap: wrap !important;
+  }
+
+  .settings-labels-container table td {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    vertical-align: middle;
+  }
+
+  .settings-labels-container table td label,
+  .settings-labels-container table td label span,
+  .settings-labels-container table td .truncate {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: break-word;
+  }
+
+  .settings-labels-container table td:last-child .inline-flex {
+    flex-wrap: wrap !important;
+    gap: 4px 8px !important;
+  }
+
+  /* ReactQuill signature editor on mobile */
+  .settings-quill-wrapper .quill {
+    display: flex;
+    flex-direction: column;
+    height: auto !important;
+    margin-bottom: 0 !important;
+  }
+
+  .settings-quill-wrapper .ql-toolbar.ql-snow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 6px !important;
+  }
+
+  .settings-quill-wrapper .ql-container.ql-snow {
+    min-height: 120px;
+    height: auto !important;
+  }
+
+  .settings-quill-wrapper .ql-editor {
+    min-height: 120px;
+  }
+}
+
+@media (max-width: 380px) {
+  aside.settings-sidebar {
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+    padding: 10px 5px !important;
+    gap: 6px !important;
+  }
+
+  aside.settings-sidebar button.settings-back-btn,
+  aside.settings-sidebar button.settings-sidebar-tab {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  main.settings-main {
+    padding: 12px 10px !important;
+  }
+}
