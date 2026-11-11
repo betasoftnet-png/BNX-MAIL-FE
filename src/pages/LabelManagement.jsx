@@ -279,12 +279,16 @@ const LabelManagement = ({ embedded = false }) => {
         setSystemLabelPrefKeys(finalSidebarPrefs, item, isShown);
       });
 
-      // 2. Persist system label visibility to backend MySQL database first.
-      // Failed API calls intentionally abort before mutating saved state/localStorage.
-      const backendPayload = toBackendSystemLabelSettingsPayload(finalSidebarPrefs);
-      const response = await mailAPI.updateSystemLabelSettings(backendPayload);
-      const confirmedSidebarPrefs =
-        mergeBackendSystemLabelSettings(response?.data, finalSidebarPrefs) || finalSidebarPrefs;
+      // 2. Best-effort sync of system label visibility to backend without blocking frontend custom label saves.
+      let confirmedSidebarPrefs = finalSidebarPrefs;
+      try {
+        const backendPayload = toBackendSystemLabelSettingsPayload(finalSidebarPrefs);
+        const response = await mailAPI.updateSystemLabelSettings(backendPayload);
+        confirmedSidebarPrefs =
+          mergeBackendSystemLabelSettings(response?.data, finalSidebarPrefs) || finalSidebarPrefs;
+      } catch (_) {
+        confirmedSidebarPrefs = finalSidebarPrefs;
+      }
 
       // 3. Prepare custom labels visibility keyed strictly by existing label ID
       const fullCustomVisibility =

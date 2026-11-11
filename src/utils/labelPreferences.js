@@ -690,7 +690,8 @@ export const isLabelShownInLabelList = (lbl, sidebarPreferences = null, customLa
 };
 
 /**
- * Returns valid, enabled, deduplicated custom + system labels for all "Label as..." dropdowns.
+ * Returns valid, enabled, deduplicated user-created custom labels for all "Label as..." dropdowns.
+ * System labels are intentionally excluded.
  */
 export const getAvailableLabelAsOptions = (
   customLabels = [],
@@ -709,12 +710,24 @@ export const getAvailableLabelAsOptions = (
 
   if (Array.isArray(customLabels)) {
     for (const lbl of customLabels) {
-      if (!lbl || typeof lbl !== 'object' || !isLabelShownInLabelList(lbl, effectiveSidebarPrefs, effectiveCustomPrefs)) {
+      if (!lbl || typeof lbl !== 'object') {
+        continue;
+      }
+
+      const labelType = normalizeLabelType(lbl);
+      const isSystemRecord =
+        lbl.isSystem === true ||
+        labelType === 'SYSTEM' ||
+        Boolean(findSystemLabelDefinition(lbl));
+      if (isSystemRecord) {
+        continue;
+      }
+
+      if (!isLabelShownInLabelList(lbl, effectiveSidebarPrefs, effectiveCustomPrefs)) {
         continue;
       }
 
       const idKey = String(lbl.id).trim();
-      const labelType = normalizeLabelType(lbl);
       const cleanName = lbl.name.trim();
       const parentKey = lbl.parentId !== undefined && lbl.parentId !== null ? String(lbl.parentId).trim() : '';
       const nameTypeKey = `${labelType}:${parentKey}:${cleanName.toLowerCase()}`;
@@ -727,21 +740,9 @@ export const getAvailableLabelAsOptions = (
         ...lbl,
         name: cleanName,
         type: labelType,
-        isSystem: Boolean(lbl.isSystem === true || labelType === 'SYSTEM')
+        isSystem: false
       });
     }
-  }
-
-  for (const sysDef of SYSTEM_LABEL_DEFINITIONS) {
-    if (!isSystemLabelShownInLabelList(sysDef, effectiveSidebarPrefs)) continue;
-
-    const idKey = String(sysDef.id).trim();
-    const nameTypeKey = `SYSTEM::${sysDef.name.trim().toLowerCase()}`;
-    if (seenIds.has(idKey) || seenNameType.has(nameTypeKey)) continue;
-
-    seenIds.add(idKey);
-    seenNameType.add(nameTypeKey);
-    result.push({ ...sysDef });
   }
 
   return result;
