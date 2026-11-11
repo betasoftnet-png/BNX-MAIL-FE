@@ -1,4 +1,4 @@
-import { useTranslation } from "../context/LanguageContext";
+﻿import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
@@ -94,10 +94,10 @@ export const isCashboxSenderAccepted = (senderEmail, casboxAcceptedList) => {
 
 export const classifyCashboxConversation = (item, currentUser, casboxAcceptedList) => {
   const isArchived = Boolean(
-    item?.isArchived || 
-    item?.archived || 
-    item?.latestMessage?.isArchived || 
-    item?.latestMessage?.archived || 
+    item?.isArchived ||
+    item?.archived ||
+    item?.latestMessage?.isArchived ||
+    item?.latestMessage?.archived ||
     (Array.isArray(item?.messages) && item.messages.length > 0 && item.messages.every(m => m?.isArchived || m?.archived))
   );
   if (isArchived) return 'ARCHIVE';
@@ -127,8 +127,8 @@ export const classifyCashboxConversation = (item, currentUser, casboxAcceptedLis
   }
 
   const isAcceptedLocally = isCashboxSenderAccepted(contactEmail, casboxAcceptedList);
-  const dtoAccepted = item?.latestMessage?.isAccepted !== undefined 
-    ? item.latestMessage.isAccepted 
+  const dtoAccepted = item?.latestMessage?.isAccepted !== undefined
+    ? item.latestMessage.isAccepted
     : (item?.isAccepted !== undefined ? item.isAccepted : (item?.accepted !== undefined ? item.accepted : undefined));
 
   let accepted = false;
@@ -857,7 +857,7 @@ const Casbox = () => {
       const arr = Array.from(nextSet);
       sessionStorage.setItem('bnx_casbox_archived_message_ids', JSON.stringify(arr));
       localStorage.setItem('bnx_casbox_archived_message_ids', JSON.stringify(arr));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const saveUnarchivedMessageIds = (nextSet) => {
@@ -865,7 +865,7 @@ const Casbox = () => {
       const arr = Array.from(nextSet);
       sessionStorage.setItem('bnx_casbox_unarchived_message_ids', JSON.stringify(arr));
       localStorage.setItem('bnx_casbox_unarchived_message_ids', JSON.stringify(arr));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const isMsgArchived = useCallback((m) => {
@@ -969,7 +969,7 @@ const Casbox = () => {
         }
       }
       setStarredMessagesMap({});
-    } catch (e) {}
+    } catch (e) { }
   }, [user?.email, user?.username]);
 
   const [showStarredMessagesView, setShowStarredMessagesView] = useState(false);
@@ -1049,7 +1049,7 @@ const Casbox = () => {
         try {
           const updated = e.newValue ? JSON.parse(e.newValue) : {};
           setReactionsMap(sanitizeReactionsMap(updated));
-        } catch {}
+        } catch { }
       }
     };
     const handleCustomEvent = (e) => {
@@ -1204,7 +1204,7 @@ const Casbox = () => {
       try {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(uniqueList));
         localStorage.setItem('bnx_casbox_blocked', JSON.stringify(uniqueList));
-      } catch (e) {}
+      } catch (e) { }
     } catch (err) {
       console.warn("Failed to load blocked contacts from server", err);
     }
@@ -1458,7 +1458,7 @@ const Casbox = () => {
           if (subMessages && typeof subMessages.unsubscribe === 'function') subMessages.unsubscribe();
           if (subStatus && typeof subStatus.unsubscribe === 'function') subStatus.unsubscribe();
         }
-      } catch (e) {}
+      } catch (e) { }
     };
   }, [stompClient, isConnected, user?.email]);
 
@@ -1614,7 +1614,7 @@ const Casbox = () => {
           const next = { ...prev, ...map };
           try {
             sessionStorage.setItem('bnx_casbox_aliases', JSON.stringify(next));
-          } catch (e) {}
+          } catch (e) { }
           return next;
         });
       }
@@ -1649,7 +1649,7 @@ const Casbox = () => {
         setConnections(res.data);
         try {
           sessionStorage.setItem('bnx_casbox_connections', JSON.stringify(res.data));
-        } catch (e) {}
+        } catch (e) { }
       }
     } catch (e) {
       console.error("Failed to load connections", e);
@@ -1693,8 +1693,8 @@ const Casbox = () => {
       const cUser = c.contactUsername?.toLowerCase();
       const cId = c.contactUserId ? String(c.contactUserId) : null;
       return (cEmail && (cEmail === lower || cEmail === local)) ||
-             (cUser && (cUser === lower || cUser === local)) ||
-             (cId && cId === lower);
+        (cUser && (cUser === lower || cUser === local)) ||
+        (cId && cId === lower);
     });
   };
 
@@ -1855,7 +1855,7 @@ const Casbox = () => {
       delete next[normContact];
       try {
         localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
-      } catch (e) {}
+      } catch (e) { }
       return next;
     });
     toast.success("Message unpinned");
@@ -1877,7 +1877,7 @@ const Casbox = () => {
         const next = { ...prev, [normContact]: pinPayload };
         try {
           localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
-        } catch (e) {}
+        } catch (e) { }
         return next;
       });
       toast.success("Message pinned");
@@ -1914,7 +1914,7 @@ const Casbox = () => {
     setStarredMessagesMap(prev => {
       const next = { ...prev };
       const isAlreadyStarred = Boolean(
-        next[key] || 
+        next[key] ||
         (mId !== undefined && mId !== null && (next[mId] || next[String(mId)]))
       );
 
@@ -1946,7 +1946,7 @@ const Casbox = () => {
         localStorage.setItem('bnx_casbox_starred_map', JSON.stringify(next));
         localStorage.setItem(`bnx_casbox_starred_messages_${uKey}`, JSON.stringify(Object.keys(next)));
         localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Object.keys(next)));
-      } catch (e) {}
+      } catch (e) { }
       return next;
     });
   }, [getMessageKey, selectedMessage, getOtherUserEmail, user?.email, user?.username]);
@@ -2210,7 +2210,7 @@ const Casbox = () => {
         const json = JSON.stringify(Array.from(updated));
         sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
         localStorage.setItem('bnx_casbox_deleted_message_ids', json);
-      } catch (e) {}
+      } catch (e) { }
       return updated;
     });
 
@@ -2264,7 +2264,7 @@ const Casbox = () => {
           localStorage.setItem('bnx_casbox_starred_map', JSON.stringify(next));
           localStorage.setItem(`bnx_casbox_starred_messages_${uKey}`, JSON.stringify(Object.keys(next)));
           localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Object.keys(next)));
-        } catch (e) {}
+        } catch (e) { }
         return next;
       }
       return prev;
@@ -2362,7 +2362,7 @@ const Casbox = () => {
             const json = JSON.stringify(Array.from(next));
             sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
             localStorage.setItem('bnx_casbox_deleted_message_ids', json);
-          } catch (e) {}
+          } catch (e) { }
           return next;
         });
       }
@@ -2637,7 +2637,7 @@ const Casbox = () => {
       if (changed) {
         try {
           localStorage.setItem('bnx_casbox_pinned_messages', JSON.stringify(next));
-        } catch (e) {}
+        } catch (e) { }
       }
       return changed ? next : prev;
     });
@@ -2889,7 +2889,7 @@ const Casbox = () => {
         chatInputRef.current.focus();
         try {
           chatInputRef.current.setSelectionRange(text.length, text.length);
-        } catch (e) {}
+        } catch (e) { }
       }
     }, 50);
   }, [isMessageEditable, cleanMessageBody]);
@@ -3019,11 +3019,10 @@ const Casbox = () => {
           e.stopPropagation();
           handleNavigateToOriginalMessage(originalMsgId, quotedSnippet, quotedSender);
         }}
-        className={`mb-1.5 p-2 rounded-xl text-[11px] border-l-4 select-none cursor-pointer hover:opacity-90 active:scale-[0.99] transition-all ${
-          isMe
+        className={`mb-1.5 p-2 rounded-xl text-[11px] border-l-4 select-none cursor-pointer hover:opacity-90 active:scale-[0.99] transition-all ${isMe
             ? 'bg-black/15 text-white border-white/70 hover:bg-black/25'
             : 'bg-black/5 dark:bg-white/5 text-gray-700 dark:text-gray-200 border-blue-500 dark:border-blue-400 hover:bg-black/10 dark:hover:bg-white/10'
-        }`}
+          }`}
         title="Click to jump to original message"
       >
         <div className="line-clamp-2 leading-relaxed opacity-90 text-[11px] break-words">
@@ -3050,9 +3049,8 @@ const Casbox = () => {
     }
 
     return (
-      <div className={`flex items-center gap-1 text-[11px] select-none mb-1 font-medium ${
-        isMe ? 'text-white/85' : 'text-gray-500 dark:text-gray-400'
-      }`}>
+      <div className={`flex items-center gap-1 text-[11px] select-none mb-1 font-medium ${isMe ? 'text-white/85' : 'text-gray-500 dark:text-gray-400'
+        }`}>
         <MdForward size={13} className="shrink-0" />
         <span className="italic">Forwarded</span>
       </div>
@@ -3100,11 +3098,11 @@ const Casbox = () => {
 
       try {
         localStorage.setItem('bnx_casbox_reactions', JSON.stringify(nextMap));
-      } catch (e) {}
+      } catch (e) { }
 
       try {
         window.dispatchEvent(new CustomEvent('bnx_casbox_reactions_updated', { detail: nextMap }));
-      } catch (e) {}
+      } catch (e) { }
 
       return nextMap;
     });
@@ -3122,9 +3120,9 @@ const Casbox = () => {
     const msg = chatOrMsg.latestMessage || (chatOrMsg.body !== undefined ? chatOrMsg : null);
     const originalName = getOriginalName(contactEmail, msg);
     const currentName = getDisplayName(contactEmail, msg);
-    const hasCustomAlias = contactAliases[contactEmail.toLowerCase()] || 
-                           contactAliases[contactEmail.split('@')[0].toLowerCase()] || 
-                           (msg?.customName && msg.customName.trim());
+    const hasCustomAlias = contactAliases[contactEmail.toLowerCase()] ||
+      contactAliases[contactEmail.split('@')[0].toLowerCase()] ||
+      (msg?.customName && msg.customName.trim());
 
     setEditingContact({
       contact: contactEmail,
@@ -3296,7 +3294,7 @@ const Casbox = () => {
           setAcceptedContacts(accepted);
           try {
             sessionStorage.setItem('bnx_casbox_accepted', JSON.stringify(accepted));
-          } catch (e) {}
+          } catch (e) { }
         }
       } catch (e) {
         console.error("Failed to load casbox settings", e);
@@ -3350,7 +3348,7 @@ const Casbox = () => {
       try {
         sessionStorage.setItem('bnx_casbox_read_message_ids', JSON.stringify(Array.from(next)));
         localStorage.setItem('bnx_casbox_read_message_ids', JSON.stringify(Array.from(next)));
-      } catch (e) {}
+      } catch (e) { }
       return next;
     });
 
@@ -3823,12 +3821,12 @@ const Casbox = () => {
         targetIds = [singleId];
       }
     } else {
-      const matchingMsgIds = otherEmail 
+      const matchingMsgIds = otherEmail
         ? messages.filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && Boolean(m.isArchived || m.archived)).map(m => m.id)
         : [];
 
-      targetIds = matchingMsgIds.length > 0 
-        ? matchingMsgIds 
+      targetIds = matchingMsgIds.length > 0
+        ? matchingMsgIds
         : (chatOrMsg?.messages ? chatOrMsg.messages.map(m => m.id) : [chatOrMsg?.id || chatOrMsg?.latestMessage?.id].filter(Boolean));
     }
 
@@ -4171,26 +4169,26 @@ const Casbox = () => {
     return true;
   }, [isCurrentUser, readMessageIds, deletedMessageIds]);
 
-  const { 
-    conversationList, 
-    messagesConversations, 
-    requestsConversations, 
-    archivedConversations, 
-    unreadMessagesCount, 
-    unreadArchivedCount, 
-    unreadRequestsCount, 
-    requestMessages 
+  const {
+    conversationList,
+    messagesConversations,
+    requestsConversations,
+    archivedConversations,
+    unreadMessagesCount,
+    unreadArchivedCount,
+    unreadRequestsCount,
+    requestMessages
   } = useMemo(() => {
     if (!messages || messages.length === 0) {
-      return { 
-        conversationList: [], 
-        messagesConversations: [], 
-        requestsConversations: [], 
-        archivedConversations: [], 
-        unreadMessagesCount: 0, 
-        unreadArchivedCount: 0, 
-        unreadRequestsCount: 0, 
-        requestMessages: [] 
+      return {
+        conversationList: [],
+        messagesConversations: [],
+        requestsConversations: [],
+        archivedConversations: [],
+        unreadMessagesCount: 0,
+        unreadArchivedCount: 0,
+        unreadRequestsCount: 0,
+        requestMessages: []
       };
     }
 
@@ -4459,7 +4457,7 @@ const Casbox = () => {
         const mapEntry = key ? starredMessagesMap[key] : null;
 
         const isMatch = (mContact && isSameContact(mContact, activeContact)) ||
-                        (mapEntry && isSameContact(mapEntry.contact, activeContact));
+          (mapEntry && isSameContact(mapEntry.contact, activeContact));
 
         if (isMatch) {
           if (key && !seenKeys.has(key)) {
@@ -4520,8 +4518,8 @@ const Casbox = () => {
 
         const sender = normalizeEmail(msg.senderEmail || msg.sender);
         const isMe = isCurrentUser(sender);
-        const otherEmail = isMe 
-          ? (msg.receiverEmail || msg.receiver || grp.contact) 
+        const otherEmail = isMe
+          ? (msg.receiverEmail || msg.receiver || grp.contact)
           : (msg.senderEmail || msg.sender || grp.contact);
 
         list.push({
@@ -4541,7 +4539,7 @@ const Casbox = () => {
 
   const filteredIndividualMessages = useMemo(() => {
     if (!individualMessagesList || individualMessagesList.length === 0) return [];
-    
+
     let list = individualMessagesList;
 
     // Apply messagesFilter
@@ -4605,11 +4603,11 @@ const Casbox = () => {
         isCurrentUser(sender)
       );
 
-      const otherEmail = isMe 
-        ? (msg.receiverEmail || msg.receiver) 
+      const otherEmail = isMe
+        ? (msg.receiverEmail || msg.receiver)
         : (msg.senderEmail || msg.sender);
 
-      const chat = archivedConversations?.find(c => 
+      const chat = archivedConversations?.find(c =>
         normalizeEmail(c.contact) === normalizeEmail(otherEmail)
       );
 
@@ -4629,7 +4627,7 @@ const Casbox = () => {
 
   const filteredArchivedMessages = useMemo(() => {
     if (!archivedIndividualMessages || archivedIndividualMessages.length === 0) return [];
-    
+
     let list = archivedIndividualMessages;
 
     // Apply messagesFilter
@@ -4706,7 +4704,7 @@ const Casbox = () => {
     return list.filter((chat) => {
       const msg = chat.latestMessage;
       const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
-      const personEmail = isMe 
+      const personEmail = isMe
         ? (msg?.receiverEmail || msg?.receiver || chat.contact)
         : (msg?.senderEmail || msg?.sender || chat.contact);
       const personName = getDisplayName(personEmail, msg) || personEmail;
@@ -5105,7 +5103,7 @@ const Casbox = () => {
       // If the currently open conversation happens to be one of the recipients, also update threadMessages
       const currentChatEmail = normalizeEmail(getOtherUserEmail(selectedMessage));
       if (currentChatEmail) {
-        const sentToCurrentChat = newMessagesSent.filter(m => 
+        const sentToCurrentChat = newMessagesSent.filter(m =>
           normalizeEmail(m.receiverEmail || m.receiver) === currentChatEmail ||
           normalizeEmail(m.senderEmail || m.sender) === currentChatEmail
         );
@@ -5233,11 +5231,10 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
-            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
-              activeTab === 'messages'
+            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'messages'
                 ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
+              }`}
           >
             {t('casbox.messages', 'Messages')}
             {unreadMessagesCount > 0 && (
@@ -5251,11 +5248,10 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
-              isCombineTab
+            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${isCombineTab
                 ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
+              }`}
           >
             {t('casbox.combine', 'Combine')}
             {unreadCombinedCount > 0 && (
@@ -5269,11 +5265,10 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
-              activeTab === 'requests'
+            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'requests'
                 ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
+              }`}
           >
             {t('casbox.requests', 'Requests')}
             {unreadRequestsCount > 0 ? (
@@ -5323,11 +5318,10 @@ const Casbox = () => {
                 setSelectedSentDetail(null);
                 setSelectedRowIds(new Set());
               }}
-              className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${
-                activeTab === 'archive'
+              className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${activeTab === 'archive'
                   ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
+                }`}
               title={t('sidebar.archive', 'Archive')}
             >
               {t('sidebar.archive', 'Archive')}
@@ -5485,9 +5479,8 @@ const Casbox = () => {
             value={combineSearch}
             onChange={(e) => setCombineSearch(e.target.value)}
             placeholder="Search all messages..."
-            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full py-2.5 pl-10 ${
-              combineSearch ? 'pr-20' : 'pr-12'
-            }`}
+            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full py-2.5 pl-10 ${combineSearch ? 'pr-20' : 'pr-12'
+              }`}
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {combineSearch && (
@@ -5506,11 +5499,10 @@ const Casbox = () => {
               <button
                 type="button"
                 onClick={() => setShowFilterMenu(prev => !prev)}
-                className={`p-1.5 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${
-                  combineFilter !== 'all' || showFilterMenu
+                className={`p-1.5 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${combineFilter !== 'all' || showFilterMenu
                     ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
                     : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
-                }`}
+                  }`}
                 title="Filter messages"
                 aria-label="Filter messages"
               >
@@ -5522,9 +5514,8 @@ const Casbox = () => {
                   <button
                     type="button"
                     onClick={() => { setCombineFilter('all'); setShowFilterMenu(false); }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-                      combineFilter === 'all' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
-                    }`}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${combineFilter === 'all' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                      }`}
                   >
                     All Messages
                     {combineFilter === 'all' && <MdCheck size={16} />}
@@ -5532,9 +5523,8 @@ const Casbox = () => {
                   <button
                     type="button"
                     onClick={() => { setCombineFilter('received'); setShowFilterMenu(false); }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-                      combineFilter === 'received' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
-                    }`}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${combineFilter === 'received' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                      }`}
                   >
                     Received Only
                     {combineFilter === 'received' && <MdCheck size={16} />}
@@ -5542,9 +5532,8 @@ const Casbox = () => {
                   <button
                     type="button"
                     onClick={() => { setCombineFilter('sent'); setShowFilterMenu(false); }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-                      combineFilter === 'sent' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
-                    }`}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${combineFilter === 'sent' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                      }`}
                   >
                     Sent Only
                     {combineFilter === 'sent' && <MdCheck size={16} />}
@@ -5729,9 +5718,8 @@ const Casbox = () => {
             value={messagesSearch}
             onChange={(e) => setMessagesSearch(e.target.value)}
             placeholder="Search messages..."
-            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 w-full py-2.5 pl-10 ${
-              messagesSearch ? 'pr-20' : 'pr-12'
-            }`}
+            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 w-full py-2.5 pl-10 ${messagesSearch ? 'pr-20' : 'pr-12'
+              }`}
           />
           <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {messagesSearch && (
@@ -5750,11 +5738,10 @@ const Casbox = () => {
               <button
                 type="button"
                 onClick={() => setShowMessagesFilterMenu((prev) => !prev)}
-                className={`p-1 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${
-                  messagesFilter !== 'all' || showMessagesFilterMenu
+                className={`p-1 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${messagesFilter !== 'all' || showMessagesFilterMenu
                     ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'
-                }`}
+                  }`}
                 title="Filter messages"
                 aria-label="Filter messages"
               >
@@ -5779,11 +5766,10 @@ const Casbox = () => {
                           setMessagesFilter(opt.id);
                           setShowMessagesFilterMenu(false);
                         }}
-                        className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm flex items-center gap-3 transition-colors cursor-pointer ${
-                          isSelected
+                        className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm flex items-center gap-3 transition-colors cursor-pointer ${isSelected
                             ? "bg-blue-50/70 dark:bg-blue-900/25 text-blue-600 dark:text-blue-400 font-semibold"
                             : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 font-medium"
-                        }`}
+                          }`}
                       >
                         {IconComponent ? (
                           <IconComponent
@@ -5873,9 +5859,8 @@ const Casbox = () => {
               <div
                 key={id}
                 onClick={() => handleOpenMessageDetail(item)}
-                className={`group flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${
-                  selectedSentDetail && (selectedSentDetail.id === msg.id || selectedSentDetail === msg) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
-                }`}
+                className={`group flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${selectedSentDetail && (selectedSentDetail.id === msg.id || selectedSentDetail === msg) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                  }`}
               >
 
                 {/* Desktop View (>= md: 768px) */}
@@ -5902,9 +5887,8 @@ const Casbox = () => {
                     </div>
 
                     {/* Person Name */}
-                    <span className={`w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-4 ${
-                      isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
-                    }`}>
+                    <span className={`w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-4 ${isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
+                      }`}>
                       {personName}
                     </span>
 
@@ -5924,9 +5908,8 @@ const Casbox = () => {
                     {/* Message Content Preview (Subject + Body) */}
                     <div className="flex items-center min-w-0 flex-1">
                       {subject && (
-                        <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[200px] mr-2 ${
-                          isUnread ? 'font-bold' : 'font-semibold'
-                        }`}>
+                        <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[200px] mr-2 ${isUnread ? 'font-bold' : 'font-semibold'
+                          }`}>
                           {subject}
                         </span>
                       )}
@@ -5939,9 +5922,8 @@ const Casbox = () => {
 
                   {/* Right side: [Time] [Status] [3-dot] */}
                   <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <span className={`text-xs font-medium whitespace-nowrap shrink-0 ${
-                      isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
-                    }`}>
+                    <span className={`text-xs font-medium whitespace-nowrap shrink-0 ${isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                      }`}>
                       {formatCashboxTime(msg?.timestamp)}
                     </span>
 
@@ -6057,9 +6039,8 @@ const Casbox = () => {
                   <div className="flex flex-col min-w-0 flex-1 justify-center">
                     {/* Top line: Username in bold + Status Badge */}
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-[13px] font-bold truncate ${
-                        isUnread ? 'text-gray-950 dark:text-white' : 'text-gray-900 dark:text-gray-100'
-                      }`}>
+                      <span className={`text-[13px] font-bold truncate ${isUnread ? 'text-gray-950 dark:text-white' : 'text-gray-900 dark:text-gray-100'
+                        }`}>
                         {personName}
                       </span>
                       {isSent ? (
@@ -6217,9 +6198,8 @@ const Casbox = () => {
               <div
                 key={id}
                 onClick={() => handleArchivedMessageClick(msg, chat || { contact })}
-                className={`group flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${
-                  isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
-                }`}
+                className={`group flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors relative bg-white dark:bg-[#121212] cursor-pointer ${isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                  }`}
               >
                 {isSelected && (
                   <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
@@ -6247,18 +6227,16 @@ const Casbox = () => {
                   </div>
 
                   {/* Sender / Contact Name */}
-                  <span className={`w-20 sm:w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-1.5 sm:mr-4 ${
-                    isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
-                  }`}>
+                  <span className={`w-20 sm:w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-1.5 sm:mr-4 ${isUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
+                    }`}>
                     {personName}
                   </span>
 
                   {/* Direction + Subject + Content Preview */}
                   <div className="flex items-center min-w-0 flex-1">
                     {/* Direction Label */}
-                    <span className={`text-[11px] sm:text-xs font-semibold shrink-0 ${
-                      isSent ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'
-                    }`}>
+                    <span className={`text-[11px] sm:text-xs font-semibold shrink-0 ${isSent ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'
+                      }`}>
                       {isSent ? 'Sent' : 'Received'}
                     </span>
 
@@ -6290,9 +6268,8 @@ const Casbox = () => {
 
                 {/* Right side: [Time] [Status Ticks] [3-dot menu] */}
                 <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-1.5 sm:ml-2">
-                  <span className={`text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 ${
-                    isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
-                  }`}>
+                  <span className={`text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 ${isUnread ? 'font-bold text-gray-950 dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                    }`}>
                     {formatCashboxTime(msg?.timestamp)}
                   </span>
 
@@ -6389,18 +6366,18 @@ const Casbox = () => {
             const otherEmail = chat.contact;
             const isSelected = activeTab === 'archive'
               ? Boolean(selectedSentDetail && (
-                  (selectedSentDetail.id && msg?.id && (selectedSentDetail.id === msg.id || String(selectedSentDetail.id) === String(msg.id))) ||
-                  (selectedSentDetail.uid && msg?.uid && selectedSentDetail.uid === msg.uid) ||
-                  selectedSentDetail === msg
-                ))
+                (selectedSentDetail.id && msg?.id && (selectedSentDetail.id === msg.id || String(selectedSentDetail.id) === String(msg.id))) ||
+                (selectedSentDetail.uid && msg?.uid && selectedSentDetail.uid === msg.uid) ||
+                selectedSentDetail === msg
+              ))
               : Boolean(selectedMessage && (
-                  normalizeEmail(getOtherUserEmail(selectedMessage)) === normalizeEmail(otherEmail)
-                ));
+                normalizeEmail(getOtherUserEmail(selectedMessage)) === normalizeEmail(otherEmail)
+              ));
 
             const unreadCount = chat.unreadCount !== undefined ? chat.unreadCount : chat.messages.filter(isMessageUnread).length;
 
             // Sender / Receiver Name
-            const personEmail = isMe 
+            const personEmail = isMe
               ? (msg?.receiverEmail || msg?.receiver || otherEmail)
               : (msg?.senderEmail || msg?.sender || otherEmail);
             const personName = getDisplayName(personEmail, msg) || personEmail;
@@ -6434,9 +6411,8 @@ const Casbox = () => {
                     handleSelectMessage(msg);
                   }
                 }}
-                className={`group flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors cursor-pointer relative bg-white dark:bg-[#121212] ${
-                  isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
-                }`}
+                className={`group flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors cursor-pointer relative bg-white dark:bg-[#121212] ${isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                  }`}
               >
                 {isSelected && (
                   <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r bg-blue-500"></div>
@@ -6464,18 +6440,16 @@ const Casbox = () => {
                   </div>
 
                   {/* Name */}
-                  <span className={`w-20 sm:w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-1.5 sm:mr-4 ${
-                    unreadCount > 0 ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
-                  }`}>
+                  <span className={`w-20 sm:w-36 lg:w-48 text-xs sm:text-sm truncate shrink-0 select-none mr-1.5 sm:mr-4 ${unreadCount > 0 ? 'font-bold text-gray-950 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'
+                    }`}>
                     {personName}
                   </span>
 
                   {/* Message Content Preview (Subject + Body) */}
                   <div className="flex items-center min-w-0 flex-1">
                     {subject && (
-                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[80px] sm:max-w-[200px] mr-1.5 sm:mr-2 ${
-                        unreadCount > 0 ? 'font-bold' : 'font-semibold'
-                      }`}>
+                      <span className={`text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate shrink-0 max-w-[80px] sm:max-w-[200px] mr-1.5 sm:mr-2 ${unreadCount > 0 ? 'font-bold' : 'font-semibold'
+                        }`}>
                         {subject}
                       </span>
                     )}
@@ -6488,9 +6462,8 @@ const Casbox = () => {
 
                 {/* Right side: [Time] [Status] [More options] */}
                 <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-1.5 sm:ml-2">
-                  <span className={`text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 ${
-                    unreadCount > 0 ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'
-                  }`}>
+                  <span className={`text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0 ${unreadCount > 0 ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                    }`}>
                     {formatCashboxTime(msg?.timestamp)}
                   </span>
 
@@ -6608,7 +6581,7 @@ const Casbox = () => {
       setAcceptedContacts(newAccepted);
       try {
         sessionStorage.setItem('bnx_casbox_accepted', JSON.stringify(newAccepted));
-      } catch (e) {}
+      } catch (e) { }
       await userAPI.updateSettings({ casboxAccepted: newAccepted });
       toast.success("Request accepted");
       if (!isCombineTab) {
@@ -6632,7 +6605,7 @@ const Casbox = () => {
       const cUser = normalizeEmail(c.contactUsername || c.username);
       const cLocal = cEmail.includes('@') ? cEmail.split('@')[0] : cEmail;
       return (cEmail && (cEmail === norm || cLocal === local)) ||
-             (cUser && (cUser === norm || cUser === local));
+        (cUser && (cUser === norm || cUser === local));
     });
 
     // 2. Check conversationList
@@ -6719,7 +6692,7 @@ const Casbox = () => {
       try {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
         localStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
-      } catch (e) {}
+      } catch (e) { }
 
       if (blockedContactsAPI?.blockSender) {
         await blockedContactsAPI.blockSender(primaryId);
@@ -6758,14 +6731,14 @@ const Casbox = () => {
       try {
         sessionStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
         localStorage.setItem('bnx_casbox_blocked', JSON.stringify(newBlocked));
-      } catch (e) {}
+      } catch (e) { }
 
       if (blockedContactsAPI?.unblockSender) {
         await blockedContactsAPI.unblockSender(emailLower);
         if (info?.primaryIdentifier && info.primaryIdentifier !== emailLower) {
           try {
             await blockedContactsAPI.unblockSender(info.primaryIdentifier);
-          } catch (e) {}
+          } catch (e) { }
         }
       }
       toast.success("User unblocked");
@@ -7138,7 +7111,7 @@ const Casbox = () => {
           localStorage.setItem('bnx_casbox_starred_map', JSON.stringify(next));
           localStorage.setItem(`bnx_casbox_starred_messages_${uKey}`, JSON.stringify(Object.keys(next)));
           localStorage.setItem('bnx_casbox_starred_messages', JSON.stringify(Object.keys(next)));
-        } catch (e) {}
+        } catch (e) { }
 
         return next;
       });
@@ -7281,11 +7254,10 @@ const Casbox = () => {
               >
                 <MdClose size={20} />
               </button>
-              <span className={`text-xs sm:text-sm font-bold truncate ${
-                selectedMessageItemIds.size > 0 
-                  ? 'text-gray-900 dark:text-gray-100' 
+              <span className={`text-xs sm:text-sm font-bold truncate ${selectedMessageItemIds.size > 0
+                  ? 'text-gray-900 dark:text-gray-100'
                   : 'text-gray-500 dark:text-gray-400'
-              }`}>
+                }`}>
                 {selectedMessageItemIds.size === 1
                   ? '1 selected'
                   : `${selectedMessageItemIds.size} selected`}
@@ -7416,11 +7388,10 @@ const Casbox = () => {
               <button
                 type="button"
                 onClick={() => setShowStarredMessagesView(prev => !prev)}
-                className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
-                  showStarredMessagesView
+                className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${showStarredMessagesView
                     ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-900/20'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100'
-                }`}
+                  }`}
                 title={showStarredMessagesView ? "View chat history" : "Starred messages"}
                 aria-label="Starred messages"
               >
@@ -7600,7 +7571,7 @@ const Casbox = () => {
                     <div key={`starred-item-${msgUniqueId || index}`} className="flex items-start gap-2.5 sm:gap-4 md:gap-5 w-full py-1 min-w-0">
                       {/* Left Column: Contact Card */}
                       <div className="w-16 sm:w-28 md:w-36 shrink-0 pt-0 select-none text-left">
-                        <div 
+                        <div
                           className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-xl border relative shadow-sm w-full bg-gray-50/50 dark:bg-[#1e1e1e]/40 overflow-hidden"
                           style={{
                             borderColor: theme?.border || '#e2e8f0',
@@ -7609,11 +7580,10 @@ const Casbox = () => {
                           }}
                         >
                           <div className="relative shrink-0">
-                            <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs ${
-                              isMe 
-                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                            <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs ${isMe
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                                 : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                            }`}>
+                              }`}>
                               {senderInitial}
                             </div>
                           </div>
@@ -7632,9 +7602,8 @@ const Casbox = () => {
                             {/* Bubble */}
                             <div
                               onClick={() => handleOpenOriginalConversation(msg)}
-                              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden cursor-pointer hover:opacity-95 transition-opacity ${
-                                isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'
-                              }`}
+                              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden cursor-pointer hover:opacity-95 transition-opacity ${isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'
+                                }`}
                               style={{
                                 backgroundColor: isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#1e1e1e' : '#f3f4f6'),
                                 color: isMe ? '#ffffff' : (theme?.mode === 'dark' ? '#f3f4f6' : '#1f2937'),
@@ -7691,511 +7660,496 @@ const Casbox = () => {
             </div>
           </div>
         ) : (
-        <div
-          ref={chatContainerRef}
-          onScroll={handleChatScroll}
-          className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col hidden-scrollbar"
-        >
-          {loadingThread && threadMessages.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">
-              Loading chat history...
-            </div>
-          ) : sortedThread.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
-              <MdSend className="text-3xl text-gray-300 dark:text-gray-600 mb-2" />
-              <span className="text-xs font-semibold">No messages in this chat yet</span>
-            </div>
-          ) : (
-            sortedThread.map((msg, index) => {
-              const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
-              const senderEmail = msg.senderEmail || msg.sender || "";
-              const senderLabel = isMe ? (user?.username || senderEmail.split("@")[0]) : getDisplayName(senderEmail, msg);
-              const senderInitial = isMe ? (user?.username || senderEmail).charAt(0).toUpperCase() : getContactInitial(senderEmail, msg);
-              const msgUniqueId = getMessageKey(msg) || String(msg.id !== undefined && msg.id !== null ? msg.id : (msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`));
-              const currentUserId = (user?.email || user?.username || 'me').trim();
+          <div
+            ref={chatContainerRef}
+            onScroll={handleChatScroll}
+            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col hidden-scrollbar"
+          >
+            {loadingThread && threadMessages.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-xs text-gray-500 dark:text-gray-400">
+                Loading chat history...
+              </div>
+            ) : sortedThread.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
+                <MdSend className="text-3xl text-gray-300 dark:text-gray-600 mb-2" />
+                <span className="text-xs font-semibold">No messages in this chat yet</span>
+              </div>
+            ) : (
+              sortedThread.map((msg, index) => {
+                const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
+                const senderEmail = msg.senderEmail || msg.sender || "";
+                const senderLabel = isMe ? (user?.username || senderEmail.split("@")[0]) : getDisplayName(senderEmail, msg);
+                const senderInitial = isMe ? (user?.username || senderEmail).charAt(0).toUpperCase() : getContactInitial(senderEmail, msg);
+                const msgUniqueId = getMessageKey(msg) || String(msg.id !== undefined && msg.id !== null ? msg.id : (msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.body}`));
+                const currentUserId = (user?.email || user?.username || 'me').trim();
 
-              const currentDateKey = getMessageDateKey(msg.timestamp);
-              const prevDateKey = index > 0 ? getMessageDateKey(sortedThread[index - 1]?.timestamp) : null;
-              const showDateSeparator = Boolean(currentDateKey && currentDateKey !== prevDateKey);
+                const currentDateKey = getMessageDateKey(msg.timestamp);
+                const prevDateKey = index > 0 ? getMessageDateKey(sortedThread[index - 1]?.timestamp) : null;
+                const showDateSeparator = Boolean(currentDateKey && currentDateKey !== prevDateKey);
 
-              return (
-                <React.Fragment key={msgUniqueId || msg.id || index}>
-                  {showDateSeparator && (
-                    <div className="flex justify-center w-full select-none py-1.5">
-                      <div className="px-4 py-1 rounded-full text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100/80 dark:bg-gray-800/80 shadow-2xs border border-gray-200/40 dark:border-gray-700/40">
-                        {formatChatDateSeparator(msg.timestamp)}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-start gap-2.5 sm:gap-4 md:gap-5 w-full py-1 min-w-0">
-                  {/* Left Column: Contact Card */}
-                  <div className="w-16 sm:w-28 md:w-36 shrink-0 pt-0 select-none text-left">
-                    <div 
-                      className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-xl border relative shadow-sm w-full bg-gray-50/50 dark:bg-[#1e1e1e]/40 overflow-hidden"
-                      style={{
-                        borderColor: theme?.border || '#e2e8f0',
-                        borderLeftWidth: '4px',
-                        borderLeftColor: isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#4b5563' : '#d1d5db'),
-                      }}
-                    >
-                      {/* Avatar Container */}
-                      <div className="relative shrink-0">
-                        <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs ${
-                          isMe 
-                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
-                            : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                        }`}>
-                          {senderInitial}
+                return (
+                  <React.Fragment key={msgUniqueId || msg.id || index}>
+                    {showDateSeparator && (
+                      <div className="flex justify-center w-full select-none py-1.5">
+                        <div className="px-4 py-1 rounded-full text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100/80 dark:bg-gray-800/80 shadow-2xs border border-gray-200/40 dark:border-gray-700/40">
+                          {formatChatDateSeparator(msg.timestamp)}
                         </div>
-                        {/* Green online dot */}
-                        <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-[#121212]" />
                       </div>
-
-                      {/* Details */}
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className="font-bold text-[10px] sm:text-xs text-gray-800 dark:text-gray-200 truncate" title={senderLabel}>
-                          {senderLabel}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Chat Message */}
-                  <div className="flex-1 flex flex-col items-start min-w-0">
-                    <div 
-                      id={`casbox-msg-${msgUniqueId}`}
-                      className={`max-w-[92%] sm:max-w-[85%] flex flex-col items-start min-w-0 rounded-2xl transition-all duration-500 relative ${
-                        highlightedMessageId === msgUniqueId ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-[#121212] bg-blue-100/60 dark:bg-blue-900/40 p-1 -m-1 shadow-md scale-[1.01]' : ''
-                      }`}
-                    >
-                      {/* Quick Reaction Floating Bar & Full Picker Anchored Directly Above/Below Message */}
-                      {activeReactionMsgId === msgUniqueId && (
+                    )}
+                    <div className="flex items-start gap-2.5 sm:gap-4 md:gap-5 w-full py-1 min-w-0">
+                      {/* Left Column: Contact Card */}
+                      <div className="w-16 sm:w-28 md:w-36 shrink-0 pt-0 select-none text-left">
                         <div
-                          ref={reactionBarRef}
-                          className={`absolute z-50 flex flex-col ${
-                            reactionPickerPlacement.placement === 'below'
-                              ? 'top-full mt-1.5'
-                              : 'bottom-full mb-1.5'
-                          } ${
-                            reactionPickerPlacement.align === 'right'
-                              ? 'right-0 items-end'
-                              : 'left-0 items-start'
-                          }`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {/* Quick Reactions Pill */}
-                          <div className="bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-full shadow-lg px-2 sm:px-2.5 py-1 flex items-center gap-1 sm:gap-1.5 select-none animate-in fade-in zoom-in-95 duration-150 max-w-[calc(100vw-3.5rem)] overflow-x-auto hidden-scrollbar">
-                            {QUICK_REACTIONS.map((emoji) => {
-                              const isSelected = (reactionsMap[msgUniqueId]?.[emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
-                              return (
-                                <button
-                                  key={emoji}
-                                  type="button"
-                                  onClick={() => handleToggleReaction(msgUniqueId, emoji)}
-                                  className={`w-7 h-7 flex items-center justify-center text-lg hover:scale-125 active:scale-95 transition-all cursor-pointer rounded-full ${
-                                    isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
-                                  }`}
-                                  title={isSelected ? `${emoji} (Click to remove)` : emoji}
-                                >
-                                  {emoji}
-                                </button>
-                              );
-                            })}
-                            <button
-                              type="button"
-                              onClick={() => setShowFullEmojiPicker(prev => !prev)}
-                              className={`w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-sm font-bold ${
-                                showFullEmojiPicker ? 'bg-black/10 dark:bg-white/20 text-gray-900 dark:text-white' : ''
-                              }`}
-                              title="More emojis"
-                            >
-                              <MdAdd size={16} />
-                            </button>
-                          </div>
-
-                          {/* Full Emoji Picker */}
-                          {showFullEmojiPicker && (
-                            <div
-                              className={`w-72 sm:w-80 max-w-[calc(100vw-3.5rem)] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl p-2.5 sm:p-3 z-50 flex flex-col animate-in fade-in duration-200 ${
-                                reactionPickerPlacement.placement === 'below' ? 'mt-1.5' : 'mb-1.5 order-first'
-                              }`}
-                              style={{ borderColor: theme?.border || '#e2e8f0' }}
-                            >
-                              {/* Search bar */}
-                              <div className="relative mb-2">
-                                <input
-                                  type="text"
-                                  placeholder="Search emoji..."
-                                  value={emojiSearchTerm}
-                                  onChange={(e) => setEmojiSearchTerm(e.target.value)}
-                                  className="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800 dark:text-gray-200"
-                                />
-                                <MdSearch className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                              </div>
-
-                              {/* Category Tabs */}
-                              <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-1.5 mb-2 px-1">
-                                {EMOJI_CATEGORIES.map(cat => (
-                                  <button
-                                    key={cat.id}
-                                    type="button"
-                                    onClick={() => { setActiveEmojiCategory(cat.id); setEmojiSearchTerm(''); }}
-                                    className={`p-1 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${
-                                      activeEmojiCategory === cat.id && !emojiSearchTerm ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 scale-110' : 'text-gray-500 opacity-70 hover:opacity-100'
-                                    }`}
-                                    title={cat.name}
-                                  >
-                                    {cat.icon}
-                                  </button>
-                                ))}
-                              </div>
-
-                              {/* Category Title */}
-                              <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
-                                {emojiSearchTerm ? `Search results for "${emojiSearchTerm}"` : (EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory)?.name || 'Smileys & People')}
-                              </div>
-
-                              {/* Emoji Grid */}
-                              <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto hidden-scrollbar px-0.5">
-                                {(() => {
-                                  const term = emojiSearchTerm.trim().toLowerCase();
-                                  let list = [];
-                                  if (term) {
-                                    EMOJI_CATEGORIES.forEach(c => {
-                                      c.emojis.forEach(e => {
-                                        if (e.name.toLowerCase().includes(term) && !list.some(x => x.emoji === e.emoji)) {
-                                          list.push(e);
-                                        }
-                                      });
-                                    });
-                                  } else {
-                                    const cat = EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory) || EMOJI_CATEGORIES[0];
-                                    list = cat.emojis;
-                                  }
-
-                                  if (list.length === 0) {
-                                    return (
-                                      <div className="col-span-8 py-6 text-center text-xs text-gray-400">
-                                        No emojis found
-                                      </div>
-                                    );
-                                  }
-
-                                  return list.map(item => {
-                                    const isSelected = (reactionsMap[msgUniqueId]?.[item.emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
-                                    return (
-                                      <button
-                                        key={item.emoji + item.name}
-                                        type="button"
-                                        onClick={() => handleToggleReaction(msgUniqueId, item.emoji)}
-                                        className={`w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:scale-125 transition-all cursor-pointer select-none ${
-                                          isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
-                                        }`}
-                                        title={isSelected ? `${item.name} (Click to remove)` : item.name}
-                                      >
-                                        {item.emoji}
-                                      </button>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Bubble + Three Dot Action Container */}
-                      <div className="flex items-center gap-1.5 sm:gap-2 relative group max-w-full">
-                        {isMessageSelectionMode && (
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="shrink-0 flex items-center justify-center select-none py-1 px-0.5"
-                          >
-                            <input
-                              type="checkbox"
-                              id={`select-checkbox-${msgUniqueId}`}
-                              checked={selectedMessageItemIds.has(msgUniqueId)}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                handleToggleSelectMessage(msgUniqueId);
-                              }}
-                              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 cursor-pointer accent-blue-600 transition-transform hover:scale-110"
-                              title={selectedMessageItemIds.has(msgUniqueId) ? "Deselect message" : "Select message"}
-                            />
-                          </div>
-                        )}
-
-                        {/* Bubble */}
-                        <div
-                          className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden transition-all duration-150 ${
-                            isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'
-                          } ${
-                            selectedMessageItemIds.has(msgUniqueId)
-                              ? 'ring-2 ring-blue-500 ring-offset-1 border-blue-400 dark:border-blue-500 shadow-sm'
-                              : ''
-                          }`}
+                          className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-xl border relative shadow-sm w-full bg-gray-50/50 dark:bg-[#1e1e1e]/40 overflow-hidden"
                           style={{
-                            backgroundColor: selectedMessageItemIds.has(msgUniqueId)
-                              ? (isMe ? '#2563eb' : (theme?.mode === 'dark' ? 'rgba(30, 58, 138, 0.45)' : '#eff6ff'))
-                              : (isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#1e1e1e' : '#f3f4f6')),
-                            color: selectedMessageItemIds.has(msgUniqueId) && !isMe
-                              ? (theme?.mode === 'dark' ? '#bfdbfe' : '#1e3a8a')
-                              : (isMe ? '#ffffff' : (theme?.mode === 'dark' ? '#f3f4f6' : '#1f2937')),
-                            borderColor: selectedMessageItemIds.has(msgUniqueId)
-                              ? '#3b82f6'
-                              : (isMe ? 'transparent' : (theme?.border || '#e2e8f0'))
+                            borderColor: theme?.border || '#e2e8f0',
+                            borderLeftWidth: '4px',
+                            borderLeftColor: isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#4b5563' : '#d1d5db'),
                           }}
                         >
-                          {renderForwardPreviewInBubble(msg, isMe)}
-                          {renderReplyPreviewInBubble(msg, isMe)}
-                          <p className="whitespace-pre-wrap leading-relaxed break-words">{cleanMessageBody(msg.body)}</p>
-                          {renderBubbleAttachments(msg)}
-                        </div>
-
-                        {/* Star indicator beside the message bubble */}
-                        {isMessageStarred(msg) && (
-                          <div className="shrink-0 flex items-center select-none" title="Starred message">
-                            <MdStar size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                          {/* Avatar Container */}
+                          <div className="relative shrink-0">
+                            <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs ${isMe
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                              }`}>
+                              {senderInitial}
+                            </div>
+                            {/* Green online dot */}
+                            <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-[#121212]" />
                           </div>
-                        )}
 
-                        {/* Action Trigger Buttons: Smiley Icon + Forward + Three-Dot Menu */}
-                        {!isMessageSelectionMode && (
-                          <div className="relative shrink-0 flex items-center gap-0.5">
-                            {/* Smiley Icon Button for Emoji Reactions */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMessageMenuId(null);
-                                setActiveReactionMsgId(prev => prev === msgUniqueId ? null : msgUniqueId);
-                                setShowFullEmojiPicker(false);
-                                setEmojiSearchTerm("");
-                              }}
-                              className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
-                                activeReactionMsgId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
-                              }`}
-                              title="Add reaction"
-                            >
-                              <MdOutlineEmojiEmotions size={18} />
-                            </button>
+                          {/* Details */}
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="font-bold text-[10px] sm:text-xs text-gray-800 dark:text-gray-200 truncate" title={senderLabel}>
+                              {senderLabel}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-                            {/* Forward Button */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMessageMenuId(null);
-                                setActiveReactionMsgId(null);
-                                setShowFullEmojiPicker(false);
-                                handleInitiateForward(msg, senderLabel);
-                              }}
-                              className="p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
-                              title="Forward message"
-                              aria-label="Forward message"
-                            >
-                              <MdForward size={18} />
-                            </button>
-
-                            {/* Three-Dot Menu Button */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveReactionMsgId(null);
-                                setShowFullEmojiPicker(false);
-                                setActiveMessageMenuId(prev => prev === msgUniqueId ? null : msgUniqueId);
-                              }}
-                              className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
-                                activeMessageMenuId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
-                              }`}
-                              title="Message actions"
-                            >
-                              <MdMoreVert size={18} />
-                            </button>
-
-                            {/* Three-Dot Dropdown Menu */}
-                            {activeMessageMenuId === msgUniqueId && (
-                              <div
-                                ref={messageMenuRef}
-                                className={`absolute left-full ml-1.5 z-50 min-w-[125px] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl py-1.5 px-1 animate-in fade-in zoom-in-95 duration-150 select-none ${
-                                  index >= sortedThread.length - 2 ? 'bottom-0' : 'top-0'
+                      {/* Right Column: Chat Message */}
+                      <div className="flex-1 flex flex-col items-start min-w-0">
+                        <div
+                          id={`casbox-msg-${msgUniqueId}`}
+                          className={`max-w-[92%] sm:max-w-[85%] flex flex-col items-start min-w-0 rounded-2xl transition-all duration-500 relative ${highlightedMessageId === msgUniqueId ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-[#121212] bg-blue-100/60 dark:bg-blue-900/40 p-1 -m-1 shadow-md scale-[1.01]' : ''
+                            }`}
+                        >
+                          {/* Quick Reaction Floating Bar & Full Picker Anchored Directly Above/Below Message */}
+                          {activeReactionMsgId === msgUniqueId && (
+                            <div
+                              ref={reactionBarRef}
+                              className={`absolute z-50 flex flex-col ${reactionPickerPlacement.placement === 'below'
+                                  ? 'top-full mt-1.5'
+                                  : 'bottom-full mb-1.5'
+                                } ${reactionPickerPlacement.align === 'right'
+                                  ? 'right-0 items-end'
+                                  : 'left-0 items-start'
                                 }`}
-                                style={{ borderColor: theme?.border || '#e2e8f0' }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {/* Quick Reactions Pill */}
+                              <div className="bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-full shadow-lg px-2 sm:px-2.5 py-1 flex items-center gap-1 sm:gap-1.5 select-none animate-in fade-in zoom-in-95 duration-150 max-w-[calc(100vw-3.5rem)] overflow-x-auto hidden-scrollbar">
+                                {QUICK_REACTIONS.map((emoji) => {
+                                  const isSelected = (reactionsMap[msgUniqueId]?.[emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
+                                  return (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => handleToggleReaction(msgUniqueId, emoji)}
+                                      className={`w-7 h-7 flex items-center justify-center text-lg hover:scale-125 active:scale-95 transition-all cursor-pointer rounded-full ${isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
+                                        }`}
+                                      title={isSelected ? `${emoji} (Click to remove)` : emoji}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  );
+                                })}
+                                <button
+                                  type="button"
+                                  onClick={() => setShowFullEmojiPicker(prev => !prev)}
+                                  className={`w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-sm font-bold ${showFullEmojiPicker ? 'bg-black/10 dark:bg-white/20 text-gray-900 dark:text-white' : ''
+                                    }`}
+                                  title="More emojis"
+                                >
+                                  <MdAdd size={16} />
+                                </button>
+                              </div>
+
+                              {/* Full Emoji Picker */}
+                              {showFullEmojiPicker && (
+                                <div
+                                  className={`w-72 sm:w-80 max-w-[calc(100vw-3.5rem)] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl p-2.5 sm:p-3 z-50 flex flex-col animate-in fade-in duration-200 ${reactionPickerPlacement.placement === 'below' ? 'mt-1.5' : 'mb-1.5 order-first'
+                                    }`}
+                                  style={{ borderColor: theme?.border || '#e2e8f0' }}
+                                >
+                                  {/* Search bar */}
+                                  <div className="relative mb-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Search emoji..."
+                                      value={emojiSearchTerm}
+                                      onChange={(e) => setEmojiSearchTerm(e.target.value)}
+                                      className="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800 dark:text-gray-200"
+                                    />
+                                    <MdSearch className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                  </div>
+
+                                  {/* Category Tabs */}
+                                  <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-1.5 mb-2 px-1">
+                                    {EMOJI_CATEGORIES.map(cat => (
+                                      <button
+                                        key={cat.id}
+                                        type="button"
+                                        onClick={() => { setActiveEmojiCategory(cat.id); setEmojiSearchTerm(''); }}
+                                        className={`p-1 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${activeEmojiCategory === cat.id && !emojiSearchTerm ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 scale-110' : 'text-gray-500 opacity-70 hover:opacity-100'
+                                          }`}
+                                        title={cat.name}
+                                      >
+                                        {cat.icon}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Category Title */}
+                                  <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
+                                    {emojiSearchTerm ? `Search results for "${emojiSearchTerm}"` : (EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory)?.name || 'Smileys & People')}
+                                  </div>
+
+                                  {/* Emoji Grid */}
+                                  <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto hidden-scrollbar px-0.5">
+                                    {(() => {
+                                      const term = emojiSearchTerm.trim().toLowerCase();
+                                      let list = [];
+                                      if (term) {
+                                        EMOJI_CATEGORIES.forEach(c => {
+                                          c.emojis.forEach(e => {
+                                            if (e.name.toLowerCase().includes(term) && !list.some(x => x.emoji === e.emoji)) {
+                                              list.push(e);
+                                            }
+                                          });
+                                        });
+                                      } else {
+                                        const cat = EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory) || EMOJI_CATEGORIES[0];
+                                        list = cat.emojis;
+                                      }
+
+                                      if (list.length === 0) {
+                                        return (
+                                          <div className="col-span-8 py-6 text-center text-xs text-gray-400">
+                                            No emojis found
+                                          </div>
+                                        );
+                                      }
+
+                                      return list.map(item => {
+                                        const isSelected = (reactionsMap[msgUniqueId]?.[item.emoji] || []).some(u => typeof u === 'string' && u.trim() === currentUserId);
+                                        return (
+                                          <button
+                                            key={item.emoji + item.name}
+                                            type="button"
+                                            onClick={() => handleToggleReaction(msgUniqueId, item.emoji)}
+                                            className={`w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:scale-125 transition-all cursor-pointer select-none ${isSelected ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-500 scale-110' : 'hover:bg-black/5 dark:hover:bg-white/10'
+                                              }`}
+                                            title={isSelected ? `${item.name} (Click to remove)` : item.name}
+                                          >
+                                            {item.emoji}
+                                          </button>
+                                        );
+                                      });
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Bubble + Three Dot Action Container */}
+                          <div className="flex items-center gap-1.5 sm:gap-2 relative group max-w-full">
+                            {isMessageSelectionMode && (
+                              <div
                                 onClick={(e) => e.stopPropagation()}
+                                className="shrink-0 flex items-center justify-center select-none py-1 px-0.5"
                               >
-                                <button
-                                  type="button"
-                                  onClick={() => handleInitiateReply(msg, senderLabel)}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <MdReply size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                  <span>Reply</span>
-                                </button>
+                                <input
+                                  type="checkbox"
+                                  id={`select-checkbox-${msgUniqueId}`}
+                                  checked={selectedMessageItemIds.has(msgUniqueId)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleSelectMessage(msgUniqueId);
+                                  }}
+                                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 cursor-pointer accent-blue-600 transition-transform hover:scale-110"
+                                  title={selectedMessageItemIds.has(msgUniqueId) ? "Deselect message" : "Select message"}
+                                />
+                              </div>
+                            )}
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleInitiateForward(msg, senderLabel)}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <MdForward size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                  <span>Forward</span>
-                                </button>
+                            {/* Bubble */}
+                            <div
+                              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm flex flex-col gap-1 max-w-full overflow-hidden transition-all duration-150 ${isMe ? 'rounded-tr-none text-white shadow-sm font-medium' : 'rounded-tl-none border shadow-sm font-medium'
+                                } ${selectedMessageItemIds.has(msgUniqueId)
+                                  ? 'ring-2 ring-blue-500 ring-offset-1 border-blue-400 dark:border-blue-500 shadow-sm'
+                                  : ''
+                                }`}
+                              style={{
+                                backgroundColor: selectedMessageItemIds.has(msgUniqueId)
+                                  ? (isMe ? '#2563eb' : (theme?.mode === 'dark' ? 'rgba(30, 58, 138, 0.45)' : '#eff6ff'))
+                                  : (isMe ? (theme?.accent || '#135bec') : (theme?.mode === 'dark' ? '#1e1e1e' : '#f3f4f6')),
+                                color: selectedMessageItemIds.has(msgUniqueId) && !isMe
+                                  ? (theme?.mode === 'dark' ? '#bfdbfe' : '#1e3a8a')
+                                  : (isMe ? '#ffffff' : (theme?.mode === 'dark' ? '#f3f4f6' : '#1f2937')),
+                                borderColor: selectedMessageItemIds.has(msgUniqueId)
+                                  ? '#3b82f6'
+                                  : (isMe ? 'transparent' : (theme?.border || '#e2e8f0'))
+                              }}
+                            >
+                              {renderForwardPreviewInBubble(msg, isMe)}
+                              {renderReplyPreviewInBubble(msg, isMe)}
+                              <p className="whitespace-pre-wrap leading-relaxed break-words">{cleanMessageBody(msg.body)}</p>
+                              {renderBubbleAttachments(msg)}
+                            </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleTogglePinMessage(msg, senderLabel, otherUserEmail)}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <MdPushPin size={16} className={`shrink-0 ${isCurrentMessagePinned(msg, otherUserEmail) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
-                                  <span>{isCurrentMessagePinned(msg, otherUserEmail) ? 'Unpin' : 'Pin'}</span>
-                                </button>
+                            {/* Star indicator beside the message bubble */}
+                            {isMessageStarred(msg) && (
+                              <div className="shrink-0 flex items-center select-none" title="Starred message">
+                                <MdStar size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                              </div>
+                            )}
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleStarMessage(msg)}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <MdStar size={16} className={`shrink-0 ${isMessageStarred(msg) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
-                                  <span>{isMessageStarred(msg) ? 'Unstar Message' : 'Star Message'}</span>
-                                </button>
-
+                            {/* Action Trigger Buttons: Smiley Icon + Forward + Three-Dot Menu */}
+                            {!isMessageSelectionMode && (
+                              <div className="relative shrink-0 flex items-center gap-0.5">
+                                {/* Smiley Icon Button for Emoji Reactions */}
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setActiveMessageMenuId(null);
-                                    handleArchiveMessage(msg, e);
+                                    setActiveReactionMsgId(prev => prev === msgUniqueId ? null : msgUniqueId);
+                                    setShowFullEmojiPicker(false);
+                                    setEmojiSearchTerm("");
                                   }}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${activeReactionMsgId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+                                    }`}
+                                  title="Add reaction"
                                 >
-                                  <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                  <span>Archive</span>
+                                  <MdOutlineEmojiEmotions size={18} />
                                 </button>
 
-                                {isMe && isMessageEditable(msg) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleInitiateEdit(msg)}
-                                    className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                  >
-                                    <MdEdit size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                    <span>Edit</span>
-                                  </button>
-                                )}
-
-                                {isMe && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleInitiateUnsend(msg)}
-                                    className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                  >
-                                    <MdRestore size={16} className="text-red-600 shrink-0" />
-                                    <span>Unsend</span>
-                                  </button>
-                                )}
-
+                                {/* Forward Button */}
                                 <button
-                                  type="button"
-                                  onClick={() => handleEnterMessageSelectionMode(msgUniqueId)}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <MdCheckBox size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                  <span>Select</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeletePersonalChatMessage(msg)}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <MdDeleteOutline size={16} className="text-red-600 shrink-0" />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Reaction Badges Directly Below Bubble */}
-                      {(() => {
-                        const msgReactions = reactionsMap[msgUniqueId];
-                        if (!msgReactions || Object.keys(msgReactions).length === 0) return null;
-
-                        return (
-                          <div className="flex flex-wrap items-center gap-1 select-none mt-1 ml-1 z-10">
-                            {Object.entries(msgReactions).map(([emoji, reactors]) => {
-                              if (!reactors || reactors.length === 0) return null;
-                              const hasReacted = reactors.some(u => typeof u === 'string' && u.trim() === currentUserId);
-                              const tooltipText = reactors.map(r => (typeof r === 'string' && r.trim() === currentUserId) ? 'You' : (r.includes('@') ? r.split('@')[0] : r)).join(', ');
-
-                              return (
-                                <button
-                                  key={emoji}
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleToggleReaction(msgUniqueId, emoji);
+                                    setActiveMessageMenuId(null);
+                                    setActiveReactionMsgId(null);
+                                    setShowFullEmojiPicker(false);
+                                    handleInitiateForward(msg, senderLabel);
                                   }}
-                                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs shadow-2xs cursor-pointer transition-all hover:scale-105 active:scale-95 ${
-                                    hasReacted
-                                      ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 font-semibold text-blue-700 dark:text-blue-300'
-                                      : 'bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                  }`}
-                                  title={`${tooltipText} reacted with ${emoji} (Click to ${hasReacted ? 'remove' : 'add'})`}
+                                  className="p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                  title="Forward message"
+                                  aria-label="Forward message"
                                 >
-                                  <span>{emoji}</span>
-                                  <span className="text-[11px] font-medium leading-none">{reactors.length}</span>
+                                  <MdForward size={18} />
                                 </button>
-                              );
-                            })}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMessageMenuId(null);
-                                setActiveReactionMsgId(prev => prev === msgUniqueId ? null : msgUniqueId);
-                                setShowFullEmojiPicker(false);
-                                setEmojiSearchTerm("");
-                              }}
-                              className="flex items-center justify-center p-1 rounded-full border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-white dark:bg-[#1e1e1e] hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-pointer text-xs"
-                              title="Add reaction"
-                            >
-                              <MdAdd size={13} />
-                            </button>
+
+                                {/* Three-Dot Menu Button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveReactionMsgId(null);
+                                    setShowFullEmojiPicker(false);
+                                    setActiveMessageMenuId(prev => prev === msgUniqueId ? null : msgUniqueId);
+                                  }}
+                                  className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${activeMessageMenuId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+                                    }`}
+                                  title="Message actions"
+                                >
+                                  <MdMoreVert size={18} />
+                                </button>
+
+                                {/* Three-Dot Dropdown Menu */}
+                                {activeMessageMenuId === msgUniqueId && (
+                                  <div
+                                    ref={messageMenuRef}
+                                    className={`absolute left-full ml-1.5 z-50 min-w-[125px] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl py-1.5 px-1 animate-in fade-in zoom-in-95 duration-150 select-none ${index >= sortedThread.length - 2 ? 'bottom-0' : 'top-0'
+                                      }`}
+                                    style={{ borderColor: theme?.border || '#e2e8f0' }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInitiateReply(msg, senderLabel)}
+                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <MdReply size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                      <span>Reply</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInitiateForward(msg, senderLabel)}
+                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <MdForward size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                      <span>Forward</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTogglePinMessage(msg, senderLabel, otherUserEmail)}
+                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <MdPushPin size={16} className={`shrink-0 ${isCurrentMessagePinned(msg, otherUserEmail) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                                      <span>{isCurrentMessagePinned(msg, otherUserEmail) ? 'Unpin' : 'Pin'}</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleStarMessage(msg)}
+                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <MdStar size={16} className={`shrink-0 ${isMessageStarred(msg) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                                      <span>{isMessageStarred(msg) ? 'Unstar Message' : 'Star Message'}</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveMessageMenuId(null);
+                                        handleArchiveMessage(msg, e);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                      <span>Archive</span>
+                                    </button>
+
+                                    {isMe && isMessageEditable(msg) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleInitiateEdit(msg)}
+                                        className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                      >
+                                        <MdEdit size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                        <span>Edit</span>
+                                      </button>
+                                    )}
+
+                                    {isMe && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleInitiateUnsend(msg)}
+                                        className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                      >
+                                        <MdRestore size={16} className="text-red-600 shrink-0" />
+                                        <span>Unsend</span>
+                                      </button>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEnterMessageSelectionMode(msgUniqueId)}
+                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <MdCheckBox size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                      <span>Select</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeletePersonalChatMessage(msg)}
+                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <MdDeleteOutline size={16} className="text-red-600 shrink-0" />
+                                      <span>Delete</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        );
-                      })()}
 
-                      {/* Edited Label */}
-                      {(msg?.isEdited || msg?.edited) && (
-                        <div className="text-[10px] text-gray-400 dark:text-gray-500 font-normal select-none mt-0.5 ml-1 leading-none">
-                          Edited
+                          {/* Reaction Badges Directly Below Bubble */}
+                          {(() => {
+                            const msgReactions = reactionsMap[msgUniqueId];
+                            if (!msgReactions || Object.keys(msgReactions).length === 0) return null;
+
+                            return (
+                              <div className="flex flex-wrap items-center gap-1 select-none mt-1 ml-1 z-10">
+                                {Object.entries(msgReactions).map(([emoji, reactors]) => {
+                                  if (!reactors || reactors.length === 0) return null;
+                                  const hasReacted = reactors.some(u => typeof u === 'string' && u.trim() === currentUserId);
+                                  const tooltipText = reactors.map(r => (typeof r === 'string' && r.trim() === currentUserId) ? 'You' : (r.includes('@') ? r.split('@')[0] : r)).join(', ');
+
+                                  return (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleReaction(msgUniqueId, emoji);
+                                      }}
+                                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs shadow-2xs cursor-pointer transition-all hover:scale-105 active:scale-95 ${hasReacted
+                                          ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 font-semibold text-blue-700 dark:text-blue-300'
+                                          : 'bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                        }`}
+                                      title={`${tooltipText} reacted with ${emoji} (Click to ${hasReacted ? 'remove' : 'add'})`}
+                                    >
+                                      <span>{emoji}</span>
+                                      <span className="text-[11px] font-medium leading-none">{reactors.length}</span>
+                                    </button>
+                                  );
+                                })}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMessageMenuId(null);
+                                    setActiveReactionMsgId(prev => prev === msgUniqueId ? null : msgUniqueId);
+                                    setShowFullEmojiPicker(false);
+                                    setEmojiSearchTerm("");
+                                  }}
+                                  className="flex items-center justify-center p-1 rounded-full border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-white dark:bg-[#1e1e1e] hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-pointer text-xs"
+                                  title="Add reaction"
+                                >
+                                  <MdAdd size={13} />
+                                </button>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Edited Label */}
+                          {(msg?.isEdited || msg?.edited) && (
+                            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-normal select-none mt-0.5 ml-1 leading-none">
+                              Edited
+                            </div>
+                          )}
+
+                          {/* Timestamp outside and below the bubble */}
+                          <div
+                            className="text-[9px] mt-1 select-none font-normal text-gray-400 dark:text-gray-500 self-end mr-1 text-right"
+                          >
+                            {formatCashboxTime(msg?.timestamp)}
+                          </div>
+
+                          {isMe && index === sortedThread.length - 1 && (
+                            <div className="mt-1 mr-1">
+                              {getStatusIcon(msg?.status)}
+                            </div>
+                          )}
                         </div>
-                      )}
-
-                      {/* Timestamp outside and below the bubble */}
-                      <div 
-                        className="text-[9px] mt-1 select-none font-normal text-gray-400 dark:text-gray-500 self-end mr-1 text-right"
-                      >
-                        {formatCashboxTime(msg?.timestamp)}
                       </div>
-
-                      {isMe && index === sortedThread.length - 1 && (
-                        <div className="mt-1 mr-1">
-                          {getStatusIcon(msg?.status)}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </div>
-              </React.Fragment>
-            );
-          })
-          )}
-          <div ref={chatEndRef} />
-        </div>
+                  </React.Fragment>
+                );
+              })
+            )}
+            <div ref={chatEndRef} />
+          </div>
         )}
 
         {/* Footer Accept Request or Message Input */}
@@ -8256,14 +8210,14 @@ const Casbox = () => {
             <div className="flex flex-col w-full">
               {/* WhatsApp-style Compact Reply Preview */}
               {replyingToMessage && (
-                <div 
+                <div
                   className="mb-2.5 px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#1e1e1e] border-l-4 flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-bottom-1 duration-150"
                   style={{ borderColor: theme?.accent || '#135bec' }}
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <MdReply size={18} className="shrink-0" style={{ color: theme?.accent || '#135bec' }} />
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span 
+                      <span
                         className="text-xs font-bold truncate leading-tight"
                         style={{ color: theme?.accent || '#135bec' }}
                       >
@@ -8287,14 +8241,14 @@ const Casbox = () => {
 
               {/* Edit Message Banner */}
               {editingMessage && (
-                <div 
+                <div
                   className="mb-2.5 px-3 py-2 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border-l-4 flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-bottom-1 duration-150"
                   style={{ borderColor: theme?.accent || '#135bec' }}
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <MdEdit size={18} className="shrink-0" style={{ color: theme?.accent || '#135bec' }} />
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span 
+                      <span
                         className="text-xs font-bold truncate leading-tight"
                         style={{ color: theme?.accent || '#135bec' }}
                       >
@@ -8994,19 +8948,17 @@ const Casbox = () => {
                       <div
                         key={contact.id || identKey}
                         onClick={() => handleToggleForwardContact(identKey)}
-                        className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors select-none ${
-                          isSelected
+                        className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors select-none ${isSelected
                             ? "bg-blue-50/70 dark:bg-blue-950/30"
                             : "hover:bg-gray-50 dark:hover:bg-white/5"
-                        }`}
+                          }`}
                       >
                         {/* Checkbox */}
                         <div
-                          className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                            isSelected
+                          className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${isSelected
                               ? "bg-blue-600 border-blue-600 text-white"
                               : "border-gray-300 dark:border-gray-600 bg-white dark:bg-transparent"
-                          }`}
+                            }`}
                         >
                           {isSelected && <MdCheck size={12} className="stroke-[3]" />}
                         </div>
@@ -9055,11 +9007,10 @@ const Casbox = () => {
                     type="button"
                     onClick={handleSendForward}
                     disabled={selectedForwardContactEmails.size === 0 || isSendingForward}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-all shadow-sm ${
-                      selectedForwardContactEmails.size === 0 || isSendingForward
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-all shadow-sm ${selectedForwardContactEmails.size === 0 || isSendingForward
                         ? "opacity-50 cursor-not-allowed bg-blue-600"
                         : "bg-blue-600 hover:bg-blue-700 active:scale-95 cursor-pointer"
-                    }`}
+                      }`}
                     style={{ backgroundColor: theme?.accent || '#135bec' }}
                   >
                     {isSendingForward ? (
