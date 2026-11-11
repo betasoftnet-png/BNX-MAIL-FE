@@ -295,10 +295,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-500 flex items-center justify-center">
             <Search size={18} />
           </div>
-          <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+          <p className="text-[11px] font-semibold text-gray-800 dark:text-gray-200">
             No matching emails found
           </p>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
             No results in <span className="font-semibold text-gray-600 dark:text-gray-300">{folderDisplayName}</span> for &ldquo;{searchQuery}&rdquo;
           </p>
         </div>
@@ -310,7 +310,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     return (
       <div className="flex flex-col gap-2.5 py-1 animate-fade-in">
         {/* Scope Header */}
-        <div className="flex items-center justify-between px-2 pt-0.5 pb-1 border-b border-gray-100 dark:border-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
+        <div className="flex items-center justify-between px-2 pt-0.5 pb-1 border-b border-gray-100 dark:border-gray-800 text-[10.5px] text-gray-400 dark:text-gray-500">
           <span>Search scope: <strong className="text-blue-600 dark:text-blue-400 uppercase font-bold tracking-wide">{folderDisplayName}</strong></span>
           <span className="text-[10px] bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full font-semibold">
             {matchingEmails.length} {matchingEmails.length === 1 ? 'result' : 'results'}
@@ -363,24 +363,24 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                       {/* Line 1: Sender Name + Email + Date on right */}
                       <div className="flex items-center justify-between gap-2 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
-                          <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                          <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 truncate">
                             {personName}
                           </span>
                           {personEmail && personEmail !== personName && (
-                            <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate font-normal hidden sm:inline">
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate font-normal hidden sm:inline">
                               &lt;{personEmail}&gt;
                             </span>
                           )}
                         </div>
                         {dateDisplay && (
-                          <span className="text-[11px] text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
                             {dateDisplay}
                           </span>
                         )}
                       </div>
 
                       {/* Line 2: Email Subject */}
-                      <div className="text-xs text-gray-700 dark:text-gray-300 truncate mt-0.5">
+                      <div className="text-[11px] text-gray-700 dark:text-gray-300 truncate mt-0.5">
                         {e.subject || "(No Subject)"}
                       </div>
                     </div>
@@ -416,14 +416,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 min-w-0 mb-0.5">
-                      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      <span className="text-[11px] font-semibold text-gray-900 dark:text-gray-100 truncate">
                         {contactName}
                       </span>
                       <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-purple-100/60 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 shrink-0">
                         Chat
                       </span>
                     </div>
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate italic">
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate italic">
                       &ldquo;{m.body}&rdquo;
                     </span>
                   </div>
@@ -463,7 +463,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             />
             <span
               onClick={() => onToggleDesktopSidebar()}
-              className="text-sm sm:text-base lg:text-lg font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden md:inline select-none whitespace-nowrap"
+              className="text-xs sm:text-sm lg:text-[15px] font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden md:inline select-none whitespace-nowrap"
             >
               BNX<span className="font-normal text-white/90">mail</span>
             </span>
@@ -477,7 +477,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
             <Pencil size={17} className="text-[#195bac] shrink-0" />
-            <span className="text-xs sm:text-sm font-semibold text-gray-900 leading-none whitespace-nowrap">
+            <span className="text-[11px] sm:text-xs font-semibold text-gray-900 leading-none whitespace-nowrap">
               {t('navbar.compose', t('common.compose', 'Compose'))}
             </span>
           </button>
@@ -489,14 +489,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             <button
               type="button"
               onClick={() => navigate('/inbox')}
-              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.mail', 'Mail')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/casbox')}
-              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.casbox', 'Casbox')}
             </button>
@@ -520,7 +520,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
-                className={`w-full px-2 py-1.5 pl-8 rounded-full text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white/20 active:bg-white/20 focus-visible:bg-white/20 text-white focus:text-white focus:shadow-sm border border-transparent focus:border-white/30 outline-none transition-all duration-200 truncate placeholder:truncate ${
+                className={`w-full px-2 py-1.5 pl-8 rounded-full text-[11px] placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/10 hover:bg-white/20 focus:bg-white/20 active:bg-white/20 focus-visible:bg-white/20 text-white focus:text-white focus:shadow-sm border border-transparent focus:border-white/30 outline-none transition-all duration-200 truncate placeholder:truncate ${
                   searchQuery ? "pr-16" : "pr-9"
                 }`}
               />
@@ -570,10 +570,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   {/* Filter Dropdown */}
                   {showDateFilterDropdown && (
                     <div
-                      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 z-50 text-xs text-gray-700 dark:text-gray-200 animate-fade-in"
+                      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 z-50 text-[11px] text-gray-700 dark:text-gray-200 animate-fade-in"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="px-3 py-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                      <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                         {t('navbar.filter_by_date', 'Filter by Date')}
                       </div>
                       {[
@@ -656,7 +656,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={`${t('navbar.search_placeholder', 'Search')} ${folderDisplayName}...`}
-                    className={`w-full pl-8 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1.5 focus:ring-blue-500 border border-transparent ${
+                    className={`w-full pl-8 py-1.5 rounded-xl text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-1.5 focus:ring-blue-500 border border-transparent ${
                       searchQuery ? "pr-16" : "pr-9"
                     }`}
                   />
@@ -709,14 +709,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                 />
               ) : (
                 <div
-                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center text-white font-semibold shadow-sm shrink-0 text-xs sm:text-sm bg-[#135bec]"
+                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center text-white font-semibold shadow-sm shrink-0 text-[11px] sm:text-xs bg-[#135bec]"
                 >
                   {user?.email?.[0]?.toUpperCase() || "U"}
                 </div>
               )}
               <div className="hidden lg:flex items-center gap-1.5">
                 <span
-                  className="text-[13px] font-medium truncate max-w-[80px] xl:max-w-[110px] text-white"
+                  className="text-xs font-medium truncate max-w-[80px] xl:max-w-[110px] text-white"
                 >
                   {user?.email?.split('@')[0] || "User"}
                 </span>
@@ -773,10 +773,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                     </div>
                   </div>
 
-                  <p className="text-base font-bold text-gray-800 dark:text-gray-100 leading-tight">
+                  <p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">
                     {user?.username || "User"}
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate max-w-full">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate max-w-full">
                     {user?.email}
                   </p>
 
@@ -786,7 +786,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                       const token = localStorage.getItem("accessToken") || "";
                       window.open(`https://account.beta-softnet.com/security?token=${encodeURIComponent(token)}`, "_blank");
                     }}
-                    className="mt-3 px-3.5 py-1.5 border rounded-full text-[11px] font-bold hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all cursor-pointer flex items-center gap-1.5"
+                    className="mt-3 px-3.5 py-1.5 border rounded-full text-[10px] font-semibold hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all cursor-pointer flex items-center gap-1.5"
                     style={{ borderColor: theme.border, color: theme.text }}
                   >
                     <MdManageAccounts size={15} /> {t('navbar.manage_accounts', 'Manage your account')}
@@ -813,15 +813,15 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                               className="w-7 h-7 rounded-full object-cover shrink-0"
                             />
                           ) : (
-                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style={{ backgroundColor: theme.accent || "#135bec" }}>
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-semibold shrink-0" style={{ backgroundColor: theme.accent || "#135bec" }}>
                               {(sess.username || sess.email || "U").charAt(0).toUpperCase()}
                             </div>
                           )}
                           <div className="truncate text-left">
-                            <p className="text-xs font-bold text-gray-800 dark:text-gray-200 leading-tight truncate">
+                            <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200 leading-tight truncate">
                               {sess.username}
                             </p>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                            <p className="text-[9.5px] text-gray-500 dark:text-gray-400 truncate">
                               {sess.email}
                             </p>
                           </div>
@@ -839,7 +839,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                       localStorage.removeItem("tempToken");
                       navigate("/login");
                     }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-3 font-semibold text-gray-600 dark:text-gray-300"
+                    className="w-full text-left px-3 py-2 text-[11px] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-3 font-semibold text-gray-600 dark:text-gray-300"
                   >
                     <MdPersonAdd size={18} className="text-gray-400" /> {t('navbar.add_account', 'Add another account')}
                   </button>
@@ -849,7 +849,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                       setShowDropdown(false);
                       logout();
                     }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-3 font-semibold text-gray-600 dark:text-gray-300"
+                    className="w-full text-left px-3 py-2 text-[11px] rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-3 font-semibold text-gray-600 dark:text-gray-300"
                   >
                     <MdLogout size={18} className="text-gray-400" /> {t('navbar.logout', 'Sign out of this account')}
                   </button>
@@ -861,7 +861,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                       setShowDropdown(false);
                       logoutAll();
                     }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center gap-3 font-bold"
+                    className="w-full text-left px-3 py-2 text-[11px] rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center gap-3 font-bold"
                   >
                     <MdLogout size={18} className="text-red-400" /> {t('navbar.sign_out_all', 'Sign out of all accounts')}
                   </button>
