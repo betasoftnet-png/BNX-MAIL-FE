@@ -11,7 +11,6 @@ import {
   MdInbox,
   MdStarBorder,
   MdAccessTime,
-  MdLabelImportant,
   MdSend,
   MdSchedule,
   MdDrafts,
@@ -22,7 +21,6 @@ import {
   MdShoppingBag,
   MdPeople,
   MdInfoOutline,
-  MdForum,
   MdCampaign,
   MdAdd,
   MdEdit,
@@ -53,7 +51,6 @@ const SYSTEM_LABEL_ICONS = {
   Inbox: <MdInbox size={18} className="text-gray-500 dark:text-gray-400" />,
   Starred: <MdStarBorder size={18} className="text-gray-500 dark:text-gray-400" />,
   Snoozed: <MdAccessTime size={18} className="text-gray-500 dark:text-gray-400" />,
-  Important: <MdLabelImportant size={18} className="text-gray-500 dark:text-gray-400" />,
   Sent: <MdSend size={18} className="text-gray-500 dark:text-gray-400" />,
   Scheduled: <MdSchedule size={18} className="text-gray-500 dark:text-gray-400" />,
   Drafts: <MdDrafts size={18} className="text-gray-500 dark:text-gray-400" />,
@@ -177,10 +174,10 @@ const LabelManagement = ({ embedded = false }) => {
     return () => window.removeEventListener("bnx-label-prefs-changed", handleSync);
   }, [labels, hasUnsavedChanges]);
 
-  // System Labels Definitions (derived from shared SYSTEM_LABEL_DEFINITIONS)
+  // System Labels Definitions (derived from shared SYSTEM_LABEL_DEFINITIONS, omitting Important from Manage Labels UI)
   const systemLabels = useMemo(
     () =>
-      SYSTEM_LABEL_DEFINITIONS.map((def) => ({
+      SYSTEM_LABEL_DEFINITIONS.filter((def) => def.id !== "Important").map((def) => ({
         ...def,
         icon: SYSTEM_LABEL_ICONS[def.id],
       })),
@@ -204,11 +201,6 @@ const LabelManagement = ({ embedded = false }) => {
         id: "Updates",
         name: "Updates",
         icon: <MdInfoOutline size={18} className="text-gray-500 dark:text-gray-400" />
-      },
-      {
-        id: "Forums",
-        name: "Forums",
-        icon: <MdForum size={18} className="text-gray-500 dark:text-gray-400" />
       },
       {
         id: "Promotions",
