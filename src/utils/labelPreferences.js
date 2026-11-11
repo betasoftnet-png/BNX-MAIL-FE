@@ -690,8 +690,8 @@ export const isLabelShownInLabelList = (lbl, sidebarPreferences = null, customLa
 };
 
 /**
- * Returns valid, enabled, deduplicated custom + system labels for all "Label as..." dropdowns.
- * Respects Manage Labels "Show in label list" settings dynamically without affecting folders or messages.
+ * Returns valid, enabled, deduplicated user-created custom labels for all "Label as..." dropdowns.
+ * Respects Manage Labels "Show in label list" settings dynamically and never includes system labels.
  */
 export const getAvailableLabelAsOptions = (
   customLabels = [],
@@ -743,18 +743,6 @@ export const getAvailableLabelAsOptions = (
         isSystem: false
       });
     }
-  }
-
-  for (const sysDef of SYSTEM_LABEL_DEFINITIONS) {
-    if (!isSystemLabelShownInLabelList(sysDef, effectiveSidebarPrefs)) continue;
-
-    const idKey = String(sysDef.id).trim();
-    const nameTypeKey = `SYSTEM::${sysDef.name.trim().toLowerCase()}`;
-    if (seenIds.has(idKey) || seenNameType.has(nameTypeKey)) continue;
-
-    seenIds.add(idKey);
-    seenNameType.add(nameTypeKey);
-    result.push({ ...sysDef });
   }
 
   return result;
