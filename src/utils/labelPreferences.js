@@ -556,10 +556,10 @@ export const isValidLabelRecord = (lbl) => {
 
   const isSystemRecord = lbl.isSystem === true || labelType === 'SYSTEM';
   if (isSystemRecord) {
-    return Boolean(findSystemLabelDefinition(lbl));
+    return false;
   }
 
-  // Custom records must not masquerade as raw folder/nav substitutes
+  // Custom records must not masquerade as raw folder/nav/system names
   const idLower = String(lbl.id).trim().toLowerCase();
   const nameLower = lbl.name.trim().toLowerCase();
   if (FOLDER_AND_NAV_NAMES.has(idLower) || FOLDER_AND_NAV_NAMES.has(nameLower) || Boolean(lbl.prefKey)) {
@@ -589,43 +589,40 @@ export const isSystemLabelShownInLabelList = (systemLabelOrKey, sidebarPreferenc
 
 export const isSystemLabelVisibleInLabelList = isSystemLabelShownInLabelList;
 
-const isCustomPrefsMap = (obj) =>
+const looksLikeSidebarPrefsMap = (obj) =>
   Boolean(
     obj &&
       typeof obj === 'object' &&
       !Array.isArray(obj) &&
-      Object.values(obj).some((v) => v && typeof v === 'object' && 'showInLabelList' in v)
+      Object.keys(obj).some((k) => SYSTEM_LABEL_LOOKUP.has(k.trim().toLowerCase())) &&
+      !Object.values(obj).some((v) => v && typeof v === 'object' && 'showInLabelList' in v)
   );
 
-const resolveEffectiveCustomPrefs = (sidebarPreferences, customLabelPreferences) => {
-  if (customLabelPreferences && typeof customLabelPreferences === 'object') {
-    return customLabelPreferences;
+const resolveEffectiveCustomPrefs = (customLabelPreferences, legacyCustomPrefs) => {
+  if (legacyCustomPrefs !== null && typeof legacyCustomPrefs === 'object') {
+    return legacyCustomPrefs;
   }
-  if (isCustomPrefsMap(sidebarPreferences)) {
-    return sidebarPreferences;
+  if (customLabelPreferences && typeof customLabelPreferences === 'object') {
+    if (looksLikeSidebarPrefsMap(customLabelPreferences)) {
+      return readStoredCustomLabelPrefs();
+    }
+    return customLabelPreferences;
   }
   return readStoredCustomLabelPrefs();
 };
 
 /**
- * Checks whether a system or custom label is enabled in Settings -> Manage Labels ("Show in label list").
+ * Checks whether a user-created custom label is enabled in Settings -> Manage Labels ("Show in label list").
+ * Never displays system labels or invalid/folder records.
  */
-export const isLabelShownInLabelList = (lbl, sidebarPreferences = null, customLabelPreferences = null) => {
-  if (typeof lbl === 'string') {
-    return isSystemLabelShownInLabelList(lbl, sidebarPreferences);
-  }
+export const isLabelShownInLabelList = (lbl, customLabelPreferences = null, legacyCustomPrefs = null) => {
   if (!isValidLabelRecord(lbl)) return false;
 
   if (lbl.showInLabelList === false) {
     return false;
   }
 
-  const isSystemRecord = lbl.isSystem === true || normalizeLabelType(lbl) === 'SYSTEM';
-  if (isSystemRecord) {
-    return isSystemLabelShownInLabelList(lbl, sidebarPreferences);
-  }
-
-  const effectiveCustomPrefs = resolveEffectiveCustomPrefs(sidebarPreferences, customLabelPreferences);
+  const effectiveCustomPrefs = resolveEffectiveCustomPrefs(customLabelPreferences, legacyCustomPrefs);
 
   const idKey = String(lbl.id).trim();
   const entry = effectiveCustomPrefs[idKey];
@@ -641,54 +638,43 @@ export const isLabelShownInLabelList = (lbl, sidebarPreferences = null, customLa
 };
 
 /**
- * Returns valid, enabled, deduplicated custom + system labels for all "Label as..." dropdowns.
+ * Returns valid, enabled, deduplicated user-created custom labels for all "Label as..." dropdowns.
+ * System labels are never included.
  */
 export const getAvailableLabelAsOptions = (
-  customLabels = [],
-  sidebarPreferences = {},
-  customLabelPreferences = null
+  labels = [],
+  customLabelPreferences = null,
+  legacyCustomPrefs = null
 ) => {
-  const effectiveCustomPrefs = resolveEffectiveCustomPrefs(sidebarPreferences, customLabelPreferences);
+  if (!Array.isArray(labels) || labels.length === 0) return [];
+
+  const effectiveCustomPrefs = resolveEffectiveCustomPrefs(customLabelPreferences, legacyCustomPrefs);
 
   const seenIds = new Set();
   const seenNameType = new Set();
   const result = [];
 
-  if (Array.isArray(customLabels)) {
-    for (const lbl of customLabels) {
-      if (!lbl || typeof lbl !== 'object' || !isLabelShownInLabelList(lbl, sidebarPreferences, effectiveCustomPrefs)) {
-        continue;
-      }
-
-      const idKey = String(lbl.id).trim();
-      const labelType = normalizeLabelType(lbl);
-      const cleanName = lbl.name.trim();
-      const parentKey = lbl.parentId !== undefined && lbl.parentId !== null ? String(lbl.parentId).trim() : '';
-      const nameTypeKey = `${labelType}:${parentKey}:${cleanName.toLowerCase()}`;
-
-      if (seenIds.has(idKey) || seenNameType.has(nameTypeKey)) continue;
-
-      seenIds.add(idKey);
-      seenNameType.add(nameTypeKey);
-      result.push({
-        ...lbl,
-        name: cleanName,
-        type: labelType,
-        isSystem: Boolean(lbl.isSystem === true || labelType === 'SYSTEM')
-      });
+  for (const lbl of labels) {
+    if (!lbl || typeof lbl !== 'object' || !isLabelShownInLabelList(lbl, effectiveCustomPrefs)) {
+      continue;
     }
-  }
 
-  for (const sysDef of SYSTEM_LABEL_DEFINITIONS) {
-    if (!isSystemLabelShownInLabelList(sysDef, sidebarPreferences)) continue;
+    const idKey = String(lbl.id).trim();
+    const labelType = normalizeLabelType(lbl);
+    const cleanName = lbl.name.trim();
+    const parentKey = lbl.parentId !== undefined && lbl.parentId !== null ? String(lbl.parentId).trim() : '';
+    const nameTypeKey = `${labelType}:${parentKey}:${cleanName.toLowerCase()}`;
 
-    const idKey = String(sysDef.id).trim();
-    const nameTypeKey = `SYSTEM::${sysDef.name.trim().toLowerCase()}`;
     if (seenIds.has(idKey) || seenNameType.has(nameTypeKey)) continue;
 
     seenIds.add(idKey);
     seenNameType.add(nameTypeKey);
-    result.push({ ...sysDef });
+    result.push({
+      ...lbl,
+      name: cleanName,
+      type: labelType,
+      isSystem: false
+    });
   }
 
   return result;
@@ -703,17 +689,23 @@ export const matchesLabelIdentity = (appliedLabel, targetLabelOrId) => {
     const targetDef = findSystemLabelDefinition(targetLabelOrId);
     const appliedDef = findSystemLabelDefinition(appliedLabel);
     if (targetDef && appliedDef) return targetDef.id === appliedDef.id;
-    const targetStr = typeof targetLabelOrId === 'object' ? String(targetLabelOrId.id) : String(targetLabelOrId);
-    return appliedLabel === targetStr;
+    const targetObj = typeof targetLabelOrId === 'object' ? targetLabelOrId : null;
+    if (targetObj) {
+      return (
+        String(targetObj.id) === appliedLabel ||
+        (typeof targetObj.name === 'string' &&
+          appliedLabel.trim().toLowerCase() === targetObj.name.trim().toLowerCase())
+      );
+    }
+    return appliedLabel === String(targetLabelOrId);
   }
 
   const targetObj = typeof targetLabelOrId === 'object' ? targetLabelOrId : null;
+  const hasAppliedId = appliedLabel.id !== undefined && appliedLabel.id !== null;
+  const hasTargetId = targetObj ? (targetObj.id !== undefined && targetObj.id !== null) : true;
   const targetStr = targetObj ? String(targetObj.id ?? targetObj.name ?? '') : String(targetLabelOrId);
 
-  if (appliedLabel.id !== undefined && appliedLabel.id !== null && String(appliedLabel.id) === targetStr) {
-    return true;
-  }
-  if (targetObj && targetObj.name && appliedLabel.name === targetObj.name && Boolean(appliedLabel.isSystem) === Boolean(targetObj.isSystem)) {
+  if (hasAppliedId && String(appliedLabel.id) === targetStr) {
     return true;
   }
 
@@ -723,6 +715,14 @@ export const matchesLabelIdentity = (appliedLabel, targetLabelOrId) => {
     if (appliedDef && appliedDef.id === targetDef.id) {
       return true;
     }
+  }
+
+  // Match by name only when either record lacks an ID so distinct custom IDs (e.g. parent vs sublabel) never collide
+  if ((!hasAppliedId || !hasTargetId) && targetObj && targetObj.name && appliedLabel.name) {
+    return (
+      appliedLabel.name.trim().toLowerCase() === targetObj.name.trim().toLowerCase() &&
+      Boolean(appliedLabel.isSystem) === Boolean(targetObj.isSystem)
+    );
   }
 
   return false;

@@ -157,7 +157,7 @@ const EmailDetails = ({
   emailList = [],
   onNavigate,
 }) => {
-  const { theme, readingPaneMode, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
+  const { theme, readingPaneMode, customLabelPreferences, labelPrefsVersion } = useTheme();
   const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -175,8 +175,8 @@ const EmailDetails = ({
   }, []);
 
   const availableLabelOptions = useMemo(() => {
-    return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
-  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick]);
+    return getAvailableLabelAsOptions(labels, customLabelPreferences);
+  }, [labels, customLabelPreferences, labelPrefsVersion, prefsTick]);
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
