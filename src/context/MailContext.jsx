@@ -44,9 +44,7 @@ import {
     deduplicateAllInboxEmails
 } from '../utils/accountUtils';
 import {
-    SYSTEM_LABEL_DEFINITIONS,
     getStoredSystemEmailLabels,
-    saveAppliedSystemLabel,
     removeAppliedSystemLabel,
     removeCustomLabelVisibility
 } from '../utils/labelPreferences';
@@ -2756,14 +2754,11 @@ export const MailProvider = ({ children }) => {
         const strUid = String(uid);
         const strLabelId = String(labelId);
         const targetLabel = labels.find(l => String(l.id) === strLabelId);
-        const systemDef = SYSTEM_LABEL_DEFINITIONS.find(
-            s => s.id === strLabelId || s.name.toLowerCase() === strLabelId.toLowerCase() || (s.prefKey && s.prefKey.toLowerCase() === strLabelId.toLowerCase())
-        );
-        const labelToAdd = targetLabel || (systemDef ? { id: systemDef.id, name: systemDef.name, colorHex: systemDef.colorHex } : null);
-        if (!labelToAdd) {
+        if (!targetLabel) {
             if (!silent) toast.error('Label not found');
             return false;
         }
+        const labelToAdd = targetLabel;
 
         let wasAlreadyApplied = false;
 
@@ -2773,13 +2768,9 @@ export const MailProvider = ({ children }) => {
                 const currentLabels = Array.isArray(m.labels) ? m.labels : [];
                 const alreadyHas = currentLabels.some(l => {
                     if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-                        if (String(l.id) === strLabelId || String(l.id) === String(labelToAdd.id)) return true;
-                        if (systemDef) {
-                            return l.name === systemDef.name || (systemDef.prefKey && (l.name === systemDef.prefKey || String(l.id) === String(systemDef.prefKey)));
-                        }
-                        return false;
+                        return String(l.id) === strLabelId;
                     }
-                    return typeof l === 'string' && labelToAdd.name && l.trim().toLowerCase() === labelToAdd.name.trim().toLowerCase();
+                    return typeof l === 'string' && targetLabel.name && l.trim().toLowerCase() === targetLabel.name.trim().toLowerCase();
                 });
                 if (alreadyHas) {
                     wasAlreadyApplied = true;
@@ -2807,13 +2798,9 @@ export const MailProvider = ({ children }) => {
                                 const currentLabels = Array.isArray(m.labels) ? m.labels : [];
                                 const alreadyHas = currentLabels.some(l => {
                                     if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-                                        if (String(l.id) === strLabelId || String(l.id) === String(labelToAdd.id)) return true;
-                                        if (systemDef) {
-                                            return l.name === systemDef.name || (systemDef.prefKey && (l.name === systemDef.prefKey || String(l.id) === String(systemDef.prefKey)));
-                                        }
-                                        return false;
+                                        return String(l.id) === strLabelId;
                                     }
-                                    return typeof l === 'string' && labelToAdd.name && l.trim().toLowerCase() === labelToAdd.name.trim().toLowerCase();
+                                    return typeof l === 'string' && targetLabel.name && l.trim().toLowerCase() === targetLabel.name.trim().toLowerCase();
                                 });
                                 if (alreadyHas) return m;
                                 return {
@@ -2860,11 +2847,8 @@ export const MailProvider = ({ children }) => {
                 if (!silent) toast.error(error.response?.data?.message || 'Failed to apply label');
                 throw error;
             }
-        } else {
-            saveAppliedSystemLabel(strUid, labelToAdd);
-            if (!silent) toast.success('Label applied');
-            return true;
         }
+        return false;
     };
 
     const handleRemoveLabel = async (uid, labelId, folder = currentFolderRef.current || 'INBOX', silent = false) => {
