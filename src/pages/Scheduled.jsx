@@ -13,6 +13,11 @@ import {
   saveStoredStarredIds,
   isEmailValidScheduled
 } from "../utils/starredStorage";
+import {
+  getStoredSystemEmailLabels,
+  matchesLabelIdentity,
+  mergeEmailWithStoredSystemLabels
+} from "../utils/labelPreferences";
 import { MdRefresh } from "react-icons/md";
 import toast from "react-hot-toast";
 
@@ -34,20 +39,24 @@ const Scheduled = ({ searchQuery }) => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
-  const { matchesDateFilter, unreadCounts, setUnreadCounts, handleToggleStar, isEmailStarred, setCurrentFolder, setTotalEmails, handlePageChange } = useMail();
+  const { matchesDateFilter, unreadCounts, setUnreadCounts, handleToggleStar, handleApplyLabel, isEmailStarred, setCurrentFolder, setTotalEmails, handlePageChange } = useMail();
 
   // Instant render: initialize from in-memory cache if available
   const [emails, setEmails] = useState(() => {
     const cached = (scheduledMemoryCache?.emails || []).filter(isEmailValidScheduled);
+    const sysLabelsMap = getStoredSystemEmailLabels();
     return cached.map((m) => {
       const uidStr = String(m.uid ?? m.id ?? "");
       const isStarred = isEmailIdStarred(uidStr, user?.email, "scheduled", m);
-      return {
-        ...m,
-        starred: isStarred,
-        isStarred: isStarred,
-        folderName: "scheduled",
-      };
+      return mergeEmailWithStoredSystemLabels(
+        {
+          ...m,
+          starred: isStarred,
+          isStarred: isStarred,
+          folderName: "scheduled",
+        },
+        sysLabelsMap
+      );
     });
   });
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -84,20 +93,24 @@ const Scheduled = ({ searchQuery }) => {
         const data = res.data.data;
         const rawList = Array.isArray(data) ? data : (data?.emails || []);
         const validList = rawList.filter(isEmailValidScheduled);
+        const sysLabelsMap = getStoredSystemEmailLabels();
         const normalized = validList.map((m) => {
           const uidStr = String(m.uid ?? m.id ?? "");
           const isStarred = typeof isEmailStarred === "function"
             ? isEmailStarred(uidStr, "scheduled", m)
             : isEmailIdStarred(uidStr, user?.email, "scheduled", m);
-          return {
-            ...m,
-            uid: uidStr,
-            id: m.id ?? uidStr,
-            isRead: true,
-            starred: isStarred,
-            isStarred: isStarred,
-            folderName: "scheduled",
-          };
+          return mergeEmailWithStoredSystemLabels(
+            {
+              ...m,
+              uid: uidStr,
+              id: m.id ?? uidStr,
+              isRead: true,
+              starred: isStarred,
+              isStarred: isStarred,
+              folderName: "scheduled",
+            },
+            sysLabelsMap
+          );
         });
 
         scheduledMemoryCache = {
@@ -180,11 +193,43 @@ const Scheduled = ({ searchQuery }) => {
       }
     };
 
+    const handleLabelsUpdated = (e) => {
+      const { uid, action, label, labelId } = e.detail || {};
+      if (!uid) return;
+      const strUid = String(uid);
+      const applyUpdate = (item) => {
+        if (String(item.uid ?? item.id) !== strUid) return item;
+        const existing = Array.isArray(item.labels) ? item.labels : [];
+        if (action === "add" && label) {
+          if (existing.some((l) => matchesLabelIdentity(l, label))) return item;
+          return { ...item, labels: [...existing, label] };
+        }
+        if (action === "remove") {
+          const target = label || labelId;
+          return { ...item, labels: existing.filter((l) => !matchesLabelIdentity(l, target)) };
+        }
+        return item;
+      };
+      setEmails((prev) => {
+        const next = prev.map(applyUpdate);
+        if (scheduledMemoryCache) {
+          scheduledMemoryCache.emails = next;
+        }
+        if (typeof window !== "undefined") {
+          window.__bnx_scheduled_cache = scheduledMemoryCache;
+        }
+        return next;
+      });
+      setSelectedEmail((prev) => (prev ? applyUpdate(prev) : prev));
+    };
+
     window.addEventListener("bnx_scheduled_changed", handleScheduledChange);
     window.addEventListener("bnx-starred-updated", handleStarUpdated);
+    window.addEventListener("bnx-email-labels-updated", handleLabelsUpdated);
     return () => {
       window.removeEventListener("bnx_scheduled_changed", handleScheduledChange);
       window.removeEventListener("bnx-starred-updated", handleStarUpdated);
+      window.removeEventListener("bnx-email-labels-updated", handleLabelsUpdated);
     };
   }, [fetchScheduled]);
 
@@ -332,6 +377,7 @@ const Scheduled = ({ searchQuery }) => {
       onClose={() => setSelectedEmail(null)}
       onDelete={handleDelete}
       onStar={handleStar}
+      onApplyLabel={handleApplyLabel}
       isScheduled={true}
     />
   ) : null;

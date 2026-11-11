@@ -1,4 +1,5 @@
 import { settingsAPI } from "../services/api";
+import { normalizeSystemLabelPrefsMap, writeUserScopedJson } from "../utils/labelPreferences";
 import React, {
   createContext,
   useContext,
@@ -108,7 +109,7 @@ export const DEFAULT_SIDEBAR_PREFS = {
 };
 
 const sanitizeSidebarPrefs = (prefs) => {
-  const cleaned = { ...(prefs || {}) };
+  const cleaned = normalizeSystemLabelPrefsMap(prefs || {});
   delete cleaned["Bulk Mail"];
   delete cleaned["bulk mail"];
   delete cleaned["bulk"];
@@ -341,11 +342,7 @@ export const ThemeProvider = ({ children }) => {
     setSidebarPreferencesState(cleaned);
     setLabelPrefsVersion((v) => v + 1);
     try {
-      localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleaned));
-      const activeEmail = localStorage.getItem("bnx_active_email");
-      if (activeEmail) {
-        localStorage.setItem(`bnx_sidebar_prefs_${activeEmail}`, JSON.stringify(cleaned));
-      }
+      writeUserScopedJson("bnx_sidebar_prefs", cleaned);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: { sysPrefs: cleaned } }));
       }
@@ -357,11 +354,7 @@ export const ThemeProvider = ({ children }) => {
     setCustomLabelPreferencesState(cleaned);
     setLabelPrefsVersion((v) => v + 1);
     try {
-      localStorage.setItem("bnx_custom_label_prefs", JSON.stringify(cleaned));
-      const activeEmail = localStorage.getItem("bnx_active_email");
-      if (activeEmail) {
-        localStorage.setItem(`bnx_custom_label_prefs_${activeEmail}`, JSON.stringify(cleaned));
-      }
+      writeUserScopedJson("bnx_custom_label_prefs", cleaned);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: { customPrefs: cleaned } }));
       }
@@ -369,26 +362,19 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const saveLabelVisibilityPreferences = (sysPrefs, customPrefs) => {
-    const activeEmail = typeof window !== 'undefined' ? localStorage.getItem("bnx_active_email") : null;
     const cleanedSysPrefs = sysPrefs ? sanitizeSidebarPrefs(sysPrefs) : undefined;
 
     if (cleanedSysPrefs) {
       setSidebarPreferencesState(cleanedSysPrefs);
       try {
-        localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleanedSysPrefs));
-        if (activeEmail) {
-          localStorage.setItem(`bnx_sidebar_prefs_${activeEmail}`, JSON.stringify(cleanedSysPrefs));
-        }
+        writeUserScopedJson("bnx_sidebar_prefs", cleanedSysPrefs);
       } catch (e) {}
     }
 
     if (customPrefs) {
       setCustomLabelPreferencesState(customPrefs);
       try {
-        localStorage.setItem("bnx_custom_label_prefs", JSON.stringify(customPrefs));
-        if (activeEmail) {
-          localStorage.setItem(`bnx_custom_label_prefs_${activeEmail}`, JSON.stringify(customPrefs));
-        }
+        writeUserScopedJson("bnx_custom_label_prefs", customPrefs);
       } catch (e) {}
     }
 

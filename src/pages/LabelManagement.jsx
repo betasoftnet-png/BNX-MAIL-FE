@@ -39,8 +39,25 @@ import {
   setAllCategoryPreferences,
   getImapPreferences,
   setImapPreference,
-  setAllImapPreferences
+  setAllImapPreferences,
+  SYSTEM_LABEL_DEFINITIONS,
+  isSystemLabelShownInLabelList,
+  setSystemLabelPrefKeys,
+  readStoredCustomLabelPrefs
 } from "../utils/labelPreferences";
+
+const SYSTEM_LABEL_ICONS = {
+  Inbox: <MdInbox size={18} className="text-gray-500 dark:text-gray-400" />,
+  Starred: <MdStarBorder size={18} className="text-gray-500 dark:text-gray-400" />,
+  Snoozed: <MdAccessTime size={18} className="text-gray-500 dark:text-gray-400" />,
+  Important: <MdLabelImportant size={18} className="text-gray-500 dark:text-gray-400" />,
+  Sent: <MdSend size={18} className="text-gray-500 dark:text-gray-400" />,
+  Scheduled: <MdSchedule size={18} className="text-gray-500 dark:text-gray-400" />,
+  Drafts: <MdDrafts size={18} className="text-gray-500 dark:text-gray-400" />,
+  "All Mail": <MdMailOutline size={18} className="text-gray-500 dark:text-gray-400" />,
+  Spam: <MdReport size={18} className="text-gray-500 dark:text-gray-400" />,
+  Trash: <MdDelete size={18} className="text-gray-500 dark:text-gray-400" />,
+};
 
 const LABEL_COLORS = [
   "#135bec",
@@ -58,7 +75,13 @@ const LABEL_COLORS = [
 const LabelManagement = ({ embedded = false }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { theme, sidebarPreferences, setSidebarPreferences, saveLabelVisibilityPreferences } = useTheme();
+  const {
+    theme,
+    sidebarPreferences,
+    customLabelPreferences,
+    setSidebarPreferences,
+    saveLabelVisibilityPreferences
+  } = useTheme();
   const {
     labels = [],
     fetchLabels,
@@ -100,7 +123,7 @@ const LabelManagement = ({ embedded = false }) => {
   const loadCustomVisibility = () => {
     const map = {};
     labels.forEach((lbl) => {
-      map[String(lbl.id)] = getCustomLabelVisibility(lbl.id);
+      map[String(lbl.id)] = getCustomLabelVisibility(lbl.id, null, customLabelPreferences);
     });
     setCustomVisibility(map);
     if (!hasUnsavedChanges) {
@@ -110,7 +133,7 @@ const LabelManagement = ({ embedded = false }) => {
 
   useEffect(() => {
     loadCustomVisibility();
-  }, [labels]);
+  }, [labels, customLabelPreferences]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -136,70 +159,13 @@ const LabelManagement = ({ embedded = false }) => {
     return () => window.removeEventListener("bnx-label-prefs-changed", handleSync);
   }, [labels, hasUnsavedChanges]);
 
-  // System Labels Definitions
+  // System Labels Definitions (derived from shared SYSTEM_LABEL_DEFINITIONS)
   const systemLabels = useMemo(
-    () => [
-      {
-        id: "Inbox",
-        name: "Inbox",
-        icon: <MdInbox size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Inbox"
-      },
-      {
-        id: "Starred",
-        name: "Starred",
-        icon: <MdStarBorder size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Starred"
-      },
-      {
-        id: "Snoozed",
-        name: "Snoozed",
-        icon: <MdAccessTime size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Snoozed"
-      },
-      {
-        id: "Important",
-        name: "Important",
-        icon: <MdLabelImportant size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Important"
-      },
-      {
-        id: "Sent",
-        name: "Sent",
-        icon: <MdSend size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Sent"
-      },
-      {
-        id: "Scheduled",
-        name: "Scheduled",
-        icon: <MdSchedule size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Scheduled"
-      },
-      {
-        id: "Drafts",
-        name: "Drafts",
-        icon: <MdDrafts size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Draft"
-      },
-      {
-        id: "All Mail",
-        name: "All Mail",
-        icon: <MdMailOutline size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "All Mail"
-      },
-      {
-        id: "Spam",
-        name: "Spam",
-        icon: <MdReport size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Spam"
-      },
-      {
-        id: "Trash",
-        name: "Trash",
-        icon: <MdDelete size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Trash"
-      }
-    ],
+    () =>
+      SYSTEM_LABEL_DEFINITIONS.map((def) => ({
+        ...def,
+        icon: SYSTEM_LABEL_ICONS[def.id],
+      })),
     []
   );
 
@@ -237,23 +203,9 @@ const LabelManagement = ({ embedded = false }) => {
 
   // Handle Draft System Label Sidebar Toggle
   const handleToggleSystemSidebar = (item) => {
-    const prefKey = item.prefKey || item.name;
-    const currentVal = draftSidebarPrefs?.[prefKey] !== false;
+    const currentVal = isSystemLabelShownInLabelList(item, draftSidebarPrefs);
     const nextVal = !currentVal;
-    setDraftSidebarPrefs((prev) => {
-      const updated = {
-        ...prev,
-        [prefKey]: nextVal,
-        [item.name]: nextVal,
-        [item.id]: nextVal
-      };
-      if (prefKey === "Draft" || item.name === "Drafts") {
-        updated["Draft"] = nextVal;
-        updated["Drafts"] = nextVal;
-        updated["draft"] = nextVal;
-      }
-      return updated;
-    });
+    setDraftSidebarPrefs((prev) => setSystemLabelPrefKeys({ ...prev }, item, nextVal));
     setHasUnsavedChanges(true);
   };
 
@@ -298,26 +250,25 @@ const LabelManagement = ({ embedded = false }) => {
   const handleSaveAll = () => {
     setIsSaving(true);
     try {
-      // 1. Prepare system labels preferences (used by sidebar/navigation preferences)
+      // 1. Prepare system labels preferences (normalized across all aliases)
       const finalSidebarPrefs = {
         ...draftSidebarPrefs,
       };
 
       systemLabels.forEach((item) => {
-        const prefKey = item.prefKey || item.name;
-        const isShown = draftSidebarPrefs?.[prefKey] !== false;
-        finalSidebarPrefs[prefKey] = isShown;
-        finalSidebarPrefs[item.name] = isShown;
-        finalSidebarPrefs[item.id] = isShown;
-        if (prefKey === "Draft" || item.name === "Drafts") {
-          finalSidebarPrefs["Draft"] = isShown;
-          finalSidebarPrefs["Drafts"] = isShown;
-          finalSidebarPrefs["draft"] = isShown;
-        }
+        const isShown = isSystemLabelShownInLabelList(item, draftSidebarPrefs);
+        setSystemLabelPrefKeys(finalSidebarPrefs, item, isShown);
       });
 
       // 2. Prepare custom labels visibility keyed strictly by existing label ID
-      const fullCustomVisibility = {};
+      const fullCustomVisibility =
+        Array.isArray(labels) && labels.length > 0
+          ? {}
+          : {
+              ...(customLabelPreferences && Object.keys(customLabelPreferences).length > 0
+                ? customLabelPreferences
+                : readStoredCustomLabelPrefs()),
+            };
       (labels || []).forEach((lbl) => {
         if (!lbl || lbl.id === undefined || lbl.id === null) return;
         const idKey = String(lbl.id);
@@ -328,7 +279,7 @@ const LabelManagement = ({ embedded = false }) => {
         };
       });
 
-      // 3. Commit to centralized React Context and localStorage
+      // 3. Commit to centralized React Context and localStorage (also broadcasts bnx-label-prefs-changed)
       if (typeof saveLabelVisibilityPreferences === "function") {
         saveLabelVisibilityPreferences(finalSidebarPrefs, fullCustomVisibility);
       } else {
@@ -337,18 +288,13 @@ const LabelManagement = ({ embedded = false }) => {
       }
       setCustomVisibility(fullCustomVisibility);
 
-      // 3. Commit category preferences
+      // 4. Commit category preferences
       setAllCategoryPreferences(draftCatPrefs);
       setCatPrefs(draftCatPrefs);
 
-      // 4. Commit IMAP preferences
+      // 5. Commit IMAP preferences
       setAllImapPreferences(draftImapPrefs);
       setImapPrefs(draftImapPrefs);
-
-      // 5. Notify all listeners
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed"));
-      }
 
       setHasUnsavedChanges(false);
       toast.success(t("settings.labels_saved", "Label visibility preferences saved successfully."));
@@ -561,8 +507,7 @@ const LabelManagement = ({ embedded = false }) => {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
                 {systemLabels.map((item) => {
-                  const prefKey = item.prefKey || item.name;
-                  const isVisibleInSidebar = draftSidebarPrefs?.[prefKey] !== false;
+                  const isVisibleInSidebar = isSystemLabelShownInLabelList(item, draftSidebarPrefs);
                   const isImapEnabled = draftImapPrefs[item.name] !== false;
 
                   return (

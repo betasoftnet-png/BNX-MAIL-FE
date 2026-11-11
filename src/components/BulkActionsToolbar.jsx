@@ -25,7 +25,10 @@ import {
   getLocalDatetimeInputString,
   parseLocalDatetimeString,
 } from "../utils/snoozeStorage";
-import { getAvailableLabelAsOptions } from "../utils/labelPreferences";
+import {
+  getAvailableLabelAsOptions,
+  matchesLabelIdentity,
+} from "../utils/labelPreferences";
 
 const BulkActionsToolbar = ({
   selectedIds,
@@ -34,7 +37,7 @@ const BulkActionsToolbar = ({
   folder,
 }) => {
   const { t } = useTranslation();
-  const { theme, customLabelPreferences, labelPrefsVersion } = useTheme();
+  const { theme, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
   const {
     labels,
     handleMoveToTrash,
@@ -74,8 +77,8 @@ const BulkActionsToolbar = ({
   }, []);
 
   const availableLabels = useMemo(() => {
-    return getAvailableLabelAsOptions(labels, customLabelPreferences);
-  }, [labels, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu, showLabelSub]);
+    return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
+  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu, showLabelSub]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState({
@@ -691,14 +694,11 @@ const BulkActionsToolbar = ({
                         <div className="px-4 py-2 text-xs text-gray-400">{t("bulk_actions.no_labels", "No labels found")}</div>
                       ) : (
                         availableLabels.map((lbl) => {
-                          const isAssigned = selectedEmails.length > 0 && selectedEmails.every((e) =>
-                            (e.labels || []).some((l) => {
-                              if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-                                return String(l.id) === String(lbl.id);
-                              }
-                              return typeof l === 'string' && l.trim().toLowerCase() === lbl.name.toLowerCase();
-                            })
-                          );
+                          const isAssigned =
+                            selectedEmails.length > 0 &&
+                            selectedEmails.every((e) =>
+                              (e.labels || []).some((l) => matchesLabelIdentity(l, lbl))
+                            );
                           return (
                             <button 
                               key={lbl.id} 

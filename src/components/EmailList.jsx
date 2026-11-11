@@ -20,7 +20,10 @@ import {
   getLocalDatetimeInputString,
   parseLocalDatetimeString,
 } from "../utils/snoozeStorage";
-import { isLabelVisibleInMessageList } from "../utils/labelPreferences";
+import {
+  isLabelVisibleInMessageList,
+  findSystemLabelDefinition
+} from "../utils/labelPreferences";
 
 const EmailList = ({
   emails,
@@ -502,9 +505,10 @@ const EmailList = ({
                         .map((label) => {
                         const labelId = typeof label === 'string' ? label : (label.id || label.name);
                         const labelName = typeof label === 'string' ? label : (label.name || label.id);
-                        const labelColor = typeof label === 'string' 
-                          ? (labels.find(l => l.name === label || l.id === label)?.colorHex || '#135bec')
-                          : (label.colorHex || '#135bec');
+                        const matchedSys = findSystemLabelDefinition(label);
+                        const labelColor = typeof label === 'string'
+                          ? (labels.find(l => l.name === label || l.id === label)?.colorHex || matchedSys?.colorHex || '#135bec')
+                          : (label.colorHex || matchedSys?.colorHex || '#135bec');
                         return (
                           <span
                             key={labelId}

@@ -3,7 +3,11 @@ import { createPortal } from "react-dom";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import FontSizeDropdown from "./FontSizeDropdown";
-import { getAvailableLabelAsOptions } from "../utils/labelPreferences";
+import {
+  getAvailableLabelAsOptions,
+  findSystemLabelDefinition,
+  matchesLabelIdentity
+} from "../utils/labelPreferences";
 
 const Size = Quill.import('attributors/style/size');
 Size.whitelist = [
@@ -153,7 +157,7 @@ const EmailDetails = ({
   emailList = [],
   onNavigate,
 }) => {
-  const { theme, readingPaneMode, customLabelPreferences, labelPrefsVersion } = useTheme();
+  const { theme, readingPaneMode, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
   const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -171,8 +175,8 @@ const EmailDetails = ({
   }, []);
 
   const availableLabelOptions = useMemo(() => {
-    return getAvailableLabelAsOptions(labels, customLabelPreferences);
-  }, [labels, customLabelPreferences, labelPrefsVersion, prefsTick]);
+    return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
+  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick]);
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
@@ -800,20 +804,26 @@ const EmailDetails = ({
   const handleApplyLabelOption = async (labelId) => {
     if (isApplyingLabel) return;
     const strLabelId = String(labelId);
+    const sysDef = findSystemLabelDefinition(strLabelId);
     const targetLabel =
       availableLabelOptions.find((l) => String(l.id) === strLabelId) ||
-      (labels || []).find((l) => String(l.id) === strLabelId);
+      (labels || []).find((l) => String(l.id) === strLabelId) ||
+      (sysDef
+        ? {
+            id: sysDef.id,
+            name: sysDef.name,
+            prefKey: sysDef.prefKey,
+            colorHex: sysDef.colorHex,
+            type: "SYSTEM",
+            isSystem: true,
+          }
+        : null);
     if (!targetLabel) {
       setShowLabels(false);
       return;
     }
 
-    const alreadyApplied = (localLabels || []).some((l) => {
-      if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-        return String(l.id) === strLabelId;
-      }
-      return typeof l === 'string' && targetLabel.name && l.trim().toLowerCase() === targetLabel.name.trim().toLowerCase();
-    });
+    const alreadyApplied = (localLabels || []).some((l) => matchesLabelIdentity(l, targetLabel));
 
     if (alreadyApplied) {
       setShowLabels(false);
@@ -840,15 +850,10 @@ const EmailDetails = ({
 
   const handleRemoveLabelOption = async (labelId, labelName = null, prefKey = null) => {
     const strLabelId = String(labelId);
+    const sysDef = findSystemLabelDefinition(labelName || strLabelId);
+    const targetMatch = sysDef || { id: labelId, name: labelName || strLabelId, prefKey };
     const prevLabels = localLabels;
-    setLocalLabels((prev) =>
-      prev.filter((l) => {
-        const idMatch = String(l.id || l) === strLabelId;
-        const nameMatch = (labelName && (l.name === labelName || String(l.id) === labelName)) || l.name === labelId;
-        const prefMatch = prefKey && (l.name === prefKey || String(l.id) === prefKey);
-        return !idMatch && !nameMatch && !prefMatch;
-      })
-    );
+    setLocalLabels((prev) => prev.filter((l) => !matchesLabelIdentity(l, targetMatch)));
     try {
       const targetFolder = email?.folderName || getFolder();
       if (handleRemoveLabel) {
@@ -1671,19 +1676,14 @@ const EmailDetails = ({
                       <div className="px-3 py-2 text-gray-400 text-center">{t("bulk_actions.no_labels", "No labels found")}</div>
                     ) : (
                       availableLabelOptions.map((lbl) => {
-                        const isApplied = (localLabels || []).some((l) => {
-                          if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-                            return String(l.id) === String(lbl.id);
-                          }
-                          return typeof l === 'string' && l.trim().toLowerCase() === lbl.name.toLowerCase();
-                        });
+                        const isApplied = (localLabels || []).some((l) => matchesLabelIdentity(l, lbl));
                         return (
                           <button
                             key={lbl.id}
                             type="button"
                             onClick={() => {
                               if (isApplied) {
-                                handleRemoveLabelOption(lbl.id, lbl.name);
+                                handleRemoveLabelOption(lbl.id, lbl.name, lbl.prefKey);
                               } else {
                                 handleApplyLabelOption(lbl.id);
                               }
@@ -1736,9 +1736,11 @@ const EmailDetails = ({
             {localLabels?.map((label) => {
               const labelId = typeof label === 'string' ? label : (label.id || label.name);
               const labelName = typeof label === 'string' ? label : (label.name || label.id);
-              const labelColor = typeof label === 'string' 
-                ? (labels.find(l => l.name === label || l.id === label)?.colorHex || '#135bec')
-                : (label.colorHex || '#135bec');
+              const matchedSys = findSystemLabelDefinition(label);
+              const labelColor = typeof label === 'string'
+                ? (labels.find(l => l.name === label || l.id === label)?.colorHex || matchedSys?.colorHex || '#135bec')
+                : (label.colorHex || matchedSys?.colorHex || '#135bec');
+              const prefKey = typeof label === 'object' ? label.prefKey : matchedSys?.prefKey;
               return (
                 <span
                   key={labelId}
@@ -1749,7 +1751,7 @@ const EmailDetails = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleRemoveLabelOption(labelId);
+                      handleRemoveLabelOption(labelId, labelName, prefKey);
                     }}
                     className="hover:bg-black/20 rounded-full p-0.5 transition-colors flex items-center justify-center cursor-pointer"
                     title="Remove label"

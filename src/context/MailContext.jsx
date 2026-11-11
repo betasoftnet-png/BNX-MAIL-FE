@@ -44,7 +44,11 @@ import {
     deduplicateAllInboxEmails
 } from '../utils/accountUtils';
 import {
+    findSystemLabelDefinition,
     getStoredSystemEmailLabels,
+    matchesLabelIdentity,
+    mergeEmailWithStoredSystemLabels,
+    saveAppliedSystemLabel,
     removeAppliedSystemLabel,
     removeCustomLabelVisibility
 } from '../utils/labelPreferences';
@@ -436,21 +440,7 @@ export const MailProvider = ({ children }) => {
     const attachStoredSystemLabels = useCallback((emailList) => {
         if (!Array.isArray(emailList)) return emailList;
         const sysLabelsMap = getStoredSystemEmailLabels();
-        return emailList.map((m) => {
-            const uidStr = String(m.uid ?? m.id ?? '');
-            const extraSys = sysLabelsMap[uidStr];
-            if (extraSys && extraSys.length > 0) {
-                const existing = Array.isArray(m.labels) ? m.labels : [];
-                const combined = [...existing];
-                extraSys.forEach((s) => {
-                    if (!combined.some((c) => String(c.id) === String(s.id) || c.name === s.name)) {
-                        combined.push(s);
-                    }
-                });
-                return { ...m, labels: combined };
-            }
-            return m;
-        });
+        return emailList.map((m) => mergeEmailWithStoredSystemLabels(m, sysLabelsMap));
     }, []);
 
     useEffect(() => {
@@ -571,7 +561,7 @@ export const MailProvider = ({ children }) => {
                     return dateB - dateA;
                 });
 
-                setEmails(normalizedEmails);
+                setEmails(attachStoredSystemLabels(normalizedEmails));
             }
         } catch (error) {
             console.error('Failed to fetch label emails:', error);
@@ -2753,7 +2743,16 @@ export const MailProvider = ({ children }) => {
         const targetFolder = folder || currentFolderRef.current || 'INBOX';
         const strUid = String(uid);
         const strLabelId = String(labelId);
-        const targetLabel = labels.find(l => String(l.id) === strLabelId);
+        const customTarget = labels.find(l => String(l.id) === strLabelId);
+        const sysDef = !customTarget ? findSystemLabelDefinition(strLabelId) : null;
+        const targetLabel = customTarget || (sysDef ? {
+            id: sysDef.id,
+            name: sysDef.name,
+            prefKey: sysDef.prefKey,
+            colorHex: sysDef.colorHex,
+            type: 'SYSTEM',
+            isSystem: true
+        } : null);
         if (!targetLabel) {
             if (!silent) toast.error('Label not found');
             return false;
@@ -2766,12 +2765,7 @@ export const MailProvider = ({ children }) => {
         setEmails(prev => prev.map(m => {
             if (String(m.uid) === strUid || String(m.id) === strUid) {
                 const currentLabels = Array.isArray(m.labels) ? m.labels : [];
-                const alreadyHas = currentLabels.some(l => {
-                    if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-                        return String(l.id) === strLabelId;
-                    }
-                    return typeof l === 'string' && targetLabel.name && l.trim().toLowerCase() === targetLabel.name.trim().toLowerCase();
-                });
+                const alreadyHas = currentLabels.some(l => matchesLabelIdentity(l, labelToAdd));
                 if (alreadyHas) {
                     wasAlreadyApplied = true;
                     return m;
@@ -2796,13 +2790,7 @@ export const MailProvider = ({ children }) => {
                         pagesCache.current[fKey][pKey] = pagesCache.current[fKey][pKey].map(m => {
                             if (String(m.uid) === strUid || String(m.id) === strUid) {
                                 const currentLabels = Array.isArray(m.labels) ? m.labels : [];
-                                const alreadyHas = currentLabels.some(l => {
-                                    if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-                                        return String(l.id) === strLabelId;
-                                    }
-                                    return typeof l === 'string' && targetLabel.name && l.trim().toLowerCase() === targetLabel.name.trim().toLowerCase();
-                                });
-                                if (alreadyHas) return m;
+                                if (currentLabels.some(l => matchesLabelIdentity(l, labelToAdd))) return m;
                                 return {
                                     ...m,
                                     labels: [...currentLabels, labelToAdd]
@@ -2817,7 +2805,9 @@ export const MailProvider = ({ children }) => {
 
         if (targetFolder && targetFolder.toLowerCase() === 'sent') {
             const currentSentLabels = sentEmailLabelsRef.current[strUid] || [];
-            updateSentEmailLabels(strUid, [...currentSentLabels, labelToAdd]);
+            if (!currentSentLabels.some(l => matchesLabelIdentity(l, labelToAdd))) {
+                updateSentEmailLabels(strUid, [...currentSentLabels, labelToAdd]);
+            }
         }
 
         invalidateCache(`label-${labelId}`);
@@ -2830,6 +2820,11 @@ export const MailProvider = ({ children }) => {
         if (isNumeric) {
             try {
                 await mailAPI.applyLabel(uid, labelId, targetFolder);
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('bnx-email-labels-updated', {
+                        detail: { uid: strUid, action: 'add', label: labelToAdd }
+                    }));
+                }
                 if (!silent) toast.success('Label applied');
                 return true;
             } catch (error) {
@@ -2839,7 +2834,7 @@ export const MailProvider = ({ children }) => {
                     if (String(m.uid) === strUid || String(m.id) === strUid) {
                         return {
                             ...m,
-                            labels: (m.labels || []).filter(l => String(l.id) !== strLabelId)
+                            labels: (m.labels || []).filter(l => !matchesLabelIdentity(l, labelToAdd))
                         };
                     }
                     return m;
@@ -2847,14 +2842,24 @@ export const MailProvider = ({ children }) => {
                 if (!silent) toast.error(error.response?.data?.message || 'Failed to apply label');
                 throw error;
             }
+        } else {
+            saveAppliedSystemLabel(strUid, labelToAdd);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('bnx-email-labels-updated', {
+                    detail: { uid: strUid, action: 'add', label: labelToAdd }
+                }));
+            }
+            if (!silent) toast.success('Label applied');
+            return true;
         }
-        return false;
     };
 
     const handleRemoveLabel = async (uid, labelId, folder = currentFolderRef.current || 'INBOX', silent = false) => {
         const targetFolder = folder || currentFolderRef.current || 'INBOX';
         const strUid = String(uid);
         const strLabelId = String(labelId);
+        const sysDef = findSystemLabelDefinition(strLabelId);
+        const targetMatch = sysDef || strLabelId;
         let removedLabel = null;
 
         // Optimistically remove label from active list
@@ -2864,10 +2869,10 @@ export const MailProvider = ({ children }) => {
             }
             return prev.map(m => {
                 if (String(m.uid) === strUid || String(m.id) === strUid) {
-                    removedLabel = (m.labels || []).find(l => String(l.id) === strLabelId || l.name === labelId);
+                    removedLabel = (m.labels || []).find(l => matchesLabelIdentity(l, targetMatch));
                     return {
                         ...m,
-                        labels: (m.labels || []).filter(l => String(l.id) !== strLabelId && l.name !== labelId)
+                        labels: (m.labels || []).filter(l => !matchesLabelIdentity(l, targetMatch))
                     };
                 }
                 return m;
@@ -2892,7 +2897,7 @@ export const MailProvider = ({ children }) => {
                                 if (String(m.uid) === strUid || String(m.id) === strUid) {
                                     return {
                                         ...m,
-                                        labels: (m.labels || []).filter(l => String(l.id) !== strLabelId && l.name !== labelId)
+                                        labels: (m.labels || []).filter(l => !matchesLabelIdentity(l, targetMatch))
                                     };
                                 }
                                 return m;
@@ -2905,7 +2910,7 @@ export const MailProvider = ({ children }) => {
 
         if (targetFolder && targetFolder.toLowerCase() === 'sent') {
             const currentSentLabels = sentEmailLabelsRef.current[strUid] || [];
-            updateSentEmailLabels(strUid, currentSentLabels.filter(l => String(l.id || l) !== strLabelId && l.name !== labelId));
+            updateSentEmailLabels(strUid, currentSentLabels.filter(l => !matchesLabelIdentity(l, targetMatch)));
         }
 
         invalidateCache(`label-${labelId}`);
@@ -2918,6 +2923,11 @@ export const MailProvider = ({ children }) => {
         if (isNumeric) {
             try {
                 await mailAPI.removeLabel(uid, labelId, targetFolder);
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('bnx-email-labels-updated', {
+                        detail: { uid: strUid, action: 'remove', labelId: strLabelId, label: removedLabel }
+                    }));
+                }
                 if (!silent) toast.success('Label removed');
                 return true;
             } catch (error) {
@@ -2939,6 +2949,11 @@ export const MailProvider = ({ children }) => {
             }
         } else {
             removeAppliedSystemLabel(strUid, strLabelId);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('bnx-email-labels-updated', {
+                    detail: { uid: strUid, action: 'remove', labelId: strLabelId, label: removedLabel || sysDef }
+                }));
+            }
             if (!silent) toast.success('Label removed');
             return true;
         }
