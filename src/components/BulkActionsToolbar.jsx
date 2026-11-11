@@ -37,7 +37,7 @@ const BulkActionsToolbar = ({
   folder,
 }) => {
   const { t } = useTranslation();
-  const { theme, customLabelPreferences, labelPrefsVersion } = useTheme();
+  const { theme, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
   const {
     labels,
     handleMoveToTrash,
@@ -77,8 +77,8 @@ const BulkActionsToolbar = ({
   }, []);
 
   const availableLabels = useMemo(() => {
-    return getAvailableLabelAsOptions(labels, customLabelPreferences);
-  }, [labels, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu, showLabelSub]);
+    return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
+  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu, showLabelSub]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState({

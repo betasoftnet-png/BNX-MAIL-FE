@@ -556,10 +556,10 @@ export const isValidLabelRecord = (lbl) => {
 
   const isSystemRecord = lbl.isSystem === true || labelType === 'SYSTEM';
   if (isSystemRecord) {
-    return false;
+    return Boolean(findSystemLabelDefinition(lbl));
   }
 
-  // Custom records must not masquerade as raw folder/nav/system names
+  // Custom records must not masquerade as raw folder/nav substitutes
   const idLower = String(lbl.id).trim().toLowerCase();
   const nameLower = lbl.name.trim().toLowerCase();
   if (FOLDER_AND_NAV_NAMES.has(idLower) || FOLDER_AND_NAV_NAMES.has(nameLower) || Boolean(lbl.prefKey)) {
@@ -589,40 +589,43 @@ export const isSystemLabelShownInLabelList = (systemLabelOrKey, sidebarPreferenc
 
 export const isSystemLabelVisibleInLabelList = isSystemLabelShownInLabelList;
 
-const looksLikeSidebarPrefsMap = (obj) =>
+const isCustomPrefsMap = (obj) =>
   Boolean(
     obj &&
       typeof obj === 'object' &&
       !Array.isArray(obj) &&
-      Object.keys(obj).some((k) => SYSTEM_LABEL_LOOKUP.has(k.trim().toLowerCase())) &&
-      !Object.values(obj).some((v) => v && typeof v === 'object' && 'showInLabelList' in v)
+      Object.values(obj).some((v) => v && typeof v === 'object' && 'showInLabelList' in v)
   );
 
-const resolveEffectiveCustomPrefs = (customLabelPreferences, legacyCustomPrefs) => {
-  if (legacyCustomPrefs !== null && typeof legacyCustomPrefs === 'object') {
-    return legacyCustomPrefs;
-  }
+const resolveEffectiveCustomPrefs = (sidebarPreferences, customLabelPreferences) => {
   if (customLabelPreferences && typeof customLabelPreferences === 'object') {
-    if (looksLikeSidebarPrefsMap(customLabelPreferences)) {
-      return readStoredCustomLabelPrefs();
-    }
     return customLabelPreferences;
+  }
+  if (isCustomPrefsMap(sidebarPreferences)) {
+    return sidebarPreferences;
   }
   return readStoredCustomLabelPrefs();
 };
 
 /**
- * Checks whether a user-created custom label is enabled in Settings -> Manage Labels ("Show in label list").
- * Never displays system labels or invalid/folder records.
+ * Checks whether a system or custom label is enabled in Settings -> Manage Labels ("Show in label list").
  */
-export const isLabelShownInLabelList = (lbl, customLabelPreferences = null, legacyCustomPrefs = null) => {
+export const isLabelShownInLabelList = (lbl, sidebarPreferences = null, customLabelPreferences = null) => {
+  if (typeof lbl === 'string') {
+    return isSystemLabelShownInLabelList(lbl, sidebarPreferences);
+  }
   if (!isValidLabelRecord(lbl)) return false;
 
   if (lbl.showInLabelList === false) {
     return false;
   }
 
-  const effectiveCustomPrefs = resolveEffectiveCustomPrefs(customLabelPreferences, legacyCustomPrefs);
+  const isSystemRecord = lbl.isSystem === true || normalizeLabelType(lbl) === 'SYSTEM';
+  if (isSystemRecord) {
+    return isSystemLabelShownInLabelList(lbl, sidebarPreferences);
+  }
+
+  const effectiveCustomPrefs = resolveEffectiveCustomPrefs(sidebarPreferences, customLabelPreferences);
 
   const idKey = String(lbl.id).trim();
   const entry = effectiveCustomPrefs[idKey];
@@ -638,43 +641,58 @@ export const isLabelShownInLabelList = (lbl, customLabelPreferences = null, lega
 };
 
 /**
- * Returns valid, enabled, deduplicated user-created custom labels for all "Label as..." dropdowns.
- * System labels are never included.
+ * Returns valid, enabled, deduplicated custom + system labels for all "Label as..." dropdowns.
  */
 export const getAvailableLabelAsOptions = (
-  labels = [],
-  customLabelPreferences = null,
-  legacyCustomPrefs = null
+  customLabels = [],
+  sidebarPreferences = {},
+  customLabelPreferences = null
 ) => {
-  if (!Array.isArray(labels) || labels.length === 0) return [];
-
-  const effectiveCustomPrefs = resolveEffectiveCustomPrefs(customLabelPreferences, legacyCustomPrefs);
+  const effectiveCustomPrefs = resolveEffectiveCustomPrefs(sidebarPreferences, customLabelPreferences);
+  const effectiveSidebarPrefs =
+    customLabelPreferences == null && isCustomPrefsMap(sidebarPreferences)
+      ? null
+      : sidebarPreferences;
 
   const seenIds = new Set();
   const seenNameType = new Set();
   const result = [];
 
-  for (const lbl of labels) {
-    if (!lbl || typeof lbl !== 'object' || !isLabelShownInLabelList(lbl, effectiveCustomPrefs)) {
-      continue;
+  if (Array.isArray(customLabels)) {
+    for (const lbl of customLabels) {
+      if (!lbl || typeof lbl !== 'object' || !isLabelShownInLabelList(lbl, effectiveSidebarPrefs, effectiveCustomPrefs)) {
+        continue;
+      }
+
+      const idKey = String(lbl.id).trim();
+      const labelType = normalizeLabelType(lbl);
+      const cleanName = lbl.name.trim();
+      const parentKey = lbl.parentId !== undefined && lbl.parentId !== null ? String(lbl.parentId).trim() : '';
+      const nameTypeKey = `${labelType}:${parentKey}:${cleanName.toLowerCase()}`;
+
+      if (seenIds.has(idKey) || seenNameType.has(nameTypeKey)) continue;
+
+      seenIds.add(idKey);
+      seenNameType.add(nameTypeKey);
+      result.push({
+        ...lbl,
+        name: cleanName,
+        type: labelType,
+        isSystem: Boolean(lbl.isSystem === true || labelType === 'SYSTEM')
+      });
     }
+  }
 
-    const idKey = String(lbl.id).trim();
-    const labelType = normalizeLabelType(lbl);
-    const cleanName = lbl.name.trim();
-    const parentKey = lbl.parentId !== undefined && lbl.parentId !== null ? String(lbl.parentId).trim() : '';
-    const nameTypeKey = `${labelType}:${parentKey}:${cleanName.toLowerCase()}`;
+  for (const sysDef of SYSTEM_LABEL_DEFINITIONS) {
+    if (!isSystemLabelShownInLabelList(sysDef, effectiveSidebarPrefs)) continue;
 
+    const idKey = String(sysDef.id).trim();
+    const nameTypeKey = `SYSTEM::${sysDef.name.trim().toLowerCase()}`;
     if (seenIds.has(idKey) || seenNameType.has(nameTypeKey)) continue;
 
     seenIds.add(idKey);
     seenNameType.add(nameTypeKey);
-    result.push({
-      ...lbl,
-      name: cleanName,
-      type: labelType,
-      isSystem: false
-    });
+    result.push({ ...sysDef });
   }
 
   return result;
