@@ -34,6 +34,7 @@ export const AuthProvider = ({ children }) => {
                 if (!activeEmail) {
                     activeEmail = email;
                     localStorage.setItem('bnx_active_email', email);
+                    window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: { accountChanged: true } }));
                 }
 
                 if (!sessions[email]) {
@@ -89,6 +90,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('userProfile', JSON.stringify(fullProfile));
 
+        window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: { accountChanged: true } }));
         setIsAuthenticated(true);
         setUser(fullProfile);
     };
@@ -151,6 +153,7 @@ export const AuthProvider = ({ children }) => {
                 localStorage.removeItem('bnx_active_email');
                 localStorage.removeItem('bnx_sessions');
 
+                window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: { accountChanged: true } }));
                 setIsAuthenticated(false);
                 setUser(null);
             }

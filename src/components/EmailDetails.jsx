@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import FontSizeDropdown from "./FontSizeDropdown";
-import { getAvailableLabelAsOptions } from "../utils/labelPreferences";
+import { getAvailableLabelAsOptions, SYSTEM_LABEL_DEFINITIONS } from "../utils/labelPreferences";
 
 const Size = Quill.import('attributors/style/size');
 Size.whitelist = [
@@ -153,7 +153,7 @@ const EmailDetails = ({
   emailList = [],
   onNavigate,
 }) => {
-  const { theme, readingPaneMode, customLabelPreferences, labelPrefsVersion } = useTheme();
+  const { theme, readingPaneMode, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
   const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -171,8 +171,8 @@ const EmailDetails = ({
   }, []);
 
   const availableLabelOptions = useMemo(() => {
-    return getAvailableLabelAsOptions(labels, customLabelPreferences);
-  }, [labels, customLabelPreferences, labelPrefsVersion, prefsTick]);
+    return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
+  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick]);
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
@@ -800,9 +800,13 @@ const EmailDetails = ({
   const handleApplyLabelOption = async (labelId) => {
     if (isApplyingLabel) return;
     const strLabelId = String(labelId);
+    const systemDef = SYSTEM_LABEL_DEFINITIONS.find(
+      (s) => s.id === strLabelId || s.name.toLowerCase() === strLabelId.toLowerCase()
+    );
     const targetLabel =
       availableLabelOptions.find((l) => String(l.id) === strLabelId) ||
-      (labels || []).find((l) => String(l.id) === strLabelId);
+      (labels || []).find((l) => String(l.id) === strLabelId) ||
+      (systemDef ? { id: systemDef.id, name: systemDef.name, prefKey: systemDef.prefKey, colorHex: systemDef.colorHex, isSystem: true } : null);
     if (!targetLabel) {
       setShowLabels(false);
       return;
@@ -810,7 +814,14 @@ const EmailDetails = ({
 
     const alreadyApplied = (localLabels || []).some((l) => {
       if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-        return String(l.id) === strLabelId;
+        if (String(l.id) === strLabelId || String(l.id) === String(targetLabel.id)) return true;
+        if (targetLabel.isSystem) {
+          return (
+            l.name === targetLabel.name ||
+            (targetLabel.prefKey && (l.name === targetLabel.prefKey || String(l.id) === String(targetLabel.prefKey)))
+          );
+        }
+        return false;
       }
       return typeof l === 'string' && targetLabel.name && l.trim().toLowerCase() === targetLabel.name.trim().toLowerCase();
     });
@@ -1673,7 +1684,14 @@ const EmailDetails = ({
                       availableLabelOptions.map((lbl) => {
                         const isApplied = (localLabels || []).some((l) => {
                           if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-                            return String(l.id) === String(lbl.id);
+                            if (String(l.id) === String(lbl.id)) return true;
+                            if (lbl.isSystem) {
+                              return (
+                                l.name === lbl.name ||
+                                (lbl.prefKey && (l.name === lbl.prefKey || String(l.id) === String(lbl.prefKey)))
+                              );
+                            }
+                            return false;
                           }
                           return typeof l === 'string' && l.trim().toLowerCase() === lbl.name.toLowerCase();
                         });
@@ -1683,7 +1701,7 @@ const EmailDetails = ({
                             type="button"
                             onClick={() => {
                               if (isApplied) {
-                                handleRemoveLabelOption(lbl.id, lbl.name);
+                                handleRemoveLabelOption(lbl.id, lbl.name, lbl.prefKey);
                               } else {
                                 handleApplyLabelOption(lbl.id);
                               }

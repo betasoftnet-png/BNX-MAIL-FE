@@ -269,15 +269,38 @@ export const setAllImapPreferences = (newPrefsMap) => {
 };
 
 /**
- * Returns saved sidebar preferences directly from localStorage
+ * Canonical system label definitions matching Settings -> Manage Labels.
+ */
+export const SYSTEM_LABEL_DEFINITIONS = [
+  { id: "Inbox", name: "Inbox", prefKey: "Inbox", colorHex: "#3b82f6", isSystem: true, type: "SYSTEM" },
+  { id: "Starred", name: "Starred", prefKey: "Starred", colorHex: "#f59e0b", isSystem: true, type: "SYSTEM" },
+  { id: "Snoozed", name: "Snoozed", prefKey: "Snoozed", colorHex: "#f59e0b", isSystem: true, type: "SYSTEM" },
+  { id: "Important", name: "Important", prefKey: "Important", colorHex: "#eab308", isSystem: true, type: "SYSTEM" },
+  { id: "Sent", name: "Sent", prefKey: "Sent", colorHex: "#135bec", isSystem: true, type: "SYSTEM" },
+  { id: "Scheduled", name: "Scheduled", prefKey: "Scheduled", colorHex: "#06b6d4", isSystem: true, type: "SYSTEM" },
+  { id: "Drafts", name: "Drafts", prefKey: "Draft", colorHex: "#64748b", isSystem: true, type: "SYSTEM" },
+  { id: "All Mail", name: "All Mail", prefKey: "All Mail", colorHex: "#3b82f6", isSystem: true, type: "SYSTEM" },
+  { id: "Spam", name: "Spam", prefKey: "Spam", colorHex: "#ef4444", isSystem: true, type: "SYSTEM" },
+  { id: "Trash", name: "Trash", prefKey: "Trash", colorHex: "#ef4444", isSystem: true, type: "SYSTEM" },
+];
+
+/**
+ * Returns saved Manage Labels system visibility preferences directly from localStorage.
  */
 export const getStoredSidebarPreferences = () => {
   try {
     if (typeof window !== 'undefined') {
       const activeEmail = localStorage.getItem("bnx_active_email");
       const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
-      const raw = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('bnx_sidebar_prefs');
-      return raw ? JSON.parse(raw) : null;
+      const lowerKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail.trim().toLowerCase()}` : null;
+      const raw =
+        (userKey && localStorage.getItem(userKey)) ||
+        (lowerKey && localStorage.getItem(lowerKey)) ||
+        localStorage.getItem('bnx_sidebar_prefs');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+      }
     }
     return null;
   } catch (e) {
@@ -286,8 +309,7 @@ export const getStoredSidebarPreferences = () => {
 };
 
 /**
- * Folder / sidebar navigation names that must never be used as substitutes
- * for actual label records in the "Label as..." dropdown.
+ * System/folder names reserved for system labels (used to avoid duplicates with custom labels).
  */
 export const FOLDER_AND_NAV_NAMES = new Set([
   'inbox',
@@ -305,7 +327,7 @@ export const FOLDER_AND_NAV_NAMES = new Set([
   'deleted'
 ]);
 
-// Kept as alias for backwards-compatible imports if needed
+// Alias exported for compatibility
 export const SYSTEM_LABEL_NAMES = FOLDER_AND_NAV_NAMES;
 
 const NON_LABEL_TYPES = new Set([
@@ -331,7 +353,62 @@ export const normalizeLabelType = (lbl) => {
 };
 
 /**
- * Validates that a candidate label is an actual, existing, non-deleted, non-folder label record.
+ * Resolves the Manage Labels "Show in label list" preference dynamically for any system label.
+ * Uses Manage Labels system preferences (`sidebarPreferences`) as the single source of truth.
+ */
+export const isSystemLabelShownInLabelList = (systemLabelOrKey, sidebarPreferences = null) => {
+  if (!systemLabelOrKey) return false;
+
+  const stored = getStoredSidebarPreferences() || {};
+  const effectivePrefs =
+    sidebarPreferences && typeof sidebarPreferences === 'object'
+      ? { ...stored, ...sidebarPreferences }
+      : stored;
+
+  const rawPrefKey = typeof systemLabelOrKey === 'object' ? systemLabelOrKey.prefKey : null;
+  const rawName = typeof systemLabelOrKey === 'object' ? systemLabelOrKey.name : systemLabelOrKey;
+  const rawId = typeof systemLabelOrKey === 'object' ? systemLabelOrKey.id : systemLabelOrKey;
+
+  const keysToCheck = [rawPrefKey, rawName, rawId].filter(
+    (k) => k !== undefined && k !== null && String(k).trim() !== ''
+  );
+
+  const hasDraftKey = keysToCheck.some((k) => {
+    const lower = String(k).trim().toLowerCase();
+    return lower === 'draft' || lower === 'drafts';
+  });
+  if (hasDraftKey) {
+    keysToCheck.push('Draft', 'Drafts', 'draft', 'drafts');
+  }
+
+  for (const key of keysToCheck) {
+    const strKey = String(key);
+    if (Object.prototype.hasOwnProperty.call(effectivePrefs, strKey) && effectivePrefs[strKey] !== undefined) {
+      const val = effectivePrefs[strKey];
+      if (val === false) return false;
+      if (typeof val === 'object' && val !== null && val.showInLabelList === false) return false;
+      return true;
+    }
+  }
+
+  // Fallback case-insensitive lookup across preference keys
+  const prefEntries = Object.entries(effectivePrefs);
+  for (const key of keysToCheck) {
+    const target = String(key).trim().toLowerCase();
+    for (const [k, val] of prefEntries) {
+      if (k.trim().toLowerCase() === target && val !== undefined) {
+        if (val === false) return false;
+        if (typeof val === 'object' && val !== null && val.showInLabelList === false) return false;
+        return true;
+      }
+    }
+  }
+
+  return true;
+};
+
+/**
+ * Validates that a candidate custom label is an actual, non-deleted, non-folder label record.
  */
 export const isValidLabelRecord = (lbl) => {
   if (!lbl || typeof lbl !== 'object' || Array.isArray(lbl)) return false;
@@ -355,40 +432,15 @@ export const isValidLabelRecord = (lbl) => {
     return false;
   }
 
-  // Exclude folder / sidebar / navigation substitutes
   const labelType = normalizeLabelType(lbl);
   if (
     lbl.isFolder === true ||
     lbl.isNav === true ||
     lbl.isSidebar === true ||
     lbl.isSidebarItem === true ||
-    Boolean(lbl.prefKey) ||
     NON_LABEL_TYPES.has(labelType)
   ) {
     return false;
-  }
-
-  // Reject folder/nav names masquerading as label IDs
-  const idLower = String(lbl.id).trim().toLowerCase();
-  if (FOLDER_AND_NAV_NAMES.has(idLower)) {
-    return false;
-  }
-
-  // Reject hidden system labels and system-typed folder substitutes
-  const isSystemLabel = lbl.isSystem === true || labelType === 'SYSTEM';
-  if (isSystemLabel) {
-    const nameLower = lbl.name.trim().toLowerCase();
-    if (FOLDER_AND_NAV_NAMES.has(nameLower)) {
-      return false;
-    }
-    if (
-      lbl.hidden === true ||
-      lbl.isHidden === true ||
-      lbl.visible === false ||
-      lbl.isVisible === false
-    ) {
-      return false;
-    }
   }
 
   // Reject disabled/hidden records
@@ -398,34 +450,57 @@ export const isValidLabelRecord = (lbl) => {
     lbl.visible === false ||
     lbl.isVisible === false ||
     lbl.enabled === false ||
-    lbl.isEnabled === false
+    lbl.isEnabled === false ||
+    lbl.showInLabelList === false
   ) {
     return false;
+  }
+
+  const isSystemLabel = lbl.isSystem === true || labelType === 'SYSTEM';
+  if (!isSystemLabel) {
+    // Reject folder-name duplicates masquerading as custom labels
+    const idLower = String(lbl.id).trim().toLowerCase();
+    const nameLower = lbl.name.trim().toLowerCase();
+    if (Boolean(lbl.prefKey) || FOLDER_AND_NAV_NAMES.has(idLower) || FOLDER_AND_NAV_NAMES.has(nameLower)) {
+      return false;
+    }
   }
 
   return true;
 };
 
 /**
- * Checks whether a valid label record is enabled in Settings -> Manage Labels ("Show in label list").
- * Filters strictly by label ID and record flags — never mixes sidebar navigation preferences.
+ * Checks whether a label (system or custom) is enabled in Settings -> Manage Labels ("Show in label list").
+ * System labels use Manage Labels system preferences (`sidebarPreferences`) as single source of truth;
+ * custom labels use `customLabelPreferences` keyed strictly by label ID.
  */
-export const isLabelShownInLabelList = (lbl, customLabelPreferences = null, legacyCustomPrefs = null) => {
-  if (!isValidLabelRecord(lbl)) return false;
+export const isLabelShownInLabelList = (lbl, sidebarPreferences = {}, customLabelPreferences = null) => {
+  if (!lbl) return false;
 
-  if (lbl.showInLabelList === false) {
-    return false;
+  if (typeof lbl === 'string') {
+    const matchedSystem = SYSTEM_LABEL_DEFINITIONS.find(
+      (s) =>
+        s.id.toLowerCase() === lbl.trim().toLowerCase() ||
+        s.name.toLowerCase() === lbl.trim().toLowerCase() ||
+        (s.prefKey && s.prefKey.toLowerCase() === lbl.trim().toLowerCase())
+    );
+    return matchedSystem ? isSystemLabelShownInLabelList(matchedSystem, sidebarPreferences) : false;
   }
 
-  const effectivePrefs =
-    legacyCustomPrefs !== null && typeof legacyCustomPrefs === 'object'
-      ? legacyCustomPrefs
-      : (customLabelPreferences && typeof customLabelPreferences === 'object'
-          ? customLabelPreferences
-          : readStoredCustomLabelPrefs());
+  if (!isValidLabelRecord(lbl)) return false;
+
+  const labelType = normalizeLabelType(lbl);
+  if (lbl.isSystem === true || labelType === 'SYSTEM') {
+    return isSystemLabelShownInLabelList(lbl, sidebarPreferences);
+  }
+
+  const effectiveCustomPrefs =
+    customLabelPreferences && typeof customLabelPreferences === 'object'
+      ? customLabelPreferences
+      : readStoredCustomLabelPrefs();
 
   const idKey = String(lbl.id).trim();
-  const entry = effectivePrefs[idKey];
+  const entry = effectiveCustomPrefs[idKey];
 
   if (entry !== undefined) {
     if (typeof entry === 'boolean') return entry;
@@ -438,42 +513,67 @@ export const isLabelShownInLabelList = (lbl, customLabelPreferences = null, lega
 };
 
 /**
- * Returns valid, enabled, deduplicated labels for all "Label as..." dropdowns.
- * Reads strictly from actual label records and filters using ID, type, and Manage Labels visibility.
+ * Alias kept for backwards compatibility.
  */
-export const getAvailableLabelAsOptions = (labels = [], customLabelPreferences = null, legacyCustomPrefs = null) => {
-  if (!Array.isArray(labels) || labels.length === 0) return [];
+export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = {}) => {
+  return isSystemLabelShownInLabelList(keyOrName, sidebarPreferences);
+};
 
-  const effectivePrefs =
-    legacyCustomPrefs !== null && typeof legacyCustomPrefs === 'object'
-      ? legacyCustomPrefs
-      : (customLabelPreferences && typeof customLabelPreferences === 'object'
-          ? customLabelPreferences
-          : readStoredCustomLabelPrefs());
+/**
+ * Returns active labels for all "Label as..." dropdowns using Settings -> Manage Labels
+ * as the single source of truth:
+ * - Enabled custom labels (`MailContext.labels` filtered by `customLabelPreferences`)
+ * - Enabled system labels (`SYSTEM_LABEL_DEFINITIONS` filtered dynamically by `sidebarPreferences`)
+ */
+export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences = {}, customLabelPreferences = null) => {
+  const storedSidebar = getStoredSidebarPreferences() || {};
+  const effectiveSidebarPrefs =
+    sidebarPreferences && typeof sidebarPreferences === 'object'
+      ? { ...storedSidebar, ...sidebarPreferences }
+      : storedSidebar;
+
+  const effectiveCustomPrefs =
+    customLabelPreferences && typeof customLabelPreferences === 'object'
+      ? customLabelPreferences
+      : readStoredCustomLabelPrefs();
+
+  const visibleCustomLabels = (Array.isArray(customLabels) ? customLabels : [])
+    .filter((lbl) => {
+      if (!lbl || typeof lbl !== 'object') return false;
+      // Custom DB labels with system flag off are filtered strictly by customLabelPreferences
+      if (lbl.isSystem === true || normalizeLabelType(lbl) === 'SYSTEM') return false;
+      return isLabelShownInLabelList(lbl, effectiveSidebarPrefs, effectiveCustomPrefs);
+    })
+    .map((lbl) => ({
+      ...lbl,
+      name: lbl.name.trim(),
+      type: normalizeLabelType(lbl),
+      isSystem: false
+    }));
+
+  const visibleSystemLabels = SYSTEM_LABEL_DEFINITIONS
+    .filter((sl) => isSystemLabelShownInLabelList(sl, effectiveSidebarPrefs))
+    .map((sl) => ({
+      ...sl,
+      isSystem: true,
+      type: 'SYSTEM'
+    }));
 
   const seenIds = new Set();
   const seenNameType = new Set();
   const result = [];
 
-  for (const lbl of labels) {
-    if (!isLabelShownInLabelList(lbl, effectivePrefs)) continue;
-
-    const idKey = String(lbl.id).trim();
-    const labelType = normalizeLabelType(lbl);
-    const cleanName = lbl.name.trim();
+  for (const lbl of [...visibleCustomLabels, ...visibleSystemLabels]) {
+    const idKey = String(lbl.id).trim().toLowerCase();
+    const labelType = lbl.isSystem ? 'SYSTEM' : normalizeLabelType(lbl);
     const parentKey = lbl.parentId !== undefined && lbl.parentId !== null ? String(lbl.parentId).trim() : '';
-    const nameTypeKey = `${labelType}:${parentKey}:${cleanName.toLowerCase()}`;
+    const nameTypeKey = `${labelType}:${parentKey}:${lbl.name.trim().toLowerCase()}`;
 
     if (seenIds.has(idKey) || seenNameType.has(nameTypeKey)) continue;
 
     seenIds.add(idKey);
     seenNameType.add(nameTypeKey);
-    result.push({
-      ...lbl,
-      name: cleanName,
-      type: labelType,
-      isSystem: Boolean(lbl.isSystem === true || labelType === 'SYSTEM')
-    });
+    result.push(lbl);
   }
 
   return result;
@@ -488,6 +588,22 @@ export const getStoredSystemEmailLabels = () => {
   } catch (e) {
     return {};
   }
+};
+
+export const saveAppliedSystemLabel = (uid, labelObj) => {
+  if (!uid || !labelObj) return;
+  try {
+    const map = getStoredSystemEmailLabels();
+    const strUid = String(uid);
+    const existing = map[strUid] || [];
+    if (!existing.some((l) => String(l.id) === String(labelObj.id) || l.name === labelObj.name)) {
+      map[strUid] = [...existing, labelObj];
+      localStorage.setItem(SYSTEM_EMAIL_LABELS_KEY, JSON.stringify(map));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: { type: 'system-label-applied', uid: strUid } }));
+      }
+    }
+  } catch (e) {}
 };
 
 export const removeAppliedSystemLabel = (uid, labelIdOrName) => {

@@ -31,6 +31,8 @@ import {
 } from "react-icons/md";
 import toast from "react-hot-toast";
 import {
+  SYSTEM_LABEL_DEFINITIONS,
+  isSystemLabelShownInLabelList,
   getCustomLabelVisibility,
   setCustomLabelVisibility,
   setAllCustomLabelVisibility,
@@ -136,71 +138,30 @@ const LabelManagement = ({ embedded = false }) => {
     return () => window.removeEventListener("bnx-label-prefs-changed", handleSync);
   }, [labels, hasUnsavedChanges]);
 
-  // System Labels Definitions
-  const systemLabels = useMemo(
-    () => [
-      {
-        id: "Inbox",
-        name: "Inbox",
-        icon: <MdInbox size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Inbox"
-      },
-      {
-        id: "Starred",
-        name: "Starred",
-        icon: <MdStarBorder size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Starred"
-      },
-      {
-        id: "Snoozed",
-        name: "Snoozed",
-        icon: <MdAccessTime size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Snoozed"
-      },
-      {
-        id: "Important",
-        name: "Important",
-        icon: <MdLabelImportant size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Important"
-      },
-      {
-        id: "Sent",
-        name: "Sent",
-        icon: <MdSend size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Sent"
-      },
-      {
-        id: "Scheduled",
-        name: "Scheduled",
-        icon: <MdSchedule size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Scheduled"
-      },
-      {
-        id: "Drafts",
-        name: "Drafts",
-        icon: <MdDrafts size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Draft"
-      },
-      {
-        id: "All Mail",
-        name: "All Mail",
-        icon: <MdMailOutline size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "All Mail"
-      },
-      {
-        id: "Spam",
-        name: "Spam",
-        icon: <MdReport size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Spam"
-      },
-      {
-        id: "Trash",
-        name: "Trash",
-        icon: <MdDelete size={18} className="text-gray-500 dark:text-gray-400" />,
-        prefKey: "Trash"
-      }
-    ],
+  // System Labels Definitions synchronized with shared SYSTEM_LABEL_DEFINITIONS
+  const systemLabelIcons = useMemo(
+    () => ({
+      Inbox: <MdInbox size={18} className="text-gray-500 dark:text-gray-400" />,
+      Starred: <MdStarBorder size={18} className="text-gray-500 dark:text-gray-400" />,
+      Snoozed: <MdAccessTime size={18} className="text-gray-500 dark:text-gray-400" />,
+      Important: <MdLabelImportant size={18} className="text-gray-500 dark:text-gray-400" />,
+      Sent: <MdSend size={18} className="text-gray-500 dark:text-gray-400" />,
+      Scheduled: <MdSchedule size={18} className="text-gray-500 dark:text-gray-400" />,
+      Drafts: <MdDrafts size={18} className="text-gray-500 dark:text-gray-400" />,
+      "All Mail": <MdMailOutline size={18} className="text-gray-500 dark:text-gray-400" />,
+      Spam: <MdReport size={18} className="text-gray-500 dark:text-gray-400" />,
+      Trash: <MdDelete size={18} className="text-gray-500 dark:text-gray-400" />,
+    }),
     []
+  );
+
+  const systemLabels = useMemo(
+    () =>
+      SYSTEM_LABEL_DEFINITIONS.map((sl) => ({
+        ...sl,
+        icon: systemLabelIcons[sl.id] || <MdLabel size={18} className="text-gray-500 dark:text-gray-400" />,
+      })),
+    [systemLabelIcons]
   );
 
   // Category Definitions
@@ -235,10 +196,10 @@ const LabelManagement = ({ embedded = false }) => {
     []
   );
 
-  // Handle Draft System Label Sidebar Toggle
+  // Handle Draft System Label Visibility Toggle
   const handleToggleSystemSidebar = (item) => {
     const prefKey = item.prefKey || item.name;
-    const currentVal = draftSidebarPrefs?.[prefKey] !== false;
+    const currentVal = isSystemLabelShownInLabelList(item, draftSidebarPrefs);
     const nextVal = !currentVal;
     setDraftSidebarPrefs((prev) => {
       const updated = {
@@ -305,7 +266,7 @@ const LabelManagement = ({ embedded = false }) => {
 
       systemLabels.forEach((item) => {
         const prefKey = item.prefKey || item.name;
-        const isShown = draftSidebarPrefs?.[prefKey] !== false;
+        const isShown = isSystemLabelShownInLabelList(item, draftSidebarPrefs);
         finalSidebarPrefs[prefKey] = isShown;
         finalSidebarPrefs[item.name] = isShown;
         finalSidebarPrefs[item.id] = isShown;
@@ -561,8 +522,7 @@ const LabelManagement = ({ embedded = false }) => {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
                 {systemLabels.map((item) => {
-                  const prefKey = item.prefKey || item.name;
-                  const isVisibleInSidebar = draftSidebarPrefs?.[prefKey] !== false;
+                  const isVisibleInSidebar = isSystemLabelShownInLabelList(item, draftSidebarPrefs);
                   const isImapEnabled = draftImapPrefs[item.name] !== false;
 
                   return (

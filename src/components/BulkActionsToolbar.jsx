@@ -34,7 +34,7 @@ const BulkActionsToolbar = ({
   folder,
 }) => {
   const { t } = useTranslation();
-  const { theme, customLabelPreferences, labelPrefsVersion } = useTheme();
+  const { theme, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
   const {
     labels,
     handleMoveToTrash,
@@ -74,8 +74,8 @@ const BulkActionsToolbar = ({
   }, []);
 
   const availableLabels = useMemo(() => {
-    return getAvailableLabelAsOptions(labels, customLabelPreferences);
-  }, [labels, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu, showLabelSub]);
+    return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
+  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu, showLabelSub]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState({
@@ -694,7 +694,14 @@ const BulkActionsToolbar = ({
                           const isAssigned = selectedEmails.length > 0 && selectedEmails.every((e) =>
                             (e.labels || []).some((l) => {
                               if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
-                                return String(l.id) === String(lbl.id);
+                                if (String(l.id) === String(lbl.id)) return true;
+                                if (lbl.isSystem) {
+                                  return (
+                                    l.name === lbl.name ||
+                                    (lbl.prefKey && (l.name === lbl.prefKey || String(l.id) === String(lbl.prefKey)))
+                                  );
+                                }
+                                return false;
                               }
                               return typeof l === 'string' && l.trim().toLowerCase() === lbl.name.toLowerCase();
                             })

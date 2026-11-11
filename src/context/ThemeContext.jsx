@@ -107,6 +107,54 @@ export const DEFAULT_SIDEBAR_PREFS = {
   Important: true,
 };
 
+const sanitizeSidebarPrefs = (prefs) => {
+  const cleaned = { ...(prefs || {}) };
+  delete cleaned["Bulk Mail"];
+  delete cleaned["bulk mail"];
+  delete cleaned["bulk"];
+  return {
+    ...DEFAULT_SIDEBAR_PREFS,
+    ...cleaned,
+  };
+};
+
+const readStoredSidebarPrefs = () => {
+  try {
+    if (typeof window !== 'undefined') {
+      const activeEmail = localStorage.getItem("bnx_active_email");
+      const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
+      const lowerKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail.trim().toLowerCase()}` : null;
+      const saved =
+        (userKey && localStorage.getItem(userKey)) ||
+        (lowerKey && localStorage.getItem(lowerKey)) ||
+        localStorage.getItem("bnx_sidebar_prefs");
+      if (saved) {
+        return sanitizeSidebarPrefs(JSON.parse(saved));
+      }
+    }
+  } catch (e) {}
+  return { ...DEFAULT_SIDEBAR_PREFS };
+};
+
+const readStoredCustomPrefs = () => {
+  try {
+    if (typeof window !== 'undefined') {
+      const activeEmail = localStorage.getItem("bnx_active_email");
+      const userKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
+      const lowerKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail.trim().toLowerCase()}` : null;
+      const saved =
+        (userKey && localStorage.getItem(userKey)) ||
+        (lowerKey && localStorage.getItem(lowerKey)) ||
+        localStorage.getItem("bnx_custom_label_prefs");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+      }
+    }
+  } catch (e) {}
+  return {};
+};
+
 export const ThemeProvider = ({ children }) => {
   const [currentThemeName, setCurrentThemeName] = useState("Classic");
   const [backgroundImage, setBackgroundImageState] = useState(null);
@@ -117,40 +165,9 @@ export const ThemeProvider = ({ children }) => {
   const [customAccentColor, setCustomAccentColor] = useState(null);
   const [customFontSize, setCustomFontSize] = useState(1.0);
   
-  const [sidebarPreferences, setSidebarPreferencesState] = useState(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const activeEmail = localStorage.getItem("bnx_active_email");
-        const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
-        const saved = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_sidebar_prefs");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          delete parsed["Bulk Mail"];
-          delete parsed["bulk mail"];
-          delete parsed["bulk"];
-          return {
-            ...DEFAULT_SIDEBAR_PREFS,
-            ...parsed,
-          };
-        }
-      }
-    } catch (e) {}
-    return DEFAULT_SIDEBAR_PREFS;
-  });
+  const [sidebarPreferences, setSidebarPreferencesState] = useState(() => readStoredSidebarPrefs());
 
-  const [customLabelPreferences, setCustomLabelPreferencesState] = useState(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const activeEmail = localStorage.getItem("bnx_active_email");
-        const userKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
-        const saved = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_custom_label_prefs");
-        if (saved) {
-          return JSON.parse(saved);
-        }
-      }
-    } catch (e) {}
-    return {};
-  });
+  const [customLabelPreferences, setCustomLabelPreferencesState] = useState(() => readStoredCustomPrefs());
 
   const [labelPrefsVersion, setLabelPrefsVersion] = useState(0);
 
@@ -158,37 +175,23 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     const handleGlobalPrefsSync = (e) => {
       try {
+        if (e?.detail?.accountChanged) {
+          setSidebarPreferencesState(readStoredSidebarPrefs());
+          setCustomLabelPreferencesState(readStoredCustomPrefs());
+          setLabelPrefsVersion((v) => v + 1);
+          return;
+        }
+
         if (e?.detail?.sysPrefs) {
-          const cleaned = { ...e.detail.sysPrefs };
-          delete cleaned["Bulk Mail"];
-          delete cleaned["bulk mail"];
-          delete cleaned["bulk"];
-          setSidebarPreferencesState(cleaned);
+          setSidebarPreferencesState(sanitizeSidebarPrefs(e.detail.sysPrefs));
         } else if (typeof window !== 'undefined') {
-          const activeEmail = localStorage.getItem("bnx_active_email");
-          const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
-          const savedSidebar = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_sidebar_prefs");
-          if (savedSidebar) {
-            const parsed = JSON.parse(savedSidebar);
-            delete parsed["Bulk Mail"];
-            delete parsed["bulk mail"];
-            delete parsed["bulk"];
-            setSidebarPreferencesState({
-              ...DEFAULT_SIDEBAR_PREFS,
-              ...parsed,
-            });
-          }
+          setSidebarPreferencesState(readStoredSidebarPrefs());
         }
 
         if (e?.detail?.customPrefs) {
           setCustomLabelPreferencesState(e.detail.customPrefs);
         } else if (typeof window !== 'undefined') {
-          const activeEmail = localStorage.getItem("bnx_active_email");
-          const userCustomKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
-          const savedCustom = (userCustomKey && localStorage.getItem(userCustomKey)) || localStorage.getItem("bnx_custom_label_prefs");
-          if (savedCustom) {
-            setCustomLabelPreferencesState(JSON.parse(savedCustom));
-          }
+          setCustomLabelPreferencesState(readStoredCustomPrefs());
         }
         setLabelPrefsVersion((v) => v + 1);
       } catch (err) {}
@@ -220,28 +223,8 @@ export const ThemeProvider = ({ children }) => {
     if (savedEmailsPerPage) {
       setEmailsPerPage(parseInt(savedEmailsPerPage, 10));
     }
-    const activeEmail = localStorage.getItem("bnx_active_email");
-    const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
-    const savedSidebarPrefs = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_sidebar_prefs");
-    if (savedSidebarPrefs) {
-      try {
-        const parsed = JSON.parse(savedSidebarPrefs);
-        delete parsed["Bulk Mail"];
-        delete parsed["bulk mail"];
-        delete parsed["bulk"];
-        setSidebarPreferencesState({
-          ...DEFAULT_SIDEBAR_PREFS,
-          ...parsed,
-        });
-      } catch (e) {}
-    }
-    const userCustomKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
-    const savedCustomPrefs = (userCustomKey && localStorage.getItem(userCustomKey)) || localStorage.getItem("bnx_custom_label_prefs");
-    if (savedCustomPrefs) {
-      try {
-        setCustomLabelPreferencesState(JSON.parse(savedCustomPrefs));
-      } catch (e) {}
-    }
+    setSidebarPreferencesState(readStoredSidebarPrefs());
+    setCustomLabelPreferencesState(readStoredCustomPrefs());
     const savedAccent = localStorage.getItem("bnx_accent_color");
     if (savedAccent) setCustomAccentColor(savedAccent);
     const savedFontSize = localStorage.getItem("bnx_font_size");
@@ -354,10 +337,7 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const setSidebarPreferences = (prefs) => {
-    const cleaned = { ...prefs };
-    delete cleaned["Bulk Mail"];
-    delete cleaned["bulk mail"];
-    delete cleaned["bulk"];
+    const cleaned = sanitizeSidebarPrefs(prefs);
     setSidebarPreferencesState(cleaned);
     setLabelPrefsVersion((v) => v + 1);
     try {
@@ -367,7 +347,7 @@ export const ThemeProvider = ({ children }) => {
         localStorage.setItem(`bnx_sidebar_prefs_${activeEmail}`, JSON.stringify(cleaned));
       }
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: cleaned }));
+        window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: { sysPrefs: cleaned } }));
       }
     } catch (e) {}
   };
@@ -383,24 +363,21 @@ export const ThemeProvider = ({ children }) => {
         localStorage.setItem(`bnx_custom_label_prefs_${activeEmail}`, JSON.stringify(cleaned));
       }
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: cleaned }));
+        window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: { customPrefs: cleaned } }));
       }
     } catch (e) {}
   };
 
   const saveLabelVisibilityPreferences = (sysPrefs, customPrefs) => {
     const activeEmail = typeof window !== 'undefined' ? localStorage.getItem("bnx_active_email") : null;
+    const cleanedSysPrefs = sysPrefs ? sanitizeSidebarPrefs(sysPrefs) : undefined;
 
-    if (sysPrefs) {
-      const cleaned = { ...sysPrefs };
-      delete cleaned["Bulk Mail"];
-      delete cleaned["bulk mail"];
-      delete cleaned["bulk"];
-      setSidebarPreferencesState(cleaned);
+    if (cleanedSysPrefs) {
+      setSidebarPreferencesState(cleanedSysPrefs);
       try {
-        localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleaned));
+        localStorage.setItem("bnx_sidebar_prefs", JSON.stringify(cleanedSysPrefs));
         if (activeEmail) {
-          localStorage.setItem(`bnx_sidebar_prefs_${activeEmail}`, JSON.stringify(cleaned));
+          localStorage.setItem(`bnx_sidebar_prefs_${activeEmail}`, JSON.stringify(cleanedSysPrefs));
         }
       } catch (e) {}
     }
@@ -417,7 +394,7 @@ export const ThemeProvider = ({ children }) => {
 
     setLabelPrefsVersion((v) => v + 1);
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: { sysPrefs, customPrefs } }));
+      window.dispatchEvent(new CustomEvent("bnx-label-prefs-changed", { detail: { sysPrefs: cleanedSysPrefs, customPrefs } }));
     }
   };
 
