@@ -241,11 +241,89 @@ export const SYSTEM_LABEL_DEFINITIONS = [
 ];
 
 /**
+ * One-time migration: ensures the "Important" system label is restored as visible
+ * in label preferences (for the Label as... dropdown) if it was previously saved
+ * as false while hiding the Important sidebar menu item, without altering other labels.
+ */
+export const restoreImportantLabelPreference = () => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    if (localStorage.getItem('bnx_restored_important_v1') === 'true') return;
+
+    const allKeysSet = new Set(Object.keys(localStorage));
+    if (typeof localStorage.length === 'number' && typeof localStorage.key === 'function') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k) allKeysSet.add(k);
+      }
+    }
+    const allKeys = Array.from(allKeysSet);
+    for (const key of allKeys) {
+      if (key === 'bnx_sidebar_prefs' || key.startsWith('bnx_sidebar_prefs_')) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+              let changed = false;
+              for (const k of Object.keys(parsed)) {
+                if (k.trim().toLowerCase() === 'important' && parsed[k] === false) {
+                  parsed[k] = true;
+                  changed = true;
+                }
+              }
+              if (parsed['Important'] === undefined) {
+                parsed['Important'] = true;
+                changed = true;
+              }
+              if (changed) {
+                localStorage.setItem(key, JSON.stringify(parsed));
+              }
+            }
+          } catch (e) {}
+        }
+      } else if (key === CUSTOM_LABEL_PREFS_KEY || key.startsWith(`${CUSTOM_LABEL_PREFS_KEY}_`)) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+              let changed = false;
+              for (const k of Object.keys(parsed)) {
+                if (k.trim().toLowerCase() === 'important') {
+                  if (parsed[k] === false) {
+                    parsed[k] = { showInLabelList: true, showInMessageList: true };
+                    changed = true;
+                  } else if (typeof parsed[k] === 'object' && parsed[k] !== null && parsed[k].showInLabelList === false) {
+                    parsed[k] = { ...parsed[k], showInLabelList: true };
+                    changed = true;
+                  }
+                }
+              }
+              if (changed) {
+                localStorage.setItem(key, JSON.stringify(parsed));
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    localStorage.setItem('bnx_restored_important_v1', 'true');
+  } catch (e) {}
+};
+
+if (typeof window !== 'undefined') {
+  restoreImportantLabelPreference();
+}
+
+/**
  * Returns saved sidebar preferences directly from localStorage
  */
 export const getStoredSidebarPreferences = () => {
   try {
     if (typeof window !== 'undefined') {
+      restoreImportantLabelPreference();
       const activeEmail = localStorage.getItem("bnx_active_email");
       const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
       const raw = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('bnx_sidebar_prefs');
@@ -279,6 +357,7 @@ export const SYSTEM_LABEL_NAMES = new Set([
  */
 export const isLabelShownInLabelList = (lbl, sidebarPreferences = {}, customLabelPreferences = null) => {
   if (!lbl) return false;
+  restoreImportantLabelPreference();
 
   const id = typeof lbl === 'object' ? (lbl.id ?? lbl.name) : lbl;
   const name = typeof lbl === 'object' ? (lbl.name ?? lbl.id) : lbl;
