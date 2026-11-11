@@ -44,10 +44,9 @@ import {
     deduplicateAllInboxEmails
 } from '../utils/accountUtils';
 import {
-    SYSTEM_LABEL_DEFINITIONS,
     getStoredSystemEmailLabels,
-    saveAppliedSystemLabel,
-    removeAppliedSystemLabel
+    removeAppliedSystemLabel,
+    removeCustomLabelVisibility
 } from '../utils/labelPreferences';
 
 // Clean up any legacy persisted read UIDs from previous sessions to prevent stale overrides
@@ -1569,7 +1568,10 @@ export const MailProvider = ({ children }) => {
     }, [fetchEmails, fetchLabelEmails]);
 
     const fetchLabels = useCallback(async () => {
-        if (!user) return;
+        if (!user) {
+            setLabels([]);
+            return;
+        }
         try {
             const res = await mailAPI.getLabels();
             if (res.data?.success) {
@@ -1582,7 +1584,10 @@ export const MailProvider = ({ children }) => {
 
     useEffect(() => {
         if (user) {
+            setLabels([]);
             fetchLabels();
+        } else {
+            setLabels([]);
         }
     }, [user, fetchLabels]);
 
@@ -2733,6 +2738,9 @@ export const MailProvider = ({ children }) => {
         try {
             const res = await mailAPI.deleteLabel(labelId);
             if (res.data?.success) {
+                const deletedStrId = String(labelId);
+                setLabels(prev => (prev || []).filter(l => String(l.id) !== deletedStrId && String(l.parentId ?? '') !== deletedStrId));
+                removeCustomLabelVisibility(labelId);
                 toast.success('Label deleted');
                 fetchLabels();
             }
@@ -2745,9 +2753,12 @@ export const MailProvider = ({ children }) => {
         const targetFolder = folder || currentFolderRef.current || 'INBOX';
         const strUid = String(uid);
         const strLabelId = String(labelId);
-        const targetLabel = labels.find(l => String(l.id) === strLabelId || l.name?.toLowerCase() === strLabelId.toLowerCase());
-        const systemDef = SYSTEM_LABEL_DEFINITIONS.find(s => s.id === strLabelId || s.name?.toLowerCase() === strLabelId.toLowerCase());
-        const labelToAdd = targetLabel || (systemDef ? { id: systemDef.id, name: systemDef.name, colorHex: systemDef.colorHex } : { id: labelId, name: labelId, colorHex: '#135bec' });
+        const targetLabel = labels.find(l => String(l.id) === strLabelId);
+        if (!targetLabel) {
+            if (!silent) toast.error('Label not found');
+            return false;
+        }
+        const labelToAdd = targetLabel;
 
         let wasAlreadyApplied = false;
 
@@ -2755,11 +2766,12 @@ export const MailProvider = ({ children }) => {
         setEmails(prev => prev.map(m => {
             if (String(m.uid) === strUid || String(m.id) === strUid) {
                 const currentLabels = Array.isArray(m.labels) ? m.labels : [];
-                const alreadyHas = currentLabels.some(l => 
-                    String(l.id) === strLabelId || 
-                    (targetLabel && (String(l.id) === String(targetLabel.id) || l.name === targetLabel.name)) ||
-                    (systemDef && (String(l.id) === systemDef.id || l.name === systemDef.name))
-                );
+                const alreadyHas = currentLabels.some(l => {
+                    if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
+                        return String(l.id) === strLabelId;
+                    }
+                    return typeof l === 'string' && targetLabel.name && l.trim().toLowerCase() === targetLabel.name.trim().toLowerCase();
+                });
                 if (alreadyHas) {
                     wasAlreadyApplied = true;
                     return m;
@@ -2784,11 +2796,12 @@ export const MailProvider = ({ children }) => {
                         pagesCache.current[fKey][pKey] = pagesCache.current[fKey][pKey].map(m => {
                             if (String(m.uid) === strUid || String(m.id) === strUid) {
                                 const currentLabels = Array.isArray(m.labels) ? m.labels : [];
-                                const alreadyHas = currentLabels.some(l => 
-                                    String(l.id) === strLabelId || 
-                                    (targetLabel && (String(l.id) === String(targetLabel.id) || l.name === targetLabel.name)) ||
-                                    (systemDef && (String(l.id) === systemDef.id || l.name === systemDef.name))
-                                );
+                                const alreadyHas = currentLabels.some(l => {
+                                    if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
+                                        return String(l.id) === strLabelId;
+                                    }
+                                    return typeof l === 'string' && targetLabel.name && l.trim().toLowerCase() === targetLabel.name.trim().toLowerCase();
+                                });
                                 if (alreadyHas) return m;
                                 return {
                                     ...m,
@@ -2826,7 +2839,7 @@ export const MailProvider = ({ children }) => {
                     if (String(m.uid) === strUid || String(m.id) === strUid) {
                         return {
                             ...m,
-                            labels: (m.labels || []).filter(l => String(l.id) !== strLabelId && l.name !== labelToAdd.name)
+                            labels: (m.labels || []).filter(l => String(l.id) !== strLabelId)
                         };
                     }
                     return m;
@@ -2834,11 +2847,8 @@ export const MailProvider = ({ children }) => {
                 if (!silent) toast.error(error.response?.data?.message || 'Failed to apply label');
                 throw error;
             }
-        } else {
-            saveAppliedSystemLabel(strUid, labelToAdd);
-            if (!silent) toast.success('Label applied');
-            return true;
         }
+        return false;
     };
 
     const handleRemoveLabel = async (uid, labelId, folder = currentFolderRef.current || 'INBOX', silent = false) => {

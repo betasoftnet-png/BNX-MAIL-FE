@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import FontSizeDropdown from "./FontSizeDropdown";
-import { getAvailableLabelAsOptions, SYSTEM_LABEL_DEFINITIONS, isLabelShownInLabelList } from "../utils/labelPreferences";
+import { getAvailableLabelAsOptions } from "../utils/labelPreferences";
 
 const Size = Quill.import('attributors/style/size');
 Size.whitelist = [
@@ -153,7 +153,7 @@ const EmailDetails = ({
   emailList = [],
   onNavigate,
 }) => {
-  const { theme, readingPaneMode, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
+  const { theme, readingPaneMode, customLabelPreferences, labelPrefsVersion } = useTheme();
   const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -171,8 +171,8 @@ const EmailDetails = ({
   }, []);
 
   const availableLabelOptions = useMemo(() => {
-    return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
-  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick]);
+    return getAvailableLabelAsOptions(labels, customLabelPreferences);
+  }, [labels, customLabelPreferences, labelPrefsVersion, prefsTick]);
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
@@ -800,20 +800,20 @@ const EmailDetails = ({
   const handleApplyLabelOption = async (labelId) => {
     if (isApplyingLabel) return;
     const strLabelId = String(labelId);
-    const targetLabel = labels.find(
-      (l) => String(l.id) === strLabelId || l.name?.toLowerCase() === strLabelId.toLowerCase()
-    );
-    const systemDef = SYSTEM_LABEL_DEFINITIONS.find(
-      (s) => s.id === strLabelId || s.name.toLowerCase() === strLabelId.toLowerCase()
-    );
-    const labelObj = targetLabel || (systemDef ? { id: systemDef.id, name: systemDef.name, colorHex: systemDef.colorHex } : { id: labelId, name: labelId, colorHex: "#135bec" });
+    const targetLabel =
+      availableLabelOptions.find((l) => String(l.id) === strLabelId) ||
+      (labels || []).find((l) => String(l.id) === strLabelId);
+    if (!targetLabel) {
+      setShowLabels(false);
+      return;
+    }
 
-    const alreadyApplied = (localLabels || []).some(
-      (l) =>
-        String(l.id || l) === strLabelId ||
-        (targetLabel && (String(l.id) === String(targetLabel.id) || (l.name && l.name === targetLabel.name))) ||
-        (systemDef && (String(l.id) === systemDef.id || l.name === systemDef.name))
-    );
+    const alreadyApplied = (localLabels || []).some((l) => {
+      if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
+        return String(l.id) === strLabelId;
+      }
+      return typeof l === 'string' && targetLabel.name && l.trim().toLowerCase() === targetLabel.name.trim().toLowerCase();
+    });
 
     if (alreadyApplied) {
       setShowLabels(false);
@@ -821,7 +821,7 @@ const EmailDetails = ({
     }
 
     const prevLabels = localLabels;
-    setLocalLabels((prev) => [...prev, labelObj]);
+    setLocalLabels((prev) => [...prev, targetLabel]);
     setShowLabels(false);
 
     setIsApplyingLabel(true);
@@ -1667,22 +1667,23 @@ const EmailDetails = ({
                     <div className="px-3 py-1.5 font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-neutral-800 text-[11px] uppercase tracking-wider">
                       {t("bulk_actions.label_as", "Label as")}
                     </div>
-                    {availableLabelOptions.filter((lbl) => isLabelShownInLabelList(lbl, sidebarPreferences, customLabelPreferences)).length === 0 ? (
+                    {availableLabelOptions.length === 0 ? (
                       <div className="px-3 py-2 text-gray-400 text-center">{t("bulk_actions.no_labels", "No labels found")}</div>
                     ) : (
-                      availableLabelOptions
-                        .filter((lbl) => isLabelShownInLabelList(lbl, sidebarPreferences, customLabelPreferences))
-                        .map((lbl) => {
-                        const isApplied = (localLabels || []).some(
-                          (l) => String(l.id || l) === String(lbl.id) || l.name === lbl.name || (lbl.prefKey && (l.name === lbl.prefKey || String(l.id) === String(lbl.prefKey)))
-                        );
+                      availableLabelOptions.map((lbl) => {
+                        const isApplied = (localLabels || []).some((l) => {
+                          if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
+                            return String(l.id) === String(lbl.id);
+                          }
+                          return typeof l === 'string' && l.trim().toLowerCase() === lbl.name.toLowerCase();
+                        });
                         return (
                           <button
                             key={lbl.id}
                             type="button"
                             onClick={() => {
                               if (isApplied) {
-                                handleRemoveLabelOption(lbl.id, lbl.name, lbl.prefKey);
+                                handleRemoveLabelOption(lbl.id, lbl.name);
                               } else {
                                 handleApplyLabelOption(lbl.id);
                               }

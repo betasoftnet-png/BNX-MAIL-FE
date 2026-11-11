@@ -298,24 +298,11 @@ const LabelManagement = ({ embedded = false }) => {
   const handleSaveAll = () => {
     setIsSaving(true);
     try {
-      // 1. Prepare system labels preferences
+      // 1. Prepare system labels preferences (used by sidebar/navigation preferences)
       const finalSidebarPrefs = {
         ...draftSidebarPrefs,
       };
 
-      // 2. Prepare custom labels visibility
-      const fullCustomVisibility = { ...draftCustomVisibility };
-      (labels || []).forEach((lbl) => {
-        const idKey = String(lbl.id);
-        const val = draftCustomVisibility[idKey] || { showInLabelList: true, showInMessageList: true };
-        fullCustomVisibility[idKey] = val;
-        if (lbl.name) {
-          fullCustomVisibility[lbl.name] = val;
-          fullCustomVisibility[lbl.name.toLowerCase()] = val;
-        }
-      });
-
-      // Synchronize all system labels' showInLabelList state into both stores
       systemLabels.forEach((item) => {
         const prefKey = item.prefKey || item.name;
         const isShown = draftSidebarPrefs?.[prefKey] !== false;
@@ -327,11 +314,18 @@ const LabelManagement = ({ embedded = false }) => {
           finalSidebarPrefs["Drafts"] = isShown;
           finalSidebarPrefs["draft"] = isShown;
         }
+      });
 
-        fullCustomVisibility[prefKey] = { showInLabelList: isShown, showInMessageList: true };
-        fullCustomVisibility[item.name] = { showInLabelList: isShown, showInMessageList: true };
-        fullCustomVisibility[item.id] = { showInLabelList: isShown, showInMessageList: true };
-        fullCustomVisibility[item.name.toLowerCase()] = { showInLabelList: isShown, showInMessageList: true };
+      // 2. Prepare custom labels visibility keyed strictly by existing label ID
+      const fullCustomVisibility = {};
+      (labels || []).forEach((lbl) => {
+        if (!lbl || lbl.id === undefined || lbl.id === null) return;
+        const idKey = String(lbl.id);
+        const val = draftCustomVisibility[idKey] || { showInLabelList: true, showInMessageList: true };
+        fullCustomVisibility[idKey] = {
+          showInLabelList: val.showInLabelList !== false,
+          showInMessageList: val.showInMessageList !== false,
+        };
       });
 
       // 3. Commit to centralized React Context and localStorage
@@ -341,8 +335,7 @@ const LabelManagement = ({ embedded = false }) => {
         setSidebarPreferences(finalSidebarPrefs);
         setAllCustomLabelVisibility(fullCustomVisibility);
       }
-      setAllCustomLabelVisibility(fullCustomVisibility);
-      setCustomVisibility(draftCustomVisibility);
+      setCustomVisibility(fullCustomVisibility);
 
       // 3. Commit category preferences
       setAllCategoryPreferences(draftCatPrefs);

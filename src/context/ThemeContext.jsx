@@ -1,5 +1,4 @@
 import { settingsAPI } from "../services/api";
-import { restoreImportantLabelPreference } from "../utils/labelPreferences";
 import React, {
   createContext,
   useContext,
@@ -121,7 +120,6 @@ export const ThemeProvider = ({ children }) => {
   const [sidebarPreferences, setSidebarPreferencesState] = useState(() => {
     try {
       if (typeof window !== 'undefined') {
-        restoreImportantLabelPreference();
         const activeEmail = localStorage.getItem("bnx_active_email");
         const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
         const saved = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_sidebar_prefs");
@@ -143,7 +141,6 @@ export const ThemeProvider = ({ children }) => {
   const [customLabelPreferences, setCustomLabelPreferencesState] = useState(() => {
     try {
       if (typeof window !== 'undefined') {
-        restoreImportantLabelPreference();
         const activeEmail = localStorage.getItem("bnx_active_email");
         const userKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
         const saved = (userKey && localStorage.getItem(userKey)) || localStorage.getItem("bnx_custom_label_prefs");
@@ -207,7 +204,6 @@ export const ThemeProvider = ({ children }) => {
 
   // Load theme + background on first mount
   useEffect(() => {
-    restoreImportantLabelPreference();
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme && themes[savedTheme]) {
       setCurrentThemeName(savedTheme);

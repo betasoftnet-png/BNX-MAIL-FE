@@ -25,7 +25,7 @@ import {
   getLocalDatetimeInputString,
   parseLocalDatetimeString,
 } from "../utils/snoozeStorage";
-import { getAvailableLabelAsOptions, isLabelShownInLabelList } from "../utils/labelPreferences";
+import { getAvailableLabelAsOptions } from "../utils/labelPreferences";
 
 const BulkActionsToolbar = ({
   selectedIds,
@@ -34,7 +34,7 @@ const BulkActionsToolbar = ({
   folder,
 }) => {
   const { t } = useTranslation();
-  const { theme, sidebarPreferences, customLabelPreferences, labelPrefsVersion } = useTheme();
+  const { theme, customLabelPreferences, labelPrefsVersion } = useTheme();
   const {
     labels,
     handleMoveToTrash,
@@ -74,8 +74,8 @@ const BulkActionsToolbar = ({
   }, []);
 
   const availableLabels = useMemo(() => {
-    return getAvailableLabelAsOptions(labels, sidebarPreferences, customLabelPreferences);
-  }, [labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu, showLabelSub]);
+    return getAvailableLabelAsOptions(labels, customLabelPreferences);
+  }, [labels, customLabelPreferences, labelPrefsVersion, prefsTick, showMoreMenu, showLabelSub]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState({
@@ -687,16 +687,17 @@ const BulkActionsToolbar = ({
                       className={`absolute ${dropdownPos.openSubRight ? "left-full ml-1" : "right-full mr-1"} ${dropdownPos.openUpwards ? "bottom-0" : "top-0"} w-48 max-h-56 overflow-y-auto rounded-xl shadow-2xl border bg-white dark:bg-gray-900 py-1 z-[100000] hidden-scrollbar`}
                       style={{ borderColor: theme.border }}
                     >
-                      {availableLabels.filter((lbl) => isLabelShownInLabelList(lbl, sidebarPreferences, customLabelPreferences)).length === 0 ? (
+                      {availableLabels.length === 0 ? (
                         <div className="px-4 py-2 text-xs text-gray-400">{t("bulk_actions.no_labels", "No labels found")}</div>
                       ) : (
-                        availableLabels
-                          .filter((lbl) => isLabelShownInLabelList(lbl, sidebarPreferences, customLabelPreferences))
-                          .map((lbl) => {
+                        availableLabels.map((lbl) => {
                           const isAssigned = selectedEmails.length > 0 && selectedEmails.every((e) =>
-                            (e.labels || []).some(
-                              (l) => String(l.id || l) === String(lbl.id) || l.name === lbl.name || (lbl.prefKey && (l.name === lbl.prefKey || String(l.id) === String(lbl.prefKey)))
-                            )
+                            (e.labels || []).some((l) => {
+                              if (l && typeof l === 'object' && l.id !== undefined && l.id !== null) {
+                                return String(l.id) === String(lbl.id);
+                              }
+                              return typeof l === 'string' && l.trim().toLowerCase() === lbl.name.toLowerCase();
+                            })
                           );
                           return (
                             <button 

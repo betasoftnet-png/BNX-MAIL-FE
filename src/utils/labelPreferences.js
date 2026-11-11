@@ -4,33 +4,67 @@ const CUSTOM_LABEL_PREFS_KEY = 'bnx_custom_label_prefs';
 const CATEGORY_PREFS_KEY = 'bnx_category_prefs';
 const IMAP_PREFS_KEY = 'bnx_imap_prefs';
 
+const getActiveEmail = () =>
+  typeof window !== 'undefined' ? localStorage.getItem('bnx_active_email') : null;
+
+export const readStoredCustomLabelPrefs = () => {
+  try {
+    if (typeof window === 'undefined') return {};
+    const activeEmail = getActiveEmail();
+    const userKey = activeEmail ? `${CUSTOM_LABEL_PREFS_KEY}_${activeEmail}` : null;
+    const raw = (userKey && localStorage.getItem(userKey)) || localStorage.getItem(CUSTOM_LABEL_PREFS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+const writeStoredCustomLabelPrefs = (newPrefsMap, detailPayload = null) => {
+  if (!newPrefsMap || typeof newPrefsMap !== 'object' || typeof window === 'undefined') return;
+  const json = JSON.stringify(newPrefsMap);
+  localStorage.setItem(CUSTOM_LABEL_PREFS_KEY, json);
+  const activeEmail = getActiveEmail();
+  if (activeEmail) {
+    localStorage.setItem(`${CUSTOM_LABEL_PREFS_KEY}_${activeEmail}`, json);
+  }
+  const detail =
+    detailPayload && typeof detailPayload === 'object'
+      ? { customPrefs: newPrefsMap, ...detailPayload }
+      : { customPrefs: newPrefsMap };
+  window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail }));
+};
+
 /**
- * Returns visibility settings for a custom label by ID.
+ * Returns visibility settings for a label by ID.
  * Defaults to { showInLabelList: true, showInMessageList: true }
  */
-export const getCustomLabelVisibility = (labelOrId, fallbackName = null, customPrefsObj = null) => {
+export const getCustomLabelVisibility = (labelOrId, _fallbackName = null, customPrefsObj = null) => {
   if (labelOrId === undefined || labelOrId === null) {
     return { showInLabelList: true, showInMessageList: true };
   }
-  const id = typeof labelOrId === 'object' && labelOrId !== null ? (labelOrId.id ?? labelOrId.name) : labelOrId;
-  const name = typeof labelOrId === 'object' && labelOrId !== null ? labelOrId.name : fallbackName;
-  const strId = String(id);
+  const hasExplicitId =
+    typeof labelOrId === 'object' &&
+    labelOrId !== null &&
+    labelOrId.id !== undefined &&
+    labelOrId.id !== null;
+  const lookupKey = hasExplicitId
+    ? String(labelOrId.id)
+    : (typeof labelOrId === 'object' && labelOrId !== null ? String(labelOrId.name ?? '') : String(labelOrId));
+
+  if (!lookupKey) {
+    return { showInLabelList: true, showInMessageList: true };
+  }
+
   try {
-    let prefs = customPrefsObj;
-    if (!prefs || typeof prefs !== 'object') {
-      const activeEmail = typeof window !== 'undefined' ? localStorage.getItem("bnx_active_email") : null;
-      const raw = typeof window !== 'undefined'
-        ? ((activeEmail && localStorage.getItem(`${CUSTOM_LABEL_PREFS_KEY}_${activeEmail}`)) || localStorage.getItem(CUSTOM_LABEL_PREFS_KEY))
-        : null;
-      prefs = raw ? JSON.parse(raw) : {};
+    const prefs =
+      customPrefsObj && typeof customPrefsObj === 'object'
+        ? customPrefsObj
+        : readStoredCustomLabelPrefs();
+    const item = prefs[lookupKey];
+    if (typeof item === 'boolean') {
+      return { showInLabelList: item, showInMessageList: true };
     }
-    const item = prefs[strId] !== undefined
-      ? prefs[strId]
-      : (name && prefs[String(name)] !== undefined
-          ? prefs[String(name)]
-          : (name && prefs[String(name).toLowerCase()] !== undefined
-              ? prefs[String(name).toLowerCase()]
-              : (typeof id === 'string' ? prefs[id.toLowerCase()] : undefined)));
     return {
       showInLabelList: item?.showInLabelList !== false,
       showInMessageList: item?.showInMessageList !== false
@@ -47,17 +81,13 @@ export const setCustomLabelVisibility = (labelId, updates) => {
   if (!labelId && labelId !== 0) return;
   const strId = String(labelId);
   try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem(CUSTOM_LABEL_PREFS_KEY) : null;
-    const prefs = raw ? JSON.parse(raw) : {};
+    const prefs = { ...readStoredCustomLabelPrefs() };
     const current = prefs[strId] || { showInLabelList: true, showInMessageList: true };
     prefs[strId] = {
       ...current,
       ...updates
     };
-    localStorage.setItem(CUSTOM_LABEL_PREFS_KEY, JSON.stringify(prefs));
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: { labelId: strId, ...updates } }));
-    }
+    writeStoredCustomLabelPrefs(prefs, { labelId: strId, ...updates });
   } catch (e) {
     console.error('Failed to save custom label visibility:', e);
   }
@@ -69,12 +99,26 @@ export const setCustomLabelVisibility = (labelId, updates) => {
 export const setAllCustomLabelVisibility = (newPrefsMap) => {
   if (!newPrefsMap || typeof newPrefsMap !== 'object') return;
   try {
-    localStorage.setItem(CUSTOM_LABEL_PREFS_KEY, JSON.stringify(newPrefsMap));
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: newPrefsMap }));
-    }
+    writeStoredCustomLabelPrefs(newPrefsMap, newPrefsMap);
   } catch (e) {
     console.error('Failed to bulk save custom label visibility:', e);
+  }
+};
+
+/**
+ * Removes stored visibility settings for a deleted label ID.
+ */
+export const removeCustomLabelVisibility = (labelId) => {
+  if (!labelId && labelId !== 0) return;
+  const strId = String(labelId);
+  try {
+    const prefs = { ...readStoredCustomLabelPrefs() };
+    if (Object.prototype.hasOwnProperty.call(prefs, strId)) {
+      delete prefs[strId];
+      writeStoredCustomLabelPrefs(prefs, { deletedLabelId: strId });
+    }
+  } catch (e) {
+    console.error('Failed to remove deleted label visibility:', e);
   }
 };
 
@@ -225,105 +269,11 @@ export const setAllImapPreferences = (newPrefsMap) => {
 };
 
 /**
- * System labels available for labeling (with their default colors and preference keys)
- */
-export const SYSTEM_LABEL_DEFINITIONS = [
-  { id: "Inbox", name: "Inbox", prefKey: "Inbox", colorHex: "#3b82f6" },
-  { id: "Starred", name: "Starred", prefKey: "Starred", colorHex: "#f59e0b" },
-  { id: "Snoozed", name: "Snoozed", prefKey: "Snoozed", colorHex: "#f59e0b" },
-  { id: "Important", name: "Important", prefKey: "Important", colorHex: "#eab308" },
-  { id: "Sent", name: "Sent", prefKey: "Sent", colorHex: "#135bec" },
-  { id: "Scheduled", name: "Scheduled", prefKey: "Scheduled", colorHex: "#06b6d4" },
-  { id: "Drafts", name: "Drafts", prefKey: "Draft", colorHex: "#64748b" },
-  { id: "All Mail", name: "All Mail", prefKey: "All Mail", colorHex: "#3b82f6" },
-  { id: "Spam", name: "Spam", prefKey: "Spam", colorHex: "#ef4444" },
-  { id: "Trash", name: "Trash", prefKey: "Trash", colorHex: "#ef4444" },
-];
-
-/**
- * One-time migration: ensures the "Important" system label is restored as visible
- * in label preferences (for the Label as... dropdown) if it was previously saved
- * as false while hiding the Important sidebar menu item, without altering other labels.
- */
-export const restoreImportantLabelPreference = () => {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
-  try {
-    if (localStorage.getItem('bnx_restored_important_v1') === 'true') return;
-
-    const allKeysSet = new Set(Object.keys(localStorage));
-    if (typeof localStorage.length === 'number' && typeof localStorage.key === 'function') {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k) allKeysSet.add(k);
-      }
-    }
-    const allKeys = Array.from(allKeysSet);
-    for (const key of allKeys) {
-      if (key === 'bnx_sidebar_prefs' || key.startsWith('bnx_sidebar_prefs_')) {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object') {
-              let changed = false;
-              for (const k of Object.keys(parsed)) {
-                if (k.trim().toLowerCase() === 'important' && parsed[k] === false) {
-                  parsed[k] = true;
-                  changed = true;
-                }
-              }
-              if (parsed['Important'] === undefined) {
-                parsed['Important'] = true;
-                changed = true;
-              }
-              if (changed) {
-                localStorage.setItem(key, JSON.stringify(parsed));
-              }
-            }
-          } catch (e) {}
-        }
-      } else if (key === CUSTOM_LABEL_PREFS_KEY || key.startsWith(`${CUSTOM_LABEL_PREFS_KEY}_`)) {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object') {
-              let changed = false;
-              for (const k of Object.keys(parsed)) {
-                if (k.trim().toLowerCase() === 'important') {
-                  if (parsed[k] === false) {
-                    parsed[k] = { showInLabelList: true, showInMessageList: true };
-                    changed = true;
-                  } else if (typeof parsed[k] === 'object' && parsed[k] !== null && parsed[k].showInLabelList === false) {
-                    parsed[k] = { ...parsed[k], showInLabelList: true };
-                    changed = true;
-                  }
-                }
-              }
-              if (changed) {
-                localStorage.setItem(key, JSON.stringify(parsed));
-              }
-            }
-          } catch (e) {}
-        }
-      }
-    }
-
-    localStorage.setItem('bnx_restored_important_v1', 'true');
-  } catch (e) {}
-};
-
-if (typeof window !== 'undefined') {
-  restoreImportantLabelPreference();
-}
-
-/**
  * Returns saved sidebar preferences directly from localStorage
  */
 export const getStoredSidebarPreferences = () => {
   try {
     if (typeof window !== 'undefined') {
-      restoreImportantLabelPreference();
       const activeEmail = localStorage.getItem("bnx_active_email");
       const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
       const raw = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('bnx_sidebar_prefs');
@@ -335,7 +285,11 @@ export const getStoredSidebarPreferences = () => {
   }
 };
 
-export const SYSTEM_LABEL_NAMES = new Set([
+/**
+ * Folder / sidebar navigation names that must never be used as substitutes
+ * for actual label records in the "Label as..." dropdown.
+ */
+export const FOLDER_AND_NAV_NAMES = new Set([
   'inbox',
   'starred',
   'snoozed',
@@ -351,135 +305,175 @@ export const SYSTEM_LABEL_NAMES = new Set([
   'deleted'
 ]);
 
+// Kept as alias for backwards-compatible imports if needed
+export const SYSTEM_LABEL_NAMES = FOLDER_AND_NAV_NAMES;
+
+const NON_LABEL_TYPES = new Set([
+  'FOLDER',
+  'MAILBOX',
+  'NAV',
+  'NAVIGATION',
+  'SIDEBAR',
+  'CATEGORY'
+]);
+
 /**
- * Checks if any label (system or custom) is marked as visible in the label list.
- * Evaluates both centralized React state and persisted preferences.
+ * Normalizes a label record's type ('SYSTEM', 'CUSTOM', etc.).
  */
-export const isLabelShownInLabelList = (lbl, sidebarPreferences = {}, customLabelPreferences = null) => {
-  if (!lbl) return false;
-  restoreImportantLabelPreference();
+export const normalizeLabelType = (lbl) => {
+  if (!lbl || typeof lbl !== 'object') return 'CUSTOM';
+  const rawType = typeof lbl.type === 'string'
+    ? lbl.type
+    : (typeof lbl.labelType === 'string' ? lbl.labelType : '');
+  const trimmed = rawType.trim().toUpperCase();
+  if (trimmed) return trimmed;
+  return lbl.isSystem === true ? 'SYSTEM' : 'CUSTOM';
+};
 
-  const id = typeof lbl === 'object' ? (lbl.id ?? lbl.name) : lbl;
-  const name = typeof lbl === 'object' ? (lbl.name ?? lbl.id) : lbl;
-  const prefKey = typeof lbl === 'object' ? (lbl.prefKey || lbl.name || lbl.id) : lbl;
+/**
+ * Validates that a candidate label is an actual, existing, non-deleted, non-folder label record.
+ */
+export const isValidLabelRecord = (lbl) => {
+  if (!lbl || typeof lbl !== 'object' || Array.isArray(lbl)) return false;
 
-  const strId = String(id);
-  const strName = String(name);
-  const strPrefKey = String(prefKey);
-  const lowerName = strName.trim().toLowerCase();
-  const lowerId = strId.trim().toLowerCase();
-  const lowerPrefKey = strPrefKey.trim().toLowerCase();
+  if (lbl.id === undefined || lbl.id === null || String(lbl.id).trim() === '') {
+    return false;
+  }
+  if (typeof lbl.name !== 'string' || lbl.name.trim() === '') {
+    return false;
+  }
 
-  // 1. Check custom label preferences (both passed in context and stored in localStorage)
-  let customPrefs = customLabelPreferences;
-  if (!customPrefs || typeof customPrefs !== 'object') {
-    try {
-      const activeEmail = typeof window !== 'undefined' ? localStorage.getItem("bnx_active_email") : null;
-      const raw = typeof window !== 'undefined'
-        ? ((activeEmail && localStorage.getItem(`bnx_custom_label_prefs_${activeEmail}`)) || localStorage.getItem('bnx_custom_label_prefs'))
-        : null;
-      customPrefs = raw ? JSON.parse(raw) : {};
-    } catch (e) {
-      customPrefs = {};
+  // Exclude deleted or inactive label records
+  if (
+    lbl.deleted === true ||
+    lbl.isDeleted === true ||
+    lbl.is_deleted === true ||
+    lbl.active === false ||
+    lbl.isActive === false ||
+    (typeof lbl.status === 'string' && lbl.status.trim().toUpperCase() === 'DELETED')
+  ) {
+    return false;
+  }
+
+  // Exclude folder / sidebar / navigation substitutes
+  const labelType = normalizeLabelType(lbl);
+  if (
+    lbl.isFolder === true ||
+    lbl.isNav === true ||
+    lbl.isSidebar === true ||
+    lbl.isSidebarItem === true ||
+    Boolean(lbl.prefKey) ||
+    NON_LABEL_TYPES.has(labelType)
+  ) {
+    return false;
+  }
+
+  // Reject folder/nav names masquerading as label IDs
+  const idLower = String(lbl.id).trim().toLowerCase();
+  if (FOLDER_AND_NAV_NAMES.has(idLower)) {
+    return false;
+  }
+
+  // Reject hidden system labels and system-typed folder substitutes
+  const isSystemLabel = lbl.isSystem === true || labelType === 'SYSTEM';
+  if (isSystemLabel) {
+    const nameLower = lbl.name.trim().toLowerCase();
+    if (FOLDER_AND_NAV_NAMES.has(nameLower)) {
+      return false;
+    }
+    if (
+      lbl.hidden === true ||
+      lbl.isHidden === true ||
+      lbl.visible === false ||
+      lbl.isVisible === false
+    ) {
+      return false;
     }
   }
 
-  const customEntry = customPrefs?.[strId] ?? customPrefs?.[strName] ?? customPrefs?.[strPrefKey] ??
-                      customPrefs?.[lowerId] ?? customPrefs?.[lowerName] ?? customPrefs?.[lowerPrefKey];
-
-  if (customEntry !== undefined) {
-    if (typeof customEntry === 'boolean') {
-      if (customEntry === false) return false;
-    } else if (typeof customEntry === 'object' && customEntry !== null) {
-      if (customEntry.showInLabelList === false) return false;
-    }
+  // Reject disabled/hidden records
+  if (
+    lbl.hidden === true ||
+    lbl.isHidden === true ||
+    lbl.visible === false ||
+    lbl.isVisible === false ||
+    lbl.enabled === false ||
+    lbl.isEnabled === false
+  ) {
+    return false;
   }
 
-  // 2. Check sidebar preferences (both passed in context and stored in localStorage)
-  let sidebarPrefs = sidebarPreferences;
-  try {
-    const activeEmail = typeof window !== 'undefined' ? localStorage.getItem("bnx_active_email") : null;
-    const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
-    const raw = typeof window !== 'undefined'
-      ? ((userKey && localStorage.getItem(userKey)) || localStorage.getItem('bnx_sidebar_prefs'))
-      : null;
-    const stored = raw ? JSON.parse(raw) : {};
-    sidebarPrefs = { ...stored, ...(sidebarPreferences || {}) };
-  } catch (e) {}
-
-  const checkSidebar = (key) => {
-    if (!key) return undefined;
-    if (sidebarPrefs[key] !== undefined) return sidebarPrefs[key];
-    const target = String(key).trim().toLowerCase();
-    for (const k of Object.keys(sidebarPrefs)) {
-      if (k.trim().toLowerCase() === target) return sidebarPrefs[k];
-    }
-    return undefined;
-  };
-
-  const keysToCheck = [strPrefKey, strName, strId];
-  if (lowerName === 'draft' || lowerName === 'drafts' || lowerPrefKey === 'draft') {
-    keysToCheck.push('Draft', 'Drafts', 'draft', 'drafts');
-  }
-
-  for (const k of keysToCheck) {
-    const val = checkSidebar(k);
-    if (val !== undefined) {
-      if (val === false) return false;
-      if (typeof val === 'object' && val !== null && val.showInLabelList === false) return false;
-    }
-  }
-
-  // Default to visible (true)
   return true;
 };
 
 /**
- * Check if a system label is visible in the label list according to sidebarPreferences
+ * Checks whether a valid label record is enabled in Settings -> Manage Labels ("Show in label list").
+ * Filters strictly by label ID and record flags — never mixes sidebar navigation preferences.
  */
-export const isSystemLabelVisibleInLabelList = (keyOrName, sidebarPreferences = {}) => {
-  return isLabelShownInLabelList(keyOrName, sidebarPreferences, null);
+export const isLabelShownInLabelList = (lbl, customLabelPreferences = null, legacyCustomPrefs = null) => {
+  if (!isValidLabelRecord(lbl)) return false;
+
+  if (lbl.showInLabelList === false) {
+    return false;
+  }
+
+  const effectivePrefs =
+    legacyCustomPrefs !== null && typeof legacyCustomPrefs === 'object'
+      ? legacyCustomPrefs
+      : (customLabelPreferences && typeof customLabelPreferences === 'object'
+          ? customLabelPreferences
+          : readStoredCustomLabelPrefs());
+
+  const idKey = String(lbl.id).trim();
+  const entry = effectivePrefs[idKey];
+
+  if (entry !== undefined) {
+    if (typeof entry === 'boolean') return entry;
+    if (typeof entry === 'object' && entry !== null) {
+      return entry.showInLabelList !== false;
+    }
+  }
+
+  return true;
 };
 
 /**
- * Returns active labels for the "Label as..." dropdown:
- * - System labels whose "Show in label list" setting is true
- * - Custom labels whose "Show in label list" setting is true
- * Visibility is controlled by Settings -> Manage Labels ("Show in label list")
+ * Returns valid, enabled, deduplicated labels for all "Label as..." dropdowns.
+ * Reads strictly from actual label records and filters using ID, type, and Manage Labels visibility.
  */
-export const getAvailableLabelAsOptions = (customLabels = [], sidebarPreferences = {}, customLabelPreferences = null) => {
-  const stored = getStoredSidebarPreferences() || {};
-  const effectiveSidebarPrefs = { ...stored, ...(sidebarPreferences || {}) };
+export const getAvailableLabelAsOptions = (labels = [], customLabelPreferences = null, legacyCustomPrefs = null) => {
+  if (!Array.isArray(labels) || labels.length === 0) return [];
 
-  // 1. System labels filtered by user preference ("Show in label list")
-  const visibleSystemLabels = SYSTEM_LABEL_DEFINITIONS.filter((sl) =>
-    isLabelShownInLabelList(sl, effectiveSidebarPrefs, customLabelPreferences)
-  ).map((sl) => ({
-    ...sl,
-    isSystem: true,
-  }));
+  const effectivePrefs =
+    legacyCustomPrefs !== null && typeof legacyCustomPrefs === 'object'
+      ? legacyCustomPrefs
+      : (customLabelPreferences && typeof customLabelPreferences === 'object'
+          ? customLabelPreferences
+          : readStoredCustomLabelPrefs());
 
-  // 2. Custom labels filtered by user preference ("Show in label list")
-  const visibleCustomLabels = (customLabels || []).filter((lbl) => {
-    if (!lbl) return false;
-    // Exclude system labels from custom labels list so they don't bypass system settings
-    const nameLower = String(lbl.name || lbl.id || '').trim().toLowerCase();
-    if (SYSTEM_LABEL_NAMES.has(nameLower)) return false;
-    return isLabelShownInLabelList(lbl, effectiveSidebarPrefs, customLabelPreferences);
-  }).map((lbl) => ({
-    ...lbl,
-    isSystem: false,
-  }));
-
-  // Deduplicate by ID and name (custom labels first, then system labels)
-  const seen = new Set();
+  const seenIds = new Set();
+  const seenNameType = new Set();
   const result = [];
-  for (const item of [...visibleCustomLabels, ...visibleSystemLabels]) {
-    const key = String(item.id ?? item.name).toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(item);
-    }
+
+  for (const lbl of labels) {
+    if (!isLabelShownInLabelList(lbl, effectivePrefs)) continue;
+
+    const idKey = String(lbl.id).trim();
+    const labelType = normalizeLabelType(lbl);
+    const cleanName = lbl.name.trim();
+    const parentKey = lbl.parentId !== undefined && lbl.parentId !== null ? String(lbl.parentId).trim() : '';
+    const nameTypeKey = `${labelType}:${parentKey}:${cleanName.toLowerCase()}`;
+
+    if (seenIds.has(idKey) || seenNameType.has(nameTypeKey)) continue;
+
+    seenIds.add(idKey);
+    seenNameType.add(nameTypeKey);
+    result.push({
+      ...lbl,
+      name: cleanName,
+      type: labelType,
+      isSystem: Boolean(lbl.isSystem === true || labelType === 'SYSTEM')
+    });
   }
 
   return result;
@@ -494,22 +488,6 @@ export const getStoredSystemEmailLabels = () => {
   } catch (e) {
     return {};
   }
-};
-
-export const saveAppliedSystemLabel = (uid, labelObj) => {
-  if (!uid || !labelObj) return;
-  try {
-    const map = getStoredSystemEmailLabels();
-    const strUid = String(uid);
-    const existing = map[strUid] || [];
-    if (!existing.some((l) => String(l.id) === String(labelObj.id) || l.name === labelObj.name)) {
-      map[strUid] = [...existing, labelObj];
-      localStorage.setItem(SYSTEM_EMAIL_LABELS_KEY, JSON.stringify(map));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('bnx-label-prefs-changed', { detail: { type: 'system-label-applied', uid: strUid } }));
-      }
-    }
-  } catch (e) {}
 };
 
 export const removeAppliedSystemLabel = (uid, labelIdOrName) => {
