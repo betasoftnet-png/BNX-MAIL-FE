@@ -41,17 +41,12 @@ import {
   MdArchive 
 } from "react-icons/md";
 import { canAccessAllInbox } from "../utils/accountUtils";
-import {
-  findSystemLabelDefinition,
-  isSystemLabelShownInLabelList,
-  isLabelVisibleInSidebar
-} from "../utils/labelPreferences";
 
 const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme, backgroundImage, sidebarPreferences, customLabelPreferences } = useTheme();
+  const { theme, backgroundImage, sidebarPreferences } = useTheme();
   const { unreadCounts, labels, handleCreateLabel, handleUpdateLabel, handleDeleteLabel } = useMail();
   const { user, getSessions } = useAuth();
 
@@ -220,23 +215,11 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
   const showAllInbox = canAccessAllInbox(user);
 
-  const isSidebarFolderVisible = (name) => {
-    if (name === "Manage Labels") return true;
-    const sysDef = findSystemLabelDefinition(name);
-    if (sysDef) {
-      return isSystemLabelShownInLabelList(sysDef, sidebarPreferences);
-    }
-    if (sidebarPreferences && Object.prototype.hasOwnProperty.call(sidebarPreferences, name)) {
-      return sidebarPreferences[name] !== false;
-    }
-    return true;
-  };
-
   const mainNavItems = ["Inbox", "Starred", "Sent", "Draft", "Trash", "Snoozed"]
-    .filter(name => (name !== "All Inbox" || showAllInbox) && isSidebarFolderVisible(name));
+    .filter(name => name !== "All Inbox" || showAllInbox);
 
   const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Manage Labels", "Analytics", "Mail Backup"]
-    .filter(name => (name !== "All Inbox" || showAllInbox) && isSidebarFolderVisible(name));
+    .filter(name => name !== "All Inbox" || showAllInbox);
 
   return (
     <>
@@ -561,17 +544,9 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
               {/* Labels list */}
               {(() => {
-                const visibleLabels = labels.filter((l) =>
-                  isLabelVisibleInSidebar(l, l.name, customLabelPreferences)
-                );
-                const visibleLabelIds = new Set(visibleLabels.map((l) => String(l.id)));
-
                 const renderLabelTree = (parentId, depth = 0) => {
-                  const children = visibleLabels.filter((l) =>
-                    parentId === null
-                      ? !l.parentId || !visibleLabelIds.has(String(l.parentId))
-                      : l.parentId != null && String(l.parentId) === String(parentId)
-                  );
+                  const children = labels
+                    .filter(l => l.parentId === parentId || (!l.parentId && parentId === null));
                   return children.map(label => {
                     const isLabelActive = location.pathname === `/label/${label.id}`;
 
