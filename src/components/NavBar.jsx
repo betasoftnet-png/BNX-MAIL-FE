@@ -489,14 +489,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             <button
               type="button"
               onClick={() => navigate('/inbox')}
-              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-[13px] sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap text-center ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.mail', 'Mail')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/casbox')}
-              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] font-medium transition-colors cursor-pointer select-none whitespace-nowrap ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-[13px] sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap text-center ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.casbox', 'Casbox')}
             </button>
