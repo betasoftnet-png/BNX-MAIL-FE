@@ -56,7 +56,10 @@ import {
   MdLock,
   MdEditDocument,
   MdCheck,
-  MdAlarmOff
+  MdAlarmOff,
+  MdMoreVert,
+  MdOutlineAddReaction,
+  MdOpenInNew
 } from "react-icons/md";
 import { useMail } from "../context/MailContext";
 import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
@@ -470,6 +473,54 @@ const EmailDetails = ({
     return formatDate(rawDate);
   }, [email?.sentDate, email?.receivedDate, email?.date, email?.createdAt, email?.timestamp]);
 
+  const gmailFormattedDate = useMemo(() => {
+    if (!email) return "";
+    const rawDate = email.sentDate || email.receivedDate || email.date || email.createdAt || email.timestamp;
+    if (!rawDate) return "";
+    const date = new Date(rawDate);
+    if (isNaN(date.getTime())) return "";
+
+    const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+    const dayNum = date.toLocaleDateString("en-US", { day: "numeric" });
+    const monthName = date.toLocaleDateString("en-US", { month: "short" });
+    const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.round(diffMs / (1000 * 60));
+    const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    let relativeStr = "";
+    if (diffMs > 0) {
+      if (diffMins < 1) {
+        relativeStr = "just now";
+      } else if (diffMins < 60) {
+        relativeStr = `${diffMins} min${diffMins === 1 ? "" : "s"} ago`;
+      } else if (diffHours < 24) {
+        relativeStr = `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+      } else if (diffDays < 30) {
+        relativeStr = `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+      }
+    }
+
+    return `${dayName} ${dayNum} ${monthName}, ${timeStr}${relativeStr ? ` (${relativeStr})` : ""}`;
+  }, [email?.sentDate, email?.receivedDate, email?.date, email?.createdAt, email?.timestamp]);
+
+  const mailboxFolderLabel = useMemo(() => {
+    const raw = email?.folderName || email?.folder || currentFolder || "Inbox";
+    if (!raw) return "Inbox";
+    const lower = String(raw).toLowerCase();
+    if (lower === "inbox") return "Inbox";
+    if (lower === "sent" || lower === "send") return "Sent";
+    if (lower === "starred") return "Starred";
+    if (lower === "archive" || lower === "archived") return "Archive";
+    if (lower === "spam") return "Spam";
+    if (lower === "trash") return "Trash";
+    if (lower === "draft" || lower === "drafts") return "Draft";
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }, [email?.folderName, email?.folder, currentFolder]);
+
   const [blockedContacts, setBlockedContacts] = useState([]);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
@@ -589,6 +640,46 @@ const EmailDetails = ({
   const sendingReplyRef = React.useRef(false);
   const [showFormatting, setShowFormatting] = useState(false);
   const [showLabels, setShowLabels] = useState(false);
+  const [showSenderMoreMenu, setShowSenderMoreMenu] = useState(false);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [emailReactions, setEmailReactions] = useState([]);
+  const senderMoreMenuRef = useRef(null);
+  const reactionMenuRef = useRef(null);
+  const recipientDetailsRef = useRef(null);
+
+  const handleToggleReaction = (emoji) => {
+    setEmailReactions((prev) => {
+      const exists = prev.includes(emoji);
+      if (exists) {
+        toast.success(`Removed ${emoji} reaction`);
+        return prev.filter((e) => e !== emoji);
+      } else {
+        toast.success(`Added ${emoji} reaction`);
+        return [...prev, emoji];
+      }
+    });
+    setShowReactionPicker(false);
+  };
+
+  useEffect(() => {
+    const handleOutsideSenderMenuClick = (e) => {
+      if (senderMoreMenuRef.current && !senderMoreMenuRef.current.contains(e.target)) {
+        setShowSenderMoreMenu(false);
+      }
+      if (reactionMenuRef.current && !reactionMenuRef.current.contains(e.target)) {
+        setShowReactionPicker(false);
+      }
+      if (recipientDetailsRef.current && !recipientDetailsRef.current.contains(e.target)) {
+        setShowRecipientDetails(false);
+      }
+    };
+    if (showSenderMoreMenu || showReactionPicker || showRecipientDetails) {
+      document.addEventListener("mousedown", handleOutsideSenderMenuClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideSenderMenuClick);
+    };
+  }, [showSenderMoreMenu, showReactionPicker, showRecipientDetails]);
 
   // File Upload states and ref
   const fileInputRef = React.useRef(null);
@@ -1356,6 +1447,24 @@ const EmailDetails = ({
 
   const handleClose = onBack || onClose;
 
+  const handleStarClick = () => {
+    const targetUid = email?.uid ?? email?.id;
+    const targetFolder = email?.folderName || currentFolder;
+    if (onStar) {
+      onStar(targetUid, targetFolder);
+    } else if (handleToggleStar) {
+      handleToggleStar(targetUid, targetFolder);
+    }
+  };
+
+  const handleMarkUnreadAction = () => {
+    const emailUid = email?.uid ?? email?.id;
+    if (emailUid !== undefined && emailUid !== null) {
+      handleMarkUnread?.(emailUid, false, email);
+      handleClose?.();
+    }
+  };
+
   if (!email) {
     return null;
   }
@@ -1480,15 +1589,7 @@ const EmailDetails = ({
           {!isTrashMode && !isSpamMode && (
             <>
               <button
-                onClick={() => {
-                  const targetUid = email?.uid ?? email?.id;
-                  const targetFolder = email?.folderName || currentFolder;
-                  if (onStar) {
-                    onStar(targetUid, targetFolder);
-                  } else if (handleToggleStar) {
-                    handleToggleStar(targetUid, targetFolder);
-                  }
-                }}
+                onClick={handleStarClick}
                 className="p-2 rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                 title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
                 aria-label={isStarred ? "Unstar email" : "Star email"}
@@ -1729,23 +1830,45 @@ const EmailDetails = ({
 
       {/* CONTENT AREA */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 bg-transparent">
-        {/* EMAIL SUBJECT & LABELS */}
-        <div className="flex flex-wrap items-center gap-3 mb-4 sm:mb-6">
-          <h1
-            className="text-xl sm:text-2xl font-bold leading-tight tracking-tight text-gray-900 dark:text-gray-100"
-            style={{ color: theme.text }}
-          >
-            {email.subject || "(No Subject)"}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2">
+        {/* EMAIL SUBJECT & LABELS & ACTIONS (GMAIL STYLE) */}
+        <div className="flex items-start justify-between gap-4 mb-4 sm:mb-6">
+          <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+            <h1
+              className="text-xl sm:text-2xl font-normal leading-tight tracking-tight text-gray-900 dark:text-gray-100 break-words"
+              style={{ color: theme.text }}
+            >
+              {email.subject || "(No Subject)"}
+            </h1>
+
+            {/* Mailbox Badge (e.g. Inbox x) */}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-200/90 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 shrink-0 select-none">
+              <span>{mailboxFolderLabel}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onArchive) {
+                    onArchive(email?.uid ?? email?.id, email?.folderName || currentFolder);
+                  } else if (handleClose) {
+                    handleClose();
+                  }
+                }}
+                className="hover:bg-gray-300 dark:hover:bg-neutral-600 rounded p-0.5 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition-colors cursor-pointer"
+                title={`Remove ${mailboxFolderLabel} label`}
+                aria-label={`Remove ${mailboxFolderLabel} label`}
+              >
+                <MdClose size={12} />
+              </button>
+            </span>
+
             {isSnoozed && (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs">
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs shrink-0">
                 <MdAccessTime size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>{snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed"}</span>
                 <button
                   type="button"
                   onClick={handleUnsnoozeOption}
-                  className="ml-1 px-2 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                  className="ml-1 px-1.5 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
                   title="Unsnooze and return to Inbox"
                 >
                   <MdAlarmOff size={12} />
@@ -1753,6 +1876,7 @@ const EmailDetails = ({
                 </button>
               </div>
             )}
+
             {localLabels?.map((label) => {
               const labelId = typeof label === 'string' ? label : (label.id || label.name);
               const labelName = typeof label === 'string' ? label : (label.name || label.id);
@@ -1764,7 +1888,7 @@ const EmailDetails = ({
               return (
                 <span
                   key={labelId}
-                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-sm border border-black/5 dark:border-white/5 flex items-center gap-1.5"
+                  className="px-2 py-0.5 rounded text-[11px] font-medium text-white shadow-xs flex items-center gap-1 shrink-0"
                   style={{ backgroundColor: labelColor }}
                 >
                   {labelName}
@@ -1782,20 +1906,48 @@ const EmailDetails = ({
               );
             })}
           </div>
+
+          {/* Right: Print & In New Window Actions */}
+          <div className="flex items-center gap-1 shrink-0 text-gray-500 dark:text-gray-400">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+              title="Print all"
+              aria-label="Print all"
+            >
+              <MdPrint size={19} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                window.open(window.location.href, '_blank', 'width=900,height=750,toolbar=no,menubar=no,location=no');
+              }}
+              className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+              title="In new window"
+              aria-label="In new window"
+            >
+              <MdOpenInNew size={19} />
+            </button>
+          </div>
         </div>
 
         {/* EMAIL MESSAGE CARD CONTAINER */}
         <div className="bg-white dark:bg-neutral-900 rounded-xl sm:rounded-2xl border border-gray-200/90 dark:border-neutral-800 shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)] p-4 sm:p-6 transition-all">
-          {/* SENDER INFO (EMAIL HEADER) */}
-          <div className="flex items-start justify-between gap-4 pb-4 mb-4 border-b border-gray-100 dark:border-neutral-800">
-            <div className="flex items-start gap-3 min-w-0">
+          {/* SENDER INFO (EMAIL HEADER - GMAIL STYLE) */}
+          <div className="flex items-start justify-between gap-3 pb-3 mb-4 border-b border-gray-100 dark:border-neutral-800">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
               {/* Sender Avatar */}
               <div
-                className="h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-xs shrink-0 select-none overflow-hidden"
+                className="h-10 w-10 sm:h-10.5 sm:w-10.5 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-xs shrink-0 select-none overflow-hidden"
                 style={{ backgroundColor: avatarColor }}
               >
-                {senderDisplayName.toLowerCase().includes("spotify") ? (
-                  <svg className="w-6 h-6 fill-current text-white" viewBox="0 0 24 24">
+                {senderDisplayName.toLowerCase().includes("linkedin") ? (
+                  <svg className="w-5 h-5 fill-current text-[#0077b5] bg-white rounded-xs p-0.5" viewBox="0 0 24 24">
+                    <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.6 1.6 0 0 0-1.6 1.6 1.6 1.6 0 0 0 1.6 1.6 1.6 1.6 0 0 0 1.6-1.6 1.6 1.6 0 0 0-1.6-1.6Z"/>
+                  </svg>
+                ) : senderDisplayName.toLowerCase().includes("spotify") ? (
+                  <svg className="w-5 h-5 fill-current text-white" viewBox="0 0 24 24">
                     <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.503 17.309c-.218.356-.68.47-1.036.252-2.842-1.737-6.42-2.13-10.635-1.168-.407.093-.812-.162-.905-.568-.093-.406.162-.812.568-.905 4.623-1.057 8.577-.615 11.756 1.353.356.218.47.68.252 1.036zm1.47-3.267c-.274.444-.858.587-1.302.313-3.254-2.001-8.214-2.583-12.062-1.413-.497.151-1.025-.136-1.176-.633-.151-.497.136-1.025.633-1.176 4.398-1.336 9.878-.693 13.595 1.595.443.274.586.858.312 1.302zm.126-3.41c-3.903-2.317-10.334-2.53-14.073-1.394-.598.182-1.233-.162-1.415-.76-.182-.598.162-1.233.76-1.415 4.293-1.303 11.393-1.054 15.867 1.602.537.319.715 1.018.396 1.555-.319.537-1.018.715-1.555.396z"/>
                   </svg>
                 ) : (
@@ -1804,13 +1956,18 @@ const EmailDetails = ({
               </div>
 
               {/* Sender Name & Recipient Info */}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-snug">
-                  <span className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 tracking-tight">
+                  <span className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100 tracking-tight">
                     {senderDisplayName}
                   </span>
+                  {senderDisplayName.toLowerCase().includes("linkedin") && (
+                    <span className="inline-flex items-center text-blue-600 dark:text-blue-400" title="Verified sender">
+                      <MdCheck size={14} className="bg-blue-600 text-white rounded-full p-0.5 inline-block" />
+                    </span>
+                  )}
                   {senderEmailAddress && (
-                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-normal">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
                       &lt;{senderEmailAddress}&gt;
                     </span>
                   )}
@@ -1819,7 +1976,7 @@ const EmailDetails = ({
                       type="button"
                       onClick={() => handleToggleSubscription()}
                       disabled={subscriptionLoading}
-                      className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline cursor-pointer bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-xs font-normal text-blue-600 dark:text-blue-400 hover:underline cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-1"
                       title={isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe to this sender") : t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
                     >
                       {subscriptionLoading
@@ -1830,7 +1987,7 @@ const EmailDetails = ({
                 </div>
 
                 {/* Recipient Dropdown Line */}
-                <div className="relative mt-0.5">
+                <div className="relative mt-0.5" ref={recipientDetailsRef}>
                   {(() => {
                     const toDisplay = formatRecipientsDisplay(email) || email.to || email.recipientEmail || email.recipient || "me";
                     const tooltip = getRecipientFullTooltip(email) || toDisplay;
@@ -1843,12 +2000,12 @@ const EmailDetails = ({
                         <button
                           type="button"
                           onClick={() => setShowRecipientDetails((prev) => !prev)}
-                          className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer rounded transition-colors group max-w-full"
+                          className="inline-flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer rounded transition-colors group max-w-full"
                           title={tooltip}
                         >
                           <span className="inline-flex items-center gap-1 min-w-0">
                             <span className="shrink-0">to</span>{" "}
-                            <span className="text-gray-700 dark:text-gray-300 font-medium max-w-[200px] sm:max-w-md md:max-w-lg lg:max-w-xl truncate">
+                            <span className="text-gray-600 dark:text-gray-300 font-normal max-w-[200px] sm:max-w-md md:max-w-lg lg:max-w-xl truncate">
                               {toDisplay}
                             </span>
                           </span>
@@ -1861,21 +2018,21 @@ const EmailDetails = ({
                         </button>
 
                         {showRecipientDetails && (
-                          <div className="absolute left-0 top-full mt-1.5 w-80 sm:w-96 p-3.5 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
-                            <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                          <div className="absolute left-0 top-full mt-1.5 w-80 sm:w-96 p-3.5 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 z-50 text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
+                            <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
                               <span className="text-gray-400 font-medium shrink-0">from:</span>
                               <span className="font-semibold text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={email.from}>
                                 {email.from}
                               </span>
                             </div>
-                            <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                            <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
                               <span className="text-gray-400 font-medium shrink-0">to:</span>
                               <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={toRecipients}>
                                 {toRecipients}
                               </span>
                             </div>
                             {ccRecipients && (
-                              <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                              <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
                                 <span className="text-gray-400 font-medium shrink-0">cc:</span>
                                 <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={ccRecipients}>
                                   {ccRecipients}
@@ -1883,7 +2040,7 @@ const EmailDetails = ({
                               </div>
                             )}
                             {bccRecipients && (
-                              <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-gray-700/50 pb-1">
+                              <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
                                 <span className="text-gray-400 font-medium shrink-0">bcc:</span>
                                 <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={bccRecipients}>
                                   {bccRecipients}
@@ -1905,11 +2062,184 @@ const EmailDetails = ({
               </div>
             </div>
 
-            {/* Date & Time on the right */}
-            <div className="text-xs text-gray-500 dark:text-gray-400 shrink-0 pt-0.5 whitespace-nowrap">
-              {emailDateFormatted}
+            {/* Right Actions: Date, Star, Reaction, Reply, More */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pt-0.5">
+              {/* Date & Time */}
+              <span
+                className="text-xs text-gray-500 dark:text-gray-400 mr-1 whitespace-nowrap cursor-default hidden sm:inline-block"
+                title={emailDateFormatted}
+              >
+                {gmailFormattedDate}
+              </span>
+
+              {/* Star Button */}
+              <button
+                type="button"
+                onClick={handleStarClick}
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
+                aria-label={isStarred ? "Unstar email" : "Star email"}
+              >
+                {isStarred ? (
+                  <MdStar size={18} className="text-yellow-500 fill-current drop-shadow-xs" />
+                ) : (
+                  <MdStarBorder size={18} className="text-gray-400 dark:text-gray-500" />
+                )}
+              </button>
+
+              {/* Add Reaction Button */}
+              <div className="relative" ref={reactionMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowReactionPicker((prev) => !prev)}
+                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                  title="Add reaction"
+                  aria-label="Add reaction"
+                >
+                  <MdOutlineAddReaction size={18} />
+                </button>
+                {showReactionPicker && (
+                  <div className="absolute right-0 top-full mt-1 p-1 bg-white dark:bg-neutral-800 rounded-full shadow-lg border border-gray-200 dark:border-neutral-700 z-50 flex items-center gap-0.5 animate-in fade-in zoom-in-95 duration-150">
+                    {["👍", "❤️", "😀", "🎉", "👏", "🚀"].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => handleToggleReaction(emoji)}
+                        className="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-700 flex items-center justify-center text-sm transition-transform hover:scale-125 cursor-pointer"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Reply Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReply(true);
+                  setReplyMode("reply");
+                  setReplyBody("");
+                  setForwardTo("");
+                }}
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                title="Reply"
+                aria-label="Reply"
+              >
+                <MdReply size={18} />
+              </button>
+
+              {/* More Options (3 Dots) Menu */}
+              <div className="relative" ref={senderMoreMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowSenderMoreMenu((prev) => !prev)}
+                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                  title="More options"
+                  aria-label="More options"
+                >
+                  <MdMoreVert size={18} />
+                </button>
+                {showSenderMoreMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 py-1.5 z-50 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSenderMoreMenu(false);
+                        setShowReply(true);
+                        setReplyMode("reply");
+                        setReplyBody("");
+                        setForwardTo("");
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <MdReply size={16} />
+                      <span>Reply</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSenderMoreMenu(false);
+                        setShowReply(true);
+                        setReplyMode("forward");
+                        setReplyBody(getOriginalEmailContentHTML(email));
+                        setForwardTo("");
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <MdForward size={16} />
+                      <span>Forward</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSenderMoreMenu(false);
+                        handlePrint();
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <MdPrint size={16} />
+                      <span>Print</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSenderMoreMenu(false);
+                        handleMarkUnreadAction();
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <MdMarkEmailUnread size={16} />
+                      <span>Mark as unread</span>
+                    </button>
+                    <div className="h-px bg-gray-100 dark:bg-neutral-700 my-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSenderMoreMenu(false);
+                        if (onDelete) onDelete(email?.uid ?? email?.id, email?.folderName || currentFolder);
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <MdDelete size={16} />
+                      <span>Delete message</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSenderMoreMenu(false);
+                        setShowReportModal(true);
+                        setReportReason("");
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <MdReport size={16} />
+                      <span>Report spam</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Reaction badges (if user selected any) */}
+          {emailReactions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 -mt-2 mb-3">
+              {emailReactions.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleToggleReaction(emoji)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 border border-gray-200 dark:border-neutral-700 transition-colors cursor-pointer"
+                  title={`Remove ${emoji}`}
+                >
+                  <span>{emoji}</span>
+                  <span className="text-[11px] text-gray-500 font-medium">1</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* BODY */}
           <div
