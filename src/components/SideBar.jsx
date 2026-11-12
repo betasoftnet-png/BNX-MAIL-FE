@@ -261,13 +261,13 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
         )}
 
         {/* NAVIGATION */}
-        <nav className="flex-1 flex flex-col pr-0 pt-4 pb-2 space-y-0.5 overflow-y-auto hidden-scrollbar">
+        <nav className="flex-1 flex flex-col pr-0 pt-2.5 pb-1.5 space-y-0.5 overflow-y-auto hidden-scrollbar">
           {/* VAULT MODE */}
           {isVaultMode ? (
-            <div className="flex flex-col px-2 mt-2">
+            <div className="flex flex-col px-2 mt-1">
               <button
                 onClick={() => handleNavigation('/vault')}
-                className="w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold relative"
+                className="w-full flex items-center px-3.5 py-1.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold relative"
               >
                 <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1a56db] dark:bg-blue-500 rounded-full" />
                 <div className="w-5 flex items-center justify-center shrink-0">
@@ -291,7 +291,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                     <button
                       key={item.name}
                       onClick={() => handleNavigation(item.path)}
-                      className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2 rounded-2xl transition-all duration-150 group cursor-pointer btn-collapse relative shrink-0 ${
+                      className={`w-[calc(100%-16px)] mx-2 flex items-center justify-between px-3.5 py-1.5 rounded-2xl transition-all duration-150 group cursor-pointer btn-collapse relative shrink-0 ${
                         isActive
                           ? "bg-[#dce9fd] dark:bg-blue-900/30"
                           : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04]"
@@ -340,7 +340,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                 <div>
                   <button
                     onClick={() => setIsMoreOpen(!isMoreOpen)}
-                    className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2 rounded-2xl hover:bg-blue-50/70 dark:hover:bg-white/[0.04] transition-all cursor-pointer group btn-collapse shrink-0"
+                    className="w-[calc(100%-16px)] mx-2 flex items-center justify-between px-3.5 py-1.5 rounded-2xl hover:bg-blue-50/70 dark:hover:bg-white/[0.04] transition-all cursor-pointer group btn-collapse shrink-0"
                   >
                     <div className="flex items-center min-w-0 flex-1">
                       <div className="w-5 flex items-center justify-center shrink-0">
@@ -371,7 +371,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                             <button
                               key={item.name}
                               onClick={() => handleNavigation(item.path)}
-                              className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2 rounded-xl transition-all duration-150 group cursor-pointer btn-collapse relative shrink-0 ${
+                              className={`w-[calc(100%-16px)] mx-2 flex items-center justify-between px-3.5 py-1.5 rounded-xl transition-all duration-150 group cursor-pointer btn-collapse relative shrink-0 ${
                                 isActive
                                   ? "bg-[#dce9fd] dark:bg-blue-900/30"
                                   : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04]"
@@ -416,10 +416,10 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
             </>
           ) : (
             /* CHAT MODE: Casbox & Colab */
-            <div className="flex flex-col px-2 mt-1 space-y-1">
+            <div className="flex flex-col px-2 mt-1 space-y-0.5">
               <button
                 onClick={() => handleNavigation('/casbox')}
-                className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
+                className={`w-full flex items-center px-3.5 py-1.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
                   location.pathname.startsWith('/casbox')
                     ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
                     : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium"
@@ -438,7 +438,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
               <div className="flex flex-col">
                 <div
                   onClick={() => handleNavigation('/colab')}
-                  className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
+                  className={`w-full flex items-center px-3.5 py-1.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
                     isColabActive
                       ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
                       : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium"
@@ -473,15 +473,15 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                 <div
                   className={`transition-all duration-200 ease-in-out overflow-hidden ${
                     isColabExpanded
-                      ? "max-h-28 opacity-100 mt-1"
+                      ? "max-h-28 opacity-100 mt-0.5"
                       : "max-h-0 opacity-0 pointer-events-none"
                   }`}
                 >
-                  <div className="ml-3.5 space-y-1">
+                  <div className="ml-3.5 space-y-0.5">
                     {/* Archive option */}
                     <div
                       onClick={() => handleNavigation('/colab/archived')}
-                      className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
+                      className={`w-full flex items-center px-3.5 py-1.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
                         isArchivedActive
                           ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
                           : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium"
@@ -501,7 +501,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                     {/* Star option */}
                     <div
                       onClick={() => handleNavigation('/colab/starred')}
-                      className={`w-full flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
+                      className={`w-full flex items-center px-3.5 py-1.5 rounded-2xl transition-all duration-200 group cursor-pointer btn-collapse relative ${
                         isStarredActive
                           ? "bg-[#dce9fd] dark:bg-blue-900/30 text-[#1a56db] dark:text-blue-400 font-semibold"
                           : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04] text-[#2d3f59] dark:text-slate-200 font-medium"
@@ -525,14 +525,14 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
           {/* LABELS SECTION */}
           {!isChatMode && !isVaultMode && (
-            <div className="pt-2">
+            <div className="pt-1">
               {/* Subtle divider */}
-              <div className="my-2.5 px-3">
+              <div className="my-1.5 px-3">
                 <div className="h-px bg-blue-100/70 dark:bg-gray-800" />
               </div>
 
               {/* Labels header */}
-              <div className="px-4 flex items-center justify-between mb-1.5 hide-on-collapse">
+              <div className="px-4 flex items-center justify-between mb-1 hide-on-collapse">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#8b9cb5] dark:text-gray-400">
                   {t('sidebar.labels', 'LABELS')}
                 </span>
@@ -566,7 +566,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                       <div key={label.id} className="group">
                         <div
                           onClick={() => handleNavigation(`/label/${label.id}`)}
-                          className={`w-[calc(100%-16px)] mx-2 my-0.5 flex items-center justify-between px-3.5 py-2 rounded-xl transition-all duration-150 cursor-pointer btn-collapse ${
+                          className={`w-[calc(100%-16px)] mx-2 my-[1px] flex items-center justify-between px-3.5 py-1.5 rounded-xl transition-all duration-150 cursor-pointer btn-collapse ${
                             isLabelActive
                               ? "bg-[#dce9fd] dark:bg-blue-900/30"
                               : "hover:bg-blue-50/70 dark:hover:bg-white/[0.04]"
@@ -646,13 +646,13 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
         </nav>
 
         {/* BOTTOM SECTION: STORAGE + SETTINGS + SUPPORT */}
-        <div className={`mt-auto space-y-1 mb-4 shrink-0 pt-2 ${isChatMode ? '' : 'border-t border-blue-100/70 dark:border-gray-800'}`}>
+        <div className={`mt-auto space-y-0.5 mb-2.5 shrink-0 pt-1.5 ${isChatMode ? '' : 'border-t border-blue-100/70 dark:border-gray-800'}`}>
           <StorageWidget isDesktopOpen={isDesktopOpen} isExpanded={isMobileOpen || isDesktopOpen} />
 
           {/* Settings */}
           <button
             onClick={() => handleNavigation("/settings")}
-            className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] cursor-pointer text-[#2d3f59] dark:text-slate-200 text-sm font-medium tracking-wide btn-collapse"
+            className="w-[calc(100%-16px)] mx-2 flex items-center px-3.5 py-1.5 rounded-2xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] cursor-pointer text-[#2d3f59] dark:text-slate-200 text-sm font-medium tracking-wide btn-collapse"
           >
             <div className="w-5 flex items-center justify-center shrink-0">
               <Settings size={20} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
@@ -663,7 +663,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
           {/* Support & Help */}
           <button
             onClick={() => handleNavigation("/support")}
-            className="w-[calc(100%-16px)] mx-2 my-0.5 flex items-center px-3.5 py-2.5 rounded-2xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] cursor-pointer text-[#2d3f59] dark:text-slate-200 text-sm font-medium tracking-wide btn-collapse"
+            className="w-[calc(100%-16px)] mx-2 flex items-center px-3.5 py-1.5 rounded-2xl transition-all duration-150 hover:bg-blue-50/70 dark:hover:bg-white/[0.04] cursor-pointer text-[#2d3f59] dark:text-slate-200 text-sm font-medium tracking-wide btn-collapse"
           >
             <div className="w-5 flex items-center justify-center shrink-0">
               <HelpCircle size={20} strokeWidth={1.8} className="text-[#2d3f59] dark:text-slate-300" />
