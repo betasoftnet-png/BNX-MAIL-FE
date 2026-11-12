@@ -46,7 +46,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme, backgroundImage, sidebarPreferences } = useTheme();
+  const { theme, backgroundImage, sidebarVisibilityPreferences } = useTheme();
   const { unreadCounts, labels, handleCreateLabel, handleUpdateLabel, handleDeleteLabel } = useMail();
   const { user, getSessions } = useAuth();
 
@@ -215,11 +215,14 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
   const showAllInbox = canAccessAllInbox(user);
 
+  const isSidebarNavVisible = (name) =>
+    sidebarVisibilityPreferences?.[`folder:${name}`] !== false;
+
   const mainNavItems = ["Inbox", "Starred", "Sent", "Draft", "Trash", "Snoozed"]
-    .filter(name => name !== "All Inbox" || showAllInbox);
+    .filter(name => (name !== "All Inbox" || showAllInbox) && isSidebarNavVisible(name));
 
   const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Manage Labels", "Analytics", "Mail Backup"]
-    .filter(name => name !== "All Inbox" || showAllInbox);
+    .filter(name => (name !== "All Inbox" || showAllInbox) && isSidebarNavVisible(name));
 
   return (
     <>
@@ -544,9 +547,18 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
 
               {/* Labels list */}
               {(() => {
+                const visibleLabels = (labels || []).filter(
+                  (l) => l && l.id != null && sidebarVisibilityPreferences?.[`label:${String(l.id)}`] !== false
+                );
+                const visibleLabelIds = new Set(visibleLabels.map((l) => String(l.id)));
+
                 const renderLabelTree = (parentId, depth = 0) => {
-                  const children = labels
-                    .filter(l => l.parentId === parentId || (!l.parentId && parentId === null));
+                  // Promote visible sub-labels to top level when their parent label is hidden so only disabled labels disappear.
+                  const children = visibleLabels.filter((l) =>
+                    parentId === null
+                      ? !l.parentId || !visibleLabelIds.has(String(l.parentId))
+                      : l.parentId != null && String(l.parentId) === String(parentId)
+                  );
                   return children.map(label => {
                     const isLabelActive = location.pathname === `/label/${label.id}`;
 

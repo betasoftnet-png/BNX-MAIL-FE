@@ -180,14 +180,18 @@ const Settings = () => {
   const routerLocation = useLocation();
   const { user, getSessions, switchAccount } = useAuth();
   const { labels: customSidebarLabels = [] } = useMail();
-  const [sidebarSectionToggles, setSidebarSectionToggles] = useState({});
-
-  const handleToggleSidebarSectionCard = (cardId) => {
-    setSidebarSectionToggles((prev) => ({
-      ...prev,
-      [cardId]: prev[cardId] === false,
-    }));
-  };
+  const {
+    theme, changeTheme, currentThemeName,
+    backgroundImage, setBackgroundImage, clearBackgroundImage,
+    readingPaneMode: globalReadingPaneMode,
+    setReadingPaneModeState,
+    emailsPerPage, setEmailsPerPageState,
+    sidebarPreferences, setSidebarPreferences,
+    sidebarVisibilityPreferences,
+    toggleSidebarVisibilityItem,
+    customAccentColor, updateCustomAccentColor,
+    customFontSize, updateCustomFontSize
+  } = useTheme();
 
   const sidebarSectionCards = React.useMemo(() => {
     const systemCards = SIDEBAR_SYSTEM_ITEMS.filter(
@@ -214,16 +218,6 @@ const Settings = () => {
 
     return [...systemCards, ...labelCards];
   }, [user, customSidebarLabels, t]);
-  const {
-    theme, changeTheme, currentThemeName,
-    backgroundImage, setBackgroundImage, clearBackgroundImage,
-    readingPaneMode: globalReadingPaneMode,
-    setReadingPaneModeState,
-    emailsPerPage, setEmailsPerPageState,
-    sidebarPreferences, setSidebarPreferences,
-    customAccentColor, updateCustomAccentColor,
-    customFontSize, updateCustomFontSize
-  } = useTheme();
 
   const bgFileRef = useRef(null);
   const savingRef = useRef(false);
@@ -2248,7 +2242,7 @@ const Settings = () => {
           {activeTab === "labels" && (
             <div className="settings-labels-container w-full min-w-0">
               <LabelManagement embedded={true} />
-              <div className="px-0 md:px-8 pb-6 -mt-2 sm:-mt-4 w-full max-w-6xl">
+              <section className="px-0 md:px-8 pb-6 -mt-2 sm:-mt-4 w-full max-w-6xl">
                 <div className="bg-white dark:bg-gray-800/90 rounded-2xl border border-blue-100/70 dark:border-gray-700/80 shadow-xs overflow-hidden">
                   <div className="px-3.5 sm:px-5 pt-4 pb-3 border-b border-gray-100 dark:border-gray-700/60 flex items-start sm:items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-blue-50/90 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800/60 flex items-center justify-center shrink-0">
@@ -2269,7 +2263,7 @@ const Settings = () => {
                   <div className="p-3.5 sm:p-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
                       {sidebarSectionCards.map((card) => {
-                        const isEnabled = sidebarSectionToggles[card.id] !== false;
+                        const isEnabled = sidebarVisibilityPreferences?.[card.id] !== false;
                         return (
                           <div
                             key={card.id}
@@ -2291,7 +2285,7 @@ const Settings = () => {
                               role="switch"
                               aria-checked={isEnabled}
                               aria-label={card.displayLabel}
-                              onClick={() => handleToggleSidebarSectionCard(card.id)}
+                              onClick={() => toggleSidebarVisibilityItem(card.id)}
                               className={`relative inline-flex shrink-0 w-10 h-[22px] rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#135bec]/40 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:w-[18px] after:h-[18px] after:rounded-full after:bg-white after:shadow-xs after:transition-transform ${
                                 isEnabled
                                   ? "bg-[#135bec] after:translate-x-[18px]"
@@ -2304,7 +2298,7 @@ const Settings = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
           )}
 

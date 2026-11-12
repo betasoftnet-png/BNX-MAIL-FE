@@ -162,6 +162,64 @@ const readStoredCustomPrefs = () => {
   return {};
 };
 
+const SIDEBAR_VISIBILITY_PREFS_KEY = "bnx_sidebar_visibility_prefs";
+
+const getActiveSidebarAccountEmail = () => {
+  if (typeof window === "undefined") return "";
+  const direct = localStorage.getItem("bnx_active_email");
+  if (direct && direct.trim()) return direct.trim();
+  try {
+    const profileRaw = localStorage.getItem("userProfile");
+    if (profileRaw) {
+      const parsed = JSON.parse(profileRaw);
+      if (parsed?.email && String(parsed.email).trim()) {
+        return String(parsed.email).trim();
+      }
+    }
+  } catch (e) {}
+  return "";
+};
+
+const readStoredSidebarVisibilityPrefs = () => {
+  try {
+    if (typeof window === "undefined") return {};
+    const activeEmail = getActiveSidebarAccountEmail();
+    if (activeEmail) {
+      const userKey = `${SIDEBAR_VISIBILITY_PREFS_KEY}_${activeEmail}`;
+      const lowerKey = `${SIDEBAR_VISIBILITY_PREFS_KEY}_${activeEmail.toLowerCase()}`;
+      const saved = localStorage.getItem(userKey) || localStorage.getItem(lowerKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+      }
+      return {};
+    }
+    const saved = localStorage.getItem(SIDEBAR_VISIBILITY_PREFS_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    }
+  } catch (e) {}
+  return {};
+};
+
+const writeStoredSidebarVisibilityPrefs = (prefs) => {
+  if (typeof window === "undefined" || !prefs || typeof prefs !== "object") return;
+  try {
+    const json = JSON.stringify(prefs);
+    const activeEmail = getActiveSidebarAccountEmail();
+    if (activeEmail) {
+      localStorage.setItem(`${SIDEBAR_VISIBILITY_PREFS_KEY}_${activeEmail}`, json);
+      const lower = activeEmail.toLowerCase();
+      if (lower !== activeEmail) {
+        localStorage.setItem(`${SIDEBAR_VISIBILITY_PREFS_KEY}_${lower}`, json);
+      }
+    } else {
+      localStorage.setItem(SIDEBAR_VISIBILITY_PREFS_KEY, json);
+    }
+  } catch (e) {}
+};
+
 export const ThemeProvider = ({ children }) => {
   const [currentThemeName, setCurrentThemeName] = useState("Classic");
   const [backgroundImage, setBackgroundImageState] = useState(null);
@@ -176,9 +234,21 @@ export const ThemeProvider = ({ children }) => {
 
   const [customLabelPreferences, setCustomLabelPreferencesState] = useState(() => readStoredCustomPrefs());
 
+  const [sidebarVisibilityPreferences, setSidebarVisibilityPreferencesState] = useState(() =>
+    readStoredSidebarVisibilityPrefs()
+  );
+  const sidebarVisibilityPrefsRef = useRef(sidebarVisibilityPreferences);
+
   const [labelPrefsVersion, setLabelPrefsVersion] = useState(0);
 
   const syncSeqRef = useRef(0);
+
+  const applySidebarVisibilityState = useCallback((nextPrefs) => {
+    const clean =
+      nextPrefs && typeof nextPrefs === "object" && !Array.isArray(nextPrefs) ? nextPrefs : {};
+    sidebarVisibilityPrefsRef.current = clean;
+    setSidebarVisibilityPreferencesState(clean);
+  }, []);
 
   const syncSystemLabelSettingsFromServer = useCallback(async () => {
     if (typeof window === "undefined") return null;
@@ -216,10 +286,17 @@ export const ThemeProvider = ({ children }) => {
           syncSeqRef.current += 1;
           setSidebarPreferencesState(readStoredSidebarPrefs());
           setCustomLabelPreferencesState(readStoredCustomPrefs());
+          applySidebarVisibilityState(readStoredSidebarVisibilityPrefs());
           setLabelPrefsVersion((v) => v + 1);
           if (localStorage.getItem("accessToken")) {
             syncSystemLabelSettingsFromServer();
           }
+          return;
+        }
+
+        if (e?.detail?.sidebarVisibilityPrefs) {
+          applySidebarVisibilityState(e.detail.sidebarVisibilityPrefs);
+          setLabelPrefsVersion((v) => v + 1);
           return;
         }
 
@@ -234,6 +311,10 @@ export const ThemeProvider = ({ children }) => {
         } else if (typeof window !== 'undefined') {
           setCustomLabelPreferencesState(readStoredCustomPrefs());
         }
+
+        if (!e?.detail) {
+          applySidebarVisibilityState(readStoredSidebarVisibilityPrefs());
+        }
         setLabelPrefsVersion((v) => v + 1);
       } catch (err) {}
     };
@@ -244,7 +325,7 @@ export const ThemeProvider = ({ children }) => {
       window.removeEventListener("bnx-label-prefs-changed", handleGlobalPrefsSync);
       window.removeEventListener("storage", handleGlobalPrefsSync);
     };
-  }, []);
+  }, [applySidebarVisibilityState]);
 
   // Load theme + background on first mount
   useEffect(() => {
@@ -266,6 +347,7 @@ export const ThemeProvider = ({ children }) => {
     }
     setSidebarPreferencesState(readStoredSidebarPrefs());
     setCustomLabelPreferencesState(readStoredCustomPrefs());
+    applySidebarVisibilityState(readStoredSidebarVisibilityPrefs());
     if (localStorage.getItem("accessToken")) {
       syncSystemLabelSettingsFromServer();
     }
@@ -428,6 +510,30 @@ export const ThemeProvider = ({ children }) => {
     }
   };
 
+  const setSidebarVisibilityPreferences = useCallback((prefs) => {
+    const clean = prefs && typeof prefs === "object" && !Array.isArray(prefs) ? { ...prefs } : {};
+    applySidebarVisibilityState(clean);
+    writeStoredSidebarVisibilityPrefs(clean);
+    setLabelPrefsVersion((v) => v + 1);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("bnx-label-prefs-changed", {
+          detail: { sidebarVisibilityPrefs: clean },
+        })
+      );
+    }
+  }, [applySidebarVisibilityState]);
+
+  const toggleSidebarVisibilityItem = useCallback((itemKey) => {
+    if (!itemKey) return;
+    const current = sidebarVisibilityPrefsRef.current || {};
+    const nextVal = current[itemKey] === false;
+    setSidebarVisibilityPreferences({
+      ...current,
+      [itemKey]: nextVal,
+    });
+  }, [setSidebarVisibilityPreferences]);
+
   // Merge dynamic text color into the current theme
   const activeTheme = { ...themes[currentThemeName] };
   if (customAccentColor) {
@@ -454,6 +560,9 @@ export const ThemeProvider = ({ children }) => {
         setEmailsPerPageState,
         sidebarPreferences,
         setSidebarPreferences,
+        sidebarVisibilityPreferences,
+        setSidebarVisibilityPreferences,
+        toggleSidebarVisibilityItem,
         customLabelPreferences,
         setCustomLabelPreferences,
         saveLabelVisibilityPreferences,
@@ -487,9 +596,12 @@ export const useTheme = () => {
       readingPaneMode: 'no_split',
       emailsPerPage: 50,
       sidebarPreferences: DEFAULT_SIDEBAR_PREFS,
+      sidebarVisibilityPreferences: {},
       customLabelPreferences: {},
       labelPrefsVersion: 0,
       setSidebarPreferences: () => {},
+      setSidebarVisibilityPreferences: () => {},
+      toggleSidebarVisibilityItem: () => {},
       setCustomLabelPreferences: () => {},
       saveLabelVisibilityPreferences: () => {},
       refreshSystemLabelSettings: async () => null,
