@@ -124,10 +124,10 @@ const LabelManagement = ({ embedded = false }) => {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   // Sync custom labels visibility state
-  const loadCustomVisibility = (prefsOverride = customLabelPreferences) => {
+  const loadCustomVisibility = () => {
     const map = {};
     labels.forEach((lbl) => {
-      map[String(lbl.id)] = getCustomLabelVisibility(lbl.id, null, prefsOverride);
+      map[String(lbl.id)] = getCustomLabelVisibility(lbl.id, null, customLabelPreferences);
     });
     setCustomVisibility(map);
     if (!hasUnsavedChanges) {
@@ -166,8 +166,7 @@ const LabelManagement = ({ embedded = false }) => {
       const cat = getCategoryPreferences();
       setImapPrefs(imap);
       setCatPrefs(cat);
-      // Pass null so synchronous bnx-label-prefs-changed events read live storage instead of a stale closure.
-      loadCustomVisibility(null);
+      loadCustomVisibility();
       if (!hasUnsavedChanges) {
         setDraftImapPrefs(imap);
         setDraftCatPrefs(cat);
@@ -175,7 +174,7 @@ const LabelManagement = ({ embedded = false }) => {
     };
     window.addEventListener("bnx-label-prefs-changed", handleSync);
     return () => window.removeEventListener("bnx-label-prefs-changed", handleSync);
-  }, [labels, hasUnsavedChanges, customLabelPreferences]);
+  }, [labels, hasUnsavedChanges]);
 
   // System Labels Definitions (derived from shared SYSTEM_LABEL_DEFINITIONS, omitting Important from Manage Labels UI)
   const systemLabels = useMemo(
@@ -323,7 +322,6 @@ const LabelManagement = ({ embedded = false }) => {
       }
       setDraftSidebarPrefs(confirmedSidebarPrefs);
       setCustomVisibility(fullCustomVisibility);
-      setDraftCustomVisibility(fullCustomVisibility);
 
       // 5. Commit category preferences
       setAllCategoryPreferences(draftCatPrefs);

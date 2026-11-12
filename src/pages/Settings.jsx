@@ -114,18 +114,6 @@ const KNOWN_CLIENT_APPS = {
   }
 };
 
-// Display-only options for the Sidebar section below Label Management
-const SIDEBAR_SECTION_ITEMS = [
-  { key: "Inbox", labelKey: "sidebar.inbox", defaultLabel: "Inbox" },
-  { key: "Starred", labelKey: "sidebar.starred", defaultLabel: "Starred" },
-  { key: "Snoozed", labelKey: "sidebar.snoozed", defaultLabel: "Snoozed" },
-  { key: "Sent", labelKey: "sidebar.sent", defaultLabel: "Sent" },
-  { key: "Draft", labelKey: "sidebar.draft", defaultLabel: "Draft" },
-  { key: "Trash", labelKey: "sidebar.trash", defaultLabel: "Trash" },
-  { key: "Notifications", labelKey: "sidebar.notification", defaultLabel: "Notifications" },
-  { key: "Archive", labelKey: "sidebar.archive", defaultLabel: "Archive" },
-];
-
 const Settings = () => {
   const { t, applyLanguage, currentLanguage } = useTranslation();
   const navigate = useNavigate();
@@ -265,12 +253,6 @@ const Settings = () => {
   }, [globalReadingPaneMode, activeTab]);
   const [bulkMailEnabled, setBulkMailEnabled] = useState(() => localStorage.getItem("bnx_bulk_mail_filter") !== "false");
   const [notificationEnabled, setNotificationEnabled] = useState(() => localStorage.getItem("bnx_notification_filter") !== "false");
-  const [sidebarSectionToggles, setSidebarSectionToggles] = useState(() =>
-    SIDEBAR_SECTION_ITEMS.reduce((acc, item) => {
-      acc[item.key] = true;
-      return acc;
-    }, {})
-  );
 
   // Accounts tab interactive states
   const [accountPassForm, setAccountPassForm] = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
@@ -2169,52 +2151,8 @@ const Settings = () => {
 
           {/* Labels Tab */}
           {activeTab === "labels" && (
-            <div className="settings-labels-container w-full min-w-0 flex flex-col">
+            <div className="settings-labels-container w-full min-w-0">
               <LabelManagement embedded={true} />
-              <div className="px-0 md:px-8 pb-6 w-full max-w-6xl">
-                <Section title={t("settings.sidebar_title", "Sidebar")} theme={theme}>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                    {t("settings.sidebar_desc", "Choose which items appear in the main sidebar.")}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-                    {SIDEBAR_SECTION_ITEMS.map((item) => {
-                      const labelText = t(item.labelKey, item.defaultLabel);
-                      const isEnabled = Boolean(sidebarSectionToggles[item.key]);
-                      return (
-                        <div
-                          key={item.key}
-                          className="flex items-center justify-between gap-3 p-4 rounded-xl border bg-white dark:bg-transparent min-w-0"
-                          style={{ borderColor: theme.border }}
-                        >
-                          <span className="font-medium text-sm truncate" style={{ color: theme.text }}>
-                            {labelText}
-                          </span>
-                          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input
-                              type="checkbox"
-                              className="sr-only peer"
-                              checked={isEnabled}
-                              aria-label={labelText}
-                              onChange={() =>
-                                setSidebarSectionToggles((prev) => ({
-                                  ...prev,
-                                  [item.key]: !prev[item.key],
-                                }))
-                              }
-                            />
-                            <div
-                              className={`w-11 h-6 rounded-full relative transition-colors peer-focus:outline-none after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white ${
-                                isEnabled ? "" : "bg-gray-200 dark:bg-gray-700"
-                              }`}
-                              style={isEnabled ? { backgroundColor: theme.accent } : undefined}
-                            />
-                          </label>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Section>
-              </div>
             </div>
           )}
 
