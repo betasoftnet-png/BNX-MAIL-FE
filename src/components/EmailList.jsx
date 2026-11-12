@@ -410,7 +410,7 @@ const EmailList = ({
                               e.stopPropagation();
                               onStar?.(itemUid, itemFolder);
                             }}
-                            className="p-1 rounded-full cursor-pointer text-gray-400 dark:text-gray-500"
+                            className="inline-flex items-center justify-center p-1 rounded-full cursor-pointer text-gray-400 dark:text-gray-500 hover:bg-gray-200/75 dark:hover:bg-white/10 transition-colors duration-150"
                             title={isItemStarred ? "Unstar" : "Star"}
                             aria-label={isItemStarred ? "Unstar email" : "Star email"}
                           >
