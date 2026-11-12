@@ -477,7 +477,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
             <Pencil size={17} className="text-[#195bac] shrink-0" />
-            <span className="text-[10px] sm:text-[11px] font-semibold text-gray-900 leading-none whitespace-nowrap">
+            <span className="text-xs sm:text-sm font-semibold text-gray-900 leading-none whitespace-nowrap">
               {t('navbar.compose', t('common.compose', 'Compose'))}
             </span>
           </button>
