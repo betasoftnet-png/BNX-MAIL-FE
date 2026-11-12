@@ -1,6 +1,24 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  Mail,
+  Star,
+  Clock,
+  Send,
+  FileText,
+  Trash2,
+  Layers,
+  Calendar,
+  AlertOctagon,
+  Inbox as LucideInbox,
+  Archive,
+  BarChart2,
+  Bookmark,
+  Database,
+  Tag,
+  PanelLeft,
+} from "lucide-react";
 import {
   MdSettings,
   MdColorLens,
@@ -46,12 +64,14 @@ import {
   MdArchive,
   MdTune,
   MdHelpOutline,
-  MdLightbulb
+  MdLightbulb,
+  MdLabel
 } from "react-icons/md";
 import { motion } from "framer-motion";
 import inviteFriendsIllustration from "../assets/invite-friends-illustration.jpg";
 import { emailAPI, authAPI, userAPI, signatureAPI, settingsAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { useMail } from "../context/MailContext";
 import { useTheme, PRESET_BACKGROUNDS, themes, DEFAULT_SIDEBAR_PREFS } from "../context/ThemeContext";
 import { useTranslation, normalizeLang } from "../context/LanguageContext";
 import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
@@ -114,11 +134,86 @@ const KNOWN_CLIENT_APPS = {
   }
 };
 
+const SIDEBAR_SYSTEM_ITEMS = [
+  { name: "Inbox", labelKey: "sidebar.inbox" },
+  { name: "Starred", labelKey: "sidebar.starred" },
+  { name: "Sent", labelKey: "sidebar.sent" },
+  { name: "Draft", labelKey: "sidebar.draft" },
+  { name: "Trash", labelKey: "sidebar.trash" },
+  { name: "Snoozed", labelKey: "sidebar.snoozed" },
+  { name: "All Inbox", labelKey: "sidebar.all_inbox", requiresAllInbox: true },
+  { name: "Scheduled", labelKey: "sidebar.scheduled" },
+  { name: "Spam", labelKey: "sidebar.spam" },
+  { name: "All Mail", labelKey: "sidebar.all_mail" },
+  { name: "Archive", labelKey: "sidebar.archive" },
+  { name: "Unread", labelKey: "sidebar.unread" },
+  { name: "Templates", labelKey: "sidebar.templates" },
+  { name: "Subscriptions", labelKey: "sidebar.subscriptions" },
+  { name: "Manage Labels", labelKey: "sidebar.manage_labels" },
+  { name: "Analytics", labelKey: "sidebar.analytics" },
+  { name: "Mail Backup", labelKey: "sidebar.mail_backup" },
+];
+
+const SIDEBAR_CARD_ICONS = {
+  Inbox: <Mail size={16} strokeWidth={1.8} />,
+  Starred: <Star size={16} strokeWidth={1.8} />,
+  Sent: <Send size={16} strokeWidth={1.8} />,
+  Draft: <FileText size={16} strokeWidth={1.8} />,
+  Trash: <Trash2 size={16} strokeWidth={1.8} />,
+  Snoozed: <Clock size={16} strokeWidth={1.8} />,
+  "All Inbox": <Layers size={16} strokeWidth={1.8} />,
+  Scheduled: <Calendar size={16} strokeWidth={1.8} />,
+  Spam: <AlertOctagon size={16} strokeWidth={1.8} />,
+  "All Mail": <LucideInbox size={16} strokeWidth={1.8} />,
+  Archive: <Archive size={16} strokeWidth={1.8} />,
+  Unread: <Mail size={16} strokeWidth={1.8} />,
+  Templates: <FileText size={16} strokeWidth={1.8} />,
+  Subscriptions: <Bookmark size={16} strokeWidth={1.8} />,
+  "Manage Labels": <Tag size={16} strokeWidth={1.8} />,
+  Analytics: <BarChart2 size={16} strokeWidth={1.8} />,
+  "Mail Backup": <Database size={16} strokeWidth={1.8} />,
+};
+
 const Settings = () => {
   const { t, applyLanguage, currentLanguage } = useTranslation();
   const navigate = useNavigate();
   const routerLocation = useLocation();
   const { user, getSessions, switchAccount } = useAuth();
+  const { labels: customSidebarLabels = [] } = useMail();
+  const [sidebarSectionToggles, setSidebarSectionToggles] = useState({});
+
+  const handleToggleSidebarSectionCard = (cardId) => {
+    setSidebarSectionToggles((prev) => ({
+      ...prev,
+      [cardId]: prev[cardId] === false,
+    }));
+  };
+
+  const sidebarSectionCards = React.useMemo(() => {
+    const systemCards = SIDEBAR_SYSTEM_ITEMS.filter(
+      (item) => !item.requiresAllInbox || canAccessAllInbox(user)
+    ).map((item) => ({
+      id: `folder:${item.name}`,
+      displayLabel: t(item.labelKey, item.name),
+      icon: SIDEBAR_CARD_ICONS[item.name] || <Mail size={16} strokeWidth={1.8} />,
+    }));
+
+    const seenLabelIds = new Set();
+    const labelCards = [];
+    for (const lbl of Array.isArray(customSidebarLabels) ? customSidebarLabels : []) {
+      if (!lbl || lbl.id == null || !lbl.name) continue;
+      const key = String(lbl.id);
+      if (seenLabelIds.has(key)) continue;
+      seenLabelIds.add(key);
+      labelCards.push({
+        id: `label:${key}`,
+        displayLabel: lbl.name,
+        icon: <MdLabel size={16} style={{ color: lbl.colorHex || "#135bec" }} />,
+      });
+    }
+
+    return [...systemCards, ...labelCards];
+  }, [user, customSidebarLabels, t]);
   const {
     theme, changeTheme, currentThemeName,
     backgroundImage, setBackgroundImage, clearBackgroundImage,
@@ -2153,6 +2248,63 @@ const Settings = () => {
           {activeTab === "labels" && (
             <div className="settings-labels-container w-full min-w-0">
               <LabelManagement embedded={true} />
+              <div className="px-0 md:px-8 pb-6 -mt-2 sm:-mt-4 w-full max-w-6xl">
+                <div className="bg-white dark:bg-gray-800/90 rounded-2xl border border-blue-100/70 dark:border-gray-700/80 shadow-xs overflow-hidden">
+                  <div className="px-3.5 sm:px-5 pt-4 pb-3 border-b border-gray-100 dark:border-gray-700/60 flex items-start sm:items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50/90 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800/60 flex items-center justify-center shrink-0">
+                      <PanelLeft size={18} className="text-[#135bec] dark:text-blue-400" strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                        {t("settings.sidebar", "Sidebar")}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {t(
+                          "settings.folder_label_desc",
+                          "Toggle which standard system folders and custom labels appear in the primary sidebar."
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-3.5 sm:p-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
+                      {sidebarSectionCards.map((card) => {
+                        const isEnabled = sidebarSectionToggles[card.id] !== false;
+                        return (
+                          <div
+                            key={card.id}
+                            className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-gray-200/80 dark:border-gray-700/80 bg-gray-50/60 dark:bg-gray-900/40 hover:border-blue-200 dark:hover:border-blue-800/70 transition-colors min-w-0"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span className="shrink-0 flex items-center justify-center text-gray-600 dark:text-gray-300">
+                                {card.icon}
+                              </span>
+                              <span
+                                className="text-xs sm:text-sm font-medium text-gray-800 dark:text-gray-200 truncate"
+                                title={card.displayLabel}
+                              >
+                                {card.displayLabel}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={isEnabled}
+                              aria-label={card.displayLabel}
+                              onClick={() => handleToggleSidebarSectionCard(card.id)}
+                              className={`relative inline-flex shrink-0 w-10 h-[22px] rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#135bec]/40 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:w-[18px] after:h-[18px] after:rounded-full after:bg-white after:shadow-xs after:transition-transform ${
+                                isEnabled
+                                  ? "bg-[#135bec] after:translate-x-[18px]"
+                                  : "bg-gray-300 dark:bg-gray-600 after:translate-x-0"
+                              }`}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
