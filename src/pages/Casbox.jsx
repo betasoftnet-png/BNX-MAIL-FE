@@ -1,4 +1,4 @@
-﻿import { useTranslation } from "../context/LanguageContext";
+import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
