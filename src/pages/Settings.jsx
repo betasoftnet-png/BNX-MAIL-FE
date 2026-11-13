@@ -698,7 +698,14 @@ const Settings = () => {
           if (bioRes && bioRes.data) {
             const bioData = bioRes.data.data || bioRes.data;
             if (bioData.enabled !== undefined) {
-              setBiometricsEnabled(Boolean(bioData.enabled));
+              const isBioEnabled = Boolean(bioData.enabled);
+              setBiometricsEnabled(isBioEnabled);
+              if (isBioEnabled) {
+                localStorage.setItem('bnx_biometrics_enabled', 'true');
+              } else {
+                localStorage.removeItem('bnx_biometrics_enabled');
+                localStorage.removeItem('bnx_biometric_email');
+              }
             }
           }
         } catch (e) {
@@ -1689,6 +1696,9 @@ const Settings = () => {
         const verifyRes = await authAPI.verifyBiometricRegister(payload);
         if (verifyRes.data?.success) {
           setBiometricsEnabled(true);
+          localStorage.setItem('bnx_biometrics_enabled', 'true');
+          const currentEmail = user?.email || localStorage.getItem('bnx_active_email') || '';
+          if (currentEmail) localStorage.setItem('bnx_biometric_email', currentEmail);
           toast.success("Biometric Authentication Enabled", { id: "bio-toast" });
         } else {
           toast.error(verifyRes.data?.message || "Biometric registration failed.", { id: "bio-toast" });
@@ -1698,6 +1708,8 @@ const Settings = () => {
         const res = await authAPI.disableBiometrics();
         if (res.data?.success) {
           setBiometricsEnabled(false);
+          localStorage.removeItem('bnx_biometrics_enabled');
+          localStorage.removeItem('bnx_biometric_email');
           toast.success("Biometric Authentication Disabled", { id: "bio-toast" });
         } else {
           toast.error(res.data?.message || "Failed to disable biometric authentication.", { id: "bio-toast" });

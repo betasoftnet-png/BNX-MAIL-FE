@@ -77,13 +77,13 @@ export function prepareRegistrationOptions(serverOptions) {
   options.authenticatorSelection = {
     authenticatorAttachment: "platform",
     userVerification: "required",
-    residentKey: "discouraged",
+    residentKey: "preferred",
     requireResidentKey: false,
     ...(options.authenticatorSelection || {})
   };
   options.authenticatorSelection.authenticatorAttachment = "platform";
   options.authenticatorSelection.userVerification = "required";
-  options.authenticatorSelection.residentKey = "discouraged";
+  options.authenticatorSelection.residentKey = "preferred";
   options.authenticatorSelection.requireResidentKey = false;
 
   // Convert excludeCredentials if present
@@ -111,12 +111,14 @@ export function prepareLoginOptions(serverOptions) {
   // Enforce required user verification for native fingerprint/biometric prompt
   options.userVerification = "required";
 
-  // Convert allowCredentials if present
-  if (Array.isArray(options.allowCredentials)) {
+  // Convert allowCredentials if present; for discoverable credentials, leave undefined
+  if (Array.isArray(options.allowCredentials) && options.allowCredentials.length > 0) {
     options.allowCredentials = options.allowCredentials.map(cred => ({
       ...cred,
       id: typeof cred.id === 'string' ? base64urlToBuffer(cred.id) : cred.id
     }));
+  } else {
+    delete options.allowCredentials;
   }
 
   return options;
