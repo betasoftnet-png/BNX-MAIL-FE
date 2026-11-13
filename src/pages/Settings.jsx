@@ -2761,8 +2761,17 @@ const Settings = () => {
                     </div>
                   </div>
 
-                  <div className="border-t my-4" style={{ borderColor: theme.border }} />
+                  <button
+                    type="submit"
+                    className="w-fit mt-1 px-5 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer hover:opacity-95 transition-opacity"
+                    style={{ background: theme.accent }}
+                  >
+                    {t("settings.save_profile_info", "Save Profile Information")}
+                  </button>
+                </form>
 
+                {/* Two-Factor Authentication Section */}
+                <div className="flex flex-col gap-4 border-t pt-8" style={{ borderColor: theme.border }}>
                   <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("settings.two_factor_auth", "Multi-Factor Authenticator")}</h4>
                   
                   <div
@@ -2833,17 +2842,7 @@ const Settings = () => {
                       )}
                     </div>
                   </div>
-
-                  <ToggleRow label={t("settings.enable_biometrics", "Enable Biometrics Access")} checked={biometricsEnabled} onChange={setBiometricsEnabled} theme={theme} />
-
-                  <button
-                    type="submit"
-                    className="w-fit mt-3 px-6 py-3 rounded-xl text-sm font-medium text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-sm"
-                    style={{ background: theme.accent }}
-                  >
-                    {t("settings.save_security_preferences", "Save Security Preferences")}
-                  </button>
-                </form>
+                </div>
 
                 {/* Password update form */}
                 <form onSubmit={handleChangePassword} className="flex flex-col gap-4 border-t pt-8" style={{ borderColor: theme.border }}>
