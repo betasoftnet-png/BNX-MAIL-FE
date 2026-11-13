@@ -1,4 +1,4 @@
-import { useTranslation } from "../context/LanguageContext";
+﻿import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
@@ -3020,8 +3020,8 @@ const Casbox = () => {
           handleNavigateToOriginalMessage(originalMsgId, quotedSnippet, quotedSender);
         }}
         className={`mb-1.5 p-2 rounded-xl text-[11px] border-l-4 select-none cursor-pointer hover:opacity-90 active:scale-[0.99] transition-all ${isMe
-            ? 'bg-black/15 text-white border-white/70 hover:bg-black/25'
-            : 'bg-black/5 dark:bg-white/5 text-gray-700 dark:text-gray-200 border-blue-500 dark:border-blue-400 hover:bg-black/10 dark:hover:bg-white/10'
+          ? 'bg-black/15 text-white border-white/70 hover:bg-black/25'
+          : 'bg-black/5 dark:bg-white/5 text-gray-700 dark:text-gray-200 border-blue-500 dark:border-blue-400 hover:bg-black/10 dark:hover:bg-white/10'
           }`}
         title="Click to jump to original message"
       >
@@ -5232,8 +5232,8 @@ const Casbox = () => {
             type="button"
             onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
             className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-xs min-[380px]:text-[12.5px] sm:text-sm md:text-[14.5px] font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'messages'
-                ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
           >
             {t('casbox.messages', 'Messages')}
@@ -5249,8 +5249,8 @@ const Casbox = () => {
             type="button"
             onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
             className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-xs min-[380px]:text-[12.5px] sm:text-sm md:text-[14.5px] font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${isCombineTab
-                ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
           >
             {t('casbox.combine', 'Combine')}
@@ -5266,8 +5266,8 @@ const Casbox = () => {
             type="button"
             onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
             className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-xs min-[380px]:text-[12.5px] sm:text-sm md:text-[14.5px] font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'requests'
-                ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
           >
             {t('casbox.requests', 'Requests')}
@@ -5319,8 +5319,8 @@ const Casbox = () => {
                 setSelectedRowIds(new Set());
               }}
               className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-xs min-[380px]:text-[12.5px] sm:text-sm md:text-[14.5px] font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${activeTab === 'archive'
-                  ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               title={t('sidebar.archive', 'Archive')}
             >
@@ -5500,8 +5500,8 @@ const Casbox = () => {
                 type="button"
                 onClick={() => setShowFilterMenu(prev => !prev)}
                 className={`p-1.5 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${combineFilter !== 'all' || showFilterMenu
-                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
                   }`}
                 title="Filter messages"
                 aria-label="Filter messages"
@@ -5739,8 +5739,8 @@ const Casbox = () => {
                 type="button"
                 onClick={() => setShowMessagesFilterMenu((prev) => !prev)}
                 className={`p-1 rounded-lg transition-colors shrink-0 flex items-center justify-center cursor-pointer ${messagesFilter !== 'all' || showMessagesFilterMenu
-                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'
                   }`}
                 title="Filter messages"
                 aria-label="Filter messages"
@@ -5767,8 +5767,8 @@ const Casbox = () => {
                           setShowMessagesFilterMenu(false);
                         }}
                         className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm flex items-center gap-3 transition-colors cursor-pointer ${isSelected
-                            ? "bg-blue-50/70 dark:bg-blue-900/25 text-blue-600 dark:text-blue-400 font-semibold"
-                            : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 font-medium"
+                          ? "bg-blue-50/70 dark:bg-blue-900/25 text-blue-600 dark:text-blue-400 font-semibold"
+                          : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 font-medium"
                           }`}
                       >
                         {IconComponent ? (
@@ -7255,8 +7255,8 @@ const Casbox = () => {
                 <MdClose size={20} />
               </button>
               <span className={`text-xs sm:text-sm font-bold truncate ${selectedMessageItemIds.size > 0
-                  ? 'text-gray-900 dark:text-gray-100'
-                  : 'text-gray-500 dark:text-gray-400'
+                ? 'text-gray-900 dark:text-gray-100'
+                : 'text-gray-500 dark:text-gray-400'
                 }`}>
                 {selectedMessageItemIds.size === 1
                   ? '1 selected'
@@ -7389,8 +7389,8 @@ const Casbox = () => {
                 type="button"
                 onClick={() => setShowStarredMessagesView(prev => !prev)}
                 className={`p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${showStarredMessagesView
-                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-900/20'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100'
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-900/20'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100'
                   }`}
                 title={showStarredMessagesView ? "View chat history" : "Starred messages"}
                 aria-label="Starred messages"
@@ -7581,8 +7581,8 @@ const Casbox = () => {
                         >
                           <div className="relative shrink-0">
                             <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs ${isMe
-                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                              : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
                               }`}>
                               {senderInitial}
                             </div>
@@ -7710,8 +7710,8 @@ const Casbox = () => {
                           {/* Avatar Container */}
                           <div className="relative shrink-0">
                             <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs ${isMe
-                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                              : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
                               }`}>
                               {senderInitial}
                             </div>
@@ -7740,8 +7740,8 @@ const Casbox = () => {
                             <div
                               ref={reactionBarRef}
                               className={`absolute z-50 flex flex-col ${reactionPickerPlacement.placement === 'below'
-                                  ? 'top-full mt-1.5'
-                                  : 'bottom-full mb-1.5'
+                                ? 'top-full mt-1.5'
+                                : 'bottom-full mb-1.5'
                                 } ${reactionPickerPlacement.align === 'right'
                                   ? 'right-0 items-end'
                                   : 'left-0 items-start'
@@ -8094,8 +8094,8 @@ const Casbox = () => {
                                         handleToggleReaction(msgUniqueId, emoji);
                                       }}
                                       className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs shadow-2xs cursor-pointer transition-all hover:scale-105 active:scale-95 ${hasReacted
-                                          ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 font-semibold text-blue-700 dark:text-blue-300'
-                                          : 'bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 font-semibold text-blue-700 dark:text-blue-300'
+                                        : 'bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
                                         }`}
                                       title={`${tooltipText} reacted with ${emoji} (Click to ${hasReacted ? 'remove' : 'add'})`}
                                     >
@@ -8949,15 +8949,15 @@ const Casbox = () => {
                         key={contact.id || identKey}
                         onClick={() => handleToggleForwardContact(identKey)}
                         className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors select-none ${isSelected
-                            ? "bg-blue-50/70 dark:bg-blue-950/30"
-                            : "hover:bg-gray-50 dark:hover:bg-white/5"
+                          ? "bg-blue-50/70 dark:bg-blue-950/30"
+                          : "hover:bg-gray-50 dark:hover:bg-white/5"
                           }`}
                       >
                         {/* Checkbox */}
                         <div
                           className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${isSelected
-                              ? "bg-blue-600 border-blue-600 text-white"
-                              : "border-gray-300 dark:border-gray-600 bg-white dark:bg-transparent"
+                            ? "bg-blue-600 border-blue-600 text-white"
+                            : "border-gray-300 dark:border-gray-600 bg-white dark:bg-transparent"
                             }`}
                         >
                           {isSelected && <MdCheck size={12} className="stroke-[3]" />}
@@ -9008,8 +9008,8 @@ const Casbox = () => {
                     onClick={handleSendForward}
                     disabled={selectedForwardContactEmails.size === 0 || isSendingForward}
                     className={`px-4 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-all shadow-sm ${selectedForwardContactEmails.size === 0 || isSendingForward
-                        ? "opacity-50 cursor-not-allowed bg-blue-600"
-                        : "bg-blue-600 hover:bg-blue-700 active:scale-95 cursor-pointer"
+                      ? "opacity-50 cursor-not-allowed bg-blue-600"
+                      : "bg-blue-600 hover:bg-blue-700 active:scale-95 cursor-pointer"
                       }`}
                     style={{ backgroundColor: theme?.accent || '#135bec' }}
                   >
