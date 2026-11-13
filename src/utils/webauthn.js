@@ -71,6 +71,21 @@ export function prepareRegistrationOptions(serverOptions) {
     }
   }
 
+  // Explicitly enforce platform authenticator and userVerification: required.
+  // Setting residentKey: "discouraged" prevents Chrome from presenting the Google Password Manager passkey dialog
+  // and directs the browser directly to the device platform authenticator (Windows Hello, Touch ID, Face ID).
+  options.authenticatorSelection = {
+    authenticatorAttachment: "platform",
+    userVerification: "required",
+    residentKey: "discouraged",
+    requireResidentKey: false,
+    ...(options.authenticatorSelection || {})
+  };
+  options.authenticatorSelection.authenticatorAttachment = "platform";
+  options.authenticatorSelection.userVerification = "required";
+  options.authenticatorSelection.residentKey = "discouraged";
+  options.authenticatorSelection.requireResidentKey = false;
+
   // Convert excludeCredentials if present
   if (Array.isArray(options.excludeCredentials)) {
     options.excludeCredentials = options.excludeCredentials.map(cred => ({
@@ -92,6 +107,9 @@ export function prepareLoginOptions(serverOptions) {
   if (typeof options.challenge === 'string') {
     options.challenge = base64urlToBuffer(options.challenge);
   }
+
+  // Enforce required user verification for native fingerprint/biometric prompt
+  options.userVerification = "required";
 
   // Convert allowCredentials if present
   if (Array.isArray(options.allowCredentials)) {

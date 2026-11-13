@@ -21,8 +21,8 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // 2FA state variables
-    const [step, setStep] = useState('login'); // 'login', '2fa', 'recovery', 'appeal'
+    // 2FA & Biometric state variables
+    const [step, setStep] = useState('login'); // 'login', 'biometric', '2fa', 'recovery', 'appeal'
     const [useBackupCode, setUseBackupCode] = useState(false);
     const [appealMessage, setAppealMessage] = useState('');
     const [appealSuccess, setAppealSuccess] = useState(false);
@@ -30,6 +30,8 @@ const Login = () => {
     const [otp, setOtp] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [biometricLoading, setBiometricLoading] = useState(false);
+    const [biometricEmail, setBiometricEmail] = useState('');
+    const [has2faAlternative, setHas2faAlternative] = useState(false);
 
     const [formData, setFormData] = useState({
         email: '',
@@ -83,7 +85,13 @@ const Login = () => {
 
             if (response.data.success) {
                 const responseData = response.data.data;
-                if (responseData && responseData.status === '2FA_REQUIRED') {
+                if (responseData && responseData.status === 'BIOMETRIC_REQUIRED') {
+                    setTempToken(responseData.tempToken);
+                    setBiometricEmail(responseData.email || loginEmail);
+                    setHas2faAlternative(Boolean(responseData.has2fa));
+                    setStep('biometric');
+                    setError('');
+                } else if (responseData && responseData.status === '2FA_REQUIRED') {
                     setTempToken(responseData.tempToken);
                     setStep('2fa');
                     setOtp('');
@@ -112,16 +120,12 @@ const Login = () => {
         }
     };
 
-    const handleBiometricLogin = async () => {
+    const handleBiometricVerify = async () => {
         setError('');
-        let loginEmail = formData.email ? formData.email.trim() : '';
-        if (!loginEmail) {
-            setError('Please enter your email address to sign in with biometrics.');
+        const emailToVerify = biometricEmail || (formData.email ? formData.email.trim() : '');
+        if (!emailToVerify) {
+            setError('Please enter your email address to verify with biometrics.');
             return;
-        }
-
-        if (!loginEmail.includes('@')) {
-            loginEmail = `${loginEmail}@bnxmail.com`;
         }
 
         const isSupported = await isBiometricsAvailable();
@@ -132,7 +136,10 @@ const Login = () => {
 
         setBiometricLoading(true);
         try {
-            const optionsRes = await authAPI.getBiometricLoginOptions({ email: loginEmail });
+            const optionsRes = await authAPI.getBiometricLoginOptions({
+                email: emailToVerify,
+                tempToken: tempToken || undefined
+            });
             const optionsData = optionsRes.data?.data || optionsRes.data;
 
             const publicKeyOptions = prepareLoginOptions(optionsData);
@@ -148,7 +155,8 @@ const Login = () => {
             const serialized = serializeAuthenticationCredential(assertion);
 
             const verifyRes = await authAPI.verifyBiometricLogin({
-                email: loginEmail,
+                email: emailToVerify,
+                tempToken: tempToken || undefined,
                 ...serialized
             });
 
@@ -162,15 +170,15 @@ const Login = () => {
                     navigate('/inbox');
                 }
             } else {
-                setError(verifyRes.data?.message || 'Biometric authentication failed.');
+                setError(verifyRes.data?.message || 'Biometric verification failed.');
             }
         } catch (err) {
-            console.error('Biometric login error:', err);
+            console.error('Biometric verification error:', err);
             const isAbort = err.name === 'NotAllowedError' || err.name === 'AbortError' || err.message?.includes('cancelled');
             if (isAbort) {
-                setError('Biometric verification cancelled.');
+                setError('Biometric prompt cancelled. Click "Verify with Fingerprint" to try again.');
             } else {
-                setError(err.response?.data?.message || err.message || 'Biometric authentication failed. Please try password login.');
+                setError(err.response?.data?.message || err.message || 'Biometric verification failed. Please try again.');
             }
         } finally {
             setBiometricLoading(false);
@@ -267,12 +275,14 @@ const Login = () => {
                     <img src={logo} alt="BNX Mail" className="mx-auto h-24 w-auto drop-shadow-md" />
                     <h2 className="mt-3 text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
                         {step === 'login' && 'Welcome Back'}
+                        {step === 'biometric' && 'Biometric Verification'}
                         {step === '2fa' && 'Two-Factor Authentication'}
                         {step === 'recovery' && 'Recovery Code Verification'}
                         {step === 'appeal' && 'Account Suspended'}
                     </h2>
                     <p className="mt-2 text-sm text-gray-500 dark:text-slate-400 font-medium px-4">
                         {step === 'login' && 'Securely access your BNX Mail account.'}
+                        {step === 'biometric' && 'Verify your identity using your fingerprint.'}
                         {step === '2fa' && 'Enter the 6-digit code from your authenticator app.'}
                         {step === 'recovery' && 'Enter a backup recovery code to access your account.'}
                         {step === 'appeal' && 'Your account has been restricted. You can submit an appeal below.'}
@@ -363,7 +373,7 @@ const Login = () => {
 
                         <button
                             type="submit"
-                            disabled={loading || biometricLoading}
+                            disabled={loading}
                             className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50"
                         >
                             {loading ? (
@@ -376,33 +386,6 @@ const Login = () => {
                             )}
                         </button>
 
-                        <div className="relative flex items-center justify-center my-3">
-                            <div className="border-t border-gray-200 dark:border-slate-700 w-full" />
-                            <span className="bg-white dark:bg-slate-800 px-3 text-xs uppercase text-gray-400 font-semibold tracking-wider">
-                                Or
-                            </span>
-                            <div className="border-t border-gray-200 dark:border-slate-700 w-full" />
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={handleBiometricLogin}
-                            disabled={biometricLoading || loading}
-                            className="w-full py-3.5 px-6 bg-gray-50 hover:bg-gray-100 dark:bg-slate-700/70 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-white font-semibold rounded-xl shadow-xs transition-all duration-200 flex items-center justify-center gap-2.5 disabled:opacity-50 cursor-pointer"
-                        >
-                            {biometricLoading ? (
-                                <div className="flex items-center justify-center gap-2">
-                                    <div className="w-5 h-5 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin" />
-                                    <span>Verifying Biometrics...</span>
-                                </div>
-                            ) : (
-                                <>
-                                    <MdFingerprint className="text-indigo-600 dark:text-indigo-400" size={22} />
-                                    <span>Sign in with Biometrics</span>
-                                </>
-                            )}
-                        </button>
-
                         <div className="text-center text-sm space-y-4 pt-4 border-t border-gray-100 dark:border-slate-700">
                             <div className="text-gray-500 dark:text-slate-400">
                                 Don't have an account?{' '}
@@ -412,6 +395,83 @@ const Login = () => {
                             </div>
                         </div>
                     </motion.form>
+                )}
+
+                {step === 'biometric' && (
+                    <motion.div
+                        key="biometric"
+                        className="mt-8 space-y-6"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                    >
+                        <div className="flex flex-col items-center justify-center space-y-4 py-3">
+                            <div className="relative flex items-center justify-center">
+                                <div className="w-24 h-24 rounded-full bg-indigo-50 dark:bg-slate-700/60 border-2 border-indigo-200 dark:border-indigo-800/80 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner">
+                                    <MdFingerprint size={54} className={biometricLoading ? "animate-pulse" : ""} />
+                                </div>
+                                {biometricLoading && (
+                                    <div className="absolute inset-0 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+                                )}
+                            </div>
+
+                            <div className="text-center space-y-1.5 px-4">
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                                    Verify your identity using your fingerprint
+                                </h3>
+                                <p className="text-xs text-gray-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+                                    Confirm the native device prompt (Windows Hello, Touch ID, Face ID, or fingerprint sensor) to complete login for <span className="font-semibold text-gray-700 dark:text-gray-300">{biometricEmail || formData.email}</span>.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <button
+                                type="button"
+                                onClick={handleBiometricVerify}
+                                disabled={biometricLoading}
+                                className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                                {biometricLoading ? (
+                                    <div className="flex items-center justify-center gap-2">
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <span>Waiting for fingerprint verification...</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <MdFingerprint size={22} />
+                                        <span>Verify with Fingerprint</span>
+                                    </>
+                                )}
+                            </button>
+
+                            <div className="flex flex-col gap-2.5 text-center text-sm pt-4 border-t border-gray-100 dark:border-slate-700">
+                                {has2faAlternative && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setError('');
+                                            setStep('2fa');
+                                        }}
+                                        className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold cursor-pointer"
+                                    >
+                                        Use Authenticator App (2FA) instead
+                                    </button>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setError('');
+                                        setStep('login');
+                                    }}
+                                    className="text-gray-500 dark:text-slate-400 hover:underline text-xs flex items-center justify-center gap-1 cursor-pointer pt-1"
+                                >
+                                    <ArrowLeft size={14} /> Back to email & password
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
                 )}
 
                 {step === '2fa' && (
