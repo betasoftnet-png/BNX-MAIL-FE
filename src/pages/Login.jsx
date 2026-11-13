@@ -3,8 +3,13 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Mail, CheckCircle2, Shield, Loader2 } from 'lucide-react';
-import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
+import { MdVisibility, MdVisibilityOff, MdFingerprint } from 'react-icons/md';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+    isBiometricsAvailable,
+    prepareLoginOptions,
+    serializeAuthenticationCredential
+} from '../utils/webauthn';
 // import logo from '../assets/bnx.jpeg';
 
 import logo from "../assets/bnx-remove.png";
@@ -24,6 +29,7 @@ const Login = () => {
     const [tempToken, setTempToken] = useState('');
     const [otp, setOtp] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+    const [biometricLoading, setBiometricLoading] = useState(false);
 
     const [formData, setFormData] = useState({
         email: '',
@@ -103,6 +109,71 @@ const Login = () => {
             }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleBiometricLogin = async () => {
+        setError('');
+        let loginEmail = formData.email ? formData.email.trim() : '';
+        if (!loginEmail) {
+            setError('Please enter your email address to sign in with biometrics.');
+            return;
+        }
+
+        if (!loginEmail.includes('@')) {
+            loginEmail = `${loginEmail}@bnxmail.com`;
+        }
+
+        const isSupported = await isBiometricsAvailable();
+        if (!isSupported) {
+            setError('Biometric authentication is not supported or not configured on this device.');
+            return;
+        }
+
+        setBiometricLoading(true);
+        try {
+            const optionsRes = await authAPI.getBiometricLoginOptions({ email: loginEmail });
+            const optionsData = optionsRes.data?.data || optionsRes.data;
+
+            const publicKeyOptions = prepareLoginOptions(optionsData);
+
+            const assertion = await navigator.credentials.get({
+                publicKey: publicKeyOptions
+            });
+
+            if (!assertion) {
+                throw new Error('Biometric authentication cancelled or timed out.');
+            }
+
+            const serialized = serializeAuthenticationCredential(assertion);
+
+            const verifyRes = await authAPI.verifyBiometricLogin({
+                email: loginEmail,
+                ...serialized
+            });
+
+            if (verifyRes.data?.success) {
+                const responseData = verifyRes.data.data;
+                login(responseData);
+
+                if (responseData.accountType === 'BUSINESS' && responseData.onboarded === false) {
+                    navigate('/signup/business-onboarding');
+                } else {
+                    navigate('/inbox');
+                }
+            } else {
+                setError(verifyRes.data?.message || 'Biometric authentication failed.');
+            }
+        } catch (err) {
+            console.error('Biometric login error:', err);
+            const isAbort = err.name === 'NotAllowedError' || err.name === 'AbortError' || err.message?.includes('cancelled');
+            if (isAbort) {
+                setError('Biometric verification cancelled.');
+            } else {
+                setError(err.response?.data?.message || err.message || 'Biometric authentication failed. Please try password login.');
+            }
+        } finally {
+            setBiometricLoading(false);
         }
     };
 
@@ -292,7 +363,7 @@ const Login = () => {
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || biometricLoading}
                             className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50"
                         >
                             {loading ? (
@@ -302,6 +373,33 @@ const Login = () => {
                                 </div>
                             ) : (
                                 'Sign In →'
+                            )}
+                        </button>
+
+                        <div className="relative flex items-center justify-center my-3">
+                            <div className="border-t border-gray-200 dark:border-slate-700 w-full" />
+                            <span className="bg-white dark:bg-slate-800 px-3 text-xs uppercase text-gray-400 font-semibold tracking-wider">
+                                Or
+                            </span>
+                            <div className="border-t border-gray-200 dark:border-slate-700 w-full" />
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleBiometricLogin}
+                            disabled={biometricLoading || loading}
+                            className="w-full py-3.5 px-6 bg-gray-50 hover:bg-gray-100 dark:bg-slate-700/70 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-white font-semibold rounded-xl shadow-xs transition-all duration-200 flex items-center justify-center gap-2.5 disabled:opacity-50 cursor-pointer"
+                        >
+                            {biometricLoading ? (
+                                <div className="flex items-center justify-center gap-2">
+                                    <div className="w-5 h-5 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin" />
+                                    <span>Verifying Biometrics...</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <MdFingerprint className="text-indigo-600 dark:text-indigo-400" size={22} />
+                                    <span>Sign in with Biometrics</span>
+                                </>
                             )}
                         </button>
 
