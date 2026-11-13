@@ -1840,26 +1840,28 @@ const EmailDetails = ({
               {email.subject || "(No Subject)"}
             </h1>
 
-            {/* Mailbox Badge (e.g. Inbox x) */}
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-200/90 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 shrink-0 select-none">
-              <span>{mailboxFolderLabel}</span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onArchive) {
-                    onArchive(email?.uid ?? email?.id, email?.folderName || currentFolder);
-                  } else if (handleClose) {
-                    handleClose();
-                  }
-                }}
-                className="hover:bg-gray-300 dark:hover:bg-neutral-600 rounded p-0.5 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition-colors cursor-pointer"
-                title={`Remove ${mailboxFolderLabel} label`}
-                aria-label={`Remove ${mailboxFolderLabel} label`}
-              >
-                <MdClose size={12} />
-              </button>
-            </span>
+            {/* Mailbox Badge (conditionally hidden for Inbox) */}
+            {mailboxFolderLabel && mailboxFolderLabel.toLowerCase() !== 'inbox' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-200/90 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 shrink-0 select-none">
+                <span>{mailboxFolderLabel}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onArchive) {
+                      onArchive(email?.uid ?? email?.id, email?.folderName || currentFolder);
+                    } else if (handleClose) {
+                      handleClose();
+                    }
+                  }}
+                  className="hover:bg-gray-300 dark:hover:bg-neutral-600 rounded p-0.5 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition-colors cursor-pointer"
+                  title={`Remove ${mailboxFolderLabel} label`}
+                  aria-label={`Remove ${mailboxFolderLabel} label`}
+                >
+                  <MdClose size={12} />
+                </button>
+              </span>
+            )}
 
             {isSnoozed && (
               <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs shrink-0">
@@ -1877,7 +1879,12 @@ const EmailDetails = ({
               </div>
             )}
 
-            {localLabels?.map((label) => {
+            {localLabels
+              ?.filter((label) => {
+                const labelName = typeof label === 'string' ? label : (label?.name || label?.id || '');
+                return labelName.toLowerCase() !== 'inbox';
+              })
+              .map((label) => {
               const labelId = typeof label === 'string' ? label : (label.id || label.name);
               const labelName = typeof label === 'string' ? label : (label.name || label.id);
               const matchedSys = findSystemLabelDefinition(label);
