@@ -65,14 +65,8 @@ import {
   MdTune,
   MdHelpOutline,
   MdLightbulb,
-  MdLabel,
-  MdFingerprint
+  MdLabel
 } from "react-icons/md";
-import {
-  isBiometricsAvailable,
-  prepareRegistrationOptions,
-  serializeRegistrationCredential
-} from "../utils/webauthn";
 import { motion } from "framer-motion";
 import inviteFriendsIllustration from "../assets/invite-friends-illustration.jpg";
 import { emailAPI, authAPI, userAPI, signatureAPI, settingsAPI } from "../services/api";
@@ -315,8 +309,7 @@ const Settings = () => {
   const [fontSize, setFontSize] = useState(1.0);
   const [density, setDensity] = useState("Default");
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [biometricsEnabled, setBiometricsEnabled] = useState(false);
-  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricsEnabled, setBiometricsEnabled] = useState(true);
 
   // 2FA Setup & Disable Modal States
   const [show2faSetupModal, setShow2faSetupModal] = useState(false);
@@ -691,26 +684,7 @@ const Settings = () => {
         setDensity(d.density || "Default");
         setLocalEmailsPerPage(emailsPerPage);
         setTwoFactorEnabled(d.twoFactorEnabled ?? false);
-        setBiometricsEnabled(d.biometricsEnabled ?? false);
-
-        try {
-          const bioRes = await authAPI.getBiometricStatus();
-          if (bioRes && bioRes.data) {
-            const bioData = bioRes.data.data || bioRes.data;
-            if (bioData.enabled !== undefined) {
-              const isBioEnabled = Boolean(bioData.enabled);
-              setBiometricsEnabled(isBioEnabled);
-              if (isBioEnabled) {
-                localStorage.setItem('bnx_biometrics_enabled', 'true');
-              } else {
-                localStorage.removeItem('bnx_biometrics_enabled');
-                localStorage.removeItem('bnx_biometric_email');
-              }
-            }
-          }
-        } catch (e) {
-          console.debug('Biometric status fetch error:', e);
-        }
+        setBiometricsEnabled(d.biometricsEnabled ?? true);
         const lang = normalizeLang(d.language || currentLanguage || "en");
         setLanguage(lang);
         if (d.writingSuggestions !== undefined || localStorage.getItem("bnx_setting_writingSuggestions") !== null) {
@@ -1657,75 +1631,6 @@ const Settings = () => {
       setDisableError(err.response?.data?.message || "Invalid password. Could not disable 2FA.");
     } finally {
       setDisableLoading(false);
-    }
-  };
-
-  const handleToggleBiometrics = async (enableRequested) => {
-    if (biometricLoading) return;
-    setBiometricLoading(true);
-
-    try {
-      if (enableRequested) {
-        const isSupported = await isBiometricsAvailable();
-        if (!isSupported) {
-          toast.error("Biometric authentication is not supported or not configured on this device.", { id: "bio-toast" });
-          setBiometricsEnabled(false);
-          setBiometricLoading(false);
-          return;
-        }
-
-        const res = await authAPI.getBiometricRegisterOptions();
-        const optionsData = res.data?.data || res.data;
-
-        const publicKeyOptions = prepareRegistrationOptions(optionsData);
-
-        const credential = await navigator.credentials.create({
-          publicKey: publicKeyOptions
-        });
-
-        if (!credential) {
-          throw new Error("Biometric registration was cancelled or timed out.");
-        }
-
-        const platformName = navigator.userAgentData?.platform || navigator.platform || 'Device';
-        const browserName = navigator.userAgent.includes('Edg') ? 'Edge' : navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Browser';
-        const deviceName = `${platformName} (${browserName})`;
-
-        const payload = serializeRegistrationCredential(credential, deviceName);
-
-        const verifyRes = await authAPI.verifyBiometricRegister(payload);
-        if (verifyRes.data?.success) {
-          setBiometricsEnabled(true);
-          localStorage.setItem('bnx_biometrics_enabled', 'true');
-          const currentEmail = user?.email || localStorage.getItem('bnx_active_email') || '';
-          if (currentEmail) localStorage.setItem('bnx_biometric_email', currentEmail);
-          toast.success("Biometric Authentication Enabled", { id: "bio-toast" });
-        } else {
-          toast.error(verifyRes.data?.message || "Biometric registration failed.", { id: "bio-toast" });
-          setBiometricsEnabled(false);
-        }
-      } else {
-        const res = await authAPI.disableBiometrics();
-        if (res.data?.success) {
-          setBiometricsEnabled(false);
-          localStorage.removeItem('bnx_biometrics_enabled');
-          localStorage.removeItem('bnx_biometric_email');
-          toast.success("Biometric Authentication Disabled", { id: "bio-toast" });
-        } else {
-          toast.error(res.data?.message || "Failed to disable biometric authentication.", { id: "bio-toast" });
-        }
-      }
-    } catch (err) {
-      console.error("Biometric toggle error:", err);
-      const isAbort = err.name === 'NotAllowedError' || err.name === 'AbortError' || err.message?.includes('cancelled');
-      if (isAbort) {
-        toast.info("Biometric registration was cancelled.", { id: "bio-toast" });
-      } else {
-        toast.error(err.response?.data?.message || err.message || "Failed to configure biometrics.", { id: "bio-toast" });
-      }
-      setBiometricsEnabled(!enableRequested);
-    } finally {
-      setBiometricLoading(false);
     }
   };
 
@@ -2929,64 +2834,7 @@ const Settings = () => {
                     </div>
                   </div>
 
-                  {/* Biometric Authentication Section */}
-                  <div
-                    className="p-4 sm:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                    style={{
-                      background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
-                      borderColor: theme.border
-                    }}
-                  >
-                    <div className="flex items-start gap-3.5">
-                      <div
-                        className="p-2.5 rounded-xl shrink-0 mt-0.5"
-                        style={{
-                          background: biometricsEnabled
-                            ? 'rgba(16, 185, 129, 0.12)'
-                            : (theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
-                          color: biometricsEnabled ? '#10b981' : theme.textMuted
-                        }}
-                      >
-                        <MdFingerprint size={22} />
-                      </div>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold" style={{ color: theme.text }}>
-                            {t("settings.enable_biometrics", "Biometric Authentication")}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded-full tracking-wide ${
-                              biometricsEnabled
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
-                                : "bg-gray-150 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                            }`}
-                          >
-                            {biometricsEnabled ? "ACTIVE" : "OFF"}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                          {biometricsEnabled
-                            ? t("settings.biometrics_status_enabled", "Biometric Authentication Enabled (Windows Hello, Touch ID, Face ID).")
-                            : t("settings.biometrics_status_disabled", "Use fingerprint, Windows Hello, or facial recognition for fast and secure login.")}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="shrink-0 flex items-center self-end sm:self-center">
-                      <button
-                        type="button"
-                        disabled={biometricLoading}
-                        onClick={() => handleToggleBiometrics(!biometricsEnabled)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${biometricLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        style={{ background: biometricsEnabled ? theme.accent : (theme.mode === 'dark' ? 'rgba(255,255,255,0.2)' : '#e5e7eb') }}
-                        title={biometricsEnabled ? "Disable Biometric Authentication" : "Enable Biometric Authentication"}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${biometricsEnabled ? 'translate-x-5' : 'translate-x-0'}`}
-                        />
-                      </button>
-                    </div>
-                  </div>
+                  <ToggleRow label={t("settings.enable_biometrics", "Enable Biometrics Access")} checked={biometricsEnabled} onChange={setBiometricsEnabled} theme={theme} />
 
                   <button
                     type="submit"

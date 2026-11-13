@@ -232,18 +232,6 @@ export const authAPI = {
     get2faAccounts: () => api.get('/api/users/2fa/accounts'),
     add2faAccount: (data) => api.post('/api/users/2fa/accounts', data),
     delete2faAccount: (id) => api.delete(`/api/users/2fa/accounts/${id}`),
-    // Biometric Authentication (WebAuthn)
-    getBiometricStatus: () => api.get('/api/auth/biometric/status'),
-    getBiometricRegisterOptions: () => api.post('/api/auth/biometric/register/options'),
-    verifyBiometricRegister: (data) => api.post('/api/auth/biometric/register/verify', data),
-    disableBiometrics: () => api.post('/api/auth/biometric/disable'),
-    getBiometricLoginOptions: (data) => api.post('/api/auth/biometric/login/options', data),
-    verifyBiometricLogin: (data, deviceName) => {
-        const name = deviceName || getDeviceName();
-        return api.post('/api/auth/biometric/login/verify', data, {
-            headers: { 'X-Device-Name': name }
-        });
-    },
     changePassword: (data) => api.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, data),
     getForgotPasswordOptions: (identifier) => api.get(`${API_ENDPOINTS.AUTH.FORGOT_PASSWORD_OPTIONS}?identifier=${encodeURIComponent(identifier)}`),
     sendOTP: (data) => api.post(API_ENDPOINTS.AUTH.SEND_OTP, data),

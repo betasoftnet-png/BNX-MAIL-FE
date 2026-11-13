@@ -3,13 +3,8 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Mail, CheckCircle2, Shield, Loader2 } from 'lucide-react';
-import { MdVisibility, MdVisibilityOff, MdFingerprint } from 'react-icons/md';
+import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    isBiometricsAvailable,
-    prepareLoginOptions,
-    serializeAuthenticationCredential
-} from '../utils/webauthn';
 // import logo from '../assets/bnx.jpeg';
 
 import logo from "../assets/bnx-remove.png";
@@ -21,7 +16,7 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // 2FA & Biometric state variables
+    // 2FA state variables
     const [step, setStep] = useState('login'); // 'login', '2fa', 'recovery', 'appeal'
     const [useBackupCode, setUseBackupCode] = useState(false);
     const [appealMessage, setAppealMessage] = useState('');
@@ -29,18 +24,6 @@ const Login = () => {
     const [tempToken, setTempToken] = useState('');
     const [otp, setOtp] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-    const [biometricLoading, setBiometricLoading] = useState(false);
-    const [biometricEmail, setBiometricEmail] = useState('');
-    const [has2faAlternative, setHas2faAlternative] = useState(false);
-
-    // Conditional Biometric Login view state
-    const [isBiometricEnabled, setIsBiometricEnabled] = useState(() => {
-        return localStorage.getItem('bnx_biometrics_enabled') === 'true';
-    });
-    const [usePasswordFallback, setUsePasswordFallback] = useState(false);
-    const [recognizedEmail, setRecognizedEmail] = useState(() => {
-        return localStorage.getItem('bnx_biometric_email') || '';
-    });
 
     const [formData, setFormData] = useState({
         email: '',
@@ -94,15 +77,7 @@ const Login = () => {
 
             if (response.data.success) {
                 const responseData = response.data.data;
-                if (responseData && responseData.status === 'BIOMETRIC_REQUIRED') {
-                    setTempToken(responseData.tempToken);
-                    setBiometricEmail(responseData.email || loginEmail);
-                    setRecognizedEmail(responseData.email || loginEmail);
-                    setHas2faAlternative(Boolean(responseData.has2fa));
-                    setIsBiometricEnabled(true);
-                    setUsePasswordFallback(false);
-                    setError('');
-                } else if (responseData && responseData.status === '2FA_REQUIRED') {
+                if (responseData && responseData.status === '2FA_REQUIRED') {
                     setTempToken(responseData.tempToken);
                     setStep('2fa');
                     setOtp('');
@@ -110,17 +85,6 @@ const Login = () => {
                 } else {
                     // Pass the whole data object to login context
                     login(responseData);
-
-                    // Sync recognized biometric status
-                    if (responseData.user?.biometricsEnabled) {
-                        localStorage.setItem('bnx_biometrics_enabled', 'true');
-                        if (responseData.user?.email) {
-                            localStorage.setItem('bnx_biometric_email', responseData.user.email);
-                        }
-                    } else {
-                        localStorage.removeItem('bnx_biometrics_enabled');
-                        localStorage.removeItem('bnx_biometric_email');
-                    }
 
                     if (responseData.accountType === 'BUSINESS' && responseData.onboarded === false) {
                         navigate('/signup/business-onboarding');
@@ -139,72 +103,6 @@ const Login = () => {
             }
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleVerifyBiometrics = async () => {
-        setError('');
-        const isSupported = await isBiometricsAvailable();
-        if (!isSupported) {
-            setError('Biometric authentication is not supported or not available on this device. Please sign in with password.');
-            return;
-        }
-
-        setBiometricLoading(true);
-        try {
-            const targetEmail = recognizedEmail || biometricEmail || (formData.email ? formData.email.trim() : undefined);
-            const optionsRes = await authAPI.getBiometricLoginOptions({
-                email: targetEmail || undefined,
-                tempToken: tempToken || undefined
-            });
-            const optionsData = optionsRes.data?.data || optionsRes.data;
-
-            const publicKeyOptions = prepareLoginOptions(optionsData);
-
-            const assertion = await navigator.credentials.get({
-                publicKey: publicKeyOptions
-            });
-
-            if (!assertion) {
-                throw new Error('Biometric authentication was cancelled or timed out.');
-            }
-
-            const serialized = serializeAuthenticationCredential(assertion);
-
-            const verifyRes = await authAPI.verifyBiometricLogin({
-                email: targetEmail || undefined,
-                tempToken: tempToken || undefined,
-                ...serialized
-            });
-
-            if (verifyRes.data?.success) {
-                const responseData = verifyRes.data.data;
-                login(responseData);
-
-                localStorage.setItem('bnx_biometrics_enabled', 'true');
-                if (responseData.user?.email) {
-                    localStorage.setItem('bnx_biometric_email', responseData.user.email);
-                    setRecognizedEmail(responseData.user.email);
-                }
-
-                if (responseData.accountType === 'BUSINESS' && responseData.onboarded === false) {
-                    navigate('/signup/business-onboarding');
-                } else {
-                    navigate('/inbox');
-                }
-            } else {
-                setError(verifyRes.data?.message || 'Biometric verification failed.');
-            }
-        } catch (err) {
-            console.error('Biometric verification error:', err);
-            const isAbort = err.name === 'NotAllowedError' || err.name === 'AbortError' || err.message?.includes('cancelled');
-            if (isAbort) {
-                setError('Biometric prompt was cancelled. Click "Verify with Biometrics" to try again.');
-            } else {
-                setError(err.response?.data?.message || err.message || 'Biometric verification failed. Please try again or sign in with password.');
-            }
-        } finally {
-            setBiometricLoading(false);
         }
     };
 
@@ -297,13 +195,13 @@ const Login = () => {
                 <div className="text-center">
                     <img src={logo} alt="BNX Mail" className="mx-auto h-24 w-auto drop-shadow-md" />
                     <h2 className="mt-3 text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                        {step === 'login' && (isBiometricEnabled && !usePasswordFallback ? 'Welcome Back!' : 'Welcome Back')}
+                        {step === 'login' && 'Welcome Back'}
                         {step === '2fa' && 'Two-Factor Authentication'}
                         {step === 'recovery' && 'Recovery Code Verification'}
                         {step === 'appeal' && 'Account Suspended'}
                     </h2>
                     <p className="mt-2 text-sm text-gray-500 dark:text-slate-400 font-medium px-4">
-                        {step === 'login' && (isBiometricEnabled && !usePasswordFallback ? 'Verify your identity to access BNXmail' : 'Securely access your BNX Mail account.')}
+                        {step === 'login' && 'Securely access your BNX Mail account.'}
                         {step === '2fa' && 'Enter the 6-digit code from your authenticator app.'}
                         {step === 'recovery' && 'Enter a backup recovery code to access your account.'}
                         {step === 'appeal' && 'Your account has been restricted. You can submit an appeal below.'}
@@ -326,170 +224,96 @@ const Login = () => {
                 <AnimatePresence mode="wait">
                 {/* Form Switcher */}
                 {step === 'login' && (
-                    isBiometricEnabled && !usePasswordFallback ? (
-                        <motion.div
-                            key="biometric-login"
-                            className="mt-8 space-y-6"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                        >
-                            <div className="flex flex-col items-center justify-center space-y-4 py-4">
-                                <div className="relative flex items-center justify-center">
-                                    <div className="w-24 h-24 rounded-full bg-indigo-50 dark:bg-slate-700/60 border-2 border-indigo-200 dark:border-indigo-800/80 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner">
-                                        <MdFingerprint size={54} className={biometricLoading ? "animate-pulse" : ""} />
-                                    </div>
-                                    {biometricLoading && (
-                                        <div className="absolute inset-0 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
-                                    )}
-                                </div>
-                                {recognizedEmail && (
-                                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 dark:bg-slate-700 text-xs text-gray-600 dark:text-slate-300 font-medium">
-                                        <Mail size={12} className="text-gray-400" />
-                                        <span>{recognizedEmail}</span>
-                                    </div>
-                                )}
+                    <motion.form key="login" className="mt-8 space-y-6" onSubmit={handleSubmit} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                        <div className="space-y-4">
+                            <div>
+                                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">
+                                    Email Address
+                                </label>
+                                <input
+                                    id="email"
+                                    name="email"
+                                    type="email"
+                                    required
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
+                                    placeholder="you@bnxmail.com"
+                                />
                             </div>
 
-                            <div className="space-y-3">
-                                <button
-                                    type="button"
-                                    onClick={handleVerifyBiometrics}
-                                    disabled={biometricLoading}
-                                    className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-                                >
-                                    {biometricLoading ? (
-                                        <div className="flex items-center justify-center gap-2">
-                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            <span>Verifying identity...</span>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <MdFingerprint size={22} />
-                                            <span>Verify with Biometrics</span>
-                                        </>
-                                    )}
-                                </button>
-
-                                <div className="text-center text-sm pt-4 border-t border-gray-100 dark:border-slate-700">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setError('');
-                                            setUsePasswordFallback(true);
-                                        }}
-                                        className="text-gray-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold text-sm transition-colors cursor-pointer"
-                                    >
-                                        Sign in with password instead
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    ) : (
-                        <motion.form key="login-form" className="mt-8 space-y-6" onSubmit={handleSubmit} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                            <div className="space-y-4">
-                                <div>
-                                    <label htmlFor="email" className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">
-                                        Email Address
-                                    </label>
+                            <div>
+                                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">
+                                    Password
+                                </label>
+                                <div className="relative flex items-center">
                                     <input
-                                        id="email"
-                                        name="email"
-                                        type="email"
+                                        id="password"
+                                        name="password"
+                                        type={showPassword ? "text" : "password"}
                                         required
-                                        value={formData.email}
+                                        value={formData.password}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
-                                        placeholder="you@bnxmail.com"
+                                        className="w-full px-4 py-3 pr-11 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
+                                        placeholder="••••••••"
                                     />
-                                </div>
-
-                                <div>
-                                    <label htmlFor="password" className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">
-                                        Password
-                                    </label>
-                                    <div className="relative flex items-center">
-                                        <input
-                                            id="password"
-                                            name="password"
-                                            type={showPassword ? "text" : "password"}
-                                            required
-                                            value={formData.password}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 pr-11 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition-all"
-                                            placeholder="••••••••"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer rounded-lg focus:outline-none"
-                                            title={showPassword ? "Hide password" : "Show password"}
-                                            aria-label={showPassword ? "Hide password" : "Show password"}
-                                        >
-                                            {showPassword ? <MdVisibilityOff size={20} /> : <MdVisibility size={20} />}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <input
-                                        id="remember-me"
-                                        name="remember-me"
-                                        type="checkbox"
-                                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg cursor-pointer"
-                                    />
-                                    <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-600 dark:text-slate-400 cursor-pointer">
-                                        Stay signed in
-                                    </label>
-                                </div>
-
-                                <div className="text-sm">
-                                    <Link to="/forgot-password" name="forgot-password" id="forgot-password-link" className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
-                                        Forgot password?
-                                    </Link>
-                                </div>
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50"
-                            >
-                                {loading ? (
-                                    <div className="flex items-center justify-center gap-2">
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        <span>Authenticating...</span>
-                                    </div>
-                                ) : (
-                                    'Sign In →'
-                                )}
-                            </button>
-
-                            <div className="text-center text-sm space-y-3 pt-4 border-t border-gray-100 dark:border-slate-700">
-                                {isBiometricEnabled && (
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setError('');
-                                            setUsePasswordFallback(false);
-                                        }}
-                                        className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold inline-flex items-center gap-1 cursor-pointer"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer rounded-lg focus:outline-none"
+                                        title={showPassword ? "Hide password" : "Show password"}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
                                     >
-                                        <ArrowLeft size={13} /> Switch to Biometric Login
+                                        {showPassword ? <MdVisibilityOff size={20} /> : <MdVisibility size={20} />}
                                     </button>
-                                )}
-
-                                <div className="text-gray-500 dark:text-slate-400">
-                                    Don't have an account?{' '}
-                                    <Link to="/register" className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold">
-                                        Create one for free
-                                    </Link>
                                 </div>
                             </div>
-                        </motion.form>
-                    )
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                <input
+                                    id="remember-me"
+                                    name="remember-me"
+                                    type="checkbox"
+                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded-lg cursor-pointer"
+                                />
+                                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-600 dark:text-slate-400 cursor-pointer">
+                                    Stay signed in
+                                </label>
+                            </div>
+
+                            <div className="text-sm">
+                                <Link to="/forgot-password" name="forgot-password" id="forgot-password-link" className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                    Forgot password?
+                                </Link>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50"
+                        >
+                            {loading ? (
+                                <div className="flex items-center justify-center gap-2">
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>Authenticating...</span>
+                                </div>
+                            ) : (
+                                'Sign In →'
+                            )}
+                        </button>
+
+                        <div className="text-center text-sm space-y-4 pt-4 border-t border-gray-100 dark:border-slate-700">
+                            <div className="text-gray-500 dark:text-slate-400">
+                                Don't have an account?{' '}
+                                <Link to="/register" className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold">
+                                    Create one for free
+                                </Link>
+                            </div>
+                        </div>
+                    </motion.form>
                 )}
 
                 {step === '2fa' && (
