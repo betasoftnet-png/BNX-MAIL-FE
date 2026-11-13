@@ -938,17 +938,14 @@
 
 
 /* ==========================================================================
-   Casbox and Chat Content Area Typography Scaling (~1-2px reduction)
+   Chat Content Area Typography Scaling (~1-2px reduction)
    ========================================================================== */
-.casbox-content-root,
 .chat-room-root,
 .colab-page-root {
   font-size: 13px;
 }
 
-/* Fallback for unstyled input/textarea inside Casbox and Chat */
-.casbox-content-root input:not([class*="text-"]),
-.casbox-content-root textarea:not([class*="text-"]),
+/* Fallback for unstyled input/textarea inside Chat */
 .chat-room-root input:not([class*="text-"]),
 .chat-room-root textarea:not([class*="text-"]),
 .colab-page-root input:not([class*="text-"]),
@@ -957,105 +954,88 @@
 }
 
 /* Headings and Titles (scaled down ~1-2px) */
-.casbox-content-root .text-4xl,
 .chat-room-root .text-4xl,
 .colab-page-root .text-4xl {
   font-size: 34px !important;
 }
 
-.casbox-content-root .text-3xl,
 .chat-room-root .text-3xl,
 .colab-page-root .text-3xl {
   font-size: 28px !important;
 }
 
-.casbox-content-root .text-2xl,
 .chat-room-root .text-2xl,
 .colab-page-root .text-2xl {
   font-size: 22px !important;
 }
 
-.casbox-content-root .text-xl,
 .chat-room-root .text-xl,
 .colab-page-root .text-xl {
   font-size: 18.5px !important;
 }
 
-.casbox-content-root .text-lg,
 .chat-room-root .text-lg,
 .colab-page-root .text-lg {
   font-size: 16.5px !important;
 }
 
 /* Body text, Chat names, Contact names, Message text & descriptions */
-.casbox-content-root .text-base,
 .chat-room-root .text-base,
 .colab-page-root .text-base {
   font-size: 14.5px !important;
 }
 
-.casbox-content-root .text-sm,
 .chat-room-root .text-sm,
 .colab-page-root .text-sm {
   font-size: 13px !important;
 }
 
-.casbox-content-root .text-xs,
 .chat-room-root .text-xs,
 .colab-page-root .text-xs {
   font-size: 11px !important;
 }
 
-/* Custom pixel font sizes in Casbox and Chat */
-.casbox-content-root .text-\[15px\],
+/* Custom pixel font sizes in Chat */
 .chat-room-root .text-\[15px\],
 .colab-page-root .text-\[15px\] {
   font-size: 13.5px !important;
 }
 
-.casbox-content-root .text-\[14px\],
 .chat-room-root .text-\[14px\],
 .colab-page-root .text-\[14px\] {
   font-size: 12.5px !important;
 }
 
-.casbox-content-root .text-\[13px\],
 .chat-room-root .text-\[13px\],
 .colab-page-root .text-\[13px\] {
   font-size: 11.5px !important;
 }
 
-.casbox-content-root .text-\[11px\],
 .chat-room-root .text-\[11px\],
 .colab-page-root .text-\[11px\] {
   font-size: 10px !important;
 }
 
-.casbox-content-root .text-\[10\.5px\],
 .chat-room-root .text-\[10\.5px\],
 .colab-page-root .text-\[10\.5px\] {
   font-size: 9.5px !important;
 }
 
-.casbox-content-root .text-\[10px\],
 .chat-room-root .text-\[10px\],
 .colab-page-root .text-\[10px\] {
   font-size: 9px !important;
 }
 
-.casbox-content-root .text-\[9\.5px\],
 .chat-room-root .text-\[9\.5px\],
 .colab-page-root .text-\[9\.5px\] {
   font-size: 8.5px !important;
 }
 
-.casbox-content-root .text-\[9px\],
 .chat-room-root .text-\[9px\],
 .colab-page-root .text-\[9px\] {
   font-size: 8px !important;
 }
 
-.casbox-content-root .text-\[8px\],
 .chat-room-root .text-\[8px\],
 .colab-page-root .text-\[8px\] {
   font-size: 7.5px !important;
@@ -1063,25 +1043,121 @@
 
 /* Responsive variants */
 @media (min-width: 640px) {
-  .casbox-content-root .sm\:text-xs,
   .chat-room-root .sm\:text-xs,
   .colab-page-root .sm\:text-xs {
     font-size: 11px !important;
   }
-  .casbox-content-root .sm\:text-sm,
   .chat-room-root .sm\:text-sm,
   .colab-page-root .sm\:text-sm {
     font-size: 13px !important;
   }
-  .casbox-content-root .sm\:text-base,
   .chat-room-root .sm\:text-base,
   .colab-page-root .sm\:text-base {
     font-size: 14.5px !important;
   }
-  .casbox-content-root .sm\:text-2xl,
   .chat-room-root .sm\:text-2xl,
   .colab-page-root .sm\:text-2xl {
     font-size: 22px !important;
+  }
+}
+
+/* ==========================================================================
+   Casbox Main Page Typography Styling (Slightly increased for readability)
+   ========================================================================== */
+.casbox-content-root {
+  font-size: 14.5px;
+}
+
+/* Fallback for unstyled input/textarea inside Casbox */
+.casbox-content-root input:not([class*="text-"]),
+.casbox-content-root textarea:not([class*="text-"]) {
+  font-size: 14.5px !important;
+}
+
+/* Headings and Titles */
+.casbox-content-root .text-4xl {
+  font-size: 38px !important;
+}
+
+.casbox-content-root .text-3xl {
+  font-size: 31px !important;
+}
+
+.casbox-content-root .text-2xl {
+  font-size: 25px !important;
+}
+
+.casbox-content-root .text-xl {
+  font-size: 21px !important;
+}
+
+.casbox-content-root .text-lg {
+  font-size: 18.5px !important;
+}
+
+/* Body text, Sender names, Subject, Previews, Tabs, Descriptions */
+.casbox-content-root .text-base {
+  font-size: 16px !important;
+}
+
+.casbox-content-root .text-sm {
+  font-size: 14.5px !important;
+}
+
+.casbox-content-root .text-xs {
+  font-size: 12.5px !important;
+}
+
+/* Custom specific classes in Casbox */
+.casbox-content-root .text-\[15px\] {
+  font-size: 15.5px !important;
+}
+
+.casbox-content-root .text-\[14px\] {
+  font-size: 14.5px !important;
+}
+
+.casbox-content-root .text-\[13px\] {
+  font-size: 13.5px !important;
+}
+
+.casbox-content-root .text-\[11px\] {
+  font-size: 12px !important;
+}
+
+.casbox-content-root .text-\[10\.5px\] {
+  font-size: 12px !important;
+}
+
+.casbox-content-root .text-\[10px\] {
+  font-size: 11.5px !important;
+}
+
+.casbox-content-root .text-\[9\.5px\] {
+  font-size: 11px !important;
+}
+
+.casbox-content-root .text-\[9px\] {
+  font-size: 10px !important;
+}
+
+.casbox-content-root .text-\[8px\] {
+  font-size: 9px !important;
+}
+
+/* Responsive variants */
+@media (min-width: 640px) {
+  .casbox-content-root .sm\:text-xs {
+    font-size: 12.5px !important;
+  }
+  .casbox-content-root .sm\:text-sm {
+    font-size: 14.5px !important;
+  }
+  .casbox-content-root .sm\:text-base {
+    font-size: 16px !important;
+  }
+  .casbox-content-root .sm\:text-2xl {
+    font-size: 25px !important;
   }
 }
 

@@ -431,7 +431,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                 <div className="w-5 flex items-center justify-center shrink-0">
                   <MdChat size={20} className="shrink-0" />
                 </div>
-                <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">{t('sidebar.casbox', 'Casbox')}</span>
+                <span className="ml-3.5 text-[15px] hide-on-collapse text-left flex-1">{t('sidebar.casbox', 'Casbox')}</span>
               </button>
 
               {/* Colab Item & Nested Archived Item */}
@@ -450,7 +450,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                   <div className="w-5 flex items-center justify-center shrink-0">
                     <MdGroup size={20} className="shrink-0" />
                   </div>
-                  <span className="ml-3.5 text-sm hide-on-collapse text-left flex-1">{t('sidebar.colab', 'Colab')}</span>
+                  <span className="ml-3.5 text-[15px] hide-on-collapse text-left flex-1">{t('sidebar.colab', 'Colab')}</span>
                   <button
                     type="button"
                     onClick={(e) => {

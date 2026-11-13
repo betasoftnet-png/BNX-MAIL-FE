@@ -5231,14 +5231,14 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('messages'); setSelectedMessage(null); setSelectedSentDetail(null); fetchMessages(true); }}
-            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'messages'
+            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-xs min-[380px]:text-[12.5px] sm:text-sm md:text-[14.5px] font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'messages'
                 ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
           >
             {t('casbox.messages', 'Messages')}
             {unreadMessagesCount > 0 && (
-              <span className={`text-[9.5px] min-[380px]:text-[10px] sm:text-[11px] font-normal ${activeTab === 'messages' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[10px] min-[380px]:text-[11px] sm:text-xs font-normal ${activeTab === 'messages' ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadMessagesCount})
               </span>
             )}
@@ -5248,14 +5248,14 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('combine'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${isCombineTab
+            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-xs min-[380px]:text-[12.5px] sm:text-sm md:text-[14.5px] font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${isCombineTab
                 ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
           >
             {t('casbox.combine', 'Combine')}
             {unreadCombinedCount > 0 && (
-              <span className={`text-[9.5px] min-[380px]:text-[10px] sm:text-[11px] font-normal ${isCombineTab ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[10px] min-[380px]:text-[11px] sm:text-xs font-normal ${isCombineTab ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadCombinedCount})
               </span>
             )}
@@ -5265,18 +5265,18 @@ const Casbox = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('requests'); setSelectedMessage(null); setSelectedSentDetail(null); setSelectedRowIds(new Set()); fetchMessages(true); }}
-            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'requests'
+            className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-xs min-[380px]:text-[12.5px] sm:text-sm md:text-[14.5px] font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${activeTab === 'requests'
                 ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
           >
             {t('casbox.requests', 'Requests')}
             {unreadRequestsCount > 0 ? (
-              <span className={`text-[9.5px] min-[380px]:text-[10px] sm:text-[11px] font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[10px] min-[380px]:text-[11px] sm:text-xs font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
                 ({unreadRequestsCount})
               </span>
             ) : requestsConversations.length > 0 ? (
-              <span className={`text-[9.5px] min-[380px]:text-[10px] sm:text-[11px] font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
+              <span className={`text-[10px] min-[380px]:text-[11px] sm:text-xs font-normal ${activeTab === 'requests' ? 'opacity-80' : 'opacity-60'}`}>
                 ({requestsConversations.length})
               </span>
             ) : null}
@@ -5318,7 +5318,7 @@ const Casbox = () => {
                 setSelectedSentDetail(null);
                 setSelectedRowIds(new Set());
               }}
-              className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-[10.5px] min-[380px]:text-[11px] sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${activeTab === 'archive'
+              className={`px-1.5 min-[380px]:px-2 sm:px-4 py-1 sm:py-1.5 text-xs min-[380px]:text-[12.5px] sm:text-sm md:text-[14.5px] font-semibold rounded-md sm:rounded-lg transition-all flex items-center gap-0.5 min-[380px]:gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer animate-in fade-in duration-200 ${activeTab === 'archive'
                   ? 'bg-white dark:bg-gray-700 text-[#195bac] dark:text-blue-400 shadow-xs'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
@@ -5326,7 +5326,7 @@ const Casbox = () => {
             >
               {t('sidebar.archive', 'Archive')}
               {unreadArchivedCount > 0 && (
-                <span className={`text-[9.5px] min-[380px]:text-[10px] sm:text-[11px] font-normal ${activeTab === 'archive' ? 'opacity-80' : 'opacity-60'}`}>
+                <span className={`text-[10px] min-[380px]:text-[11px] sm:text-xs font-normal ${activeTab === 'archive' ? 'opacity-80' : 'opacity-60'}`}>
                   ({unreadArchivedCount})
                 </span>
               )}
