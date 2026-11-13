@@ -310,6 +310,22 @@ const Settings = () => {
   const [density, setDensity] = useState("Default");
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [biometricsEnabled, setBiometricsEnabled] = useState(true);
+
+  // 2FA Setup & Disable Modal States
+  const [show2faSetupModal, setShow2faSetupModal] = useState(false);
+  const [setupStep, setSetupStep] = useState('scan'); // 'scan' | 'recovery'
+  const [twoFaSetupData, setTwoFaSetupData] = useState({ secret: '', qrCodeUrl: '', otpauthUri: '' });
+  const [setupOtp, setSetupOtp] = useState('');
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [setupError, setSetupError] = useState('');
+  const [recoveryCodes, setRecoveryCodes] = useState([]);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+  const [copiedCodes, setCopiedCodes] = useState(false);
+
+  const [showDisable2faModal, setShowDisable2faModal] = useState(false);
+  const [disablePassword, setDisablePassword] = useState('');
+  const [disableLoading, setDisableLoading] = useState(false);
+  const [disableError, setDisableError] = useState('');
   const [language, setLanguage] = useState(() => normalizeLang(currentLanguage || "en"));
 
   useEffect(() => {
@@ -1511,6 +1527,110 @@ const Settings = () => {
     toast.success("Appearance and background reset to default", { id: "wallpaper-toast", duration: 3000 });
   };
 
+  const handleStart2faSetup = async () => {
+    setSetupLoading(true);
+    setSetupError('');
+    setSetupOtp('');
+    setSetupStep('scan');
+    setShow2faSetupModal(true);
+    setCopiedSecret(false);
+    setCopiedCodes(false);
+
+    try {
+      const res = await authAPI.setup2fa();
+      if (res.data?.success && res.data?.data) {
+        setTwoFaSetupData(res.data.data);
+      } else {
+        setSetupError(res.data?.message || "Failed to initialize 2FA setup");
+      }
+    } catch (err) {
+      setSetupError(err.response?.data?.message || "Failed to connect to 2FA setup service");
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
+  const handleVerifySetupOtp = async (e) => {
+    if (e) e.preventDefault();
+    if (!setupOtp || setupOtp.trim().length !== 6) {
+      setSetupError("Please enter the 6-digit verification code");
+      return;
+    }
+
+    setSetupLoading(true);
+    setSetupError('');
+
+    try {
+      const res = await authAPI.verify2fa(setupOtp.trim());
+      if (res.data?.success) {
+        setTwoFactorEnabled(true);
+        const codes = res.data.data?.recoveryCodes || [];
+        setRecoveryCodes(codes);
+        setSetupStep('recovery');
+        toast.success("Two-Factor Authentication verified & enabled!", { id: "2fa-toast" });
+      } else {
+        setSetupError(res.data?.message || "Invalid verification code");
+      }
+    } catch (err) {
+      setSetupError(err.response?.data?.message || "Invalid code. Please try again.");
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
+  const handleCopyRecoveryCodes = () => {
+    if (!recoveryCodes.length) return;
+    const text = `BNXmail 2FA Single-Use Recovery Codes:\n\n${recoveryCodes.join("\n")}\n\nKeep these in a safe place. Each code can be used only once.`;
+    navigator.clipboard.writeText(text);
+    setCopiedCodes(true);
+    toast.success("Recovery codes copied to clipboard", { id: "2fa-toast" });
+    setTimeout(() => setCopiedCodes(false), 2500);
+  };
+
+  const handleDownloadRecoveryCodes = () => {
+    if (!recoveryCodes.length) return;
+    const text = `BNXmail 2FA Single-Use Recovery Codes\nGenerated: ${new Date().toISOString()}\n\n` +
+      recoveryCodes.map((code, idx) => `${idx + 1}. ${code}`).join("\n") +
+      `\n\nImportant: Keep these codes secret and safe. Each code can only be used once if you lose access to your authenticator app.`;
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "bnxmail-recovery-codes.txt";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Recovery codes downloaded", { id: "2fa-toast" });
+  };
+
+  const handleConfirmDisable2fa = async (e) => {
+    if (e) e.preventDefault();
+    if (!disablePassword || !disablePassword.trim()) {
+      setDisableError("Account password is required to disable 2FA");
+      return;
+    }
+
+    setDisableLoading(true);
+    setDisableError('');
+
+    try {
+      const res = await authAPI.disable2fa({ password: disablePassword.trim() });
+      if (res.data?.success) {
+        setTwoFactorEnabled(false);
+        setShowDisable2faModal(false);
+        setDisablePassword('');
+        toast.success("Two-Factor Authentication disabled successfully", { id: "2fa-toast" });
+      } else {
+        setDisableError(res.data?.message || "Failed to disable 2FA");
+      }
+    } catch (err) {
+      setDisableError(err.response?.data?.message || "Invalid password. Could not disable 2FA.");
+    } finally {
+      setDisableLoading(false);
+    }
+  };
+
   const handleSaveSecuritySettings = async (e) => {
     e.preventDefault();
     if (savingRef.current) return;
@@ -2641,7 +2761,76 @@ const Settings = () => {
                   <div className="border-t my-4" style={{ borderColor: theme.border }} />
 
                   <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("settings.two_factor_auth", "Multi-Factor Authenticator")}</h4>
-                  <ToggleRow label={t("settings.enable_2fa", "Enable Two-Factor Authentication (2FA)")} checked={twoFactorEnabled} onChange={setTwoFactorEnabled} theme={theme} />
+                  
+                  <div
+                    className="p-4 sm:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    style={{
+                      background: twoFactorEnabled
+                        ? (theme.mode === 'dark' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.05)')
+                        : (theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)'),
+                      borderColor: twoFactorEnabled ? 'rgba(16, 185, 129, 0.3)' : theme.border
+                    }}
+                  >
+                    <div className="flex items-start gap-3.5 min-w-0">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                        style={{
+                          background: twoFactorEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(156, 163, 175, 0.15)',
+                          color: twoFactorEnabled ? '#10b981' : 'gray'
+                        }}
+                      >
+                        <MdSecurity size={22} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm" style={{ color: theme.text }}>
+                            {t("settings.two_factor_auth", "Two-Factor Authentication (2FA)")}
+                          </span>
+                          <span
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                              twoFactorEnabled
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                : "bg-gray-150 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                            }`}
+                          >
+                            {twoFactorEnabled ? "ACTIVE" : "OFF"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                          {twoFactorEnabled
+                            ? "Your account is secured with authenticator app codes and single-use recovery codes."
+                            : "Require a 6-digit code from your authenticator app (Google Authenticator, Microsoft, etc.) on every login."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 flex items-center self-end sm:self-center">
+                      {twoFactorEnabled ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowDisable2faModal(true);
+                            setDisablePassword('');
+                            setDisableError('');
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer shadow-xs active:scale-95"
+                        >
+                          Disable 2FA
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleStart2faSetup}
+                          className="px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all cursor-pointer shadow-sm hover:opacity-95 active:scale-95 flex items-center gap-1.5"
+                          style={{ background: theme.accent }}
+                        >
+                          <MdSecurity size={15} />
+                          Enable 2FA
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <ToggleRow label={t("settings.enable_biometrics", "Enable Biometrics Access")} checked={biometricsEnabled} onChange={setBiometricsEnabled} theme={theme} />
 
                   <button
@@ -3266,6 +3455,330 @@ const Settings = () => {
           )}
         </motion.div>
       </main>
+
+      {/* 2FA SETUP MODAL */}
+      {show2faSetupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            className="relative w-full max-w-lg rounded-3xl border p-6 md:p-8 shadow-2xl overflow-y-auto max-h-[92vh]"
+            style={{ background: theme.cardBg, borderColor: theme.border, color: theme.text }}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setShow2faSetupModal(false);
+                setSetupOtp('');
+                setSetupError('');
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            >
+              <MdClose size={22} />
+            </button>
+
+            {setupStep === 'scan' ? (
+              <div className="flex flex-col gap-5">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                    style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1' }}
+                  >
+                    <MdSecurity size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold" style={{ color: theme.text }}>
+                      Set Up Two-Factor Authentication
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Step 1 of 2: Connect your authenticator app
+                    </p>
+                  </div>
+                </div>
+
+                {setupLoading && !twoFaSetupData.secret ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3 text-sm text-gray-500">
+                    <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+                    <span>Generating your secure 2FA keys...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col items-center gap-3 p-4 rounded-2xl border bg-gray-50/70 dark:bg-black/20 text-center" style={{ borderColor: theme.border }}>
+                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                        1. Scan this QR code with your Authenticator App
+                      </span>
+
+                      {twoFaSetupData.qrCodeUrl ? (
+                        <div className="p-2.5 rounded-2xl bg-white border shadow-sm">
+                          <img
+                            src={twoFaSetupData.qrCodeUrl}
+                            alt="2FA QR Code"
+                            className="w-48 h-48 sm:w-52 sm:h-52 object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-48 h-48 rounded-xl border flex items-center justify-center bg-gray-100 text-xs text-gray-400">
+                          QR Code Unavailable
+                        </div>
+                      )}
+
+                      {twoFaSetupData.otpauthUri && (
+                        <a
+                          href={twoFaSetupData.otpauthUri}
+                          className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold"
+                        >
+                          Open in Authenticator App
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Manual Secret Key */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        Can't scan? Enter key manually:
+                      </label>
+                      <div
+                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl border bg-black/5 dark:bg-white/5 font-mono text-xs font-bold tracking-wider"
+                        style={{ borderColor: theme.border }}
+                      >
+                        <span className="truncate select-all px-1">{twoFaSetupData.secret || "—"}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (twoFaSetupData.secret) {
+                              navigator.clipboard.writeText(twoFaSetupData.secret);
+                              setCopiedSecret(true);
+                              toast.success("Secret key copied to clipboard");
+                              setTimeout(() => setCopiedSecret(false), 2000);
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center gap-1 shrink-0"
+                        >
+                          {copiedSecret ? <MdCheck size={14} /> : <MdContentCopy size={14} />}
+                          <span>{copiedSecret ? "Copied" : "Copy"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* OTP verification */}
+                    <form onSubmit={handleVerifySetupOtp} className="flex flex-col gap-3 pt-2">
+                      <label className="text-xs font-semibold text-gray-700 dark:text-gray-200 text-center">
+                        2. Enter the 6-digit code shown in your Authenticator:
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        autoFocus
+                        value={setupOtp}
+                        onChange={(e) => {
+                          setSetupOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
+                          setSetupError('');
+                        }}
+                        placeholder="••••••"
+                        className="w-48 mx-auto text-center text-2xl font-bold tracking-[0.5em] p-2.5 rounded-xl border bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        style={{ borderColor: theme.border, color: theme.text }}
+                      />
+
+                      {setupError && (
+                        <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 text-xs font-medium text-center">
+                          {setupError}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-end gap-3 mt-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShow2faSetupModal(false);
+                            setSetupOtp('');
+                            setSetupError('');
+                          }}
+                          className="px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition"
+                          style={{ color: theme.text }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={setupLoading || setupOtp.length !== 6}
+                          className="px-5 py-2.5 rounded-xl text-xs font-bold text-white transition disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-sm hover:opacity-95"
+                          style={{ background: theme.accent }}
+                        >
+                          {setupLoading ? (
+                            <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                          ) : (
+                            <MdCheckCircle size={16} />
+                          )}
+                          <span>Verify & Enable</span>
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                )}
+              </div>
+            ) : (
+              /* Step 2: Recovery Codes */
+              <div className="flex flex-col gap-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <MdCheckCircle size={26} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold" style={{ color: theme.text }}>
+                      2FA Enabled Successfully!
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Step 2 of 2: Save your single-use recovery codes
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-xs leading-relaxed">
+                  <strong>Important:</strong> Keep these 10 backup recovery codes in a safe place. If you ever lose access to your authenticator app, each code can be used once to log in to your BNXmail account.
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 p-3.5 rounded-2xl bg-gray-50 dark:bg-black/30 border font-mono text-center text-xs font-bold tracking-wider" style={{ borderColor: theme.border }}>
+                  {recoveryCodes.map((code, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2 rounded-xl bg-white dark:bg-slate-800 border shadow-2xs select-all text-gray-800 dark:text-gray-100"
+                      style={{ borderColor: theme.border }}
+                    >
+                      {code}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyRecoveryCodes}
+                    className="flex-1 py-2.5 px-3 rounded-xl border text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition flex items-center justify-center gap-1.5"
+                    style={{ borderColor: theme.border, color: theme.text }}
+                  >
+                    {copiedCodes ? <MdCheck size={15} /> : <MdContentCopy size={15} />}
+                    <span>{copiedCodes ? "Codes Copied!" : "Copy All"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadRecoveryCodes}
+                    className="flex-1 py-2.5 px-3 rounded-xl border text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition flex items-center justify-center gap-1.5"
+                    style={{ borderColor: theme.border, color: theme.text }}
+                  >
+                    <MdFileUpload size={15} className="rotate-180" />
+                    <span>Download (.txt)</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShow2faSetupModal(false);
+                    setRecoveryCodes([]);
+                  }}
+                  className="w-full py-3 rounded-xl text-xs font-bold text-white transition shadow-sm hover:opacity-95"
+                  style={{ background: theme.accent }}
+                >
+                  I Have Saved My Recovery Codes
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* DISABLE 2FA MODAL */}
+      {showDisable2faModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            className="relative w-full max-w-md rounded-3xl border p-6 md:p-8 shadow-2xl flex flex-col gap-5"
+            style={{ background: theme.cardBg, borderColor: theme.border, color: theme.text }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setShowDisable2faModal(false);
+                setDisablePassword('');
+                setDisableError('');
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            >
+              <MdClose size={22} />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                <MdLock size={22} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: theme.text }}>
+                  Disable Two-Factor Authentication
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Confirm account password to proceed
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-300 text-xs leading-relaxed">
+              <strong>Warning:</strong> Disabling 2FA will remove the extra security check from your login and invalidate all active single-use recovery codes.
+            </div>
+
+            <form onSubmit={handleConfirmDisable2fa} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                  Account Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  autoFocus
+                  value={disablePassword}
+                  onChange={(e) => {
+                    setDisablePassword(e.target.value);
+                    setDisableError('');
+                  }}
+                  placeholder="Enter your current password"
+                  className="w-full p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:ring-red-500 transition-all"
+                  style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
+                />
+              </div>
+
+              {disableError && (
+                <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 text-xs font-medium text-center">
+                  {disableError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDisable2faModal(false);
+                    setDisablePassword('');
+                    setDisableError('');
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition"
+                  style={{ color: theme.text }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={disableLoading || !disablePassword.trim()}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-sm"
+                >
+                  {disableLoading && (
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  )}
+                  <span>Disable 2FA</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

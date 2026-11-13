@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +18,7 @@ const Login = () => {
 
     // 2FA state variables
     const [step, setStep] = useState('login'); // 'login', '2fa', 'recovery', 'appeal'
+    const [useBackupCode, setUseBackupCode] = useState(false);
     const [appealMessage, setAppealMessage] = useState('');
     const [appealSuccess, setAppealSuccess] = useState(false);
     const [tempToken, setTempToken] = useState('');
@@ -320,7 +321,11 @@ const Login = () => {
                         <div className="space-y-4">
                             <div>
                                 <label htmlFor="otp" className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-3 text-center">
-                                    Enter the 6-digit code from your <b>Authenticator App</b>
+                                    {useBackupCode ? (
+                                        <>Enter an 8-character <b>Backup Recovery Code</b></>
+                                    ) : (
+                                        <>Enter the 6-digit code from your <b>Authenticator App</b></>
+                                    )}
                                 </label>
                                 <input
                                     id="otp"
@@ -328,10 +333,16 @@ const Login = () => {
                                     type="text"
                                     required
                                     value={otp}
-                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                    placeholder="••••••"
-                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-center text-2xl font-bold tracking-[0.5em] focus:placeholder-transparent transition-all"
-                                    maxLength="6"
+                                    onChange={(e) => {
+                                        if (useBackupCode) {
+                                            setOtp(e.target.value.toUpperCase().slice(0, 9));
+                                        } else {
+                                            setOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
+                                        }
+                                    }}
+                                    placeholder={useBackupCode ? "XXXX-XXXX" : "••••••"}
+                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-center text-2xl font-bold tracking-[0.3em] focus:placeholder-transparent transition-all uppercase"
+                                    maxLength={useBackupCode ? 9 : 6}
                                     autoFocus
                                 />
                             </div>
@@ -339,7 +350,7 @@ const Login = () => {
 
                         <button
                             type="submit"
-                            disabled={loading || otp.length < 6}
+                            disabled={loading || (useBackupCode ? otp.trim().length < 8 : otp.length < 6)}
                             className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50"
                         >
                             {loading ? (
@@ -355,10 +366,21 @@ const Login = () => {
                         <div className="flex flex-col gap-3 text-center text-sm pt-4 border-t border-gray-100 dark:border-slate-700">
                             <button
                                 type="button"
-                                onClick={() => handleSwitchStep('recovery')}
+                                onClick={() => {
+                                    setUseBackupCode(!useBackupCode);
+                                    setOtp('');
+                                    setError('');
+                                }}
                                 className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold"
                             >
-                                Don't have your device? Try another way
+                                {useBackupCode ? "Use Authenticator App code instead" : "Use a backup recovery code"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleSwitchStep('recovery')}
+                                className="text-gray-500 dark:text-slate-400 hover:underline text-xs"
+                            >
+                                Don't have your device or recovery codes? Send code to email
                             </button>
                             <button
                                 type="button"
