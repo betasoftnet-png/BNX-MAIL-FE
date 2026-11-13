@@ -1561,7 +1561,10 @@ const Settings = () => {
     setSetupError('');
 
     try {
-      const res = await authAPI.verify2fa(setupOtp.trim());
+      const res = await authAPI.verify2fa({
+        code: setupOtp.trim(),
+        secret: twoFaSetupData.secret
+      });
       if (res.data?.success) {
         setTwoFactorEnabled(true);
         const codes = res.data.data?.recoveryCodes || [];
