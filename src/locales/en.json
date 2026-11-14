@@ -427,7 +427,7 @@
     "title": "Storage Management",
     "storage_widget_title": "Storage",
     "of_used": "{used} of {limit} used",
-    "used_of": "used of",
+    "used_of": "used",
     "upgrade": "Upgrade Storage",
     "storage_limit": "Storage Limit",
     "emails": "Emails",

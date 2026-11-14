@@ -53,11 +53,11 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
         href="https://storage.beta-softnet.com/"
         target="_blank"
         rel="noopener noreferrer"
-        className="mx-2 mb-2 p-2 flex flex-col items-center justify-center hover:bg-blue-50 dark:hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
+        className="mx-2 mb-1.5 p-1.5 flex flex-col items-center justify-center hover:bg-blue-50 dark:hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
         title={`${formatSize(storageData.used)} of 1 GB used (${storageData.percentage.toFixed(0)}%)`}
       >
-        <Cloud size={20} className="text-blue-500 fill-blue-500" />
-        <span className="text-[10px] font-bold text-blue-600 mt-1">{storageData.percentage.toFixed(0)}%</span>
+        <Cloud size={16} className="text-blue-500 fill-blue-500" />
+        <span className="text-[9px] font-bold text-blue-600 mt-0.5">{storageData.percentage.toFixed(0)}%</span>
       </a>
     );
   }
@@ -67,24 +67,24 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
       href="https://storage.beta-softnet.com/"
       target="_blank"
       rel="noopener noreferrer"
-      className="mx-2.5 mb-3 p-3.5 rounded-2xl bg-white dark:bg-gray-800/95 shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-blue-100/70 dark:border-gray-700/60 hover:border-blue-200 dark:hover:border-gray-600 transition-all block cursor-pointer"
+      className="mx-3 mb-1.5 px-3 py-2 rounded-xl bg-white dark:bg-gray-800/95 shadow-[0_1px_4px_rgba(0,0,0,0.02)] border border-blue-100/70 dark:border-gray-700/60 hover:border-blue-200 dark:hover:border-gray-600 transition-all block cursor-pointer"
       style={{ textDecoration: 'none' }}
     >
       {/* Top row: Cloud icon, Storage title, percentage */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Cloud size={20} className="text-blue-500 fill-blue-500 shrink-0" />
-          <span className="text-sm font-semibold text-[#1e293b] dark:text-gray-100 font-sans">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Cloud size={15} className="text-blue-500 fill-blue-500 shrink-0" />
+          <span className="text-xs font-semibold text-[#1e293b] dark:text-gray-100 font-sans truncate">
             {t('storage.storage_widget_title', 'Storage')}
           </span>
         </div>
-        <span className="text-xs font-bold text-[#1d4ed8] dark:text-blue-400 font-sans">
+        <span className="text-[11px] font-bold text-[#1d4ed8] dark:text-blue-400 font-sans shrink-0 ml-2">
           {storageData.percentage.toFixed(0)}%
         </span>
       </div>
 
       {/* Horizontal progress bar */}
-      <div className="w-full bg-[#dbeafe] dark:bg-gray-700 h-1.5 rounded-full overflow-hidden my-2">
+      <div className="w-[92%] bg-[#dbeafe] dark:bg-gray-700 h-1 rounded-full overflow-hidden mb-1.5">
         <div
           className="bg-[#3b82f6] h-full rounded-full transition-all duration-300"
           style={{ width: `${Math.min(Math.max(storageData.percentage, 2), 100)}%` }}
@@ -92,7 +92,7 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
       </div>
 
       {/* Subtext */}
-      <div className="text-xs text-[#64748b] dark:text-gray-400 font-medium font-sans">
+      <div className="text-[11px] leading-tight text-[#64748b] dark:text-gray-400 font-medium font-sans">
         {formatSize(storageData.used)} of 1 GB {t('storage.used_of', 'used')}
       </div>
     </a>
