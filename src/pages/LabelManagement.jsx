@@ -688,14 +688,14 @@ const LabelManagement = ({ embedded = false }) => {
             </button>
           </div>
 
-          <div className="w-full">
-            <table className="w-full text-left border-collapse text-[11px] sm:text-xs table-fixed">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[500px] text-left border-collapse text-[11px] sm:text-xs table-fixed">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700/60 bg-[#edf4fe] dark:bg-gray-800/80 text-gray-900 dark:text-gray-100 font-semibold select-none">
-                  <th className="py-2.5 px-2 sm:px-5 w-[25%] sm:w-[35%] font-semibold truncate">Label</th>
-                  <th className="py-2.5 px-1 sm:px-4 w-[23%] sm:w-[25%] font-semibold truncate">Show in label list</th>
-                  <th className="py-2.5 px-1 sm:px-4 w-[24%] sm:w-[25%] font-semibold truncate">Show in message list</th>
-                  <th className="py-2.5 px-1 sm:px-4 w-[28%] sm:w-[15%] text-left sm:text-right sm:pr-6 font-semibold truncate">Actions</th>
+                  <th className="py-2.5 px-3 sm:px-5 w-[27%] sm:w-[26%] font-semibold truncate">Label</th>
+                  <th className="py-2.5 px-1.5 sm:px-3 w-[22%] sm:w-[22%] font-semibold truncate">Show in label list</th>
+                  <th className="py-2.5 px-1.5 sm:px-3 w-[22%] sm:w-[22%] font-semibold truncate">Show in message list</th>
+                  <th className="py-2.5 px-2 sm:px-4 sm:pr-5 w-[29%] sm:w-[30%] text-left sm:text-right font-semibold truncate">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
@@ -722,7 +722,7 @@ const LabelManagement = ({ embedded = false }) => {
                         className="hover:bg-blue-50/30 dark:hover:bg-gray-750/30 transition-colors"
                       >
                         {/* Label Name & Color Icon */}
-                        <td className="py-2.5 px-2 sm:px-5 font-medium text-gray-800 dark:text-gray-200 min-w-0">
+                        <td className="py-2.5 px-3 sm:px-5 font-medium text-gray-800 dark:text-gray-200 min-w-0">
                           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
                             <span
                               className="w-3.5 h-3.5 rounded-xs shrink-0 shadow-2xs"
@@ -735,7 +735,7 @@ const LabelManagement = ({ embedded = false }) => {
                         </td>
 
                         {/* Show in label list */}
-                        <td className="py-2.5 px-1 sm:px-4 min-w-0">
+                        <td className="py-2.5 px-1.5 sm:px-3 min-w-0">
                           <label className="inline-flex items-center gap-1 sm:gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
                             <input
                               type="checkbox"
@@ -748,7 +748,7 @@ const LabelManagement = ({ embedded = false }) => {
                         </td>
 
                         {/* Show in message list */}
-                        <td className="py-2.5 px-1 sm:px-4 min-w-0">
+                        <td className="py-2.5 px-1.5 sm:px-3 min-w-0">
                           <label className="inline-flex items-center gap-1 sm:gap-2 text-gray-700 dark:text-gray-300 cursor-pointer select-none">
                             <input
                               type="checkbox"
@@ -761,22 +761,22 @@ const LabelManagement = ({ embedded = false }) => {
                         </td>
 
                         {/* Actions: Edit & Remove */}
-                        <td className="py-2.5 px-1 sm:px-4 text-left sm:text-right sm:pr-6 min-w-0">
-                          <div className="inline-flex items-center justify-start sm:justify-end gap-1.5 sm:gap-3 select-none">
+                        <td className="py-2.5 px-2 sm:px-4 sm:pr-5 text-left sm:text-right min-w-0">
+                          <div className="inline-flex items-center justify-start sm:justify-end gap-2 sm:gap-3 select-none whitespace-nowrap">
                             <button
                               onClick={() => handleOpenEditModal(lbl)}
-                              className="inline-flex items-center gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer shrink-0"
+                              className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer shrink-0 whitespace-nowrap"
                               title="Edit label"
                             >
-                              <MdEdit size={13} className="shrink-0" />
+                              <MdEdit size={14} className="shrink-0" />
                               <span>Edit</span>
                             </button>
                             <button
                               onClick={() => setLabelToDelete(lbl)}
-                              className="inline-flex items-center gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-semibold text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer shrink-0"
+                              className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer shrink-0 whitespace-nowrap"
                               title="Remove label"
                             >
-                              <MdDeleteOutline size={14} className="shrink-0" />
+                              <MdDeleteOutline size={15} className="shrink-0" />
                               <span>Remove</span>
                             </button>
                           </div>
