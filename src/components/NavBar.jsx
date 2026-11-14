@@ -54,6 +54,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchContainerRef = useRef(null);
   const searchInputRef = useRef(null);
+  const mobileSearchContainerRef = useRef(null);
+  const mobileSearchInputRef = useRef(null);
+  const mobileSearchBtnRef = useRef(null);
+  const mobileDateFilterRef = useRef(null);
 
   const handleOpenSearch = () => {
     setIsSearchOpen(true);
@@ -68,7 +72,11 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   useEffect(() => {
     if (isSearchOpen) {
       const timer = setTimeout(() => {
-        searchInputRef.current?.focus();
+        if (window.innerWidth < 768) {
+          mobileSearchInputRef.current?.focus();
+        } else {
+          searchInputRef.current?.focus();
+        }
       }, 50);
       return () => clearTimeout(timer);
     }
@@ -92,12 +100,18 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+      const inDesktopSearch = searchContainerRef.current && searchContainerRef.current.contains(event.target);
+      const inMobileSearch = mobileSearchContainerRef.current && mobileSearchContainerRef.current.contains(event.target);
+      const inMobileSearchBtn = mobileSearchBtnRef.current && mobileSearchBtnRef.current.contains(event.target);
+
+      if (!inDesktopSearch && !inMobileSearch && !inMobileSearchBtn) {
         setShowSearchResults(false);
         setIsSearchOpen(false);
         setShowDateFilterDropdown(false);
       }
-      if (dateFilterRef.current && !dateFilterRef.current.contains(event.target)) {
+      const inDesktopDateFilter = dateFilterRef.current && dateFilterRef.current.contains(event.target);
+      const inMobileDateFilter = mobileDateFilterRef.current && mobileDateFilterRef.current.contains(event.target);
+      if (!inDesktopDateFilter && !inMobileDateFilter) {
         setShowDateFilterDropdown(false);
       }
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -466,10 +480,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
   return (
     <nav
-      className="sticky top-0 z-50 h-[64px] px-2 sm:px-3 lg:px-5 transition-colors duration-300 shrink-0 shadow-md w-full max-w-full box-border relative flex items-center"
+      className="sticky top-0 z-50 transition-colors duration-300 shrink-0 shadow-md w-full max-w-full box-border relative flex flex-col justify-center"
       style={{ backgroundColor: backgroundImage ? "transparent" : "#195bac" }}
     >
-      <div className="flex items-center justify-between w-full max-w-full relative gap-1.5 sm:gap-2 lg:gap-4 box-border min-w-0">
+      <div className="h-[64px] px-2 sm:px-3 lg:px-5 flex items-center justify-between w-full max-w-full relative gap-1.5 sm:gap-2 lg:gap-4 box-border min-w-0">
         {/* LEFT */}
         <div className="flex-1 md:flex-initial lg:flex-1 min-w-0 flex items-center justify-start gap-1 sm:gap-1.5 lg:gap-2">
           {/* Mobile Menu Toggle Button */}
@@ -534,20 +548,41 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         {/* RIGHT */}
         <div className="flex-1 md:flex-initial lg:flex-1 min-w-0 flex items-center justify-end gap-1.5 sm:gap-2 lg:gap-2.5 z-0">
 
-          {/* EXPANDABLE SEARCH BAR */}
+          {/* MOBILE SEARCH TRIGGER BUTTON (mobile view only: < md) */}
+          <button
+            ref={mobileSearchBtnRef}
+            type="button"
+            onClick={() => {
+              if (isSearchOpen) {
+                handleCloseSearch();
+              } else {
+                handleOpenSearch();
+              }
+            }}
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex md:hidden items-center justify-center text-white/85 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all cursor-pointer shrink-0 border border-transparent hover:border-white/15 ${
+              isSearchOpen ? "bg-white/20 text-white" : ""
+            }`}
+            title={t('navbar.search_mail', 'Search mail')}
+            aria-label={t('navbar.search_mail', 'Search mail')}
+            aria-expanded={isSearchOpen}
+          >
+            <Search size={18} className="text-white" />
+          </button>
+
+          {/* DESKTOP EXPANDABLE SEARCH BAR (desktop view only: md+) */}
           <div
             ref={searchContainerRef}
-            className={`relative flex items-center justify-end transition-all duration-300 ease-in-out shrink-0 ${
+            className={`relative hidden md:flex items-center justify-end transition-all duration-300 ease-in-out shrink-0 ${
               isSearchOpen
-                ? "w-44 sm:w-56 md:w-64 lg:w-72 xl:w-80 max-w-[42vw] sm:max-w-[48vw]"
-                : "w-8 sm:w-9"
+                ? "md:w-64 lg:w-72 xl:w-80 max-w-[48vw]"
+                : "w-9"
             }`}
           >
             {!isSearchOpen ? (
               <button
                 type="button"
                 onClick={handleOpenSearch}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white/85 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all cursor-pointer shrink-0 border border-transparent hover:border-white/15"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white/85 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all cursor-pointer shrink-0 border border-transparent hover:border-white/15"
                 title={t('navbar.search_mail', 'Search mail')}
                 aria-label={t('navbar.search_mail', 'Search mail')}
                 aria-expanded={false}
@@ -877,6 +912,145 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           </button>
         </div>
       </div>
+
+      {/* SEPARATE MOBILE SEARCH ROW: activated below the header in mobile view */}
+      {isSearchOpen && (
+        <div
+          ref={mobileSearchContainerRef}
+          className="w-full px-2.5 sm:px-3 pb-2.5 pt-1 border-t border-white/10 md:hidden animate-fade-in box-border"
+        >
+          <form onSubmit={handleSearch} className="relative w-full flex items-center">
+            <div className="relative w-full flex items-center">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/70 pointer-events-none"
+              />
+              <input
+                ref={mobileSearchInputRef}
+                id="mobile-mail-search-input"
+                type="text"
+                value={searchQuery}
+                onFocus={() => setShowSearchResults(true)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchResults(true);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder={`${t('navbar.search_placeholder', 'Search mail...')} ${folderDisplayName}...`}
+                className="w-full h-8.5 pl-8.5 pr-20 rounded-full text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/15 hover:bg-white/20 focus:bg-white/20 text-white focus:shadow-sm border border-white/25 focus:border-white/40 outline-none transition-all duration-200"
+              />
+
+              {/* Actions inside mobile search bar: Clear, Date Filter, Close */}
+              <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 sm:gap-1">
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSearchQuery("");
+                      setShowSearchResults(false);
+                      mobileSearchInputRef.current?.focus();
+                    }}
+                    className="text-white/70 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+
+                {/* Mobile Date Filter */}
+                <div className="relative" ref={mobileDateFilterRef}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDateFilterDropdown((prev) => !prev);
+                    }}
+                    className={`p-1 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${
+                      showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
+                        ? "bg-white/25 text-white shadow-xs"
+                        : "text-white/75 hover:text-white hover:bg-white/10"
+                    }`}
+                    title={t('navbar.filter_by_date', 'Filter options')}
+                    aria-label="Filter options"
+                    aria-expanded={showDateFilterDropdown}
+                  >
+                    <SlidersHorizontal size={14} className="text-white" />
+                    {dateFilter && dateFilter !== "ALL" && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full ring-1 ring-[#195bac]" />
+                    )}
+                  </button>
+
+                  {/* Filter Dropdown */}
+                  {showDateFilterDropdown && (
+                    <div
+                      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 z-50 text-[10px] text-gray-700 dark:text-gray-200 animate-fade-in"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="px-3 py-1 text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                        {t('navbar.filter_by_date', 'Filter by Date')}
+                      </div>
+                      {[
+                        { label: t('navbar.filter_all_time', 'All time'), value: "ALL" },
+                        { label: t('navbar.filter_today', 'Today'), value: "TODAY" },
+                        { label: t('navbar.filter_yesterday', 'Yesterday'), value: "YESTERDAY" },
+                        { label: t('navbar.filter_last_7_days', 'Last 7 days'), value: "LAST_7_DAYS" },
+                        { label: t('navbar.filter_last_30_days', 'Last 30 days'), value: "LAST_30_DAYS" },
+                        { label: t('navbar.filter_custom_range', 'Custom range...'), value: "CUSTOM" },
+                      ].map((item) => (
+                        <button
+                          key={item.value}
+                          type="button"
+                          onClick={() => {
+                            if (item.value === "CUSTOM") {
+                              setShowCustomCalendar(true);
+                            } else {
+                              setDateFilter(item.value);
+                              setShowDateFilterDropdown(false);
+                            }
+                          }}
+                          className={`w-full text-left px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between cursor-pointer ${
+                            dateFilter === item.value
+                              ? "text-blue-600 dark:text-blue-400 font-medium bg-blue-50/50 dark:bg-blue-900/20"
+                              : ""
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                          {dateFilter === item.value && <Check size={13} className="text-blue-600 dark:text-blue-400" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Close Search Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCloseSearch();
+                  }}
+                  className="text-white/75 hover:text-white p-1 rounded-full hover:bg-white/15 transition-colors cursor-pointer"
+                  title="Close search"
+                  aria-label="Close search"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Suggestions Dropdown for Mobile */}
+              {showSearchResults && searchQuery.trim().length > 0 && (
+                <div 
+                  className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 max-h-[60vh] overflow-y-auto z-[9999] w-full animate-fade-in"
+                  style={{ borderColor: theme.border || '#e2e8f0' }}
+                >
+                  {renderSearchResults(() => setShowSearchResults(false))}
+                </div>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
       <CustomDateRangeModal
         isOpen={showCustomCalendar}
         onClose={() => setShowCustomCalendar(false)}
