@@ -466,10 +466,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
   return (
     <nav
-      className="sticky top-0 z-50 h-[68px] max-h-[68px] px-2.5 sm:px-4 lg:px-5 transition-colors duration-300 shrink-0 shadow-md w-full max-w-full box-border relative flex items-center"
+      className="sticky top-0 z-50 px-2 sm:px-3 lg:px-5 py-2 sm:py-2.5 transition-colors duration-300 shrink-0 shadow-md w-full max-w-full box-border relative"
       style={{ backgroundColor: backgroundImage ? "transparent" : "#195bac" }}
     >
-      <div className="flex items-center justify-between w-full h-full max-w-full relative gap-1.5 sm:gap-2 lg:gap-4 box-border min-w-0">
+      <div className="flex items-center justify-between w-full max-w-full relative gap-1.5 sm:gap-2 lg:gap-4 box-border min-w-0">
         {/* LEFT */}
         <div className="flex-1 md:flex-initial lg:flex-1 min-w-0 flex items-center justify-start gap-1 sm:gap-1.5 lg:gap-2">
           {/* Mobile Menu Toggle Button */}
@@ -486,12 +486,12 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             <img
               src={logo}
               alt="BNX Mail"
-              className="h-8 sm:h-8.5 lg:h-9 cursor-pointer drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0 p-0.5"
+              className="h-7 sm:h-8 lg:h-9 cursor-pointer drop-shadow-sm transition-transform hover:scale-105 bg-white rounded-lg shrink-0"
               onClick={() => onToggleDesktopSidebar()}
             />
             <span
               onClick={() => onToggleDesktopSidebar()}
-              className="text-sm sm:text-base lg:text-[17px] font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden md:inline select-none whitespace-nowrap leading-none"
+              className="text-sm sm:text-base lg:text-lg font-bold tracking-tight cursor-pointer hover:opacity-90 transition-opacity text-white hidden md:inline select-none whitespace-nowrap"
             >
               BNX<span className="font-normal text-white/90">mail</span>
             </span>
@@ -501,11 +501,11 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <button
             type="button"
             onClick={() => openCompose({ mode: currentTab === 'chat' ? 'chat' : 'mail' })}
-            className="hidden lg:flex items-center justify-center gap-2 h-9 px-4 lg:px-4.5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-4 lg:ml-8 xl:ml-12 2xl:ml-16"
+            className="hidden lg:flex items-center justify-center gap-2 lg:gap-2.5 h-9 lg:h-10 px-3.5 lg:px-5 bg-white text-gray-900 rounded-full font-semibold shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer select-none shrink-0 ml-4 lg:ml-16 xl:ml-20 2xl:ml-24"
             title={t('navbar.compose', t('common.compose', 'Compose'))}
           >
-            <Pencil size={15} className="text-[#195bac] shrink-0" />
-            <span className="text-xs sm:text-[13px] font-semibold text-gray-900 leading-none whitespace-nowrap">
+            <Pencil size={17} className="text-[#195bac] shrink-0" />
+            <span className="text-xs sm:text-sm font-semibold text-gray-900 leading-none whitespace-nowrap">
               {t('navbar.compose', t('common.compose', 'Compose'))}
             </span>
           </button>
@@ -513,18 +513,18 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
         {/* CENTER: SEGMENTED CONTROL */}
         <div className="shrink-0 flex items-center justify-center mx-1 sm:mx-2 lg:mx-3 z-10">
-          <div className="h-9 flex items-center bg-white/10 backdrop-blur-sm shadow-sm rounded-full p-1 border border-white/10 shrink-0">
+          <div className="flex items-center bg-white/10 backdrop-blur-sm shadow-sm rounded-full p-0.5 sm:p-1 border border-white/10 shrink-0">
             <button
               type="button"
               onClick={() => navigate('/inbox')}
-              className={`px-3.5 sm:px-4 lg:px-5 h-7 flex items-center justify-center rounded-full text-xs sm:text-[13px] font-medium transition-colors cursor-pointer select-none whitespace-nowrap text-center ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-[13px] sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap text-center ${currentTab === 'mail' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.mail', 'Mail')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/casbox')}
-              className={`px-3.5 sm:px-4 lg:px-5 h-7 flex items-center justify-center rounded-full text-xs sm:text-[13px] font-medium transition-colors cursor-pointer select-none whitespace-nowrap text-center ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+              className={`px-2.5 sm:px-3.5 lg:px-5 py-1 sm:py-1.5 rounded-full text-[13px] sm:text-sm font-medium transition-colors cursor-pointer select-none whitespace-nowrap text-center ${currentTab === 'chat' ? 'bg-white text-[#1e3a8a] shadow-sm font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
             >
               {t('navbar.casbox', 'Casbox')}
             </button>
@@ -540,14 +540,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             className={`relative flex items-center justify-end transition-all duration-300 ease-in-out shrink-0 ${
               isSearchOpen
                 ? "w-44 sm:w-56 md:w-64 lg:w-72 xl:w-80 max-w-[42vw] sm:max-w-[48vw]"
-                : "w-9 h-9"
+                : "w-8 sm:w-9"
             }`}
           >
             {!isSearchOpen ? (
               <button
                 type="button"
                 onClick={handleOpenSearch}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white/85 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all cursor-pointer shrink-0 border border-transparent hover:border-white/15"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white/85 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all cursor-pointer shrink-0 border border-transparent hover:border-white/15"
                 title={t('navbar.search_mail', 'Search mail')}
                 aria-label={t('navbar.search_mail', 'Search mail')}
                 aria-expanded={false}
@@ -572,7 +572,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                     }}
                     onKeyDown={handleKeyDown}
                     placeholder={`${t('navbar.search_placeholder', 'Search mail...')} ${folderDisplayName}...`}
-                    className="w-full h-9 pl-8 sm:pl-9 pr-16 sm:pr-20 rounded-full text-[11px] sm:text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/15 hover:bg-white/20 focus:bg-white/20 text-white focus:shadow-sm border border-white/25 focus:border-white/40 outline-none transition-all duration-200 truncate"
+                    className="w-full h-8 sm:h-9 pl-8 sm:pl-9 pr-16 sm:pr-20 rounded-full text-[11px] sm:text-xs placeholder:text-white/60 focus:placeholder:text-white/60 bg-white/15 hover:bg-white/20 focus:bg-white/20 text-white focus:shadow-sm border border-white/25 focus:border-white/40 outline-none transition-all duration-200 truncate"
                   />
 
                   {/* Actions inside search bar: Clear, Advanced Filter, Close */}
@@ -692,24 +692,24 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <div className="relative shrink-0" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="h-9 flex items-center gap-1.5 sm:gap-2 p-0.5 sm:pr-2.5 lg:pr-3 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-transparent hover:border-white/20 cursor-pointer"
+              className="flex items-center gap-1.5 sm:gap-2 p-1 sm:pr-2.5 lg:pr-3 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-transparent hover:border-white/20 cursor-pointer"
             >
               {user?.profilePictureUrl ? (
                 <img
                   src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${user.profilePictureUrl}`}
                   alt="Profile"
-                  className="h-8 w-8 rounded-full object-cover shadow-sm border border-white/20 shrink-0"
+                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover shadow-sm border border-white/20 shrink-0"
                 />
               ) : (
                 <div
-                  className="h-8 w-8 rounded-full flex items-center justify-center text-white font-semibold shadow-sm shrink-0 text-[11px] bg-[#135bec]"
+                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center text-white font-semibold shadow-sm shrink-0 text-[10px] sm:text-[11px] bg-[#135bec]"
                 >
                   {user?.email?.[0]?.toUpperCase() || "U"}
                 </div>
               )}
               <div className="hidden lg:flex items-center gap-1.5">
                 <span
-                  className="text-xs font-medium truncate max-w-[80px] xl:max-w-[110px] text-white leading-none"
+                  className="text-[11px] font-medium truncate max-w-[80px] xl:max-w-[110px] text-white"
                 >
                   {user?.email?.split('@')[0] || "User"}
                 </span>
@@ -729,7 +729,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
             {showDropdown && (
               <div
-                className="absolute right-0 mt-2 w-[290px] sm:w-[310px] max-w-[calc(100vw-1.5rem)] rounded-2xl shadow-xl dark:shadow-soft-dark border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900"
+                className="absolute right-0 mt-3 w-[290px] sm:w-[310px] max-w-[calc(100vw-1.5rem)] rounded-2xl shadow-xl dark:shadow-soft-dark border z-50 overflow-hidden animate-fade-in bg-white dark:bg-gray-900"
                 style={{ borderColor: theme.border }}
               >
                 {/* Active User Large Header */}
@@ -863,16 +863,16 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             )}
           </div>
 
-          <div className="h-5 w-[1px] bg-white/20 ml-0.5 sm:ml-1 hidden sm:block shrink-0" />
+          <div className="h-6 w-[1px] bg-white/20 ml-0.5 sm:ml-1 hidden sm:block shrink-0" />
           <button
             onClick={onToggleBitToolSidebar}
-            className="h-9 w-9 px-1.5 sm:px-2 rounded-full bg-white dark:hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 cursor-pointer shadow-xs"
+            className="h-8 sm:h-9 px-1.5 sm:px-2 rounded-full bg-white dark:hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 cursor-pointer"
             title={t('navbar.bit_tools', 'Toggle BIT Tools')}
           >
             <img
               src={bitToolLogo}
               alt="BIT Tool"
-              className="h-4 sm:h-4.5 object-contain opacity-80 hover:opacity-100"
+              className="h-4 sm:h-5 object-contain opacity-80 hover:opacity-100"
             />
           </button>
         </div>
