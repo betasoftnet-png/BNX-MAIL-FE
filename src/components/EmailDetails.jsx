@@ -1840,8 +1840,8 @@ const EmailDetails = ({
               {email.subject || "(No Subject)"}
             </h1>
 
-            {/* Mailbox Badge (conditionally hidden for Inbox) */}
-            {mailboxFolderLabel && mailboxFolderLabel.toLowerCase() !== 'inbox' && (
+            {/* Mailbox Badge (conditionally hidden for Inbox and Sent) */}
+            {mailboxFolderLabel && !['inbox', 'sent', 'send'].includes(mailboxFolderLabel.toLowerCase()) && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-200/90 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 shrink-0 select-none">
                 <span>{mailboxFolderLabel}</span>
                 <button
@@ -1882,7 +1882,8 @@ const EmailDetails = ({
             {localLabels
               ?.filter((label) => {
                 const labelName = typeof label === 'string' ? label : (label?.name || label?.id || '');
-                return labelName.toLowerCase() !== 'inbox';
+                const lower = labelName.toLowerCase();
+                return lower !== 'inbox' && lower !== 'sent' && lower !== 'send';
               })
               .map((label) => {
               const labelId = typeof label === 'string' ? label : (label.id || label.name);
