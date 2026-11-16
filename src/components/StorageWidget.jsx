@@ -77,6 +77,7 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
 
   const displayPercentage = (typeof storageData.percentage === 'number' ? storageData.percentage : 0).toFixed(1);
   const showFull = isExpanded !== undefined ? isExpanded : isDesktopOpen;
+  const displayedCapacity = '1 GB';
 
   if (!showFull) {
     return (
@@ -85,7 +86,7 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
         target="_blank"
         rel="noopener noreferrer"
         className="mx-2 mb-1.5 p-1.5 flex flex-col items-center justify-center hover:bg-blue-50 dark:hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
-        title={`${formatSize(storageData.used)} of ${formatSize(storageData.limit)} used (${displayPercentage}%)`}
+        title={`${formatSize(storageData.used)} of ${displayedCapacity} used (${displayPercentage}%)`}
       >
         <Cloud size={16} className="text-blue-500 fill-blue-500" />
         <span className="text-[9px] font-bold text-blue-600 mt-0.5">{displayPercentage}%</span>
@@ -124,7 +125,7 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
 
       {/* Subtext */}
       <div className="text-[11px] leading-tight text-[#64748b] dark:text-gray-400 font-medium font-sans">
-        {formatSize(storageData.used)} of {formatSize(storageData.limit)} {t('storage.used_of', 'used')}
+        {formatSize(storageData.used)} of {displayedCapacity} {t('storage.used_of', 'used')}
       </div>
     </a>
   );
