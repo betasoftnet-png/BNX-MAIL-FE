@@ -844,6 +844,7 @@ const Casbox = () => {
   useEffect(() => {
     unarchivedMessageIdsRef.current = unarchivedMessageIds;
   }, [unarchivedMessageIds]);
+  const isArchivingRef = React.useRef(false);
 
   const saveArchivedMessageIds = (nextSet) => {
     try {
@@ -3730,88 +3731,160 @@ const Casbox = () => {
     }
   };
 
-  const handleArchiveMessage = async (messageOrId, e) => {
+  const handleArchiveMessage = async (target, e) => {
     if (e && e.stopPropagation) e.stopPropagation();
     setOpenMenuId(null);
     setOpenCombineMenuId(null);
     setActiveMessageMenuId(null);
 
-    const messageId = (messageOrId && typeof messageOrId === 'object')
-      ? (messageOrId.id !== undefined ? messageOrId.id : messageOrId.uid)
-      : messageOrId;
-    if (messageId === undefined || messageId === null) return;
+    if (isArchivingRef.current) return;
 
-    const strId = String(messageId);
-    const numericId = Number(messageId);
-    const apiTargetIds = !isNaN(numericId) ? [numericId] : [messageId];
+    // Check if target is explicitly marked as single message only (e.g. inside thread)
+    const isSingleMsgOnly = Boolean(target?.isSingleMessageOnly);
+
+    // Resolve target contact identifier and chat object
+    let targetContact = null;
+    let targetChat = null;
+
+    if (target && typeof target === 'object') {
+      if (Array.isArray(target.messages)) {
+        // Conversation group object (chat / grp)
+        targetChat = target;
+        targetContact = target.contact || target.contactNorm;
+      } else if (target.chat && Array.isArray(target.chat.messages)) {
+        // List item containing chat reference
+        targetChat = target.chat;
+        targetContact = target.contact || target.chat.contact;
+      } else if (!isSingleMsgOnly) {
+        targetContact = target.contact || getOtherUserEmail(target.msg || target);
+      }
+    } else if (typeof target === 'string' && (target.includes('@') || isNaN(Number(target)))) {
+      targetContact = target;
+    }
+
+    let targetIds = [];
+    if (isSingleMsgOnly) {
+      const singleId = target?.id !== undefined ? target.id : target?.uid;
+      if (singleId !== undefined && singleId !== null) {
+        targetIds = [singleId];
+      }
+    } else if (targetContact) {
+      const targetNorm = normalizeEmail(targetContact);
+      const targetLocal = targetNorm.includes('@') ? targetNorm.split('@')[0] : targetNorm;
+
+      const idSet = new Set();
+      // Match from existing messages state
+      (messages || []).forEach(m => {
+        const otherNorm = normalizeEmail(getOtherUserEmail(m));
+        const otherLocal = otherNorm.includes('@') ? otherNorm.split('@')[0] : otherNorm;
+        if (otherNorm === targetNorm || otherLocal === targetLocal) {
+          const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+          if (mId !== undefined && mId !== null) idSet.add(mId);
+        }
+      });
+      // Match from conversation group messages if present
+      if (targetChat?.messages) {
+        targetChat.messages.forEach(m => {
+          const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+          if (mId !== undefined && mId !== null) idSet.add(mId);
+        });
+      }
+      // Direct ID fallback if present
+      const directId = target?.id !== undefined ? target.id : (target?.msg?.id !== undefined ? target.msg.id : target?.uid);
+      if (directId !== undefined && directId !== null) idSet.add(directId);
+
+      targetIds = Array.from(idSet);
+    } else {
+      const singleId = (target && typeof target === 'object')
+        ? (target.id !== undefined ? target.id : (target.msg?.id !== undefined ? target.msg.id : target.uid))
+        : target;
+      if (singleId !== undefined && singleId !== null) {
+        targetIds = [singleId];
+      }
+    }
+
+    if (targetIds.length === 0) return;
+
+    isArchivingRef.current = true;
+    const targetSet = new Set(targetIds.map(String));
+    const numericTargetIds = targetIds.map(Number).filter(n => !isNaN(n));
+    const apiTargetIds = numericTargetIds.length === targetIds.length ? numericTargetIds : targetIds;
 
     try {
+      // 1. Update local messages state immediately
       setMessages(prev => prev.map(m => {
-        const mId = m.id !== undefined ? m.id : m.uid;
-        return (mId === messageId || String(mId) === strId)
+        const mId = String(m.id !== undefined ? m.id : m.uid);
+        return targetSet.has(mId)
           ? { ...m, isArchived: true, archived: true }
           : m;
       }));
 
+      // 2. Update persistent archived sets
       setArchivedMessageIds(prev => {
         const next = new Set(prev);
-        next.add(messageId);
-        next.add(strId);
+        targetIds.forEach(id => {
+          next.add(id);
+          next.add(String(id));
+        });
         saveArchivedMessageIds(next);
         return next;
       });
 
       setUnarchivedMessageIds(prev => {
-        if (!prev.has(messageId) && !prev.has(strId)) return prev;
         const next = new Set(prev);
-        next.delete(messageId);
-        next.delete(strId);
+        targetIds.forEach(id => {
+          next.delete(id);
+          next.delete(String(id));
+        });
         saveUnarchivedMessageIds(next);
         return next;
       });
 
+      // 3. Update thread messages if currently open
       setThreadMessages(prev => prev.filter(m => {
-        const mId = m.id !== undefined ? m.id : m.uid;
-        return !(mId === messageId || String(mId) === strId);
+        const mId = String(m.id !== undefined ? m.id : m.uid);
+        return !targetSet.has(mId);
       }));
 
+      // 4. Clear open detail if it belonged to this conversation
       if (selectedSentDetail) {
-        const sId = selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid;
-        if (sId === messageId || String(sId) === strId) {
+        const sId = String(selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid);
+        if (targetSet.has(sId) || (targetContact && normalizeEmail(selectedSentDetail.contactRecipient) === normalizeEmail(targetContact))) {
           setSelectedSentDetail(null);
         }
       }
       if (selectedMessage) {
-        const sId = selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid;
-        if (sId === messageId || String(sId) === strId) {
-          // If this was the selected message reference, update it to another message if thread still has messages
-          setThreadMessages(prev => {
-            const remaining = prev.filter(m => {
-              const mId = m.id !== undefined ? m.id : m.uid;
-              return !(mId === messageId || String(mId) === strId);
-            });
-            if (remaining.length === 0) {
-              setSelectedMessage(null);
-            }
-            return remaining;
-          });
+        const sId = String(selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid);
+        if (targetSet.has(sId) || (targetContact && normalizeEmail(getOtherUserEmail(selectedMessage)) === normalizeEmail(targetContact))) {
+          setSelectedMessage(null);
         }
       }
 
+      // 5. Clear row checkboxes
       setSelectedRowIds(prev => {
-        if (!prev.has(messageId) && !prev.has(strId)) return prev;
         const next = new Set(prev);
-        next.delete(messageId);
-        next.delete(strId);
+        targetIds.forEach(id => {
+          next.delete(id);
+          next.delete(String(id));
+        });
+        if (targetContact) {
+          next.delete(targetContact);
+        }
         return next;
       });
 
+      // 6. Call backend archive API
       await casboxAPI.updateArchiveStatus(apiTargetIds, true);
-      toast.success("Message archived");
+      toast.success(isSingleMsgOnly ? "Message archived" : "Conversation archived");
+
+      // 7. Refresh messages to ensure backend sync
+      await fetchMessages(true);
     } catch (err) {
-      console.error("Failed to archive message", err);
-      toast.error("Failed to archive message");
+      console.error("Failed to archive conversation", err);
+      toast.error("Failed to archive conversation");
       fetchMessages(true);
+    } finally {
+      isArchivingRef.current = false;
     }
   };
 
@@ -3867,6 +3940,7 @@ const Casbox = () => {
       setSelectedRowIds(new Set());
       await casboxAPI.updateArchiveStatus(apiTargetIds, true);
       toast.success(`${targetIds.length > 1 ? `${targetIds.length} messages` : 'Message'} archived`);
+      await fetchMessages(true);
     } catch (err) {
       console.error("Failed to archive selected messages", err);
       toast.error("Failed to archive messages");
@@ -3874,40 +3948,95 @@ const Casbox = () => {
     }
   };
 
-  const handleUnarchiveMessage = async (chatOrMsg, e) => {
+  const handleUnarchiveMessage = async (target, e) => {
     if (e && e.stopPropagation) e.stopPropagation();
     setOpenMenuId(null);
+    setOpenCombineMenuId(null);
+    setActiveMessageMenuId(null);
 
-    const isSingleMsg = chatOrMsg && (chatOrMsg.id !== undefined || chatOrMsg.uid !== undefined) && !Array.isArray(chatOrMsg.messages);
-    const otherEmail = getOtherUserEmail(chatOrMsg);
+    if (isArchivingRef.current) return;
+
+    // Check if target is explicitly marked as single message only (e.g. inside thread)
+    const isSingleMsgOnly = Boolean(target?.isSingleMessageOnly);
+
+    // Resolve target contact identifier and chat object
+    let targetContact = null;
+    let targetChat = null;
+
+    if (target && typeof target === 'object') {
+      if (Array.isArray(target.messages)) {
+        // Conversation group object (chat / grp)
+        targetChat = target;
+        targetContact = target.contact || target.contactNorm;
+      } else if (target.chat && Array.isArray(target.chat.messages)) {
+        // List item containing chat reference
+        targetChat = target.chat;
+        targetContact = target.contact || target.chat.contact;
+      } else if (!isSingleMsgOnly) {
+        targetContact = target.contact || getOtherUserEmail(target.msg || target);
+      }
+    } else if (typeof target === 'string' && (target.includes('@') || isNaN(Number(target)))) {
+      targetContact = target;
+    }
 
     let targetIds = [];
-    if (isSingleMsg) {
-      const singleId = chatOrMsg.id !== undefined ? chatOrMsg.id : chatOrMsg.uid;
+    if (isSingleMsgOnly) {
+      const singleId = target?.id !== undefined ? target.id : target?.uid;
       if (singleId !== undefined && singleId !== null) {
         targetIds = [singleId];
       }
-    } else {
-      const matchingMsgIds = otherEmail
-        ? messages.filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && Boolean(m.isArchived || m.archived)).map(m => m.id)
-        : [];
+    } else if (targetContact) {
+      const targetNorm = normalizeEmail(targetContact);
+      const targetLocal = targetNorm.includes('@') ? targetNorm.split('@')[0] : targetNorm;
 
-      targetIds = matchingMsgIds.length > 0
-        ? matchingMsgIds
-        : (chatOrMsg?.messages ? chatOrMsg.messages.map(m => m.id) : [chatOrMsg?.id || chatOrMsg?.latestMessage?.id].filter(Boolean));
+      const idSet = new Set();
+      // Match from existing messages state
+      (messages || []).forEach(m => {
+        const otherNorm = normalizeEmail(getOtherUserEmail(m));
+        const otherLocal = otherNorm.includes('@') ? otherNorm.split('@')[0] : otherNorm;
+        if (otherNorm === targetNorm || otherLocal === targetLocal) {
+          const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+          if (mId !== undefined && mId !== null) idSet.add(mId);
+        }
+      });
+      // Match from conversation group messages if present
+      if (targetChat?.messages) {
+        targetChat.messages.forEach(m => {
+          const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+          if (mId !== undefined && mId !== null) idSet.add(mId);
+        });
+      }
+      // Direct ID fallback if present
+      const directId = target?.id !== undefined ? target.id : (target?.msg?.id !== undefined ? target.msg.id : target?.uid);
+      if (directId !== undefined && directId !== null) idSet.add(directId);
+
+      targetIds = Array.from(idSet);
+    } else {
+      const singleId = (target && typeof target === 'object')
+        ? (target.id !== undefined ? target.id : (target.msg?.id !== undefined ? target.msg.id : target.uid))
+        : target;
+      if (singleId !== undefined && singleId !== null) {
+        targetIds = [singleId];
+      }
     }
 
     if (targetIds.length === 0) return;
+
+    isArchivingRef.current = true;
     const targetSet = new Set(targetIds.map(String));
     const numericTargetIds = targetIds.map(Number).filter(n => !isNaN(n));
     const apiTargetIds = numericTargetIds.length === targetIds.length ? numericTargetIds : targetIds;
 
     try {
+      // 1. Update local messages state immediately
       setMessages(prev => prev.map(m => {
         const mId = String(m.id !== undefined ? m.id : m.uid);
-        return targetSet.has(mId) ? { ...m, isArchived: false, archived: false } : m;
+        return targetSet.has(mId)
+          ? { ...m, isArchived: false, archived: false }
+          : m;
       }));
 
+      // 2. Update persistent archived sets
       setArchivedMessageIds(prev => {
         const next = new Set(prev);
         targetIds.forEach(id => {
@@ -3928,25 +4057,45 @@ const Casbox = () => {
         return next;
       });
 
+      // 3. Clear open detail if it belonged to this conversation
       if (selectedMessage) {
         const sId = String(selectedMessage.id !== undefined ? selectedMessage.id : selectedMessage.uid);
-        if (targetSet.has(sId) || (!isSingleMsg && otherEmail && getOtherUserEmail(selectedMessage) === otherEmail)) {
+        if (targetSet.has(sId) || (targetContact && normalizeEmail(getOtherUserEmail(selectedMessage)) === normalizeEmail(targetContact))) {
           setSelectedMessage(null);
         }
       }
       if (selectedSentDetail) {
         const sId = String(selectedSentDetail.id !== undefined ? selectedSentDetail.id : selectedSentDetail.uid);
-        if (targetSet.has(sId) || (!isSingleMsg && otherEmail && selectedSentDetail.contactRecipient === otherEmail)) {
+        if (targetSet.has(sId) || (targetContact && normalizeEmail(selectedSentDetail.contactRecipient) === normalizeEmail(targetContact))) {
           setSelectedSentDetail(null);
         }
       }
 
+      // 4. Clear row checkboxes
+      setSelectedRowIds(prev => {
+        const next = new Set(prev);
+        targetIds.forEach(id => {
+          next.delete(id);
+          next.delete(String(id));
+        });
+        if (targetContact) {
+          next.delete(targetContact);
+        }
+        return next;
+      });
+
+      // 5. Call backend unarchive API
       await casboxAPI.updateArchiveStatus(apiTargetIds, false);
-      toast.success("Moved back to Messages");
+      toast.success(isSingleMsgOnly ? "Message unarchived" : "Conversation unarchived");
+
+      // 6. Refresh messages to ensure backend sync
+      await fetchMessages(true);
     } catch (err) {
       console.error("Failed to unarchive message", err);
-      toast.error("Failed to unarchive message");
+      toast.error("Failed to unarchive conversation");
       fetchMessages(true);
+    } finally {
+      isArchivingRef.current = false;
     }
   };
 
@@ -3999,6 +4148,7 @@ const Casbox = () => {
       setSelectedRowIds(new Set());
       await casboxAPI.updateArchiveStatus(apiTargetIds, false);
       toast.success(`${targetIds.length > 1 ? `${targetIds.length} messages` : 'Message'} moved back to Messages`);
+      await fetchMessages(true);
     } catch (err) {
       console.error("Failed to unarchive selected messages", err);
       toast.error("Failed to unarchive messages");
@@ -6014,7 +6164,7 @@ const Casbox = () => {
                           )}
                           <button
                             type="button"
-                            onClick={(e) => handleArchiveMessage(msg, e)}
+                            onClick={(e) => handleArchiveMessage(chat || item || msg, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                           >
                             <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
@@ -6152,7 +6302,7 @@ const Casbox = () => {
                           )}
                           <button
                             type="button"
-                            onClick={(e) => handleArchiveMessage(msg, e)}
+                            onClick={(e) => handleArchiveMessage(chat || item || msg, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                           >
                             <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
@@ -6368,7 +6518,7 @@ const Casbox = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={(e) => handleUnarchiveMessage(msg, e)}
+                          onClick={(e) => handleUnarchiveMessage(chat || item || msg, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                         >
                           <MdUnarchive size={16} className="text-blue-600 dark:text-blue-400" />
