@@ -107,15 +107,16 @@ export const classifyCashboxConversation = (item, currentUser, casboxAcceptedLis
 
   const msgs = Array.isArray(item?.messages) ? item.messages : (item ? [item] : []);
 
+  const incomingMsgs = msgs.filter(m => isUser(m?.receiverEmail || m?.receiver));
+  const hasIncoming = incomingMsgs.length > 0;
   const hasOutgoing = msgs.some(m => isUser(m?.senderEmail || m?.sender));
-  const hasIncoming = msgs.some(m => isUser(m?.receiverEmail || m?.receiver));
 
   let contactEmail = "";
   if (item?.contactNorm || item?.contact) {
     contactEmail = normalizeEmail(item.contactNorm || item.contact);
   }
   if (!contactEmail && msgs.length > 0) {
-    const incoming = msgs.find(m => isUser(m?.receiverEmail || m?.receiver));
+    const incoming = incomingMsgs[0];
     if (incoming) {
       contactEmail = normalizeEmail(incoming.senderEmail || incoming.sender);
     } else {
@@ -128,18 +129,9 @@ export const classifyCashboxConversation = (item, currentUser, casboxAcceptedLis
   }
 
   const isAcceptedLocally = isCashboxSenderAccepted(contactEmail, casboxAcceptedList);
-  const dtoAccepted = item?.latestMessage?.isAccepted !== undefined
-    ? item.latestMessage.isAccepted
-    : (item?.isAccepted !== undefined ? item.isAccepted : (item?.accepted !== undefined ? item.accepted : undefined));
+  const incomingDtoAccepted = incomingMsgs.some(m => m?.isAccepted === true || m?.accepted === true);
 
-  let accepted = false;
-  if (isAcceptedLocally) {
-    accepted = true;
-  } else if (dtoAccepted !== undefined) {
-    accepted = Boolean(dtoAccepted);
-  } else {
-    accepted = isAcceptedLocally;
-  }
+  const accepted = isAcceptedLocally || incomingDtoAccepted;
 
   let result = 'MESSAGES';
   if (hasIncoming) {
@@ -3553,7 +3545,7 @@ const Casbox = () => {
     if (connections && Array.isArray(connections)) {
       connections.forEach(conn => {
         const status = String(conn?.status || '').trim().toUpperCase();
-        if (status !== 'DISCONNECTED') {
+        if (status === 'CONNECTED' || status === 'ACCEPTED') {
           const email = normalizeEmail(conn?.contactEmail || conn?.email);
           if (email) {
             set.add(email);
@@ -4480,29 +4472,10 @@ const Casbox = () => {
     };
   }, [messages, blockedContacts, acceptedContacts, connections, acceptedSet, activeTab, user, isMessageUnread, isCurrentUser, deletedMessageIds, readMessageIds, isMsgArchived]);
 
-  // Combine tab unread count computed from messages
+  // Combine tab unread count computed from messages in accepted conversations
   const unreadCombinedCount = useMemo(() => {
-    if (!messages || messages.length === 0) return 0;
-    const seenIds = new Set();
-    let count = 0;
-    for (let i = 0; i < messages.length; i++) {
-      const m = messages[i];
-      const id = m.id !== undefined && m.id !== null ? m.id : m.uid;
-      const key = id !== undefined && id !== null ? String(id) : `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver}-${m.body}`;
-      if (seenIds.has(key)) continue;
-      seenIds.add(key);
-      if (id !== undefined && id !== null && (deletedMessageIds.has(id) || deletedMessageIds.has(String(id)))) {
-        continue;
-      }
-      if (isMsgArchived(m)) {
-        continue;
-      }
-      if (isMessageUnread(m)) {
-        count++;
-      }
-    }
-    return count;
-  }, [messages, deletedMessageIds, isMessageUnread, readMessageIds, isMsgArchived]);
+    return unreadMessagesCount;
+  }, [unreadMessagesCount]);
 
   // Contact-specific starred messages for the currently opened conversation
   const contactStarredMessages = useMemo(() => {
@@ -5212,66 +5185,52 @@ const Casbox = () => {
     setForwardSearchTerm("");
   }, [forwardingMessage, selectedForwardContactEmails, isSendingForward, cleanMessageBody, getDisplayName, selectedMessage, getOtherUserEmail, availableForwardContacts]);
 
-  // Unified all-messages list for Combine tab
+  // Unified all-messages list for Combine tab (only accepted conversations, excluding requests & archive)
   const unifiedCombineMessages = useMemo(() => {
-    if (!messages || messages.length === 0) return [];
-
-    const disconnectedSet = new Set();
-    if (connections && Array.isArray(connections)) {
-      for (let i = 0; i < connections.length; i++) {
-        const c = connections[i];
-        if (String(c.status || '').trim().toUpperCase() === 'DISCONNECTED') {
-          const email = normalizeEmail(c.contactEmail || c.email);
-          if (email) {
-            disconnectedSet.add(email);
-            if (email.includes('@')) disconnectedSet.add(email.split('@')[0]);
-          }
-          const uname = normalizeEmail(c.contactUsername || c.username);
-          if (uname) disconnectedSet.add(uname);
-          if (c.contactUserId) disconnectedSet.add(String(c.contactUserId));
-        }
-      }
-    }
+    if (!messagesConversations || messagesConversations.length === 0) return [];
 
     const seenIds = new Set();
     const list = [];
 
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
-      if (seenIds.has(id)) continue;
-      if (deletedMessageIds.has(id) || deletedMessageIds.has(String(id))) continue;
-      if (isMsgArchived(msg)) continue;
-      seenIds.add(id);
+    for (let g = 0; g < messagesConversations.length; g++) {
+      const grp = messagesConversations[g];
+      const msgs = grp.messages || [];
+      for (let i = 0; i < msgs.length; i++) {
+        const msg = msgs[i];
+        const id = msg.id || msg.uid || `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver}-${msg.body}`;
+        if (seenIds.has(id)) continue;
+        if (deletedMessageIds.has(id) || deletedMessageIds.has(String(id))) continue;
+        if (isMsgArchived(msg)) continue;
+        seenIds.add(id);
 
-      const sender = normalizeEmail(msg.senderEmail || msg.sender);
-      const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
-      if (!sender || !receiver) continue;
+        const sender = normalizeEmail(msg.senderEmail || msg.sender);
+        const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
+        if (!sender || !receiver) continue;
 
-      const isMe = isCurrentUser(sender);
-      const rawContact = isMe ? (msg.receiverEmail || msg.receiver) : (msg.senderEmail || msg.sender);
-      if (!rawContact) continue;
+        const isMe = isCurrentUser(sender);
+        const rawContact = isMe
+          ? (msg.receiverEmail || msg.receiver || grp.contact)
+          : (msg.senderEmail || msg.sender || grp.contact);
+        if (!rawContact) continue;
 
-      const contactNorm = normalizeEmail(rawContact);
-      const contactLocal = contactNorm.includes('@') ? contactNorm.split('@')[0] : contactNorm;
-      if (disconnectedSet.has(contactNorm) || disconnectedSet.has(contactLocal)) continue;
+        const contactNorm = normalizeEmail(rawContact);
+        const ts = getTimestampMs(msg.timestamp);
 
-      const ts = getTimestampMs(msg.timestamp);
-
-      list.push({
-        msg,
-        id,
-        isSent: isMe,
-        contact: rawContact,
-        contactNorm,
-        timestampMs: ts,
-      });
+        list.push({
+          msg,
+          id,
+          isSent: isMe,
+          contact: rawContact,
+          contactNorm,
+          timestampMs: ts,
+        });
+      }
     }
 
     // Sort ALL messages globally using the existing message timestamp - newest at top
     list.sort((a, b) => b.timestampMs - a.timestampMs);
     return list;
-  }, [messages, blockedContacts, connections, isCurrentUser, deletedMessageIds, isMsgArchived]);
+  }, [messagesConversations, isCurrentUser, deletedMessageIds, isMsgArchived]);
 
   const filteredCombineMessages = useMemo(() => {
     let result = unifiedCombineMessages;
@@ -6658,10 +6617,22 @@ const Casbox = () => {
         sessionStorage.setItem('bnx_casbox_accepted', JSON.stringify(newAccepted));
       } catch (e) { }
       await userAPI.updateSettings({ casboxAccepted: newAccepted });
-      toast.success("Request accepted");
-      if (!isCombineTab) {
-        setActiveTab("messages");
+
+      const matchedConn = connections?.find(c => {
+        const cEmail = normalizeEmail(c.contactEmail || c.email);
+        const cUser = normalizeEmail(c.contactUsername || c.username);
+        return (cEmail && (cEmail === emailLower || cEmail.split('@')[0] === localPart)) ||
+          (cUser && (cUser === emailLower || cUser === localPart));
+      });
+      if (matchedConn && matchedConn.id) {
+        try {
+          await connectionAPI.updateStatus(matchedConn.id, "CONNECTED");
+          setConnections(prev => prev.map(c => c.id === matchedConn.id ? { ...c, status: "CONNECTED" } : c));
+        } catch (ignored) { }
       }
+
+      toast.success("Request accepted");
+      setActiveTab("combine");
     } catch (e) {
       toast.error("Failed to accept request");
       setAcceptedContacts(acceptedContacts);
@@ -7126,7 +7097,9 @@ const Casbox = () => {
   const detailsComponent = selectedMessage ? (() => {
     const otherUserEmail = getOtherUserEmail(selectedMessage);
     const otherNorm = normalizeEmail(otherUserEmail);
-    const isContactAccepted = isCashboxSenderAccepted(otherNorm, acceptedSet) || Boolean(selectedMessage?.isAccepted || selectedMessage?.accepted);
+    const isIncomingMsg = !isCurrentUser(selectedMessage?.senderEmail || selectedMessage?.sender);
+    const isContactAccepted = isCashboxSenderAccepted(otherNorm, acceptedSet) ||
+      Boolean(isIncomingMsg && (selectedMessage?.isAccepted || selectedMessage?.accepted));
     const isContactRequest = Boolean(otherNorm && !isContactAccepted);
 
     // Bulk action handlers for message selection mode
