@@ -1,5 +1,6 @@
-﻿import { useTranslation } from "../context/LanguageContext";
+import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -890,6 +891,7 @@ const Casbox = () => {
 
   // Three-Dot Message Actions: Reply, Pin, Edit, Unsend, Forward
   const [activeMessageMenuId, setActiveMessageMenuId] = useState(null);
+  const [messageMenuPosition, setMessageMenuPosition] = useState(null);
   const [replyingToMessage, setReplyingToMessage] = useState(null);
   const [forwardingMessage, setForwardingMessage] = useState(null);
   const [forwardSearchTerm, setForwardSearchTerm] = useState("");
@@ -1073,6 +1075,7 @@ const Casbox = () => {
   useEffect(() => {
     setReplyingToMessage(null);
     setActiveMessageMenuId(null);
+    setMessageMenuPosition(null);
     setActiveReactionMsgId(null);
     setShowFullEmojiPicker(false);
     setEmojiSearchTerm("");
@@ -1120,17 +1123,26 @@ const Casbox = () => {
       }
       if (messageMenuRef.current && !messageMenuRef.current.contains(e.target)) {
         setActiveMessageMenuId(null);
+        setMessageMenuPosition(null);
       }
       if (reactionBarRef.current && !reactionBarRef.current.contains(e.target)) {
         setActiveReactionMsgId(null);
         setShowFullEmojiPicker(false);
       }
     };
+    const handleScrollOrResize = () => {
+      setActiveMessageMenuId(null);
+      setMessageMenuPosition(null);
+    };
     document.addEventListener("mousedown", handleOutsideClick);
     document.addEventListener("touchstart", handleOutsideClick);
+    window.addEventListener("resize", handleScrollOrResize);
+    window.addEventListener("scroll", handleScrollOrResize, true);
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("touchstart", handleOutsideClick);
+      window.removeEventListener("resize", handleScrollOrResize);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
     };
   }, []);
 
@@ -3277,11 +3289,74 @@ const Casbox = () => {
   const selectedContactRef = React.useRef(null);
 
   const handleChatScroll = useCallback((e) => {
+    setActiveMessageMenuId(null);
+    setMessageMenuPosition(null);
     const container = e?.currentTarget || chatContainerRef.current;
     if (!container) return;
     const { scrollTop, scrollHeight, clientHeight } = container;
     // Consider user near bottom if within 120px from the bottom
     isNearBottomRef.current = scrollHeight - scrollTop - clientHeight <= 120;
+  }, []);
+
+  const calculateMessageMenuPosition = useCallback((btnElement) => {
+    if (!btnElement) return null;
+    const btnRect = btnElement.getBoundingClientRect();
+    const containerRect = chatContainerRef.current
+      ? chatContainerRef.current.getBoundingClientRect()
+      : { top: 0, bottom: window.innerHeight, left: 0, right: window.innerWidth };
+
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    const visibleTop = Math.max(0, containerRect.top);
+    const visibleBottom = Math.min(viewportHeight, containerRect.bottom);
+    const visibleLeft = Math.max(0, containerRect.left);
+    const visibleRight = Math.min(viewportWidth, containerRect.right);
+
+    const spaceBelow = visibleBottom - btnRect.bottom;
+    const spaceAbove = btnRect.top - visibleTop;
+
+    const estimatedMenuHeight = 330;
+    const menuWidth = 145;
+
+    let placement = 'below';
+    let maxHeight = 340;
+
+    if (spaceBelow >= estimatedMenuHeight) {
+      placement = 'below';
+      maxHeight = Math.min(340, spaceBelow - 12);
+    } else if (spaceAbove >= estimatedMenuHeight) {
+      placement = 'above';
+      maxHeight = Math.min(340, spaceAbove - 12);
+    } else if (spaceBelow >= spaceAbove) {
+      placement = 'below';
+      maxHeight = Math.max(160, spaceBelow - 12);
+    } else {
+      placement = 'above';
+      maxHeight = Math.max(160, spaceAbove - 12);
+    }
+
+    let left = btnRect.left;
+    if (left + menuWidth > visibleRight - 8) {
+      left = Math.max(visibleLeft + 8, btnRect.right - menuWidth);
+    }
+    if (left < visibleLeft + 8) {
+      left = visibleLeft + 8;
+    }
+
+    if (placement === 'below') {
+      return {
+        top: `${Math.round(btnRect.bottom + 4)}px`,
+        left: `${Math.round(left)}px`,
+        maxHeight: `${Math.round(maxHeight)}px`
+      };
+    } else {
+      return {
+        bottom: `${Math.round(viewportHeight - btnRect.top + 4)}px`,
+        left: `${Math.round(left)}px`,
+        maxHeight: `${Math.round(maxHeight)}px`
+      };
+    }
   }, []);
 
   useEffect(() => {
@@ -7961,113 +8036,173 @@ const Casbox = () => {
                                     e.stopPropagation();
                                     setActiveReactionMsgId(null);
                                     setShowFullEmojiPicker(false);
-                                    setActiveMessageMenuId(prev => prev === msgUniqueId ? null : msgUniqueId);
+                                    if (activeMessageMenuId === msgUniqueId) {
+                                      setActiveMessageMenuId(null);
+                                      setMessageMenuPosition(null);
+                                    } else {
+                                      const pos = calculateMessageMenuPosition(e.currentTarget);
+                                      setMessageMenuPosition(pos);
+                                      setActiveMessageMenuId(msgUniqueId);
+                                    }
                                   }}
                                   className={`p-1 sm:p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${activeMessageMenuId === msgUniqueId ? 'opacity-100 text-gray-700 dark:text-gray-200' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
                                     }`}
                                   title="Message actions"
+                                  aria-label="Message actions"
                                 >
                                   <MdMoreVert size={18} />
                                 </button>
 
-                                {/* Three-Dot Dropdown Menu */}
-                                {activeMessageMenuId === msgUniqueId && (
-                                  <div
-                                    ref={messageMenuRef}
-                                    className={`absolute left-full ml-1.5 z-50 min-w-[125px] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl py-1.5 px-1 animate-in fade-in zoom-in-95 duration-150 select-none ${index >= sortedThread.length - 2 ? 'bottom-0' : 'top-0'
-                                      }`}
-                                    style={{ borderColor: theme?.border || '#e2e8f0' }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => handleInitiateReply(msg, senderLabel)}
-                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                    >
-                                      <MdReply size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                      <span>Reply</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleInitiateForward(msg, senderLabel)}
-                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                    >
-                                      <MdForward size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                      <span>Forward</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleTogglePinMessage(msg, senderLabel, otherUserEmail)}
-                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                    >
-                                      <MdPushPin size={16} className={`shrink-0 ${isCurrentMessagePinned(msg, otherUserEmail) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
-                                      <span>{isCurrentMessagePinned(msg, otherUserEmail) ? 'Unpin' : 'Pin'}</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleToggleStarMessage(msg)}
-                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                    >
-                                      <MdStar size={16} className={`shrink-0 ${isMessageStarred(msg) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
-                                      <span>{isMessageStarred(msg) ? 'Unstar Message' : 'Star Message'}</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
+                                {/* Three-Dot Dropdown Menu Rendered via Portal to Avoid Any Parent/Header Clipping */}
+                                {activeMessageMenuId === msgUniqueId && messageMenuPosition && typeof document !== "undefined" && createPortal(
+                                  <>
+                                    {/* Invisible backdrop to capture outside clicks */}
+                                    <div
+                                      className="fixed inset-0 z-[99998]"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setActiveMessageMenuId(null);
-                                        handleArchiveMessage(msg, e);
+                                        setMessageMenuPosition(null);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                      onContextMenu={(e) => {
+                                        e.preventDefault();
+                                        setActiveMessageMenuId(null);
+                                        setMessageMenuPosition(null);
+                                      }}
+                                    />
+                                    <div
+                                      ref={messageMenuRef}
+                                      className="fixed z-[99999] min-w-[130px] bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl py-1.5 px-1 animate-in fade-in zoom-in-95 duration-150 select-none overflow-y-auto hidden-scrollbar"
+                                      style={{
+                                        ...messageMenuPosition,
+                                        borderColor: theme?.border || '#e2e8f0',
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
                                     >
-                                      <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                      <span>Archive</span>
-                                    </button>
-
-                                    {isMe && isMessageEditable(msg) && (
                                       <button
                                         type="button"
-                                        onClick={() => handleInitiateEdit(msg)}
+                                        onClick={() => {
+                                          setActiveMessageMenuId(null);
+                                          setMessageMenuPosition(null);
+                                          handleInitiateReply(msg, senderLabel);
+                                        }}
                                         className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
                                       >
-                                        <MdEdit size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                        <span>Edit</span>
+                                        <MdReply size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                        <span>Reply</span>
                                       </button>
-                                    )}
 
-                                    {isMe && (
                                       <button
                                         type="button"
-                                        onClick={() => handleInitiateUnsend(msg)}
+                                        onClick={() => {
+                                          setActiveMessageMenuId(null);
+                                          setMessageMenuPosition(null);
+                                          handleInitiateForward(msg, senderLabel);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                      >
+                                        <MdForward size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                        <span>Forward</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveMessageMenuId(null);
+                                          setMessageMenuPosition(null);
+                                          handleTogglePinMessage(msg, senderLabel, otherUserEmail);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                      >
+                                        <MdPushPin size={16} className={`shrink-0 ${isCurrentMessagePinned(msg, otherUserEmail) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                                        <span>{isCurrentMessagePinned(msg, otherUserEmail) ? 'Unpin' : 'Pin'}</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveMessageMenuId(null);
+                                          setMessageMenuPosition(null);
+                                          handleToggleStarMessage(msg);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                      >
+                                        <MdStar size={16} className={`shrink-0 ${isMessageStarred(msg) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                                        <span>{isMessageStarred(msg) ? 'Unstar Message' : 'Star Message'}</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveMessageMenuId(null);
+                                          setMessageMenuPosition(null);
+                                          handleArchiveMessage(msg, e);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                      >
+                                        <MdArchive size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                        <span>Archive</span>
+                                      </button>
+
+                                      {isMe && isMessageEditable(msg) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveMessageMenuId(null);
+                                            setMessageMenuPosition(null);
+                                            handleInitiateEdit(msg);
+                                          }}
+                                          className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                        >
+                                          <MdEdit size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                          <span>Edit</span>
+                                        </button>
+                                      )}
+
+                                      {isMe && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveMessageMenuId(null);
+                                            setMessageMenuPosition(null);
+                                            handleInitiateUnsend(msg);
+                                          }}
+                                          className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                        >
+                                          <MdRestore size={16} className="text-red-600 shrink-0" />
+                                          <span>Unsend</span>
+                                        </button>
+                                      )}
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveMessageMenuId(null);
+                                          setMessageMenuPosition(null);
+                                          handleEnterMessageSelectionMode(msgUniqueId);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                                      >
+                                        <MdCheckBox size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
+                                        <span>Select</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveMessageMenuId(null);
+                                          setMessageMenuPosition(null);
+                                          handleDeletePersonalChatMessage(msg);
+                                        }}
                                         className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
                                       >
-                                        <MdRestore size={16} className="text-red-600 shrink-0" />
-                                        <span>Unsend</span>
+                                        <MdDeleteOutline size={16} className="text-red-600 shrink-0" />
+                                        <span>Delete</span>
                                       </button>
-                                    )}
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleEnterMessageSelectionMode(msgUniqueId)}
-                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                    >
-                                      <MdCheckBox size={16} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                                      <span>Select</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeletePersonalChatMessage(msg)}
-                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                                    >
-                                      <MdDeleteOutline size={16} className="text-red-600 shrink-0" />
-                                      <span>Delete</span>
-                                    </button>
-                                  </div>
+                                    </div>
+                                  </>,
+                                  document.body
                                 )}
                               </div>
                             )}
