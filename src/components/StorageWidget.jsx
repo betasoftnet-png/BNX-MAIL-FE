@@ -25,10 +25,10 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
           ? rawLimit
           : (parseFloat(rawLimit) > 0 ? parseFloat(rawLimit) : 1073741824);
 
-        // Calculate percentage: (storageUsed / storageLimit) * 100 rounded to nearest whole number
+        // Calculate percentage: (storageUsed / storageLimit) * 100
         let calculatedPercentage = 0;
         if (storageLimit > 0 && !isNaN(storageUsed)) {
-          calculatedPercentage = Math.round((storageUsed / storageLimit) * 100);
+          calculatedPercentage = (storageUsed / storageLimit) * 100;
         }
 
         // Prevent invalid, negative, or greater-than-100 values
@@ -75,6 +75,7 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
 
   if (loading) return null;
 
+  const displayPercentage = (typeof storageData.percentage === 'number' ? storageData.percentage : 0).toFixed(1);
   const showFull = isExpanded !== undefined ? isExpanded : isDesktopOpen;
 
   if (!showFull) {
@@ -84,10 +85,10 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
         target="_blank"
         rel="noopener noreferrer"
         className="mx-2 mb-1.5 p-1.5 flex flex-col items-center justify-center hover:bg-blue-50 dark:hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
-        title={`${formatSize(storageData.used)} of ${formatSize(storageData.limit)} used (${storageData.percentage}%)`}
+        title={`${formatSize(storageData.used)} of ${formatSize(storageData.limit)} used (${displayPercentage}%)`}
       >
         <Cloud size={16} className="text-blue-500 fill-blue-500" />
-        <span className="text-[9px] font-bold text-blue-600 mt-0.5">{storageData.percentage}%</span>
+        <span className="text-[9px] font-bold text-blue-600 mt-0.5">{displayPercentage}%</span>
       </a>
     );
   }
@@ -109,7 +110,7 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
           </span>
         </div>
         <span className="text-[11px] font-bold text-[#1d4ed8] dark:text-blue-400 font-sans shrink-0 ml-2">
-          {storageData.percentage}%
+          {displayPercentage}%
         </span>
       </div>
 
