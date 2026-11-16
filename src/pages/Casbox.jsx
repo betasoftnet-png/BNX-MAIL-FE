@@ -764,6 +764,30 @@ const Casbox = () => {
     isCurrentUserRef.current = isCurrentUser;
   }, [isCurrentUser]);
 
+  const getOtherUserEmail = useCallback((msg) => {
+    if (!msg) return "";
+    const sender = normalizeEmail(msg.senderEmail || msg.sender);
+    const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
+    const contact = normalizeEmail(msg.contact || msg.contactRecipient || msg.contactEmail || "");
+
+    const isSenderMe = sender ? isCurrentUser(sender) : false;
+    const isReceiverMe = receiver ? isCurrentUser(receiver) : false;
+
+    if (isSenderMe) {
+      return msg.receiverEmail || msg.receiver || msg.contact || msg.contactRecipient || msg.contactEmail || "";
+    }
+    if (isReceiverMe) {
+      return msg.senderEmail || msg.sender || msg.contact || msg.contactRecipient || msg.contactEmail || "";
+    }
+    if (sender && !isCurrentUser(sender)) {
+      return msg.senderEmail || msg.sender;
+    }
+    if (receiver && !isCurrentUser(receiver)) {
+      return msg.receiverEmail || msg.receiver;
+    }
+    return contact || msg.senderEmail || msg.receiverEmail || "";
+  }, [isCurrentUser]);
+
   const [messages, setMessages] = useState([]);
   const messagesRef = React.useRef(messages);
   useEffect(() => {
@@ -1838,30 +1862,6 @@ const Casbox = () => {
       setIsUpdatingConnection(false);
     }
   };
-
-  const getOtherUserEmail = useCallback((msg) => {
-    if (!msg) return "";
-    const sender = normalizeEmail(msg.senderEmail || msg.sender);
-    const receiver = normalizeEmail(msg.receiverEmail || msg.receiver);
-    const contact = normalizeEmail(msg.contact || msg.contactRecipient || msg.contactEmail || "");
-
-    const isSenderMe = sender ? isCurrentUser(sender) : false;
-    const isReceiverMe = receiver ? isCurrentUser(receiver) : false;
-
-    if (isSenderMe) {
-      return msg.receiverEmail || msg.receiver || msg.contact || msg.contactRecipient || msg.contactEmail || "";
-    }
-    if (isReceiverMe) {
-      return msg.senderEmail || msg.sender || msg.contact || msg.contactRecipient || msg.contactEmail || "";
-    }
-    if (sender && !isCurrentUser(sender)) {
-      return msg.senderEmail || msg.sender;
-    }
-    if (receiver && !isCurrentUser(receiver)) {
-      return msg.receiverEmail || msg.receiver;
-    }
-    return contact || msg.senderEmail || msg.receiverEmail || "";
-  }, [isCurrentUser]);
 
   const getDisplayName = (emailOrUsername, msg) => {
     if (!emailOrUsername) return "";
