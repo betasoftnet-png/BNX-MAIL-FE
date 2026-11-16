@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from "../context/LanguageContext";
 import { mailAPI } from '../services/api';
 import { Cloud } from 'lucide-react';
@@ -6,34 +6,64 @@ import { Cloud } from 'lucide-react';
 const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
   const { t } = useTranslation();
   const [storageData, setStorageData] = useState({
-    used: 2013265, // ~1.92 MB fallback
-    limit: 1073741824, // 1 GB
+    used: 0,
+    limit: 1073741824, // 1 GB fallback
     percentage: 0
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStorage = async () => {
-      try {
-        const res = await mailAPI.getStorageQuota();
-        if (res.data?.success && res.data?.data) {
-          const used = res.data.data.storageUsed ?? 2013265;
-          const limit = 1073741824;
-          const percentage = limit > 0 ? (used / limit) * 100 : 0;
-          setStorageData({
-            used,
-            limit,
-            percentage
-          });
+  const fetchStorage = useCallback(async () => {
+    try {
+      const res = await mailAPI.getStorageQuota();
+      const apiData = res.data?.data || res.data;
+      if (apiData && (apiData.storageUsed !== undefined || apiData.used !== undefined || res.data?.success)) {
+        const rawUsed = apiData.storageUsed ?? apiData.used ?? 0;
+        const rawLimit = apiData.storageLimit ?? apiData.limit ?? 1073741824;
+
+        const storageUsed = typeof rawUsed === 'number' ? rawUsed : parseFloat(rawUsed) || 0;
+        const storageLimit = typeof rawLimit === 'number' && rawLimit > 0
+          ? rawLimit
+          : (parseFloat(rawLimit) > 0 ? parseFloat(rawLimit) : 1073741824);
+
+        // Calculate percentage: (storageUsed / storageLimit) * 100 rounded to nearest whole number
+        let calculatedPercentage = 0;
+        if (storageLimit > 0 && !isNaN(storageUsed)) {
+          calculatedPercentage = Math.round((storageUsed / storageLimit) * 100);
         }
-      } catch (err) {
-        console.error("Failed to fetch storage quota", err);
-      } finally {
-        setLoading(false);
+
+        // Prevent invalid, negative, or greater-than-100 values
+        const safePercentage = Math.min(100, Math.max(0, isNaN(calculatedPercentage) ? 0 : calculatedPercentage));
+
+        setStorageData({
+          used: storageUsed,
+          limit: storageLimit,
+          percentage: safePercentage
+        });
       }
-    };
-    fetchStorage();
+    } catch (err) {
+      console.error("Failed to fetch storage quota", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchStorage();
+
+    const handleStorageUpdate = () => {
+      fetchStorage();
+    };
+
+    window.addEventListener('focus', handleStorageUpdate);
+    window.addEventListener('storageQuotaUpdated', handleStorageUpdate);
+    window.addEventListener('bnx_storage_updated', handleStorageUpdate);
+
+    return () => {
+      window.removeEventListener('focus', handleStorageUpdate);
+      window.removeEventListener('storageQuotaUpdated', handleStorageUpdate);
+      window.removeEventListener('bnx_storage_updated', handleStorageUpdate);
+    };
+  }, [fetchStorage]);
 
   const formatSize = (bytes) => {
     if (!bytes || bytes === 0) return '0 B';
@@ -54,10 +84,10 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
         target="_blank"
         rel="noopener noreferrer"
         className="mx-2 mb-1.5 p-1.5 flex flex-col items-center justify-center hover:bg-blue-50 dark:hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
-        title={`${formatSize(storageData.used)} of 1 GB used (${storageData.percentage.toFixed(0)}%)`}
+        title={`${formatSize(storageData.used)} of ${formatSize(storageData.limit)} used (${storageData.percentage}%)`}
       >
         <Cloud size={16} className="text-blue-500 fill-blue-500" />
-        <span className="text-[9px] font-bold text-blue-600 mt-0.5">{storageData.percentage.toFixed(0)}%</span>
+        <span className="text-[9px] font-bold text-blue-600 mt-0.5">{storageData.percentage}%</span>
       </a>
     );
   }
@@ -79,7 +109,7 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
           </span>
         </div>
         <span className="text-[11px] font-bold text-[#1d4ed8] dark:text-blue-400 font-sans shrink-0 ml-2">
-          {storageData.percentage.toFixed(0)}%
+          {storageData.percentage}%
         </span>
       </div>
 
@@ -87,13 +117,13 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
       <div className="w-[92%] bg-[#dbeafe] dark:bg-gray-700 h-1 rounded-full overflow-hidden mb-1.5">
         <div
           className="bg-[#3b82f6] h-full rounded-full transition-all duration-300"
-          style={{ width: `${Math.min(Math.max(storageData.percentage, 2), 100)}%` }}
+          style={{ width: `${storageData.percentage}%` }}
         />
       </div>
 
       {/* Subtext */}
       <div className="text-[11px] leading-tight text-[#64748b] dark:text-gray-400 font-medium font-sans">
-        {formatSize(storageData.used)} of 1 GB {t('storage.used_of', 'used')}
+        {formatSize(storageData.used)} of {formatSize(storageData.limit)} {t('storage.used_of', 'used')}
       </div>
     </a>
   );
