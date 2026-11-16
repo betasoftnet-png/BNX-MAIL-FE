@@ -1139,7 +1139,13 @@ const Casbox = () => {
     };
   }, []);
 
-  const [showArchive, setShowArchive] = useState(false);
+  const [showArchive, setShowArchive] = useState(() => {
+    try {
+      return localStorage.getItem('casbox_show_archive') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [previewFile, setPreviewFile] = useState(null);
 
   const [acceptedContacts, setAcceptedContacts] = useState(() => {
@@ -3873,11 +3879,17 @@ const Casbox = () => {
         return next;
       });
 
-      // 6. Call backend archive API
+      // 6. Ensure Archive tab is revealed
+      setShowArchive(true);
+      try {
+        localStorage.setItem('casbox_show_archive', 'true');
+      } catch (e) {}
+
+      // 7. Call backend archive API
       await casboxAPI.updateArchiveStatus(apiTargetIds, true);
       toast.success(isSingleMsgOnly ? "Message archived" : "Conversation archived");
 
-      // 7. Refresh messages to ensure backend sync
+      // 8. Refresh messages to ensure backend sync
       await fetchMessages(true);
     } catch (err) {
       console.error("Failed to archive conversation", err);
@@ -3938,6 +3950,10 @@ const Casbox = () => {
       }
 
       setSelectedRowIds(new Set());
+      setShowArchive(true);
+      try {
+        localStorage.setItem('casbox_show_archive', 'true');
+      } catch (e) {}
       await casboxAPI.updateArchiveStatus(apiTargetIds, true);
       toast.success(`${targetIds.length > 1 ? `${targetIds.length} messages` : 'Message'} archived`);
       await fetchMessages(true);
@@ -5478,7 +5494,13 @@ const Casbox = () => {
                 setSelectedRowIds(new Set());
                 fetchMessages(true);
               }
-              setShowArchive(prev => !prev);
+              setShowArchive(prev => {
+                const next = !prev;
+                try {
+                  localStorage.setItem('casbox_show_archive', String(next));
+                } catch (e) {}
+                return next;
+              });
             }}
             className="w-7 h-7 sm:w-auto sm:h-auto p-0 sm:p-1 flex items-center justify-center shrink-0 cursor-pointer select-none bg-transparent hover:bg-transparent active:bg-transparent focus:bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 shadow-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
             style={{ WebkitTapHighlightColor: 'transparent', outline: 'none' }}
