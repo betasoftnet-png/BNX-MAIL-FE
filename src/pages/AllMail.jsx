@@ -1,5 +1,5 @@
 import { useTranslation } from "../context/LanguageContext";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMail } from "../context/MailContext";
 import { MdMail, MdFilterList, MdLabel, MdRefresh, MdArrowDropDown } from "react-icons/md";
@@ -11,6 +11,7 @@ import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import toast from "react-hot-toast";
 import { getTodayDateString } from "../utils/dateFilter";
+import { deduplicateAllMailEmails } from "../utils/allMailDeduplication";
 
 const AllMail = ({ searchQuery }) => {
   const { t } = useTranslation();
@@ -20,7 +21,14 @@ const AllMail = ({ searchQuery }) => {
   const { emails, loading, isRefreshing, fetchEmails, refreshEmails, fetchLabelEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleApplyLabel, handleSnooze, labels, currentFolder, handleArchive, handleUnarchive, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
-  const selectedEmail = selectedEmailOverride || emails.find(
+
+  const uniqueEmails = useMemo(() => {
+    return deduplicateAllMailEmails(emails);
+  }, [emails]);
+
+  const selectedEmail = selectedEmailOverride || uniqueEmails.find(
+    (e) => String(e.uid) === String(selectedEmailUid) || `${e.uid}__${e.folderName || ''}` === String(selectedEmailUid)
+  ) || emails.find(
     (e) => String(e.uid) === String(selectedEmailUid) || `${e.uid}__${e.folderName || ''}` === String(selectedEmailUid)
   );
 
@@ -58,7 +66,8 @@ const AllMail = ({ searchQuery }) => {
   const [filterReadStatus, setFilterReadStatus] = useState("all");
   const [filterStarred, setFilterStarred] = useState(null);
 
-  const visibleEmails = emails.filter((e) => {
+  const visibleEmails = useMemo(() => {
+    return uniqueEmails.filter((e) => {
     if (typeof matchesDateFilter === 'function' && !matchesDateFilter(e)) return false;
 
     // 2. From filter
@@ -141,7 +150,8 @@ const AllMail = ({ searchQuery }) => {
     }
 
     return true;
-  });
+    });
+  }, [uniqueEmails, matchesDateFilter, filterFrom, filterTo, filterDate, customStartDate, customEndDate, filterStarred, filterHasAttachment, filterReadStatus]);
 
   useEffect(() => {
     if (labelId) {
@@ -256,7 +266,7 @@ const AllMail = ({ searchQuery }) => {
                   style={{ background: activeLabel ? activeLabel.colorHex : `linear-gradient(135deg, ${theme.accent || "#135bec"} 0%, #3b82f6 100%)` }}
                 >
                   {activeLabel && <MdLabel size={14} />}
-                  {activeLabel ? activeLabel.name : "All Mail"} ({emails.length})
+                  {activeLabel ? activeLabel.name : "All Mail"} ({uniqueEmails.length})
                 </span>
 
                 <button
@@ -498,7 +508,7 @@ const AllMail = ({ searchQuery }) => {
 
   const listComponent = (
     <div className="flex-1 flex flex-col overflow-hidden">
-{emails.length === 0 ? (
+      {uniqueEmails.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[50vh] opacity-85">
                 <MdMail className="text-5xl mb-4 text-gray-300 dark:text-gray-600 drop-shadow-sm" />
                 <p className="text-base font-semibold text-gray-500 dark:text-gray-400">No emails found</p>

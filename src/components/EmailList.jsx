@@ -89,6 +89,14 @@ const EmailList = ({
     location.pathname === '/snoozed' ||
     location.pathname?.startsWith('/snoozed/')
   );
+  const isAllMailFolder = Boolean(
+    currentFolder?.toLowerCase() === 'all-mail' ||
+    currentFolder?.toLowerCase() === 'allmail' ||
+    location.pathname === '/all-mail' ||
+    location.pathname === '/allmail' ||
+    location.pathname?.startsWith('/all-mail/') ||
+    location.pathname?.startsWith('/allmail/')
+  );
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
 
@@ -98,21 +106,22 @@ const EmailList = ({
   const [snoozeCoords, setSnoozeCoords] = useState({ top: 0, right: 0 });
 
   // Pagination logic
-  const effectiveTotal = (isScheduledFolder || isSentFolder)
+  const isClientPaginated = Boolean(isScheduledFolder || isSentFolder || isAllMailFolder);
+  const effectiveTotal = isClientPaginated
     ? emails.length
     : Math.max(totalEmails || 0, emails.length);
   const totalPages = Math.ceil(effectiveTotal / emailsPerPage) || 1;
   const safeCurrentPage = Math.min(Math.max(1, currentPage || 1), totalPages);
   const startIndex = (safeCurrentPage - 1) * emailsPerPage;
-  const displayedEmails = (isScheduledFolder || isSentFolder)
+  const displayedEmails = isClientPaginated
     ? emails.slice(startIndex, startIndex + emailsPerPage)
     : emails;
 
   useEffect(() => {
-    if (isScheduledFolder && currentPage > totalPages && typeof handlePageChange === 'function') {
+    if (isClientPaginated && currentPage > totalPages && typeof handlePageChange === 'function') {
       handlePageChange(totalPages);
     }
-  }, [isScheduledFolder, currentPage, totalPages, handlePageChange]);
+  }, [isClientPaginated, currentPage, totalPages, handlePageChange]);
 
   const getRenderSnoozeOptions = () => {
     const iconMap = {

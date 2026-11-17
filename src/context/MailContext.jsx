@@ -22,6 +22,7 @@ import {
     isEmailValidScheduled,
     deduplicateStarredEmails
 } from '../utils/starredStorage';
+import { deduplicateAllMailEmails } from '../utils/allMailDeduplication';
 import {
     extractEmailAddresses,
     isSelfSentEmail
@@ -886,33 +887,17 @@ export const MailProvider = ({ children }) => {
             return !isTrash && !isSpam;
         });
 
-        // 7. Deduplicate:
-        // Prioritize deduplication by messageId for identical messages (e.g. self-sends in Inbox & Sent)
-        // For items without messageId (e.g. drafts or folder-specific items), deduplicate by folderName + uid/id
-        const seenMessageIds = new Set();
-        const seenFolderUids = new Set();
-        const uniqueEmails = [];
-
-        for (const email of mergedEmails) {
-            const mid = (email.messageId || email.msgId || '').trim().toLowerCase();
+        // 7. Deduplicate All Mail:
+        const uniqueEmails = deduplicateAllMailEmails(mergedEmails).map(email => {
             const uidStr = String(email.uid ?? email.id ?? '');
             const folder = (email.folderName || '').toLowerCase();
-
-            if (mid) {
-                if (seenMessageIds.has(mid)) continue;
-                seenMessageIds.add(mid);
-            } else if (uidStr) {
-                const key = `${folder}_${uidStr}`;
-                if (seenFolderUids.has(key)) continue;
-                seenFolderUids.add(key);
-            }
             const isStarred = isEmailStarred(uidStr, folder, email);
-            uniqueEmails.push({
+            return {
                 ...email,
                 starred: isStarred,
                 isStarred: isStarred
-            });
-        }
+            };
+        });
 
         // 8. Sort descending by date
         uniqueEmails.sort((a, b) => {
@@ -1054,6 +1039,10 @@ export const MailProvider = ({ children }) => {
 
                 if (folderKey === 'starred') {
                     normalizedEmails = deduplicateStarredEmails(normalizedEmails);
+                }
+
+                if (folderKey === 'all-mail' || folderKey === 'allmail') {
+                    normalizedEmails = deduplicateAllMailEmails(normalizedEmails);
                 }
 
                 normalizedEmails = attachStoredSystemLabels(normalizedEmails);
@@ -1361,6 +1350,10 @@ export const MailProvider = ({ children }) => {
 
                 if (folderKey === 'starred') {
                     normalizedEmails = deduplicateStarredEmails(normalizedEmails);
+                }
+
+                if (folderKey === 'all-mail' || folderKey === 'allmail') {
+                    normalizedEmails = deduplicateAllMailEmails(normalizedEmails);
                 }
 
                 normalizedEmails = attachStoredSystemLabels(normalizedEmails);
