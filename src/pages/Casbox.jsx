@@ -1186,11 +1186,15 @@ const Casbox = () => {
       if (messagesFilterMenuRef.current && !messagesFilterMenuRef.current.contains(e.target)) {
         setShowMessagesFilterMenu(false);
       }
-      if (combineMenuRef.current && !combineMenuRef.current.contains(e.target)) {
-        setOpenCombineMenuId(null);
+      if (openCombineMenuId !== null) {
+        if (!e.target?.closest?.('.casbox-combine-dropdown-menu') && !e.target?.closest?.('.casbox-combine-dropdown-trigger')) {
+          setOpenCombineMenuId(null);
+        }
       }
-      if (listMenuRef.current && !listMenuRef.current.contains(e.target)) {
-        setOpenMenuId(null);
+      if (openMenuId !== null) {
+        if (!e.target?.closest?.('.casbox-dropdown-menu') && !e.target?.closest?.('.casbox-dropdown-trigger')) {
+          setOpenMenuId(null);
+        }
       }
       if (messageMenuRef.current && !messageMenuRef.current.contains(e.target)) {
         setActiveMessageMenuId(null);
@@ -1205,17 +1209,29 @@ const Casbox = () => {
       setActiveMessageMenuId(null);
       setMessageMenuPosition(null);
     };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setOpenMenuId(null);
+        setOpenCombineMenuId(null);
+        setShowFilterMenu(false);
+        setShowMessagesFilterMenu(false);
+        setActiveMessageMenuId(null);
+        setMessageMenuPosition(null);
+      }
+    };
     document.addEventListener("mousedown", handleOutsideClick);
     document.addEventListener("touchstart", handleOutsideClick);
+    document.addEventListener("keydown", handleKeyDown);
     window.addEventListener("resize", handleScrollOrResize);
     window.addEventListener("scroll", handleScrollOrResize, true);
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("touchstart", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("resize", handleScrollOrResize);
       window.removeEventListener("scroll", handleScrollOrResize, true);
     };
-  }, []);
+  }, [openMenuId, openCombineMenuId]);
 
   const [showArchive, setShowArchive] = useState(() => {
     try {
@@ -1354,14 +1370,14 @@ const Casbox = () => {
           const numId = !isNaN(Number(id)) ? Number(id) : null;
           const other = normalizeEmail(getOtherUserEmail(m));
           const otherLocal = other && other.includes('@') ? other.split('@')[0] : other;
-          const isUnarchivedLocally = unarchivedMessageIdsRef.current.has(id) || 
-                                     (strId && unarchivedMessageIdsRef.current.has(strId)) ||
-                                     (numId !== null && unarchivedMessageIdsRef.current.has(numId)) ||
-                                     (other && (unarchivedContactsRef.current.has(other) || (otherLocal && unarchivedContactsRef.current.has(otherLocal))));
-          const isArchivedLocally = archivedMessageIdsRef.current.has(id) || 
-                                   (strId && archivedMessageIdsRef.current.has(strId)) ||
-                                   (numId !== null && archivedMessageIdsRef.current.has(numId)) ||
-                                   (other && (archivedContactsRef.current.has(other) || (otherLocal && archivedContactsRef.current.has(otherLocal))));
+          const isUnarchivedLocally = unarchivedMessageIdsRef.current.has(id) ||
+            (strId && unarchivedMessageIdsRef.current.has(strId)) ||
+            (numId !== null && unarchivedMessageIdsRef.current.has(numId)) ||
+            (other && (unarchivedContactsRef.current.has(other) || (otherLocal && unarchivedContactsRef.current.has(otherLocal))));
+          const isArchivedLocally = archivedMessageIdsRef.current.has(id) ||
+            (strId && archivedMessageIdsRef.current.has(strId)) ||
+            (numId !== null && archivedMessageIdsRef.current.has(numId)) ||
+            (other && (archivedContactsRef.current.has(other) || (otherLocal && archivedContactsRef.current.has(otherLocal))));
           if (isUnarchivedLocally) {
             m.isArchived = false;
             m.archived = false;
@@ -3339,22 +3355,33 @@ const Casbox = () => {
       return;
     }
 
-    try {
-      if (navigator?.clipboard?.writeText) {
+    let copied = false;
+    if (navigator?.clipboard?.writeText) {
+      try {
         await navigator.clipboard.writeText(text);
-      } else {
+        copied = true;
+      } catch (clipErr) {
+        console.warn("navigator.clipboard.writeText rejected, attempting execCommand fallback", clipErr);
+      }
+    }
+    if (!copied) {
+      try {
         const textarea = document.createElement('textarea');
         textarea.value = text;
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
         document.body.appendChild(textarea);
         textarea.select();
-        document.execCommand('copy');
+        copied = document.execCommand('copy');
         document.body.removeChild(textarea);
+      } catch (fallbackErr) {
+        console.error("execCommand fallback failed", fallbackErr);
       }
+    }
+
+    if (copied) {
       toast.success("Copied to clipboard");
-    } catch (err) {
-      console.error("Failed to copy text:", err);
+    } else {
       toast.error("Failed to copy text");
     }
   };
@@ -3409,7 +3436,11 @@ const Casbox = () => {
 
       if (!trimmedInput) {
         // Deleting / resetting custom alias to restore original username
-        await contactAliasAPI.deleteAlias(contactIdOrIdentifier);
+        try {
+          await contactAliasAPI.deleteAlias(contactIdOrIdentifier);
+        } catch (apiErr) {
+          console.warn("Contact alias delete API warning:", apiErr);
+        }
 
         // Update local contactAliases state and persist
         const updatedAliases = { ...contactAliases };
@@ -3487,8 +3518,13 @@ const Casbox = () => {
         toast.success(`Contact name reset to ${editingContact.originalName}`);
       } else {
         // Setting / updating custom alias
-        const res = await contactAliasAPI.setAlias(contactIdOrIdentifier, trimmedInput);
-        const savedName = res.data?.customName || trimmedInput;
+        let savedName = trimmedInput;
+        try {
+          const res = await contactAliasAPI.setAlias(contactIdOrIdentifier, trimmedInput);
+          if (res?.data?.customName) savedName = res.data.customName;
+        } catch (apiErr) {
+          console.warn("Contact alias set API warning:", apiErr);
+        }
 
         // Update local contactAliases state and persist
         const updatedAliases = {
@@ -3577,27 +3613,6 @@ const Casbox = () => {
       setIsSavingAlias(false);
     }
   };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (listMenuRef.current && !listMenuRef.current.contains(event.target)) {
-        setOpenMenuId(null);
-      }
-    };
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setOpenMenuId(null);
-      }
-    };
-    if (openMenuId !== null) {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("keydown", handleKeyDown);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [openMenuId]);
 
   const chatEndRef = React.useRef(null);
   const chatContainerRef = React.useRef(null);
@@ -4118,8 +4133,8 @@ const Casbox = () => {
           const senderNorm = normalizeEmail(m.senderEmail || m.sender);
           const receiverNorm = normalizeEmail(m.receiverEmail || m.receiver);
           const isMatch = otherNorm === targetNorm || otherLocal === targetLocal ||
-                          senderNorm === targetNorm || (targetLocal && senderNorm.split('@')[0] === targetLocal) ||
-                          receiverNorm === targetNorm || (targetLocal && receiverNorm.split('@')[0] === targetLocal);
+            senderNorm === targetNorm || (targetLocal && senderNorm.split('@')[0] === targetLocal) ||
+            receiverNorm === targetNorm || (targetLocal && receiverNorm.split('@')[0] === targetLocal);
           if (isMatch) {
             const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
             if (mId !== undefined && mId !== null) idSet.add(mId);
@@ -4251,8 +4266,9 @@ const Casbox = () => {
       setShowArchive(true);
       try {
         localStorage.setItem('casbox_show_archive', 'true');
-      } catch (e) {}
+      } catch (e) { }
 
+      fetchMessages(true);
       toast.success(isSingleMsgOnly ? "Message archived" : "Conversation archived");
     } catch (err) {
       console.error("Failed to archive conversation", err);
@@ -4323,7 +4339,7 @@ const Casbox = () => {
       setShowArchive(true);
       try {
         localStorage.setItem('casbox_show_archive', 'true');
-      } catch (e) {}
+      } catch (e) { }
 
       toast.success(`${targetIds.length > 1 ? `${targetIds.length} messages` : 'Message'} archived`);
     } catch (err) {
@@ -4395,8 +4411,8 @@ const Casbox = () => {
           const senderNorm = normalizeEmail(m.senderEmail || m.sender);
           const receiverNorm = normalizeEmail(m.receiverEmail || m.receiver);
           const isMatch = otherNorm === targetNorm || otherLocal === targetLocal ||
-                          senderNorm === targetNorm || (targetLocal && senderNorm.split('@')[0] === targetLocal) ||
-                          receiverNorm === targetNorm || (targetLocal && receiverNorm.split('@')[0] === targetLocal);
+            senderNorm === targetNorm || (targetLocal && senderNorm.split('@')[0] === targetLocal) ||
+            receiverNorm === targetNorm || (targetLocal && receiverNorm.split('@')[0] === targetLocal);
           if (isMatch) {
             const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
             if (mId !== undefined && mId !== null) idSet.add(mId);
@@ -4518,6 +4534,7 @@ const Casbox = () => {
         return next;
       });
 
+      fetchMessages(true);
       toast.success(isSingleMsgOnly ? "Message unarchived" : "Conversation unarchived");
     } catch (err) {
       console.error("Failed to unarchive conversation", err);
@@ -5917,7 +5934,7 @@ const Casbox = () => {
                 const next = !prev;
                 try {
                   localStorage.setItem('casbox_show_archive', String(next));
-                } catch (e) {}
+                } catch (e) { }
                 return next;
               });
             }}
@@ -6257,23 +6274,32 @@ const Casbox = () => {
                     );
                   })()}
 
-                  <div className="relative shrink-0" ref={openCombineMenuId === id ? combineMenuRef : null}>
+                  <div className="relative shrink-0">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setOpenCombineMenuId(prev => prev === id ? null : id);
                       }}
-                      className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ml-1 cursor-pointer"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      className="casbox-combine-dropdown-trigger p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ml-1 cursor-pointer"
                       title="More options"
                     >
                       <MdMoreVert size={18} />
                     </button>
 
                     {openCombineMenuId === id && (
-                      <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                      <div
+                        className="casbox-combine-dropdown-menu absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => handleCopyMessageText(msg, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -6282,6 +6308,8 @@ const Casbox = () => {
                         </button>
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => handleArchiveMessage(msg, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -6290,6 +6318,8 @@ const Casbox = () => {
                         </button>
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => handleOpenEditNameModal(msg, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -6298,6 +6328,8 @@ const Casbox = () => {
                         </button>
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenCombineMenuId(null);
@@ -6574,23 +6606,32 @@ const Casbox = () => {
                     })()}
 
                     {/* 3-dot options menu */}
-                    <div className="relative shrink-0 ml-1" ref={openMenuId === id ? listMenuRef : null}>
+                    <div className="relative shrink-0 ml-1">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenMenuId(prev => prev === id ? null : id);
                         }}
-                        className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        className="casbox-dropdown-trigger p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
                         title="More options"
                       >
                         <MdMoreVert size={18} />
                       </button>
 
                       {openMenuId === id && (
-                        <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                        <div
+                          className="casbox-dropdown-menu absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150"
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                        >
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => handleCopyMessageText(item || msg, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -6599,6 +6640,8 @@ const Casbox = () => {
                           </button>
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => handleArchiveMessage(chat || item || msg, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -6607,6 +6650,8 @@ const Casbox = () => {
                           </button>
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => handleOpenEditNameModal(chat || item || msg, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -6615,6 +6660,8 @@ const Casbox = () => {
                           </button>
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenMenuId(null);
@@ -6703,23 +6750,32 @@ const Casbox = () => {
                     })()}
 
                     {/* Vertical three-dot menu */}
-                    <div className="relative shrink-0" ref={openMenuId === id ? listMenuRef : null}>
+                    <div className="relative shrink-0">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenMenuId(prev => prev === id ? null : id);
                         }}
-                        className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        className="casbox-dropdown-trigger p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
                         title="More options"
                       >
                         <MdMoreVert size={18} />
                       </button>
 
                       {openMenuId === id && (
-                        <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                        <div
+                          className="casbox-dropdown-menu absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150"
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                        >
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => handleCopyMessageText(item || msg, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -6728,6 +6784,8 @@ const Casbox = () => {
                           </button>
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => handleArchiveMessage(chat || item || msg, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -6736,6 +6794,8 @@ const Casbox = () => {
                           </button>
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => handleOpenEditNameModal(chat || item || msg, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -6744,6 +6804,8 @@ const Casbox = () => {
                           </button>
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenMenuId(null);
@@ -6902,23 +6964,32 @@ const Casbox = () => {
                   })()}
 
                   {/* 3-dot options menu */}
-                  <div className="relative shrink-0 ml-1" ref={openMenuId === id ? listMenuRef : null}>
+                  <div className="relative shrink-0 ml-1">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setOpenMenuId(prev => prev === id ? null : id);
                       }}
-                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      className="casbox-dropdown-trigger p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
                       title="More options"
                     >
                       <MdMoreVert size={18} />
                     </button>
 
                     {openMenuId === id && (
-                      <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                      <div
+                        className="casbox-dropdown-menu absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => handleCopyMessageText(item || msg, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -6927,6 +6998,8 @@ const Casbox = () => {
                         </button>
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => handleOpenEditNameModal(chat || item || msg || { contact, latestMessage: msg }, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -6935,6 +7008,8 @@ const Casbox = () => {
                         </button>
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => handleUnarchiveMessage(chat || item || msg, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -6943,6 +7018,8 @@ const Casbox = () => {
                         </button>
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(null);
@@ -7089,23 +7166,32 @@ const Casbox = () => {
                   })()}
 
                   {/* More options menu */}
-                  <div className="relative shrink-0 ml-1" ref={openMenuId === chat.contact ? listMenuRef : null}>
+                  <div className="relative shrink-0 ml-1">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setOpenMenuId(prev => prev === chat.contact ? null : chat.contact);
                       }}
-                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      className="casbox-dropdown-trigger p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
                       title="More options"
                     >
                       <MdMoreVert size={18} />
                     </button>
 
                     {openMenuId === chat.contact && (
-                      <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
+                      <div
+                        className="casbox-dropdown-menu absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => handleCopyMessageText(chat, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -7114,6 +7200,8 @@ const Casbox = () => {
                         </button>
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => handleOpenEditNameModal(chat, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -7123,6 +7211,8 @@ const Casbox = () => {
                         {activeTab === 'archive' ? (
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => handleUnarchiveMessage(chat, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -7132,6 +7222,8 @@ const Casbox = () => {
                         ) : (
                           <button
                             type="button"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                             onClick={(e) => handleArchiveMessage(chat, e)}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -7141,6 +7233,8 @@ const Casbox = () => {
                         )}
                         <button
                           type="button"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(null);
