@@ -2553,6 +2553,41 @@ const Casbox = () => {
       }
       toast.success("Message restored");
     }
+
+    // Remove from deletedMessageIds so restored messages re-appear upon refresh
+    setDeletedMessageIds(prev => {
+      const next = new Set(prev);
+      if (op.targetId !== undefined && op.targetId !== null) {
+        next.delete(op.targetId);
+        next.delete(String(op.targetId));
+      }
+      if (op.msg) {
+        const mId = op.msg.id !== undefined && op.msg.id !== null ? op.msg.id : op.msg.uid;
+        if (mId !== undefined && mId !== null) {
+          next.delete(mId);
+          next.delete(String(mId));
+        }
+        const fallbackId = `${op.msg.timestamp}-${op.msg.senderEmail || op.msg.sender}-${op.msg.receiverEmail || op.msg.receiver || ''}-${op.msg.body}`;
+        if (fallbackId) next.delete(fallbackId);
+      }
+      if (op.items && Array.isArray(op.items)) {
+        op.items.forEach(m => {
+          const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+          if (mId !== undefined && mId !== null) {
+            next.delete(mId);
+            next.delete(String(mId));
+          }
+          const fb = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver || ''}-${m.body}`;
+          if (fb) next.delete(fb);
+        });
+      }
+      try {
+        const json = JSON.stringify(Array.from(next));
+        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+      } catch (e) { }
+      return next;
+    });
   }, [getMessageKey]);
 
   const handleDismissCasboxToast = useCallback((opId) => {
@@ -2592,6 +2627,23 @@ const Casbox = () => {
         return next;
       }
       return prev;
+    });
+
+    // Immediately record in deletedMessageIds so page refresh keeps it deleted
+    setDeletedMessageIds(prev => {
+      const next = new Set(prev);
+      if (targetId !== undefined && targetId !== null) {
+        next.add(targetId);
+        next.add(String(targetId));
+      }
+      const fallbackId = `${msg.timestamp}-${msg.senderEmail || msg.sender}-${msg.receiverEmail || msg.receiver || ''}-${msg.body}`;
+      if (fallbackId) next.add(fallbackId);
+      try {
+        const json = JSON.stringify(Array.from(next));
+        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+      } catch (e) { }
+      return next;
     });
 
     let countdown = 5;
@@ -2666,6 +2718,26 @@ const Casbox = () => {
 
     setMessages(prev => prev.filter(m => !toDeleteKeys.has(getMessageKey(m))));
     setThreadMessages(prev => prev.filter(m => !toDeleteKeys.has(getMessageKey(m))));
+
+    // Immediately mark in deletedMessageIds so page refresh keeps it deleted
+    setDeletedMessageIds(prev => {
+      const next = new Set(prev);
+      msgsToDelete.forEach(m => {
+        const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        if (mId !== undefined && mId !== null) {
+          next.add(mId);
+          next.add(String(mId));
+        }
+        const fallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver || ''}-${m.body}`;
+        if (fallbackId) next.add(fallbackId);
+      });
+      try {
+        const json = JSON.stringify(Array.from(next));
+        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+      } catch (e) { }
+      return next;
+    });
     setSelectedRowIds(new Set());
 
     let countdown = 5;
@@ -2739,6 +2811,26 @@ const Casbox = () => {
 
     setMessages(prev => prev.filter(m => !toDeleteKeys.has(getMessageKey(m))));
     setThreadMessages(prev => prev.filter(m => !toDeleteKeys.has(getMessageKey(m))));
+
+    // Immediately mark in deletedMessageIds so page refresh keeps it deleted
+    setDeletedMessageIds(prev => {
+      const next = new Set(prev);
+      msgsToDelete.forEach(m => {
+        const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        if (mId !== undefined && mId !== null) {
+          next.add(mId);
+          next.add(String(mId));
+        }
+        const fallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver || ''}-${m.body}`;
+        if (fallbackId) next.add(fallbackId);
+      });
+      try {
+        const json = JSON.stringify(Array.from(next));
+        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+      } catch (e) { }
+      return next;
+    });
     handleExitMessageSelectionMode();
 
     let countdown = 5;
@@ -2813,6 +2905,26 @@ const Casbox = () => {
     setMessages(prev => prev.filter(m => !toDeleteKeys.has(getMessageKey(m))));
     setThreadMessages(prev => prev.filter(m => !toDeleteKeys.has(getMessageKey(m))));
 
+    // Immediately mark in deletedMessageIds so page refresh keeps it deleted
+    setDeletedMessageIds(prev => {
+      const next = new Set(prev);
+      convMsgs.forEach(m => {
+        const mId = m.id !== undefined && m.id !== null ? m.id : m.uid;
+        if (mId !== undefined && mId !== null) {
+          next.add(mId);
+          next.add(String(mId));
+        }
+        const fallbackId = `${m.timestamp}-${m.senderEmail || m.sender}-${m.receiverEmail || m.receiver || ''}-${m.body}`;
+        if (fallbackId) next.add(fallbackId);
+      });
+      try {
+        const json = JSON.stringify(Array.from(next));
+        sessionStorage.setItem('bnx_casbox_deleted_message_ids', json);
+        localStorage.setItem('bnx_casbox_deleted_message_ids', json);
+      } catch (e) { }
+      return next;
+    });
+
     let countdown = 5;
     const intervalId = setInterval(() => {
       countdown -= 1;
@@ -2851,13 +2963,18 @@ const Casbox = () => {
   const handleDismissPersonalToast = handleDismissCasboxToast;
   const handleDeletePersonalChatMessage = handleDeleteMessageWithUndo;
 
-  // Clean up pending Casbox deletions on unmount
+  // Clean up pending Casbox deletions on unmount or page refresh
   useEffect(() => {
-    return () => {
+    const handleBeforeUnload = () => {
       const pendingMap = pendingCasboxDeletionsRef.current;
       Object.keys(pendingMap).forEach(opId => {
         commitCasboxDelete(opId);
       });
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      handleBeforeUnload();
     };
   }, [commitCasboxDelete]);
 
@@ -3197,22 +3314,74 @@ const Casbox = () => {
     setShowFullEmojiPicker(false);
   }, [user?.email, user?.username]);
 
-  const handleOpenEditNameModal = (chatOrMsg, e) => {
-    if (e) e.stopPropagation();
+  const handleCopyMessageText = async (target, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     setOpenMenuId(null);
+    setOpenCombineMenuId(null);
+
+    const m = target?.msg || target?.latestMessage || target;
+    const raw = m?.body || m?.content || target?.body || target?.content || '';
+    let text = String(raw || '');
+    if (text.includes('<') && text.includes('>')) {
+      text = text
+        .replace(/<br\s*[\/]?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+    }
+    if (typeof decodeDisplayContent === 'function') {
+      text = decodeDisplayContent(text);
+    }
+    text = text.trim();
+
+    if (!text) {
+      toast.error("No message text to copy");
+      return;
+    }
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      toast.success("Copied to clipboard");
+    } catch (err) {
+      console.error("Failed to copy text:", err);
+      toast.error("Failed to copy text");
+    }
+  };
+
+  const handleOpenEditNameModal = (chatOrMsg, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    setOpenMenuId(null);
+    setOpenCombineMenuId(null);
     setShowMoreMenu(false);
 
-    const contactEmail = getOtherUserEmail(chatOrMsg);
-    const msg = chatOrMsg.latestMessage || (chatOrMsg.body !== undefined ? chatOrMsg : null);
+    const targetMsg = chatOrMsg?.latestMessage || (chatOrMsg?.body !== undefined ? chatOrMsg : null) || chatOrMsg?.msg;
+    const contactEmail = (typeof chatOrMsg === 'string'
+      ? chatOrMsg
+      : (chatOrMsg?.contact || getOtherUserEmail(targetMsg) || getOtherUserEmail(chatOrMsg) || '')
+    );
+    const msg = targetMsg;
     const originalName = getOriginalName(contactEmail, msg);
     const currentName = getDisplayName(contactEmail, msg);
-    const hasCustomAlias = contactAliases[contactEmail.toLowerCase()] ||
-      contactAliases[contactEmail.split('@')[0].toLowerCase()] ||
+    const lowerEmail = contactEmail ? contactEmail.toLowerCase() : '';
+    const localPart = lowerEmail.includes('@') ? lowerEmail.split('@')[0] : lowerEmail;
+    const hasCustomAlias = (lowerEmail && contactAliases[lowerEmail]) ||
+      (localPart && contactAliases[localPart]) ||
       (msg?.customName && msg.customName.trim());
 
     setEditingContact({
       contact: contactEmail,
-      contactUserId: msg?.contactUserId,
+      contactUserId: chatOrMsg?.contactUserId || msg?.contactUserId,
       originalName: originalName,
       currentName: currentName,
       hasCustomAlias: Boolean(hasCustomAlias),
@@ -3242,16 +3411,20 @@ const Casbox = () => {
         // Deleting / resetting custom alias to restore original username
         await contactAliasAPI.deleteAlias(contactIdOrIdentifier);
 
-        // Update local contactAliases state
-        setContactAliases(prev => {
-          const updated = { ...prev };
-          delete updated[contactTarget.toLowerCase()];
-          delete updated[contactTarget.split('@')[0].toLowerCase()];
-          if (editingContact.contactUserId) {
-            delete updated[String(editingContact.contactUserId)];
-          }
-          return updated;
-        });
+        // Update local contactAliases state and persist
+        const updatedAliases = { ...contactAliases };
+        if (contactTarget) {
+          delete updatedAliases[contactTarget.toLowerCase()];
+          delete updatedAliases[contactTarget.split('@')[0].toLowerCase()];
+        }
+        if (editingContact.contactUserId) {
+          delete updatedAliases[String(editingContact.contactUserId)];
+        }
+        setContactAliases(updatedAliases);
+        try {
+          sessionStorage.setItem('bnx_casbox_aliases', JSON.stringify(updatedAliases));
+          localStorage.setItem('bnx_casbox_aliases', JSON.stringify(updatedAliases));
+        } catch (err) { }
 
         // Update messages in state
         setMessages(prev => prev.map(m => {
@@ -3278,6 +3451,38 @@ const Casbox = () => {
           }
           return m;
         }));
+
+        // Update selectedMessage if open to immediately reflect in header
+        setSelectedMessage(prev => {
+          if (!prev) return prev;
+          const other = getOtherUserEmail(prev);
+          const normOther = normalizeEmail(other);
+          const normTarget = normalizeEmail(contactTarget);
+          if (normOther === normTarget || (normTarget && normOther.split('@')[0] === normTarget.split('@')[0])) {
+            return {
+              ...prev,
+              customName: null,
+              contactDisplayName: prev.contactUsername || contactTarget.split('@')[0]
+            };
+          }
+          return prev;
+        });
+
+        // Update selectedSentDetail if open
+        setSelectedSentDetail(prev => {
+          if (!prev) return prev;
+          const other = getOtherUserEmail(prev);
+          const normOther = normalizeEmail(other);
+          const normTarget = normalizeEmail(contactTarget);
+          if (normOther === normTarget || (normTarget && normOther.split('@')[0] === normTarget.split('@')[0])) {
+            return {
+              ...prev,
+              customName: null,
+              contactDisplayName: prev.contactUsername || contactTarget.split('@')[0]
+            };
+          }
+          return prev;
+        });
 
         toast.success(`Contact name reset to ${editingContact.originalName}`);
       } else {
@@ -3285,13 +3490,20 @@ const Casbox = () => {
         const res = await contactAliasAPI.setAlias(contactIdOrIdentifier, trimmedInput);
         const savedName = res.data?.customName || trimmedInput;
 
-        // Update local contactAliases state
-        setContactAliases(prev => ({
-          ...prev,
-          [contactTarget.toLowerCase()]: savedName,
-          [contactTarget.split('@')[0].toLowerCase()]: savedName,
+        // Update local contactAliases state and persist
+        const updatedAliases = {
+          ...contactAliases,
+          ...(contactTarget ? {
+            [contactTarget.toLowerCase()]: savedName,
+            [contactTarget.split('@')[0].toLowerCase()]: savedName
+          } : {}),
           ...(editingContact.contactUserId ? { [String(editingContact.contactUserId)]: savedName } : {})
-        }));
+        };
+        setContactAliases(updatedAliases);
+        try {
+          sessionStorage.setItem('bnx_casbox_aliases', JSON.stringify(updatedAliases));
+          localStorage.setItem('bnx_casbox_aliases', JSON.stringify(updatedAliases));
+        } catch (err) { }
 
         // Update messages in state
         setMessages(prev => prev.map(m => {
@@ -3319,12 +3531,45 @@ const Casbox = () => {
           return m;
         }));
 
+        // Update selectedMessage if open to immediately reflect in header
+        setSelectedMessage(prev => {
+          if (!prev) return prev;
+          const other = getOtherUserEmail(prev);
+          const normOther = normalizeEmail(other);
+          const normTarget = normalizeEmail(contactTarget);
+          if (normOther === normTarget || (normTarget && normOther.split('@')[0] === normTarget.split('@')[0])) {
+            return {
+              ...prev,
+              customName: savedName,
+              contactDisplayName: savedName
+            };
+          }
+          return prev;
+        });
+
+        // Update selectedSentDetail if open
+        setSelectedSentDetail(prev => {
+          if (!prev) return prev;
+          const other = getOtherUserEmail(prev);
+          const normOther = normalizeEmail(other);
+          const normTarget = normalizeEmail(contactTarget);
+          if (normOther === normTarget || (normTarget && normOther.split('@')[0] === normTarget.split('@')[0])) {
+            return {
+              ...prev,
+              customName: savedName,
+              contactDisplayName: savedName
+            };
+          }
+          return prev;
+        });
+
         toast.success("Contact name updated");
       }
 
       setShowEditNameModal(false);
       setEditingContact(null);
       setCustomNameInput("");
+      fetchAliases();
     } catch (err) {
       console.error("Failed to save contact name", err);
       toast.error(err.response?.data?.message || "Failed to update contact name");
@@ -3852,10 +4097,10 @@ const Casbox = () => {
 
     const idSet = new Set();
     if (isSingleMsgOnly) {
-      const singleId = target?.id !== undefined && target?.id !== null ? target.id : target?.uid;
-      if (singleId !== undefined && singleId !== null) {
-        idSet.add(singleId);
-      }
+      if (target?.id !== undefined && target?.id !== null) idSet.add(target.id);
+      if (target?.uid !== undefined && target?.uid !== null) idSet.add(target.uid);
+      if (target?.msg?.id !== undefined && target?.msg?.id !== null) idSet.add(target.msg.id);
+      if (target?.msg?.uid !== undefined && target?.msg?.uid !== null) idSet.add(target.msg.uid);
     } else {
       if (targetChat && Array.isArray(targetChat.messages)) {
         targetChat.messages.forEach(m => {
@@ -3881,12 +4126,10 @@ const Casbox = () => {
           }
         });
       }
-      const directId = target?.id !== undefined && target?.id !== null
-        ? target.id
-        : (target?.msg?.id !== undefined && target?.msg?.id !== null ? target.msg.id : target?.uid);
-      if (directId !== undefined && directId !== null) {
-        idSet.add(directId);
-      }
+      if (target?.msg?.id !== undefined && target?.msg?.id !== null) idSet.add(target.msg.id);
+      if (target?.msg?.uid !== undefined && target?.msg?.uid !== null) idSet.add(target.msg.uid);
+      if (target?.id !== undefined && target?.id !== null) idSet.add(target.id);
+      if (target?.uid !== undefined && target?.uid !== null) idSet.add(target.uid);
     }
 
     const allTargetIds = Array.from(idSet);
@@ -4131,10 +4374,10 @@ const Casbox = () => {
 
     const idSet = new Set();
     if (isSingleMsgOnly) {
-      const singleId = target?.id !== undefined ? target.id : target?.uid;
-      if (singleId !== undefined && singleId !== null) {
-        idSet.add(singleId);
-      }
+      if (target?.id !== undefined && target?.id !== null) idSet.add(target.id);
+      if (target?.uid !== undefined && target?.uid !== null) idSet.add(target.uid);
+      if (target?.msg?.id !== undefined && target?.msg?.id !== null) idSet.add(target.msg.id);
+      if (target?.msg?.uid !== undefined && target?.msg?.uid !== null) idSet.add(target.msg.uid);
     } else {
       if (targetChat && Array.isArray(targetChat.messages)) {
         targetChat.messages.forEach(m => {
@@ -4160,10 +4403,10 @@ const Casbox = () => {
           }
         });
       }
-      const directId = target?.id !== undefined ? target.id : (target?.msg?.id !== undefined ? target.msg.id : target?.uid);
-      if (directId !== undefined && directId !== null) {
-        idSet.add(directId);
-      }
+      if (target?.msg?.id !== undefined && target?.msg?.id !== null) idSet.add(target.msg.id);
+      if (target?.msg?.uid !== undefined && target?.msg?.uid !== null) idSet.add(target.msg.uid);
+      if (target?.id !== undefined && target?.id !== null) idSet.add(target.id);
+      if (target?.uid !== undefined && target?.uid !== null) idSet.add(target.uid);
     }
 
     const allTargetIds = Array.from(idSet);
@@ -4406,7 +4649,7 @@ const Casbox = () => {
 
   const handleConfirmDeleteMessage = () => {
     if (!messageToDelete) return;
-    const msg = messageToDelete;
+    const msg = messageToDelete?.msg || messageToDelete;
     setMessageToDelete(null);
     handleDeleteMessageWithUndo(msg);
   };
@@ -6031,14 +6274,7 @@ const Casbox = () => {
                       <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (msg.body) {
-                              navigator.clipboard.writeText(msg.body);
-                              toast.success("Copied to clipboard");
-                            }
-                            setOpenCombineMenuId(null);
-                          }}
+                          onClick={(e) => handleCopyMessageText(msg, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
                           <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
@@ -6054,10 +6290,18 @@ const Casbox = () => {
                         </button>
                         <button
                           type="button"
+                          onClick={(e) => handleOpenEditNameModal(msg, e)}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
+                          {t('casbox.edit_name', 'Edit Name')}
+                        </button>
+                        <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenCombineMenuId(null);
-                            handleDeleteMessageWithUndo(msg);
+                            setMessageToDelete(msg);
                           }}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -6345,21 +6589,14 @@ const Casbox = () => {
 
                       {openMenuId === id && (
                         <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
-                          {bodyPreview && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(msg.body || msg.content || '');
-                                toast.success("Copied to clipboard");
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
-                            >
-                              <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
-                              Copy Text
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyMessageText(item || msg, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
+                            Copy Text
+                          </button>
                           <button
                             type="button"
                             onClick={(e) => handleArchiveMessage(chat || item || msg, e)}
@@ -6368,22 +6605,20 @@ const Casbox = () => {
                             <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
                             Archive
                           </button>
-                          {chat && (
-                            <button
-                              type="button"
-                              onClick={(e) => handleOpenEditNameModal(chat, e)}
-                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
-                            >
-                              <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
-                              {t('casbox.edit_name', 'Edit Name')}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenEditNameModal(chat || item || msg, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
+                            {t('casbox.edit_name', 'Edit Name')}
+                          </button>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenMenuId(null);
-                              handleDeleteMessageWithUndo(msg || item);
+                              setMessageToDelete(msg || item?.msg || item);
                             }}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -6483,21 +6718,14 @@ const Casbox = () => {
 
                       {openMenuId === id && (
                         <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
-                          {bodyPreview && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(msg.body || msg.content || '');
-                                toast.success("Copied to clipboard");
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
-                            >
-                              <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
-                              Copy Text
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyMessageText(item || msg, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
+                            Copy Text
+                          </button>
                           <button
                             type="button"
                             onClick={(e) => handleArchiveMessage(chat || item || msg, e)}
@@ -6506,22 +6734,20 @@ const Casbox = () => {
                             <MdArchive size={16} className="text-gray-500 dark:text-gray-400" />
                             Archive
                           </button>
-                          {chat && (
-                            <button
-                              type="button"
-                              onClick={(e) => handleOpenEditNameModal(chat, e)}
-                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
-                            >
-                              <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
-                              {t('casbox.edit_name', 'Edit Name')}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenEditNameModal(chat || item || msg, e)}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
+                            {t('casbox.edit_name', 'Edit Name')}
+                          </button>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenMenuId(null);
-                              handleDeleteMessageWithUndo(msg || item);
+                              setMessageToDelete(msg || item?.msg || item);
                             }}
                             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                           >
@@ -6691,24 +6917,17 @@ const Casbox = () => {
 
                     {openMenuId === id && (
                       <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
-                        {bodyPreview && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(msg.body || msg.content || '');
-                              toast.success("Copied to clipboard");
-                              setOpenMenuId(null);
-                            }}
-                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
-                          >
-                            <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
-                            Copy Text
-                          </button>
-                        )}
                         <button
                           type="button"
-                          onClick={(e) => handleOpenEditNameModal(chat || { contact, latestMessage: msg }, e)}
+                          onClick={(e) => handleCopyMessageText(item || msg, e)}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
+                          Copy Text
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEditNameModal(chat || item || msg || { contact, latestMessage: msg }, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
                           <MdEdit size={16} className="text-gray-500 dark:text-gray-400" />
@@ -6727,7 +6946,7 @@ const Casbox = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(null);
-                            handleDeleteMessageWithUndo(msg || item);
+                            setMessageToDelete(msg || item?.msg || item);
                           }}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -6887,6 +7106,14 @@ const Casbox = () => {
                       <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-30 py-1 animate-in fade-in duration-150">
                         <button
                           type="button"
+                          onClick={(e) => handleCopyMessageText(chat, e)}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <MdContentCopy size={15} className="text-gray-500 dark:text-gray-400" />
+                          Copy Text
+                        </button>
+                        <button
+                          type="button"
                           onClick={(e) => handleOpenEditNameModal(chat, e)}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -6917,7 +7144,7 @@ const Casbox = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(null);
-                            handleDeleteConversationWithUndo(chat);
+                            setConversationToDelete(chat);
                           }}
                           className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -7865,7 +8092,7 @@ const Casbox = () => {
                       type="button"
                       onClick={() => {
                         setShowMoreMenu(false);
-                        handleDeleteConversationWithUndo({ contact: otherUserEmail });
+                        setConversationToDelete({ contact: otherUserEmail });
                       }}
                       className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 cursor-pointer"
                     >
