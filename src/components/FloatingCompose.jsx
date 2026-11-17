@@ -3244,7 +3244,7 @@ const ComposeWindow = ({
                     <button
                       type="submit"
                       disabled={sending || uploading}
-                      className="flex items-center gap-1.5 pl-4 pr-2.5 py-2 text-white text-xs sm:text-sm font-semibold disabled:opacity-60 cursor-pointer"
+                      className="flex items-center gap-1.5 pl-4 pr-2.5 py-2 text-white text-xs sm:text-sm font-semibold whitespace-nowrap disabled:opacity-60 cursor-pointer"
                     >
                       <MdSend size={14} className="shrink-0" />
                       <span>{sending ? t('compose.sending', 'Sending...') : 'Send'}</span>
@@ -3456,7 +3456,7 @@ const ComposeWindow = ({
                     <button
                       type="submit"
                       disabled={sending || uploading}
-                      className={`flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold disabled:opacity-60 cursor-pointer ${(composeMode === "mail" || composeMode === "email") ? "rounded-l-full border-r border-white/20" : "rounded-full"}`}
+                      className={`flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold whitespace-nowrap disabled:opacity-60 cursor-pointer ${(composeMode === "mail" || composeMode === "email") ? "rounded-l-full border-r border-white/20" : "rounded-full"}`}
                       style={{ background: `linear-gradient(135deg, ${theme.accent || '#135bec'} 0%, #3b82f6 100%)` }}
                     >
                       {sending
