@@ -203,11 +203,28 @@ export const removeStoredStarredEmail = (uid, userEmail, folder = '', email = nu
     if (canonicalKey) map.delete(canonicalKey);
     if (bareUid) {
       map.delete(bareUid);
-      if (normFolder) map.delete(`${normFolder}:${bareUid}`);
-      map.delete(`draft:${bareUid}`);
-      map.delete(`drafts:${bareUid}`);
+      map.delete(`starred:${bareUid}`);
       map.delete(`inbox:${bareUid}`);
       map.delete(`sent:${bareUid}`);
+      map.delete(`draft:${bareUid}`);
+      map.delete(`drafts:${bareUid}`);
+      map.delete(`archive:${bareUid}`);
+      map.delete(`trash:${bareUid}`);
+      if (normFolder) map.delete(`${normFolder}:${bareUid}`);
+      for (const k of Array.from(map.keys())) {
+        if (k === bareUid || k.endsWith(`:${bareUid}`)) {
+          map.delete(k);
+        }
+      }
+    }
+    const messageId = email?.messageId ? String(email.messageId).trim().toLowerCase().replace(/^<|>$/g, '') : '';
+    if (messageId) {
+      for (const [k, item] of Array.from(map.entries())) {
+        const itemMid = item?.messageId ? String(item.messageId).trim().toLowerCase().replace(/^<|>$/g, '') : '';
+        if (itemMid && itemMid === messageId) {
+          map.delete(k);
+        }
+      }
     }
 
     const obj = {};
@@ -337,6 +354,23 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
     }
   }
 
+  // 4. In Starred folder context (or when folder is 'starred' or unset), check any folder key in idSet or map
+  if (!currentFolder || currentFolder === 'starred') {
+    if (idSet.has(uidStr) || idSet.has(`inbox:${uidStr}`) || idSet.has(`sent:${uidStr}`) || idSet.has(`starred:${uidStr}`) || idSet.has(`archive:${uidStr}`)) {
+      return true;
+    }
+    const map = getStoredStarredEmailsMap(userEmail);
+    if (map.has(uidStr) || map.has(`inbox:${uidStr}`) || map.has(`sent:${uidStr}`) || map.has(`starred:${uidStr}`) || map.has(`archive:${uidStr}`)) {
+      return true;
+    }
+    for (const id of idSet) {
+      if (id === uidStr || id.endsWith(`:${uidStr}`)) return true;
+    }
+    for (const k of map.keys()) {
+      if (k === uidStr || k.endsWith(`:${uidStr}`)) return true;
+    }
+  }
+
   return false;
 };
 
@@ -373,4 +407,105 @@ export const isEmailValidScheduled = (m) => {
   }
 
   return true;
+};
+
+/**
+ * Deduplicates a list of starred emails so that each unique email appears exactly once.
+ * Identifies duplicates by:
+ * 1. Unique UID / ID
+ * 2. Normalized message ID (RFC 5322 globally unique identifier across folders/IMAP)
+ * 3. Fallback combination of threadId/sender, subject, timestamp, and body snippet.
+ * Preserves different emails in the same conversation / thread.
+ */
+export const deduplicateStarredEmails = (emailsList) => {
+  if (!Array.isArray(emailsList) || emailsList.length === 0) return [];
+
+  const seenUids = new Set();
+  const seenMsgIds = new Set();
+  const seenFallbacks = new Set();
+  const result = [];
+
+  for (const e of emailsList) {
+    if (!e) continue;
+    const isDraft = e.isDraft === true || e.draft === true || e.folderName?.toLowerCase()?.includes('draft');
+    if (isDraft) continue;
+
+    const rawUid = e.uid ?? e.id;
+    const uidStr = rawUid !== undefined && rawUid !== null && String(rawUid).trim() !== ''
+      ? String(rawUid).trim()
+      : '';
+
+    const rawMsgId = e.messageId || e.msgId;
+    const msgId = (rawMsgId && typeof rawMsgId === 'string')
+      ? rawMsgId.trim().toLowerCase().replace(/^<|>$/g, '')
+      : '';
+
+    let isDuplicate = false;
+    let matchedIndex = -1;
+
+    if (uidStr && seenUids.has(uidStr)) {
+      isDuplicate = true;
+      matchedIndex = result.findIndex(item => {
+        const itemUid = item.uid ?? item.id;
+        return itemUid !== undefined && itemUid !== null && String(itemUid).trim() === uidStr;
+      });
+    } else if (msgId && seenMsgIds.has(msgId)) {
+      isDuplicate = true;
+      matchedIndex = result.findIndex(item => {
+        const itemMsgId = item.messageId || item.msgId;
+        return itemMsgId && String(itemMsgId).trim().toLowerCase().replace(/^<|>$/g, '') === msgId;
+      });
+    } else if (!uidStr && !msgId) {
+      const sender = (e.from || e.senderEmail || '').trim().toLowerCase();
+      const subject = (e.subject || '').trim().toLowerCase();
+      const rawDate = e.receivedDate || e.sentDate || e.date || e.createdAt || e.timestamp;
+      const time = rawDate ? new Date(rawDate).getTime() : '';
+      const thread = (e.threadId || e.conversationId || '').trim();
+      const snippet = (e.body || e.htmlBody || e.snippet || '').slice(0, 40).trim().toLowerCase();
+      const fallbackKey = `${thread}:${sender}:${subject}:${time}:${snippet}`;
+
+      if (seenFallbacks.has(fallbackKey)) {
+        isDuplicate = true;
+        matchedIndex = result.findIndex(item => {
+          const s = (item.from || item.senderEmail || '').trim().toLowerCase();
+          const sub = (item.subject || '').trim().toLowerCase();
+          const rd = item.receivedDate || item.sentDate || item.date || item.createdAt || item.timestamp;
+          const t = rd ? new Date(rd).getTime() : '';
+          const th = (item.threadId || item.conversationId || '').trim();
+          const sn = (item.body || item.htmlBody || item.snippet || '').slice(0, 40).trim().toLowerCase();
+          return `${th}:${s}:${sub}:${t}:${sn}` === fallbackKey;
+        });
+      } else {
+        seenFallbacks.add(fallbackKey);
+      }
+    }
+
+    if (isDuplicate) {
+      if (matchedIndex >= 0) {
+        const existing = result[matchedIndex];
+        result[matchedIndex] = {
+          ...existing,
+          ...e,
+          body: e.body || existing.body,
+          htmlBody: e.htmlBody || existing.htmlBody,
+          attachments: (e.attachments && e.attachments.length > 0) ? e.attachments : existing.attachments,
+          labels: (e.labels && e.labels.length > 0) ? e.labels : existing.labels,
+          starred: true,
+          isStarred: true
+        };
+        if (uidStr) seenUids.add(uidStr);
+        if (msgId) seenMsgIds.add(msgId);
+      }
+    } else {
+      if (uidStr) seenUids.add(uidStr);
+      if (msgId) seenMsgIds.add(msgId);
+      result.push({
+        ...e,
+        starred: true,
+        isStarred: true
+      });
+    }
+  }
+
+  return result;
 };

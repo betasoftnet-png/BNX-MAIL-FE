@@ -19,7 +19,8 @@ import {
     getEmailStarKey,
     getUserKey,
     matchesScheduledAndSentEmail,
-    isEmailValidScheduled
+    isEmailValidScheduled,
+    deduplicateStarredEmails
 } from '../utils/starredStorage';
 import {
     extractEmailAddresses,
@@ -595,35 +596,12 @@ export const MailProvider = ({ children }) => {
             }
         }
 
-        const allKnownMap = new Map();
+        const rawStarredList = [];
         const storedMap = getStoredStarredEmailsMap(user?.email);
         const currentStarredIds = getStoredStarredIds(user?.email);
         const nextStarredIds = new Set(currentStarredIds);
 
-        // 1. Populate from locally stored starred emails first (manually starred emails)
-        storedMap.forEach((email, key) => {
-            const isDraft = email.isDraft === true || email.draft === true || email.folderName?.toLowerCase()?.includes('draft');
-            if (isDraft) return; // Strictly exclude drafts
-            const isTrash = email.folderName?.toLowerCase() === 'trash' || email.isTrash === true || email.deleted === true;
-            if (isTrash) return;
-
-            const uidStr = String(email.uid ?? email.id ?? '');
-            const normFolder = normalizeFolderName(email.folderName, email) || 'inbox';
-            const starKey = getEmailStarKey(uidStr, normFolder, email);
-
-            if (isEmailIdStarred(uidStr, user?.email, normFolder, email)) {
-                allKnownMap.set(starKey, {
-                    ...email,
-                    folderName: email.folderName || normFolder,
-                    isDraft: false,
-                    draft: false,
-                    starred: true,
-                    isStarred: true
-                });
-            }
-        });
-
-        // 2. If API succeeded, merge in server starred emails (strictly excluding drafts and trash)
+        // 1. Merge in server starred emails if API succeeded (authoritative server body, attachments, labels)
         if (apiSuccess && Array.isArray(apiEmails)) {
             apiEmails.forEach(item => {
                 const isDraft = item.isDraft === true || item.draft === true || item.folderName?.toLowerCase()?.includes('draft');
@@ -638,48 +616,45 @@ export const MailProvider = ({ children }) => {
                     nextStarredIds.add(starKey);
                 }
 
-                const formattedEmail = {
+                rawStarredList.push({
                     ...item,
                     folderName: item.folderName || normFolder,
                     isDraft: false,
                     draft: false,
                     starred: true,
                     isStarred: true
-                };
-
-                if (starKey && !allKnownMap.has(starKey)) {
-                    allKnownMap.set(starKey, formattedEmail);
-                }
+                });
             });
         }
 
-        saveStoredStarredIds(nextStarredIds, user?.email);
-        setStarredIds(nextStarredIds);
-        starredIdsRef.current = nextStarredIds;
+        // 2. Populate from locally stored starred emails (optimistic/offline starred items)
+        storedMap.forEach((email) => {
+            const isDraft = email.isDraft === true || email.draft === true || email.folderName?.toLowerCase()?.includes('draft');
+            if (isDraft) return; // Strictly exclude drafts
+            const isTrash = email.folderName?.toLowerCase() === 'trash' || email.isTrash === true || email.deleted === true;
+            if (isTrash) return;
 
-        // 3. Filter and deduplicate: strictly no drafts, no trash
-        const deduplicatedEmails = [];
-        const seenStarKeys = new Set();
-        for (const e of allKnownMap.values()) {
-            const isDraft = e.isDraft === true || e.draft === true || e.folderName?.toLowerCase()?.includes('draft');
-            if (isDraft) continue;
-            const isTrash = e.folderName?.toLowerCase() === 'trash' || e.isTrash === true || e.deleted === true;
-            if (isTrash) continue;
+            const uidStr = String(email.uid ?? email.id ?? '');
+            const normFolder = normalizeFolderName(email.folderName, email) || 'inbox';
 
-            const uidStr = String(e.uid ?? e.id ?? '');
-            const folderNorm = normalizeFolderName(e.folderName, e);
-            const dedupeKey = `${folderNorm}:${uidStr}`;
-            if (!seenStarKeys.has(dedupeKey)) {
-                seenStarKeys.add(dedupeKey);
-                deduplicatedEmails.push({
-                    ...e,
+            if (isEmailIdStarred(uidStr, user?.email, normFolder, email)) {
+                rawStarredList.push({
+                    ...email,
+                    folderName: email.folderName || normFolder,
                     isDraft: false,
                     draft: false,
                     starred: true,
                     isStarred: true
                 });
             }
-        }
+        });
+
+        saveStoredStarredIds(nextStarredIds, user?.email);
+        setStarredIds(nextStarredIds);
+        starredIdsRef.current = nextStarredIds;
+
+        // 3. Filter and deduplicate: strictly one entry per unique email
+        const deduplicatedEmails = deduplicateStarredEmails(rawStarredList);
 
         sortEmailsByDateDesc(deduplicatedEmails);
         const unreadCount = deduplicatedEmails.filter(e => !e.isRead && !e.read).length;
@@ -689,7 +664,9 @@ export const MailProvider = ({ children }) => {
                 success: true,
                 data: {
                     emails: deduplicatedEmails,
-                    totalCount: Math.max(apiTotalCount, deduplicatedEmails.length),
+                    totalCount: (targetPage === 1 && deduplicatedEmails.length < limit)
+                        ? deduplicatedEmails.length
+                        : Math.max(apiTotalCount, deduplicatedEmails.length),
                     unreadCount: unreadCount
                 }
             }
@@ -1075,6 +1052,10 @@ export const MailProvider = ({ children }) => {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
                 }
 
+                if (folderKey === 'starred') {
+                    normalizedEmails = deduplicateStarredEmails(normalizedEmails);
+                }
+
                 normalizedEmails = attachStoredSystemLabels(normalizedEmails);
 
                 if (folderKey === 'scheduled') {
@@ -1376,6 +1357,10 @@ export const MailProvider = ({ children }) => {
 
                 if (folderKey === 'spam') {
                     normalizedEmails = filterDuplicateSpamEmails(normalizedEmails);
+                }
+
+                if (folderKey === 'starred') {
+                    normalizedEmails = deduplicateStarredEmails(normalizedEmails);
                 }
 
                 normalizedEmails = attachStoredSystemLabels(normalizedEmails);
@@ -1860,6 +1845,21 @@ export const MailProvider = ({ children }) => {
                 }
             }
             nextSet.delete(strUid);
+            nextSet.delete(`starred:${strUid}`);
+            nextSet.delete(`inbox:${strUid}`);
+            nextSet.delete(`sent:${strUid}`);
+            nextSet.delete(`draft:${strUid}`);
+            nextSet.delete(`drafts:${strUid}`);
+            nextSet.delete(`archive:${strUid}`);
+            for (const id of Array.from(nextSet)) {
+                if (id === strUid || id.endsWith(`:${strUid}`)) {
+                    nextSet.delete(id);
+                }
+            }
+            const cleanMsgId = targetEmail?.messageId ? String(targetEmail.messageId).trim().toLowerCase().replace(/^<|>$/g, '') : '';
+            if (cleanMsgId) {
+                nextSet.delete(`mid:${cleanMsgId}`);
+            }
             removeStoredStarredEmail(strUid, user?.email, emailFolder, targetEmail);
         }
 
@@ -1887,11 +1887,19 @@ export const MailProvider = ({ children }) => {
 
         const isTargetMatch = (m) => {
             const mUid = String(m.uid ?? m.id ?? '');
-            if (mUid !== strUid) return false;
-            const isMDraft = isDraft || m.isDraft === true || m.draft === true || m.folderName?.toLowerCase()?.includes('draft') || isCurrentDraftFolder;
-            const mFolder = isMDraft ? 'draft' : normalizeFolderName(m.folderName, m);
-            if (emailFolder && mFolder && mFolder !== emailFolder) return false;
-            return true;
+            if (mUid === strUid) {
+                if (currentFolderRef.current?.toLowerCase() === 'starred') return true;
+                const isMDraft = isDraft || m.isDraft === true || m.draft === true || m.folderName?.toLowerCase()?.includes('draft') || isCurrentDraftFolder;
+                const mFolder = isMDraft ? 'draft' : normalizeFolderName(m.folderName, m);
+                if (emailFolder && mFolder && mFolder !== emailFolder) return false;
+                return true;
+            }
+            const cleanTargetMsgId = targetEmail?.messageId ? String(targetEmail.messageId).trim().toLowerCase().replace(/^<|>$/g, '') : '';
+            const mMsgId = m.messageId ? String(m.messageId).trim().toLowerCase().replace(/^<|>$/g, '') : '';
+            if (cleanTargetMsgId && mMsgId && cleanTargetMsgId === mMsgId) {
+                return true;
+            }
+            return false;
         };
 
         // 3. Update active screen emails immediately

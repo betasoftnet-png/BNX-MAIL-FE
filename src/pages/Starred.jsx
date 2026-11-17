@@ -9,7 +9,7 @@ import { useTheme } from "../context/ThemeContext";
 
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
-import { matchesScheduledAndSentEmail } from "../utils/starredStorage";
+import { matchesScheduledAndSentEmail, deduplicateStarredEmails } from "../utils/starredStorage";
 
 const isDraftEmail = (email) => {
   if (!email) return false;
@@ -85,22 +85,7 @@ const Starred = ({ searchQuery }) => {
       return true;
     });
 
-    const seen = new Set();
-    const uniqueEmails = [];
-    for (const e of filteredVisible) {
-      if (isDraftEmail(e)) continue;
-      const uidStr = String(e.uid ?? e.id ?? '');
-      const folderKey = e.folderName?.toLowerCase() || '';
-      const dedupeKey = `${folderKey}:${uidStr}`;
-      if (!seen.has(dedupeKey)) {
-        seen.add(dedupeKey);
-        uniqueEmails.push({
-          ...e,
-          starred: true,
-          isStarred: true
-        });
-      }
-    }
+    const uniqueEmails = deduplicateStarredEmails(filteredVisible);
 
     const getTimestamp = (item) => {
       if (!item) return 0;
