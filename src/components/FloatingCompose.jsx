@@ -900,10 +900,12 @@ const ComposeWindow = ({
 
   const calculateDefaultSizeAndPos = useCallback(() => {
     if (typeof window === "undefined") {
-      return { size: { width: 520, height: 480 }, position: { x: 100, y: 100 } };
+      return { size: { width: 558, height: 480 }, position: { x: 100, y: 100 } };
     }
     const mobile = window.innerWidth < 768;
-    const defaultW = isReply ? Math.min(580, window.innerWidth - 40) : Math.min(520, window.innerWidth - 40);
+    // Increased by 1 cm (~38 CSS pixels): 520 -> 558 (reply: 580 -> 618)
+    const baseW = isReply ? 580 : 520;
+    const defaultW = Math.min(baseW + 38, window.innerWidth - 40);
     const defaultH = isReply ? Math.min(620, window.innerHeight - 60) : Math.min(480, window.innerHeight - 60);
 
     if (mobile) {
@@ -919,7 +921,9 @@ const ComposeWindow = ({
     const xOffset = cascadeIndex * 24;
     const yOffset = cascadeIndex * 24;
 
-    const baseX = window.innerWidth - defaultW - 24;
+    // Expand width equally on left and right (19px each side), preserving exact center position
+    const previousBaseX = window.innerWidth - baseW - 24;
+    const baseX = Math.max(10, previousBaseX - 19);
     const initX = Math.max(10, baseX - xOffset);
 
     const baseY = window.innerHeight - defaultH - 20;
@@ -969,10 +973,10 @@ const ComposeWindow = ({
           const h = Math.min(prevSize.height, window.innerHeight - 60);
           
           setPosition((prevPos) => {
-            const maxTargetX = window.innerWidth - w - 20;
+            const maxTargetX = window.innerWidth - w - 5;
             const maxTargetY = window.innerHeight - h - 20;
             return {
-              x: Math.max(20, Math.min(prevPos.x, maxTargetX)),
+              x: Math.max(5, Math.min(prevPos.x, maxTargetX)),
               y: Math.max(20, Math.min(prevPos.y, maxTargetY))
             };
           });
@@ -1015,7 +1019,7 @@ const ComposeWindow = ({
       const savedX = lastNormalPosRef.current?.x !== undefined ? lastNormalPosRef.current.x : defaultState.position.x;
       const savedY = lastNormalPosRef.current?.y !== undefined ? lastNormalPosRef.current.y : defaultState.position.y;
 
-      const clampedX = Math.max(10, Math.min(savedX, window.innerWidth - savedW - 10));
+      const clampedX = Math.max(5, Math.min(savedX, window.innerWidth - savedW - 5));
       const clampedY = Math.max(10, Math.min(savedY, window.innerHeight - savedH - 10));
 
       setSize({ width: savedW, height: savedH });
