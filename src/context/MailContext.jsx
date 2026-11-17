@@ -365,6 +365,9 @@ export const MailProvider = ({ children }) => {
         const folderKey = folder.toLowerCase();
         delete pagesCache.current[folderKey];
         delete pagesCache.current[`${folderKey}_total`];
+        if (folderKey === 'scheduled' && typeof window !== 'undefined') {
+            delete window.__bnx_scheduled_cache;
+        }
     }, []);
     const [loading, setLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);

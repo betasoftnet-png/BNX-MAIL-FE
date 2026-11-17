@@ -539,7 +539,7 @@ const EmailList = ({
                   )}
 
                   {/* Date / Hover Actions */}
-                  <div className={`${isSnoozedFolder ? 'min-w-[85px] sm:min-w-[130px]' : 'w-14 sm:w-20'} shrink-0 text-right relative flex justify-end items-center h-full ${snoozeOpenUid === email.uid ? 'z-50' : 'z-10'}`}>
+                  <div className={`${isSnoozedFolder || isScheduledFolder || isScheduledRow ? 'min-w-[85px] sm:min-w-[130px]' : 'w-14 sm:w-20'} shrink-0 text-right relative flex justify-end items-center h-full ${snoozeOpenUid === email.uid ? 'z-50' : 'z-10'}`}>
                     <span
                       className={`text-xs whitespace-nowrap transition-opacity duration-100 group-hover:opacity-0 ${isUnread ? "font-bold text-primary" : "text-gray-400 dark:text-gray-500"
                         }`}
@@ -548,6 +548,11 @@ const EmailList = ({
                         const snoozeTarget = isSnoozedFolder && (email.wakeUpAt || email.snoozedUntil || email.snoozeUntil);
                         if (snoozeTarget) {
                           const formatted = formatSnoozeSchedule(snoozeTarget);
+                          if (formatted) return formatted;
+                        }
+                        const scheduleTarget = (isScheduledFolder || isScheduledRow) && (email.scheduledAt || email.scheduledTime || email.sendAt || email.receivedDate);
+                        if (scheduleTarget) {
+                          const formatted = formatSnoozeSchedule(scheduleTarget);
                           if (formatted) return formatted;
                         }
                         const raw = email.receivedDate || email.sentDate || email.date || email.createdAt || email.timestamp;

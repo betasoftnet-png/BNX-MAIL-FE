@@ -11,7 +11,8 @@ import {
   removeStoredStarredEmail,
   getStoredStarredIds,
   saveStoredStarredIds,
-  isEmailValidScheduled
+  isEmailValidScheduled,
+  parseScheduledTime
 } from "../utils/starredStorage";
 import {
   getStoredSystemEmailLabels,
@@ -39,7 +40,7 @@ const Scheduled = ({ searchQuery }) => {
   const { t } = useTranslation();
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
-  const { matchesDateFilter, unreadCounts, setUnreadCounts, handleToggleStar, handleApplyLabel, isEmailStarred, setCurrentFolder, setTotalEmails, handlePageChange } = useMail();
+  const { matchesDateFilter, resetDateFilter, unreadCounts, setUnreadCounts, handleToggleStar, handleApplyLabel, isEmailStarred, setCurrentFolder, setTotalEmails, handlePageChange } = useMail();
 
   // Instant render: initialize from in-memory cache if available
   const [emails, setEmails] = useState(() => {
@@ -48,12 +49,25 @@ const Scheduled = ({ searchQuery }) => {
     return cached.map((m) => {
       const uidStr = String(m.uid ?? m.id ?? "");
       const isStarred = isEmailIdStarred(uidStr, user?.email, "scheduled", m);
+      const scheduledTimestamp = parseScheduledTime(m) || Date.now();
+      const scheduledDateIso = new Date(scheduledTimestamp).toISOString();
       return mergeEmailWithStoredSystemLabels(
         {
           ...m,
+          uid: uidStr,
+          id: m.id ?? uidStr,
+          to: m.to || m.recipientEmail || m.recipient || "",
+          recipientEmail: m.to || m.recipientEmail || m.recipient || "",
+          from: m.from || m.senderEmail || user?.email || "",
+          senderEmail: m.from || m.senderEmail || user?.email || "",
+          scheduledAt: scheduledDateIso,
+          receivedDate: scheduledTimestamp,
+          date: scheduledDateIso,
+          timestamp: scheduledTimestamp,
           starred: isStarred,
           isStarred: isStarred,
           folderName: "scheduled",
+          isRead: true,
         },
         sysLabelsMap
       );
@@ -80,7 +94,14 @@ const Scheduled = ({ searchQuery }) => {
     if (isScheduledFetchInFlight) return;
     isScheduledFetchInFlight = true;
 
-    if (!isSilent && (!scheduledMemoryCache || !scheduledMemoryCache.emails)) {
+    if (!isSilent) {
+      scheduledMemoryCache = null;
+      if (typeof window !== "undefined") {
+        delete window.__bnx_scheduled_cache;
+      }
+    }
+
+    if (!isSilent && (!scheduledMemoryCache || !scheduledMemoryCache.emails || scheduledMemoryCache.emails.length === 0)) {
       setLoading(true);
     } else {
       setIsRefreshing(true);
@@ -99,11 +120,23 @@ const Scheduled = ({ searchQuery }) => {
           const isStarred = typeof isEmailStarred === "function"
             ? isEmailStarred(uidStr, "scheduled", m)
             : isEmailIdStarred(uidStr, user?.email, "scheduled", m);
+
+          const scheduledTimestamp = parseScheduledTime(m) || Date.now();
+          const scheduledDateIso = new Date(scheduledTimestamp).toISOString();
+
           return mergeEmailWithStoredSystemLabels(
             {
               ...m,
               uid: uidStr,
               id: m.id ?? uidStr,
+              to: m.to || m.recipientEmail || m.recipient || "",
+              recipientEmail: m.to || m.recipientEmail || m.recipient || "",
+              from: m.from || m.senderEmail || user?.email || "",
+              senderEmail: m.from || m.senderEmail || user?.email || "",
+              scheduledAt: scheduledDateIso,
+              receivedDate: scheduledTimestamp,
+              date: scheduledDateIso,
+              timestamp: scheduledTimestamp,
               isRead: true,
               starred: isStarred,
               isStarred: isStarred,
@@ -111,6 +144,13 @@ const Scheduled = ({ searchQuery }) => {
             },
             sysLabelsMap
           );
+        });
+
+        // Sort scheduled emails ascending by scheduled send time (nearest schedule first)
+        normalized.sort((a, b) => {
+          const timeA = parseScheduledTime(a) || 0;
+          const timeB = parseScheduledTime(b) || 0;
+          return timeA - timeB;
         });
 
         scheduledMemoryCache = {
@@ -147,7 +187,7 @@ const Scheduled = ({ searchQuery }) => {
       setIsRefreshing(false);
       isScheduledFetchInFlight = false;
     }
-  }, [setUnreadCounts, user?.email, isEmailStarred]);
+  }, [setUnreadCounts, user?.email, isEmailStarred, setTotalEmails]);
 
   useEffect(() => {
     if (typeof setCurrentFolder === "function") {
@@ -156,7 +196,10 @@ const Scheduled = ({ searchQuery }) => {
     if (typeof handlePageChange === "function") {
       handlePageChange(1);
     }
-  }, [setCurrentFolder, handlePageChange]);
+    if (typeof resetDateFilter === "function") {
+      resetDateFilter();
+    }
+  }, [setCurrentFolder, handlePageChange, resetDateFilter]);
 
   useEffect(() => {
     // If we have cached emails, refresh silently in the background; otherwise fetch with loader
@@ -164,6 +207,7 @@ const Scheduled = ({ searchQuery }) => {
     fetchScheduled(hasCache);
 
     const handleScheduledChange = () => {
+      invalidateScheduledCache();
       fetchScheduled(true);
     };
 
@@ -259,7 +303,6 @@ const Scheduled = ({ searchQuery }) => {
   const visibleEmails = emails.filter(
     (e) =>
       isEmailValidScheduled(e) &&
-      (typeof matchesDateFilter === "function" ? matchesDateFilter(e) : true) &&
       (!searchQuery ||
         e.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -274,7 +317,13 @@ const Scheduled = ({ searchQuery }) => {
     if (typeof setTotalEmails === "function") {
       setTotalEmails(visibleEmails.length);
     }
-  }, [visibleEmails.length, setTotalEmails]);
+    if (typeof setUnreadCounts === "function") {
+      setUnreadCounts((prev) => ({
+        ...prev,
+        scheduled: visibleEmails.length,
+      }));
+    }
+  }, [visibleEmails.length, setTotalEmails, setUnreadCounts]);
 
   const handleDelete = async (uid) => {
     const targetId = uid;

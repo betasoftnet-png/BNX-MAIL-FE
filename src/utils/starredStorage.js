@@ -375,6 +375,55 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
 };
 
 /**
+ * Safely parses any date/timestamp from a scheduled email into numeric millisecond epoch.
+ * Properly handles UTC ISO strings stripped of timezone offset by backend LocalDateTime
+ * (e.g. "2026-11-17T12:30:00") so they resolve accurately across all local time zones.
+ */
+export const parseScheduledTime = (m) => {
+  if (!m) return null;
+  const raw = m.scheduledAt || m.scheduledTime || m.sendAt || m.receivedDate || m.date || m.timestamp;
+  if (raw === null || raw === undefined) return null;
+
+  if (typeof raw === "number" && !isNaN(raw)) {
+    return raw < 10000000000 ? raw * 1000 : raw;
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+
+    if (/^\d+$/.test(trimmed)) {
+      const num = Number(trimmed);
+      return num < 10000000000 ? num * 1000 : num;
+    }
+
+    // If explicit timezone suffix exists ('Z', '+HH:MM', or '-HH:MM'), parse directly
+    if (trimmed.endsWith('Z') || trimmed.includes('+') || /-\d{2}:\d{2}$/.test(trimmed)) {
+      const t = new Date(trimmed).getTime();
+      if (!isNaN(t)) return t;
+    }
+
+    // Backend stores LocalDateTime created from ISO UTC strings without 'Z' (e.g. "2026-11-17T12:30:00")
+    const asUtc = new Date(`${trimmed}Z`).getTime();
+    const asLocal = new Date(trimmed).getTime();
+    const now = Date.now();
+
+    // Prefer future timestamp if one matches
+    if (!isNaN(asUtc) && asUtc > now) return asUtc;
+    if (!isNaN(asLocal) && asLocal > now) return asLocal;
+    if (!isNaN(asUtc)) return asUtc;
+    if (!isNaN(asLocal)) return asLocal;
+  }
+
+  if (raw instanceof Date) {
+    const time = raw.getTime();
+    return isNaN(time) ? null : time;
+  }
+
+  return null;
+};
+
+/**
  * Validates that an email object is genuinely a scheduled email, preventing inclusion of
  * emails from Inbox, Sent, Draft, Trash, Spam, or past/processed emails.
  */
@@ -390,19 +439,26 @@ export const isEmailValidScheduled = (m) => {
     return false;
   }
 
-  // 2. Status check: if status is present, must be 'SCHEDULED' (or not processed/cancelled)
-  if (m.status && String(m.status).trim().toUpperCase() !== 'SCHEDULED') {
-    return false;
+  // 2. Status check: if status is present, must not be sent/cancelled/processed
+  if (m.status) {
+    const s = String(m.status).trim().toUpperCase();
+    if (s === 'SENT' || s === 'CANCELLED' || s === 'PROCESSED' || s === 'DELETED') {
+      return false;
+    }
   }
   if (m.processed === true) {
     return false;
   }
 
-  // 3. Scheduled-send time must still be in the future
-  const schedTimeRaw = m.scheduledAt || m.scheduledTime || m.sendAt || m.receivedDate || m.date;
-  if (!schedTimeRaw) return false;
-  const schedTime = new Date(schedTimeRaw).getTime();
-  if (isNaN(schedTime) || schedTime <= Date.now()) {
+  // 3. Scheduled-send time must still be active or in the future
+  const schedTime = parseScheduledTime(m);
+  if (!schedTime || isNaN(schedTime)) {
+    return false;
+  }
+
+  // Allow a grace window (e.g. 60s) so pending emails being processed by backend scheduler don't vanish prematurely
+  const now = Date.now();
+  if (schedTime <= now - 60000) {
     return false;
   }
 
