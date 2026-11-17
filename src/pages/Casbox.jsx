@@ -6125,7 +6125,7 @@ const Casbox = () => {
             value={combineSearch}
             onChange={(e) => setCombineSearch(e.target.value)}
             placeholder="Search all messages..."
-            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full py-2.5 pl-10 ${combineSearch ? 'pr-20' : 'pr-12'
+            className={`bg-transparent border-none outline-none text-sm sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 w-full py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 pl-10 ${combineSearch ? 'pr-20' : 'pr-12'
               }`}
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -6392,7 +6392,7 @@ const Casbox = () => {
             value={messagesSearch}
             onChange={(e) => setMessagesSearch(e.target.value)}
             placeholder="Search messages..."
-            className={`bg-transparent border-none outline-none text-xs sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 w-full py-2.5 pl-10 ${messagesSearch ? 'pr-20' : 'pr-12'
+            className={`bg-transparent border-none outline-none text-sm sm:text-sm text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 w-full py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 pl-10 ${messagesSearch ? 'pr-20' : 'pr-12'
               }`}
           />
           <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
