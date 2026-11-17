@@ -957,6 +957,7 @@ const Casbox = () => {
   const [combineFilter, setCombineFilter] = useState("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [openCombineMenuId, setOpenCombineMenuId] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
   const filterMenuRef = React.useRef(null);
   const combineMenuRef = React.useRef(null);
 
@@ -1705,7 +1706,6 @@ const Casbox = () => {
     };
   }, [showMoreMenu]);
 
-  const [openMenuId, setOpenMenuId] = useState(null);
   const [conversationToDelete, setConversationToDelete] = useState(null);
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
   const listMenuRef = React.useRef(null);
