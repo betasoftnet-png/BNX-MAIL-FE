@@ -900,10 +900,10 @@ const ComposeWindow = ({
 
   const calculateDefaultSizeAndPos = useCallback(() => {
     if (typeof window === "undefined") {
-      return { size: { width: 780, height: 480 }, position: { x: 100, y: 100 } };
+      return { size: { width: 520, height: 480 }, position: { x: 100, y: 100 } };
     }
     const mobile = window.innerWidth < 768;
-    const defaultW = isReply ? Math.min(840, window.innerWidth - 48) : Math.min(780, window.innerWidth - 48);
+    const defaultW = isReply ? Math.min(580, window.innerWidth - 40) : Math.min(520, window.innerWidth - 40);
     const defaultH = isReply ? Math.min(620, window.innerHeight - 60) : Math.min(480, window.innerHeight - 60);
 
     if (mobile) {
@@ -913,13 +913,13 @@ const ComposeWindow = ({
       };
     }
 
-    // Position horizontally centered with equal, consistent margins on both sides
-    // If multiple windows are open simultaneously, cascade slightly inward
+    // Always position on the right side of the screen
+    // If multiple windows are open simultaneously, cascade slightly inward from the right
     const cascadeIndex = typeof order === "number" ? (order % 5) : 0;
     const xOffset = cascadeIndex * 24;
     const yOffset = cascadeIndex * 24;
 
-    const baseX = Math.max(10, Math.round((window.innerWidth - defaultW) / 2));
+    const baseX = window.innerWidth - defaultW - 24;
     const initX = Math.max(10, baseX - xOffset);
 
     const baseY = window.innerHeight - defaultH - 20;
