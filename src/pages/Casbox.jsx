@@ -682,7 +682,7 @@ const parseMessageAttachments = (attachmentsJson) => {
 
 const getStatusIcon = (status) => {
   const s = typeof status === 'string' ? status.toUpperCase() : (status ? String(status).toUpperCase() : '');
-  if (s === 'SEEN') {
+  if (s === 'SEEN' || s === 'READ') {
     return <MdDoneAll size={14} className="text-blue-500 inline-block" title="Seen" />;
   }
   if (s === 'DELIVERED') {
@@ -5167,7 +5167,11 @@ const Casbox = () => {
         seenIds.add(id);
 
         const sender = normalizeEmail(msg.senderEmail || msg.sender);
-        const isMe = isCurrentUser(sender);
+        const isMe = Boolean(
+          msg.direction === 'SENT' ||
+          msg.isSent === true ||
+          (msg.direction !== 'RECEIVED' && msg.isSent !== false && isCurrentUser(sender))
+        );
         const otherEmail = isMe
           ? (msg.receiverEmail || msg.receiver || grp.contact)
           : (msg.senderEmail || msg.sender || grp.contact);
@@ -5250,7 +5254,7 @@ const Casbox = () => {
       const isMe = Boolean(
         msg.direction === 'SENT' ||
         msg.isSent === true ||
-        isCurrentUser(sender)
+        (msg.direction !== 'RECEIVED' && msg.isSent !== false && isCurrentUser(sender))
       );
 
       const otherEmail = isMe
@@ -6254,15 +6258,27 @@ const Casbox = () => {
 
                   {/* Status Indicator */}
                   {(() => {
-                    const isSentMsg = Boolean(isSent || isCurrentUser(msg?.senderEmail || msg?.sender));
+                    const isSentMsg = Boolean(
+                      msg?.direction === 'SENT' ||
+                      msg?.isSent === true ||
+                      (msg?.direction !== 'RECEIVED' && msg?.isSent !== false && (isSent || isCurrentUser(msg?.senderEmail || msg?.sender)))
+                    );
                     if (!isSentMsg) return null;
 
                     const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
-                    const isRead = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+                    const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+                    const isDelivered = status === 'DELIVERED';
 
-                    if (isRead) {
+                    if (isSeen) {
                       return (
                         <span className="text-blue-500 shrink-0 flex items-center" title="Read">
+                          <MdDoneAll size={16} />
+                        </span>
+                      );
+                    }
+                    if (isDelivered) {
+                      return (
+                        <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Delivered">
                           <MdDoneAll size={16} />
                         </span>
                       );
@@ -6590,10 +6606,18 @@ const Casbox = () => {
                       if (!isSent) return null;
                       const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
                       const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+                      const isDelivered = status === 'DELIVERED';
 
                       if (isSeen) {
                         return (
                           <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
+                            <MdDoneAll size={16} />
+                          </span>
+                        );
+                      }
+                      if (isDelivered) {
+                        return (
+                          <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Delivered">
                             <MdDoneAll size={16} />
                           </span>
                         );
@@ -6730,14 +6754,23 @@ const Casbox = () => {
                       {formatCashboxTime(msg?.timestamp)}
                     </span>
 
-                    {/* Single or double tick mark next to the time */}
+                    {/* Single or double tick mark next to the time (Sent only) */}
                     {(() => {
+                      if (!isSent) return null;
                       const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
                       const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+                      const isDelivered = status === 'DELIVERED';
 
                       if (isSeen) {
                         return (
                           <span className="text-blue-600 dark:text-blue-500 shrink-0 flex items-center" title="Seen">
+                            <MdDoneAll size={16} />
+                          </span>
+                        );
+                      }
+                      if (isDelivered) {
+                        return (
+                          <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Delivered">
                             <MdDoneAll size={16} />
                           </span>
                         );
@@ -6948,10 +6981,18 @@ const Casbox = () => {
                     if (!isSent) return null;
                     const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
                     const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+                    const isDelivered = status === 'DELIVERED';
 
                     if (isSeen) {
                       return (
                         <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
+                          <MdDoneAll size={16} />
+                        </span>
+                      );
+                    }
+                    if (isDelivered) {
+                      return (
+                        <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Delivered">
                           <MdDoneAll size={16} />
                         </span>
                       );
@@ -7040,7 +7081,11 @@ const Casbox = () => {
         ) : (
           filteredConversationList.map((chat) => {
             const msg = chat.latestMessage;
-            const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
+            const isMe = Boolean(
+              msg?.direction === 'SENT' ||
+              msg?.isSent === true ||
+              (msg?.direction !== 'RECEIVED' && msg?.isSent !== false && isCurrentUser(msg?.senderEmail || msg?.sender))
+            );
             const otherEmail = chat.contact;
             const isSelected = activeTab === 'archive'
               ? Boolean(selectedSentDetail && (
@@ -7150,10 +7195,18 @@ const Casbox = () => {
                     if (!isMe) return null;
                     const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
                     const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+                    const isDelivered = status === 'DELIVERED';
 
                     if (isSeen) {
                       return (
                         <span className="text-blue-500 shrink-0 flex items-center" title="Seen">
+                          <MdDoneAll size={16} />
+                        </span>
+                      );
+                    }
+                    if (isDelivered) {
+                      return (
+                        <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center" title="Delivered">
                           <MdDoneAll size={16} />
                         </span>
                       );
@@ -7503,7 +7556,7 @@ const Casbox = () => {
     const isSent = Boolean(
       msg?.direction === 'SENT' ||
       msg?.isSent === true ||
-      isCurrentUser(msg?.senderEmail || msg?.sender)
+      (msg?.direction !== 'RECEIVED' && msg?.isSent !== false && isCurrentUser(msg?.senderEmail || msg?.sender))
     );
 
     const fromEmail = isSent
@@ -7529,6 +7582,7 @@ const Casbox = () => {
 
     const status = typeof msg?.status === 'string' ? msg.status.trim().toUpperCase() : '';
     const isSeen = status === 'SEEN' || status === 'READ' || msg?.isRead === true || msg?.read === true;
+    const isDelivered = status === 'DELIVERED';
 
     const attachmentFiles = msg?.attachmentsJson
       ? parseMessageAttachments(msg.attachmentsJson)
@@ -7631,6 +7685,10 @@ const Casbox = () => {
                   {isSent && (
                     isSeen ? (
                       <span className="text-blue-500 shrink-0 flex items-center ml-1" title="Seen">
+                        <MdDoneAll size={16} />
+                      </span>
+                    ) : isDelivered ? (
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0 flex items-center ml-1" title="Delivered">
                         <MdDoneAll size={16} />
                       </span>
                     ) : (
@@ -8276,7 +8334,11 @@ const Casbox = () => {
                 </div>
               ) : (
                 allStarredMessages.map((msg, index) => {
-                  const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
+                  const isMe = Boolean(
+                    msg?.direction === 'SENT' ||
+                    msg?.isSent === true ||
+                    (msg?.direction !== 'RECEIVED' && msg?.isSent !== false && isCurrentUser(msg?.senderEmail || msg?.sender))
+                  );
                   const senderEmail = msg.senderEmail || msg.sender || "";
                   const senderLabel = isMe ? (user?.username || senderEmail.split("@")[0]) : getDisplayName(senderEmail, msg);
                   const senderInitial = isMe ? (user?.username || senderEmail).charAt(0).toUpperCase() : getContactInitial(senderEmail, msg);
@@ -8393,7 +8455,11 @@ const Casbox = () => {
               </div>
             ) : (
               sortedThread.map((msg, index) => {
-                const isMe = isCurrentUser(msg?.senderEmail || msg?.sender);
+                const isMe = Boolean(
+                  msg?.direction === 'SENT' ||
+                  msg?.isSent === true ||
+                  (msg?.direction !== 'RECEIVED' && msg?.isSent !== false && isCurrentUser(msg?.senderEmail || msg?.sender))
+                );
                 const senderEmail = msg.senderEmail || msg.sender || "";
                 const senderLabel = isMe ? (user?.username || senderEmail.split("@")[0]) : getDisplayName(senderEmail, msg);
                 const senderInitial = isMe ? (user?.username || senderEmail).charAt(0).toUpperCase() : getContactInitial(senderEmail, msg);
