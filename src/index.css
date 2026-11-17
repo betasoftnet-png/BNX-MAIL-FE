@@ -938,6 +938,77 @@
 
 
 /* ==========================================================================
+   Email Reading View Typography & Content Styling (Clean & Modern)
+   ========================================================================== */
+.email-body-content {
+  color: inherit;
+  font-family: inherit;
+  word-break: break-word;
+}
+
+.email-body-content p {
+  margin-top: 0;
+  margin-bottom: 1.1em;
+  line-height: 1.65;
+}
+
+.email-body-content p:last-child {
+  margin-bottom: 0;
+}
+
+.email-body-content h1,
+.email-body-content h2,
+.email-body-content h3,
+.email-body-content h4 {
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+  color: #111827;
+}
+
+.dark .email-body-content h1,
+.dark .email-body-content h2,
+.dark .email-body-content h3,
+.dark .email-body-content h4 {
+  color: #f9fafb;
+}
+
+.email-body-content table {
+  max-width: 100% !important;
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+
+.email-body-content img {
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 6px;
+}
+
+.email-body-content a {
+  color: #135bec;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dark .email-body-content a {
+  color: #60a5fa;
+}
+
+.email-body-content ul,
+.email-body-content ol {
+  padding-left: 1.5em;
+  margin-top: 0.6em;
+  margin-bottom: 0.8em;
+}
+
+.email-body-content li {
+  margin-bottom: 0.3em;
+  line-height: 1.6;
+}
+
+/* ==========================================================================
    Chat Content Area Typography Scaling (~1-2px reduction)
    ========================================================================== */
 .chat-room-root,

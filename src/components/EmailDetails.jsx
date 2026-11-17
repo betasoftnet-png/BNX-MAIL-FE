@@ -1828,539 +1828,563 @@ const EmailDetails = ({
         </div>
       </div>
 
-      {/* CONTENT AREA */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 bg-transparent">
-        {/* EMAIL SUBJECT & LABELS & ACTIONS (GMAIL STYLE) */}
-        <div className="flex items-start justify-between gap-4 mb-4 sm:mb-6">
-          <div className="flex flex-wrap items-center gap-2.5 min-w-0">
-            <h1
-              className="text-xl sm:text-2xl font-normal leading-tight tracking-tight text-gray-900 dark:text-gray-100 break-words"
-              style={{ color: theme.text }}
-            >
-              {email.subject || "(No Subject)"}
-            </h1>
+      {/* CONTENT AREA (LIGHT GREY BACKGROUND CANVAS) */}
+      <div className="flex-1 overflow-y-auto px-2.5 sm:px-6 md:px-8 py-5 sm:py-8 bg-[#f1f4f8] dark:bg-[#0c1017] transition-colors">
+        {/* CENTERED EMAIL CONTAINER */}
+        <div className="w-full max-w-4xl mx-auto flex flex-col gap-5">
 
-            {/* Mailbox Badge (conditionally hidden for Inbox and Sent) */}
-            {mailboxFolderLabel && !['inbox', 'sent', 'send'].includes(mailboxFolderLabel.toLowerCase()) && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-200/90 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 shrink-0 select-none">
-                <span>{mailboxFolderLabel}</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onArchive) {
-                      onArchive(email?.uid ?? email?.id, email?.folderName || currentFolder);
-                    } else if (handleClose) {
-                      handleClose();
-                    }
-                  }}
-                  className="hover:bg-gray-300 dark:hover:bg-neutral-600 rounded p-0.5 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition-colors cursor-pointer"
-                  title={`Remove ${mailboxFolderLabel} label`}
-                  aria-label={`Remove ${mailboxFolderLabel} label`}
-                >
-                  <MdClose size={12} />
-                </button>
-              </span>
-            )}
+          {/* MAIN WHITE EMAIL CARD */}
+          <div className="bg-white dark:bg-[#161b24] rounded-2xl border border-gray-200/90 dark:border-neutral-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden transition-all">
 
-            {isSnoozed && (
-              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs shrink-0">
-                <MdAccessTime size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                <span>{snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed"}</span>
-                <button
-                  type="button"
-                  onClick={handleUnsnoozeOption}
-                  className="ml-1 px-1.5 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-                  title="Unsnooze and return to Inbox"
-                >
-                  <MdAlarmOff size={12} />
-                  <span>Unsnooze</span>
-                </button>
-              </div>
-            )}
-
-            {localLabels
-              ?.filter((label) => {
-                const labelName = typeof label === 'string' ? label : (label?.name || label?.id || '');
-                const lower = labelName.toLowerCase();
-                return lower !== 'inbox' && lower !== 'sent' && lower !== 'send';
-              })
-              .map((label) => {
-              const labelId = typeof label === 'string' ? label : (label.id || label.name);
-              const labelName = typeof label === 'string' ? label : (label.name || label.id);
-              const matchedSys = findSystemLabelDefinition(label);
-              const labelColor = typeof label === 'string'
-                ? (labels.find(l => l.name === label || l.id === label)?.colorHex || matchedSys?.colorHex || '#135bec')
-                : (label.colorHex || matchedSys?.colorHex || '#135bec');
-              const prefKey = typeof label === 'object' ? label.prefKey : matchedSys?.prefKey;
-              return (
-                <span
-                  key={labelId}
-                  className="px-2 py-0.5 rounded text-[11px] font-medium text-white shadow-xs flex items-center gap-1 shrink-0"
-                  style={{ backgroundColor: labelColor }}
-                >
-                  {labelName}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveLabelOption(labelId, labelName, prefKey);
-                    }}
-                    className="hover:bg-black/20 rounded-full p-0.5 transition-colors flex items-center justify-center cursor-pointer"
-                    title="Remove label"
-                  >
-                    <MdClose size={12} />
-                  </button>
+            {/* EMAIL HEADER WITH BNX MAIL BRANDING (REFERENCE STYLE) */}
+            <div className="px-5 sm:px-8 py-3.5 sm:py-4 border-b border-gray-100 dark:border-neutral-800/80 flex items-center justify-between gap-3 bg-white dark:bg-[#161b24]">
+              {/* Branding */}
+              <div className="flex items-center gap-2 select-none">
+                <img src={logo} alt="BNX Mail" className="h-6 sm:h-7 w-auto object-contain shrink-0" />
+                <span className="font-bold text-base sm:text-lg tracking-tight text-[#135bec] dark:text-blue-400">
+                  BNX<span className="text-gray-900 dark:text-gray-100 font-extrabold">mail</span>
                 </span>
-              );
-            })}
-          </div>
-
-          {/* Right: Print & In New Window Actions */}
-          <div className="flex items-center gap-1 shrink-0 text-gray-500 dark:text-gray-400">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
-              title="Print all"
-              aria-label="Print all"
-            >
-              <MdPrint size={19} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                window.open(window.location.href, '_blank', 'width=900,height=750,toolbar=no,menubar=no,location=no');
-              }}
-              className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
-              title="In new window"
-              aria-label="In new window"
-            >
-              <MdOpenInNew size={19} />
-            </button>
-          </div>
-        </div>
-
-        {/* EMAIL MESSAGE CARD CONTAINER */}
-        <div className="bg-white dark:bg-neutral-900 rounded-xl sm:rounded-2xl border border-gray-200/90 dark:border-neutral-800 shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)] p-4 sm:p-6 transition-all">
-          {/* SENDER INFO (EMAIL HEADER - GMAIL STYLE) */}
-          <div className="flex items-start justify-between gap-3 pb-3 mb-4 border-b border-gray-100 dark:border-neutral-800">
-            <div className="flex items-start gap-3 min-w-0 flex-1">
-              {/* Sender Avatar */}
-              <div
-                className="h-10 w-10 sm:h-10.5 sm:w-10.5 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-xs shrink-0 select-none overflow-hidden"
-                style={{ backgroundColor: avatarColor }}
-              >
-                {senderDisplayName.toLowerCase().includes("linkedin") ? (
-                  <svg className="w-5 h-5 fill-current text-[#0077b5] bg-white rounded-xs p-0.5" viewBox="0 0 24 24">
-                    <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.6 1.6 0 0 0-1.6 1.6 1.6 1.6 0 0 0 1.6 1.6 1.6 1.6 0 0 0 1.6-1.6 1.6 1.6 0 0 0-1.6-1.6Z"/>
-                  </svg>
-                ) : senderDisplayName.toLowerCase().includes("spotify") ? (
-                  <svg className="w-5 h-5 fill-current text-white" viewBox="0 0 24 24">
-                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.503 17.309c-.218.356-.68.47-1.036.252-2.842-1.737-6.42-2.13-10.635-1.168-.407.093-.812-.162-.905-.568-.093-.406.162-.812.568-.905 4.623-1.057 8.577-.615 11.756 1.353.356.218.47.68.252 1.036zm1.47-3.267c-.274.444-.858.587-1.302.313-3.254-2.001-8.214-2.583-12.062-1.413-.497.151-1.025-.136-1.176-.633-.151-.497.136-1.025.633-1.176 4.398-1.336 9.878-.693 13.595 1.595.443.274.586.858.312 1.302zm.126-3.41c-3.903-2.317-10.334-2.53-14.073-1.394-.598.182-1.233-.162-1.415-.76-.182-.598.162-1.233.76-1.415 4.293-1.303 11.393-1.054 15.867 1.602.537.319.715 1.018.396 1.555-.319.537-1.018.715-1.555.396z"/>
-                  </svg>
-                ) : (
-                  senderDisplayName[0]?.toUpperCase() || "U"
-                )}
               </div>
 
-              {/* Sender Name & Recipient Info */}
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-snug">
-                  <span className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100 tracking-tight">
-                    {senderDisplayName}
-                  </span>
-                  {senderDisplayName.toLowerCase().includes("linkedin") && (
-                    <span className="inline-flex items-center text-blue-600 dark:text-blue-400" title="Verified sender">
-                      <MdCheck size={14} className="bg-blue-600 text-white rounded-full p-0.5 inline-block" />
-                    </span>
-                  )}
-                  {senderEmailAddress && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
-                      &lt;{senderEmailAddress}&gt;
-                    </span>
-                  )}
-                  {cleanSenderEmail && !isSystemEmail && (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleSubscription()}
-                      disabled={subscriptionLoading}
-                      className="text-xs font-normal text-blue-600 dark:text-blue-400 hover:underline cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-1"
-                      title={isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe to this sender") : t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
-                    >
-                      {subscriptionLoading
-                        ? (isUnsubscribed ? "Resubscribing..." : "Unsubscribing...")
-                        : (isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe") : t("bulk_actions.unsubscribe", "Unsubscribe"))}
-                    </button>
-                  )}
+              {/* Header Right: Mailbox Category & Quick Actions */}
+              <div className="flex items-center gap-3">
+                <span className="text-[10.5px] sm:text-[11.5px] font-bold tracking-widest uppercase text-gray-400 dark:text-gray-500 select-none">
+                  {currentFolder ? String(currentFolder).toUpperCase() : t("sidebar.inbox", "INBOX")}
+                </span>
+                <div className="h-4 w-px bg-gray-200 dark:bg-neutral-800 hidden sm:block" />
+                <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer"
+                    title="Print email"
+                    aria-label="Print email"
+                  >
+                    <MdPrint size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.open(window.location.href, '_blank', 'width=900,height=750,toolbar=no,menubar=no,location=no');
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer"
+                    title="Open in new window"
+                    aria-label="Open in new window"
+                  >
+                    <MdOpenInNew size={18} />
+                  </button>
                 </div>
+              </div>
+            </div>
 
-                {/* Recipient Dropdown Line */}
-                <div className="relative mt-0.5" ref={recipientDetailsRef}>
-                  {(() => {
-                    const toDisplay = formatRecipientsDisplay(email) || email.to || email.recipientEmail || email.recipient || "me";
-                    const tooltip = getRecipientFullTooltip(email) || toDisplay;
-                    const toRecipients = formatRecipientGroupDisplay(email, 'to') || email.to || email.recipientEmail || email.recipient || "me";
-                    const ccRecipients = formatRecipientGroupDisplay(email, 'cc') || email.cc;
-                    const bccRecipients = formatRecipientGroupDisplay(email, 'bcc') || email.bcc;
+            {/* INNER CARD CONTENT */}
+            <div className="p-5 sm:p-8 lg:p-9">
+              {/* EMAIL SUBJECT & LABELS */}
+              <div className="mb-4 sm:mb-5">
+                <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                  <h1
+                    className="text-xl sm:text-2xl lg:text-[25px] font-bold leading-snug tracking-tight text-gray-900 dark:text-gray-100 break-words flex-1 min-w-0"
+                    style={{ color: theme.text }}
+                  >
+                    {email.subject || "(No Subject)"}
+                  </h1>
 
+                  {/* Mailbox Badge (conditionally hidden for Inbox and Sent) */}
+                  {mailboxFolderLabel && !['inbox', 'sent', 'send'].includes(mailboxFolderLabel.toLowerCase()) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-200/90 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 shrink-0 select-none">
+                      <span>{mailboxFolderLabel}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onArchive) {
+                            onArchive(email?.uid ?? email?.id, email?.folderName || currentFolder);
+                          } else if (handleClose) {
+                            handleClose();
+                          }
+                        }}
+                        className="hover:bg-gray-300 dark:hover:bg-neutral-600 rounded p-0.5 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition-colors cursor-pointer"
+                        title={`Remove ${mailboxFolderLabel} label`}
+                        aria-label={`Remove ${mailboxFolderLabel} label`}
+                      >
+                        <MdClose size={12} />
+                      </button>
+                    </span>
+                  )}
+
+                  {isSnoozed && (
+                    <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs shrink-0">
+                      <MdAccessTime size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span>{snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed"}</span>
+                      <button
+                        type="button"
+                        onClick={handleUnsnoozeOption}
+                        className="ml-1 px-1.5 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                        title="Unsnooze and return to Inbox"
+                      >
+                        <MdAlarmOff size={12} />
+                        <span>Unsnooze</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {localLabels
+                    ?.filter((label) => {
+                      const labelName = typeof label === 'string' ? label : (label?.name || label?.id || '');
+                      const lower = labelName.toLowerCase();
+                      return lower !== 'inbox' && lower !== 'sent' && lower !== 'send';
+                    })
+                    .map((label) => {
+                    const labelId = typeof label === 'string' ? label : (label.id || label.name);
+                    const labelName = typeof label === 'string' ? label : (label.name || label.id);
+                    const matchedSys = findSystemLabelDefinition(label);
+                    const labelColor = typeof label === 'string'
+                      ? (labels.find(l => l.name === label || l.id === label)?.colorHex || matchedSys?.colorHex || '#135bec')
+                      : (label.colorHex || matchedSys?.colorHex || '#135bec');
+                    const prefKey = typeof label === 'object' ? label.prefKey : matchedSys?.prefKey;
                     return (
-                      <>
+                      <span
+                        key={labelId}
+                        className="px-2 py-0.5 rounded text-[11px] font-medium text-white shadow-xs flex items-center gap-1 shrink-0"
+                        style={{ backgroundColor: labelColor }}
+                      >
+                        {labelName}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveLabelOption(labelId, labelName, prefKey);
+                          }}
+                          className="hover:bg-black/20 rounded-full p-0.5 transition-colors flex items-center justify-center cursor-pointer"
+                          title="Remove label"
+                        >
+                          <MdClose size={12} />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SENDER INFO (EMAIL HEADER - GMAIL/PEPSICO STYLE) */}
+              <div className="flex items-start justify-between gap-3 pb-3 mb-5 border-b border-gray-100 dark:border-neutral-800">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {/* Sender Avatar */}
+                  <div
+                    className="h-10 w-10 sm:h-10.5 sm:w-10.5 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-xs shrink-0 select-none overflow-hidden"
+                    style={{ backgroundColor: avatarColor }}
+                  >
+                    {senderDisplayName.toLowerCase().includes("linkedin") ? (
+                      <svg className="w-5 h-5 fill-current text-[#0077b5] bg-white rounded-xs p-0.5" viewBox="0 0 24 24">
+                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.6 1.6 0 0 0-1.6 1.6 1.6 1.6 0 0 0 1.6 1.6 1.6 1.6 0 0 0 1.6-1.6 1.6 1.6 0 0 0-1.6-1.6Z"/>
+                      </svg>
+                    ) : senderDisplayName.toLowerCase().includes("spotify") ? (
+                      <svg className="w-5 h-5 fill-current text-white" viewBox="0 0 24 24">
+                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.503 17.309c-.218.356-.68.47-1.036.252-2.842-1.737-6.42-2.13-10.635-1.168-.407.093-.812-.162-.905-.568-.093-.406.162-.812.568-.905 4.623-1.057 8.577-.615 11.756 1.353.356.218.47.68.252 1.036zm1.47-3.267c-.274.444-.858.587-1.302.313-3.254-2.001-8.214-2.583-12.062-1.413-.497.151-1.025-.136-1.176-.633-.151-.497.136-1.025.633-1.176 4.398-1.336 9.878-.693 13.595 1.595.443.274.586.858.312 1.302zm.126-3.41c-3.903-2.317-10.334-2.53-14.073-1.394-.598.182-1.233-.162-1.415-.76-.182-.598.162-1.233.76-1.415 4.293-1.303 11.393-1.054 15.867 1.602.537.319.715 1.018.396 1.555-.319.537-1.018.715-1.555.396z"/>
+                      </svg>
+                    ) : (
+                      senderDisplayName[0]?.toUpperCase() || "U"
+                    )}
+                  </div>
+
+                  {/* Sender Name & Recipient Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-snug">
+                      <span className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100 tracking-tight">
+                        {senderDisplayName}
+                      </span>
+                      {senderDisplayName.toLowerCase().includes("linkedin") && (
+                        <span className="inline-flex items-center text-blue-600 dark:text-blue-400" title="Verified sender">
+                          <MdCheck size={14} className="bg-blue-600 text-white rounded-full p-0.5 inline-block" />
+                        </span>
+                      )}
+                      {senderEmailAddress && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                          &lt;{senderEmailAddress}&gt;
+                        </span>
+                      )}
+                      {cleanSenderEmail && !isSystemEmail && (
                         <button
                           type="button"
-                          onClick={() => setShowRecipientDetails((prev) => !prev)}
-                          className="inline-flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer rounded transition-colors group max-w-full"
-                          title={tooltip}
+                          onClick={() => handleToggleSubscription()}
+                          disabled={subscriptionLoading}
+                          className="text-xs font-normal text-blue-600 dark:text-blue-400 hover:underline cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-1"
+                          title={isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe to this sender") : t("bulk_actions.unsubscribe", "Unsubscribe from this sender")}
                         >
-                          <span className="inline-flex items-center gap-1 min-w-0">
-                            <span className="shrink-0">to</span>{" "}
-                            <span className="text-gray-600 dark:text-gray-300 font-normal max-w-[200px] sm:max-w-md md:max-w-lg lg:max-w-xl truncate">
-                              {toDisplay}
-                            </span>
-                          </span>
-                          <MdArrowDropDown
-                            size={16}
-                            className={`text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-transform duration-200 shrink-0 ${
-                              showRecipientDetails ? "rotate-180" : ""
-                            }`}
-                          />
+                          {subscriptionLoading
+                            ? (isUnsubscribed ? "Resubscribing..." : "Unsubscribing...")
+                            : (isUnsubscribed ? t("bulk_actions.resubscribe", "Resubscribe") : t("bulk_actions.unsubscribe", "Unsubscribe"))}
                         </button>
+                      )}
+                    </div>
 
-                        {showRecipientDetails && (
-                          <div className="absolute left-0 top-full mt-1.5 w-80 sm:w-96 p-3.5 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 z-50 text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
-                            <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
-                              <span className="text-gray-400 font-medium shrink-0">from:</span>
-                              <span className="font-semibold text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={email.from}>
-                                {email.from}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
-                              <span className="text-gray-400 font-medium shrink-0">to:</span>
-                              <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={toRecipients}>
-                                {toRecipients}
-                              </span>
-                            </div>
-                            {ccRecipients && (
-                              <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
-                                <span className="text-gray-400 font-medium shrink-0">cc:</span>
-                                <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={ccRecipients}>
-                                  {ccRecipients}
+                    {/* Recipient Dropdown Line */}
+                    <div className="relative mt-0.5" ref={recipientDetailsRef}>
+                      {(() => {
+                        const toDisplay = formatRecipientsDisplay(email) || email.to || email.recipientEmail || email.recipient || "me";
+                        const tooltip = getRecipientFullTooltip(email) || toDisplay;
+                        const toRecipients = formatRecipientGroupDisplay(email, 'to') || email.to || email.recipientEmail || email.recipient || "me";
+                        const ccRecipients = formatRecipientGroupDisplay(email, 'cc') || email.cc;
+                        const bccRecipients = formatRecipientGroupDisplay(email, 'bcc') || email.bcc;
+
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setShowRecipientDetails((prev) => !prev)}
+                              className="inline-flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer rounded transition-colors group max-w-full"
+                              title={tooltip}
+                            >
+                              <span className="inline-flex items-center gap-1 min-w-0">
+                                <span className="shrink-0">to</span>{" "}
+                                <span className="text-gray-600 dark:text-gray-300 font-normal max-w-[200px] sm:max-w-md md:max-w-lg lg:max-w-xl truncate">
+                                  {toDisplay}
                                 </span>
+                              </span>
+                              <MdArrowDropDown
+                                size={16}
+                                className={`text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-transform duration-200 shrink-0 ${
+                                  showRecipientDetails ? "rotate-180" : ""
+                                }`}
+                              />
+                            </button>
+
+                            {showRecipientDetails && (
+                              <div className="absolute left-0 top-full mt-1.5 w-80 sm:w-96 p-3.5 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 z-50 text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
+                                <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
+                                  <span className="text-gray-400 font-medium shrink-0">from:</span>
+                                  <span className="font-semibold text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={email.from}>
+                                    {email.from}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
+                                  <span className="text-gray-400 font-medium shrink-0">to:</span>
+                                  <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={toRecipients}>
+                                    {toRecipients}
+                                  </span>
+                                </div>
+                                {ccRecipients && (
+                                  <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
+                                    <span className="text-gray-400 font-medium shrink-0">cc:</span>
+                                    <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={ccRecipients}>
+                                      {ccRecipients}
+                                    </span>
+                                  </div>
+                                )}
+                                {bccRecipients && (
+                                  <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
+                                    <span className="text-gray-400 font-medium shrink-0">bcc:</span>
+                                    <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={bccRecipients}>
+                                      {bccRecipients}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between py-0.5">
+                                  <span className="text-gray-400 font-medium shrink-0">date:</span>
+                                  <span className="text-gray-600 dark:text-gray-300 ml-2 text-right">
+                                    {emailDateFormatted}
+                                  </span>
+                                </div>
                               </div>
                             )}
-                            {bccRecipients && (
-                              <div className="flex justify-between items-start py-0.5 border-b border-gray-50 dark:border-neutral-700/50 pb-1">
-                                <span className="text-gray-400 font-medium shrink-0">bcc:</span>
-                                <span className="font-medium text-gray-800 dark:text-gray-100 break-words text-right ml-2" title={bccRecipients}>
-                                  {bccRecipients}
-                                </span>
-                              </div>
-                            )}
-                            <div className="flex justify-between py-0.5">
-                              <span className="text-gray-400 font-medium shrink-0">date:</span>
-                              <span className="text-gray-600 dark:text-gray-300 ml-2 text-right">
-                                {emailDateFormatted}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Actions: Date, Star, Reaction, Reply, More */}
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pt-0.5">
+                  {/* Date & Time */}
+                  <span
+                    className="text-xs text-gray-500 dark:text-gray-400 mr-1 whitespace-nowrap cursor-default hidden sm:inline-block"
+                    title={emailDateFormatted}
+                  >
+                    {gmailFormattedDate}
+                  </span>
+
+                  {/* Star Button */}
+                  <button
+                    type="button"
+                    onClick={handleStarClick}
+                    className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                    title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
+                    aria-label={isStarred ? "Unstar email" : "Star email"}
+                  >
+                    {isStarred ? (
+                      <MdStar size={18} className="text-yellow-500 fill-current drop-shadow-xs" />
+                    ) : (
+                      <MdStarBorder size={18} className="text-gray-400 dark:text-gray-500" />
+                    )}
+                  </button>
+
+                  {/* Add Reaction Button */}
+                  <div className="relative" ref={reactionMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowReactionPicker((prev) => !prev)}
+                      className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                      title="Add reaction"
+                      aria-label="Add reaction"
+                    >
+                      <MdOutlineAddReaction size={18} />
+                    </button>
+                    {showReactionPicker && (
+                      <div className="absolute right-0 top-full mt-1 p-1 bg-white dark:bg-neutral-800 rounded-full shadow-lg border border-gray-200 dark:border-neutral-700 z-50 flex items-center gap-0.5 animate-in fade-in zoom-in-95 duration-150">
+                        {["👍", "❤️", "😀", "🎉", "👏", "🚀"].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleToggleReaction(emoji)}
+                            className="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-700 flex items-center justify-center text-sm transition-transform hover:scale-125 cursor-pointer"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Reply Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReply(true);
+                      setReplyMode("reply");
+                      setReplyBody("");
+                      setForwardTo("");
+                    }}
+                    className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                    title="Reply"
+                    aria-label="Reply"
+                  >
+                    <MdReply size={18} />
+                  </button>
+
+                  {/* More Options (3 Dots) Menu */}
+                  <div className="relative" ref={senderMoreMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowSenderMoreMenu((prev) => !prev)}
+                      className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                      title="More options"
+                      aria-label="More options"
+                    >
+                      <MdMoreVert size={18} />
+                    </button>
+                    {showSenderMoreMenu && (
+                      <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 py-1.5 z-50 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSenderMoreMenu(false);
+                            setShowReply(true);
+                            setReplyMode("reply");
+                            setReplyBody("");
+                            setForwardTo("");
+                          }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <MdReply size={16} />
+                          <span>Reply</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSenderMoreMenu(false);
+                            setShowReply(true);
+                            setReplyMode("forward");
+                            setReplyBody(getOriginalEmailContentHTML(email));
+                            setForwardTo("");
+                          }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <MdForward size={16} />
+                          <span>Forward</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSenderMoreMenu(false);
+                            handlePrint();
+                          }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <MdPrint size={16} />
+                          <span>Print</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSenderMoreMenu(false);
+                            handleMarkUnreadAction();
+                          }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <MdMarkEmailUnread size={16} />
+                          <span>Mark as unread</span>
+                        </button>
+                        <div className="h-px bg-gray-100 dark:bg-neutral-700 my-1" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSenderMoreMenu(false);
+                            if (onDelete) onDelete(email?.uid ?? email?.id, email?.folderName || currentFolder);
+                          }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <MdDelete size={16} />
+                          <span>Delete message</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSenderMoreMenu(false);
+                            setShowReportModal(true);
+                            setReportReason("");
+                          }}
+                          className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <MdReport size={16} />
+                          <span>Report spam</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Right Actions: Date, Star, Reaction, Reply, More */}
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pt-0.5">
-              {/* Date & Time */}
-              <span
-                className="text-xs text-gray-500 dark:text-gray-400 mr-1 whitespace-nowrap cursor-default hidden sm:inline-block"
-                title={emailDateFormatted}
-              >
-                {gmailFormattedDate}
-              </span>
-
-              {/* Star Button */}
-              <button
-                type="button"
-                onClick={handleStarClick}
-                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                title={isStarred ? t("common.unstar", "Unstar") : t("common.star", "Star")}
-                aria-label={isStarred ? "Unstar email" : "Star email"}
-              >
-                {isStarred ? (
-                  <MdStar size={18} className="text-yellow-500 fill-current drop-shadow-xs" />
-                ) : (
-                  <MdStarBorder size={18} className="text-gray-400 dark:text-gray-500" />
-                )}
-              </button>
-
-              {/* Add Reaction Button */}
-              <div className="relative" ref={reactionMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowReactionPicker((prev) => !prev)}
-                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                  title="Add reaction"
-                  aria-label="Add reaction"
-                >
-                  <MdOutlineAddReaction size={18} />
-                </button>
-                {showReactionPicker && (
-                  <div className="absolute right-0 top-full mt-1 p-1 bg-white dark:bg-neutral-800 rounded-full shadow-lg border border-gray-200 dark:border-neutral-700 z-50 flex items-center gap-0.5 animate-in fade-in zoom-in-95 duration-150">
-                    {["👍", "❤️", "😀", "🎉", "👏", "🚀"].map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => handleToggleReaction(emoji)}
-                        className="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-700 flex items-center justify-center text-sm transition-transform hover:scale-125 cursor-pointer"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Reply Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowReply(true);
-                  setReplyMode("reply");
-                  setReplyBody("");
-                  setForwardTo("");
-                }}
-                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                title="Reply"
-                aria-label="Reply"
-              >
-                <MdReply size={18} />
-              </button>
-
-              {/* More Options (3 Dots) Menu */}
-              <div className="relative" ref={senderMoreMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowSenderMoreMenu((prev) => !prev)}
-                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                  title="More options"
-                  aria-label="More options"
-                >
-                  <MdMoreVert size={18} />
-                </button>
-                {showSenderMoreMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 py-1.5 z-50 text-xs">
+              {/* Reaction badges (if user selected any) */}
+              {emailReactions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 -mt-2 mb-4">
+                  {emailReactions.map((emoji) => (
                     <button
+                      key={emoji}
                       type="button"
-                      onClick={() => {
-                        setShowSenderMoreMenu(false);
-                        setShowReply(true);
-                        setReplyMode("reply");
-                        setReplyBody("");
-                        setForwardTo("");
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
+                      onClick={() => handleToggleReaction(emoji)}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 border border-gray-200 dark:border-neutral-700 transition-colors cursor-pointer"
+                      title={`Remove ${emoji}`}
                     >
-                      <MdReply size={16} />
-                      <span>Reply</span>
+                      <span>{emoji}</span>
+                      <span className="text-[11px] text-gray-500 font-medium">1</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowSenderMoreMenu(false);
-                        setShowReply(true);
-                        setReplyMode("forward");
-                        setReplyBody(getOriginalEmailContentHTML(email));
-                        setForwardTo("");
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
-                    >
-                      <MdForward size={16} />
-                      <span>Forward</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowSenderMoreMenu(false);
-                        handlePrint();
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
-                    >
-                      <MdPrint size={16} />
-                      <span>Print</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowSenderMoreMenu(false);
-                        handleMarkUnreadAction();
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
-                    >
-                      <MdMarkEmailUnread size={16} />
-                      <span>Mark as unread</span>
-                    </button>
-                    <div className="h-px bg-gray-100 dark:bg-neutral-700 my-1" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowSenderMoreMenu(false);
-                        if (onDelete) onDelete(email?.uid ?? email?.id, email?.folderName || currentFolder);
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-2.5 cursor-pointer"
-                    >
-                      <MdDelete size={16} />
-                      <span>Delete message</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowSenderMoreMenu(false);
-                        setShowReportModal(true);
-                        setReportReason("");
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-gray-100 dark:hover:bg-neutral-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2.5 cursor-pointer"
-                    >
-                      <MdReport size={16} />
-                      <span>Report spam</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+                  ))}
+                </div>
+              )}
 
-          {/* Reaction badges (if user selected any) */}
-          {emailReactions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 -mt-2 mb-3">
-              {emailReactions.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => handleToggleReaction(emoji)}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 border border-gray-200 dark:border-neutral-700 transition-colors cursor-pointer"
-                  title={`Remove ${emoji}`}
-                >
-                  <span>{emoji}</span>
-                  <span className="text-[11px] text-gray-500 font-medium">1</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* BODY */}
-          <div
-            className="max-w-none prose prose-slate dark:prose-invert prose-p:leading-relaxed text-[14px] sm:text-[15px] leading-relaxed overflow-x-auto break-words [&_img]:max-w-full [&_img]:h-auto"
-            onClick={handleEmailBodyClick}
-          >
-            {isHtmlContent ? (
-              <div dangerouslySetInnerHTML={{ __html: processedHtmlBody }} style={{ color: theme.text }} />
-            ) : (
+              {/* EMAIL BODY CONTENT */}
               <div
-                className="whitespace-pre-wrap text-gray-800 dark:text-gray-200 font-sans"
-                style={{ color: theme.text }}
-                dangerouslySetInnerHTML={{ __html: processedPlainBody }}
-              />
-            )}
-            {bounceDetails && (
-              <div className="mt-8 p-4 bg-gray-50 dark:bg-black/20 rounded-xl border border-gray-100 dark:border-gray-800 font-mono text-xs whitespace-pre-wrap text-gray-600 dark:text-gray-400 overflow-x-auto">
-                <h4 className="font-bold mb-2 text-gray-700 dark:text-gray-300 font-sans">Diagnostic Information & Original Message</h4>
-                {bounceDetails.trim()}
+                className="max-w-none email-body-content text-[14px] sm:text-[15px] leading-relaxed break-words overflow-x-auto text-gray-800 dark:text-gray-200"
+                onClick={handleEmailBodyClick}
+              >
+                {isHtmlContent ? (
+                  <div dangerouslySetInnerHTML={{ __html: processedHtmlBody }} style={{ color: theme.text }} />
+                ) : (
+                  <div
+                    className="whitespace-pre-wrap text-gray-800 dark:text-gray-200 font-sans"
+                    style={{ color: theme.text }}
+                    dangerouslySetInnerHTML={{ __html: processedPlainBody }}
+                  />
+                )}
+                {bounceDetails && (
+                  <div className="mt-8 p-4 bg-gray-50 dark:bg-black/20 rounded-xl border border-gray-100 dark:border-gray-800 font-mono text-xs whitespace-pre-wrap text-gray-600 dark:text-gray-400 overflow-x-auto">
+                    <h4 className="font-bold mb-2 text-gray-700 dark:text-gray-300 font-sans">Diagnostic Information & Original Message</h4>
+                    {bounceDetails.trim()}
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* ATTACHMENTS */}
+              {(() => {
+                const isBounce = email.from?.toLowerCase().includes('mailer-daemon') || email.from?.toLowerCase().includes('postmaster');
+                const visibleAttachments = email.attachments?.filter(file => {
+                  if (!isBounce) return true;
+                  return file !== 'delivery_status.txt' && file !== 'original_message.eml';
+                }) || [];
+                
+                if (visibleAttachments.length === 0) return null;
+                
+                return (
+                  <div className="mt-8 pt-6 border-t border-gray-100 dark:border-neutral-800/80" style={{ borderColor: theme.border }}>
+                    <p className="text-xs font-bold mb-4 text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {t("email_details.attachments", "Attachments")} ({visibleAttachments.length})
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                      {visibleAttachments.map((file, i) => {
+                        const fileInfo = getFileIcon(file);
+                      return (
+                        <div
+                          key={i}
+                          className="w-[180px] h-[130px] rounded-xl border border-gray-200 dark:border-neutral-800 overflow-hidden flex flex-col hover:shadow-md transition-all relative shadow-sm bg-black/[0.01] dark:bg-white/[0.01] hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+                          style={{ borderColor: theme.border }}
+                        >
+                          {/* Upper preview / icon block */}
+                          <div 
+                            className="h-[85px] w-full flex flex-col items-center justify-center bg-black/[0.03] dark:bg-white/[0.03] border-b border-gray-100 dark:border-neutral-800 relative overflow-hidden"
+                            style={{ borderColor: theme.border }}
+                          >
+                            {imagePreviews[file] ? (
+                              <img 
+                                src={imagePreviews[file]} 
+                                alt={file} 
+                                className="w-full h-full object-cover select-none" 
+                              />
+                            ) : (
+                              <>
+                                <span className="text-3xl filter drop-shadow-sm select-none">{fileInfo.icon}</span>
+                                <span 
+                                  className="text-[9px] font-extrabold uppercase tracking-wider mt-1.5 px-2 py-0.5 rounded-full select-none"
+                                  style={{ backgroundColor: `${fileInfo.color}15`, color: fileInfo.color }}
+                                >
+                                  {fileInfo.name}
+                                </span>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Lower details block */}
+                          <div className="p-2 flex items-center justify-between gap-1 flex-1 min-w-0">
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span 
+                                className="text-[11px] font-semibold truncate select-all text-left" 
+                                style={{ color: theme.text }}
+                                title={file}
+                              >
+                                {file}
+                              </span>
+                              <span className="text-[9px] opacity-50 font-medium select-none truncate text-left">
+                                {fileInfo.name} File
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                onClick={() => handlePreviewAttachment(file)}
+                                className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                                title="Preview file"
+                              >
+                                <MdRemoveRedEye size={15} />
+                              </button>
+                              <button
+                                onClick={() => handleDownloadAttachment(file)}
+                                className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                                title="Download file"
+                              >
+                                <MdFileDownload size={15} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+            </div>
           </div>
 
-          {/* ATTACHMENTS */}
-          {(() => {
-            const isBounce = email.from?.toLowerCase().includes('mailer-daemon') || email.from?.toLowerCase().includes('postmaster');
-            const visibleAttachments = email.attachments?.filter(file => {
-              if (!isBounce) return true;
-              return file !== 'delivery_status.txt' && file !== 'original_message.eml';
-            }) || [];
-            
-            if (visibleAttachments.length === 0) return null;
-            
-            return (
-              <div className="mt-8 pt-6 border-t" style={{ borderColor: theme.border }}>
-                <p className="text-xs font-bold mb-4 text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  {t("email_details.attachments", "Attachments")} ({visibleAttachments.length})
-                </p>
-                <div className="flex flex-wrap gap-4">
-                  {visibleAttachments.map((file, i) => {
-                    const fileInfo = getFileIcon(file);
-                  return (
-                    <div
-                      key={i}
-                      className="w-[180px] h-[130px] rounded-xl border overflow-hidden flex flex-col hover:shadow-md transition-all relative shadow-sm bg-black/[0.01] dark:bg-white/[0.01] hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
-                      style={{ borderColor: theme.border }}
-                    >
-                      {/* Upper preview / icon block */}
-                      <div 
-                        className="h-[85px] w-full flex flex-col items-center justify-center bg-black/[0.03] dark:bg-white/[0.03] border-b relative overflow-hidden"
-                        style={{ borderColor: theme.border }}
-                      >
-                        {imagePreviews[file] ? (
-                          <img 
-                            src={imagePreviews[file]} 
-                            alt={file} 
-                            className="w-full h-full object-cover select-none" 
-                          />
-                        ) : (
-                          <>
-                            <span className="text-3xl filter drop-shadow-sm select-none">{fileInfo.icon}</span>
-                            <span 
-                              className="text-[9px] font-extrabold uppercase tracking-wider mt-1.5 px-2 py-0.5 rounded-full select-none"
-                              style={{ backgroundColor: `${fileInfo.color}15`, color: fileInfo.color }}
-                            >
-                              {fileInfo.name}
-                            </span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Lower details block */}
-                      <div className="p-2 flex items-center justify-between gap-1 flex-1 min-w-0">
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span 
-                            className="text-[11px] font-semibold truncate select-all text-left" 
-                            style={{ color: theme.text }}
-                            title={file}
-                          >
-                            {file}
-                          </span>
-                          <span className="text-[9px] opacity-50 font-medium select-none truncate text-left">
-                            {fileInfo.name} File
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <button
-                            onClick={() => handlePreviewAttachment(file)}
-                            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
-                            title="Preview file"
-                          >
-                            <MdRemoveRedEye size={15} />
-                          </button>
-                          <button
-                            onClick={() => handleDownloadAttachment(file)}
-                            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
-                            title="Download file"
-                          >
-                            <MdFileDownload size={15} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
-        </div>
-
-      {/* INLINE REPLY COMPOSER */}
+          {/* INLINE REPLY COMPOSER */}
       {showReply && (
         <div 
           className="border rounded-2xl p-4 bg-white dark:bg-neutral-900 shadow-sm flex flex-col gap-3 mt-6 text-left"
@@ -2637,8 +2661,9 @@ const EmailDetails = ({
         className="flex items-center justify-between p-4 bg-black/[0.02] dark:bg-white/[0.02] border-t shrink-0"
         style={{ borderColor: theme.border }}
       >
-        <div className="flex gap-3">
-          {currentFolder !== "draft" && (
+        {/* FOOTER ACTIONS & EMAIL PAGER */}
+        <div className="flex flex-wrap items-center justify-between gap-4 px-1 pt-1 pb-4">
+          {!showReply && currentFolder !== "draft" && (
             <div className="flex flex-wrap items-center gap-3">
               <button 
                 onClick={() => {
@@ -2670,54 +2695,55 @@ const EmailDetails = ({
               </button>
             </div>
           )}
-        </div>
 
-        {emailList && emailList.length > 0 && (
-          <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-            <span className="font-medium">
-              {emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) + 1} of {emailList.length}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  const idx = emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id));
-                  if (idx > 0) {
-                    const prevEmail = emailList[idx - 1];
-                    if (!prevEmail.isRead && !prevEmail.read) {
-                      handleMarkRead?.(prevEmail.uid ?? prevEmail.id, true, prevEmail);
+          {emailList && emailList.length > 0 && (
+            <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 ml-auto">
+              <span className="font-medium">
+                {emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) + 1} of {emailList.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    const idx = emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id));
+                    if (idx > 0) {
+                      const prevEmail = emailList[idx - 1];
+                      if (!prevEmail.isRead && !prevEmail.read) {
+                        handleMarkRead?.(prevEmail.uid ?? prevEmail.id, true, prevEmail);
+                      }
+                      onNavigate?.(prevEmail);
                     }
-                    onNavigate?.(prevEmail);
-                  }
-                }}
-                disabled={emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) <= 0}
-                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                title={t("common.previous", "Previous email")}
-                aria-label="Previous email"
-              >
-                <MdChevronLeft size={20} />
-              </button>
-              <button
-                onClick={() => {
-                  const idx = emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id));
-                  if (idx < emailList.length - 1 && idx !== -1) {
-                    const nextEmail = emailList[idx + 1];
-                    if (!nextEmail.isRead && !nextEmail.read) {
-                      handleMarkRead?.(nextEmail.uid ?? nextEmail.id, true, nextEmail);
+                  }}
+                  disabled={emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) <= 0}
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  title={t("common.previous", "Previous email")}
+                  aria-label="Previous email"
+                >
+                  <MdChevronLeft size={20} />
+                </button>
+                <button
+                  onClick={() => {
+                    const idx = emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id));
+                    if (idx < emailList.length - 1 && idx !== -1) {
+                      const nextEmail = emailList[idx + 1];
+                      if (!nextEmail.isRead && !nextEmail.read) {
+                        handleMarkRead?.(nextEmail.uid ?? nextEmail.id, true, nextEmail);
+                      }
+                      onNavigate?.(nextEmail);
                     }
-                    onNavigate?.(nextEmail);
-                  }
-                }}
-                disabled={emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) >= emailList.length - 1 || emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) === -1}
-                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                title={t("common.next", "Next email")}
-                aria-label="Next email"
-              >
-                <MdChevronRight size={20} />
-              </button>
+                  }}
+                  disabled={emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) >= emailList.length - 1 || emailList.findIndex(e => String(e.uid ?? e.id) === String(email?.uid ?? email?.id)) === -1}
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  title={t("common.next", "Next email")}
+                  aria-label="Next email"
+                >
+                  <MdChevronRight size={20} />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+    </div>
 
       {/* INLINE PREVIEW OVERLAY */}
       {previewFile && createPortal(
