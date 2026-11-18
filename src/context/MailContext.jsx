@@ -288,6 +288,23 @@ const saveStoredReadUids = (email, set) => {
     } catch {}
 };
 
+const getStoredUnreadUids = (email) => {
+    if (!email || typeof window === 'undefined') return new Set();
+    try {
+        const raw = sessionStorage.getItem(`bnx_unread_uids_${email}`);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+        return new Set();
+    }
+};
+
+const saveStoredUnreadUids = (email, set) => {
+    if (!email || typeof window === 'undefined') return;
+    try {
+        sessionStorage.setItem(`bnx_unread_uids_${email}`, JSON.stringify(Array.from(set)));
+    } catch {}
+};
+
 const sortEmailsByDateDesc = (list) => {
     if (!Array.isArray(list)) return list;
     return list.sort((a, b) => {
@@ -328,21 +345,23 @@ export const MailProvider = ({ children }) => {
     }, [emails]);
 
     const readUidsRef = useRef(getStoredReadUids(user?.email));
-    const unreadUidsRef = useRef(new Set());
+    const unreadUidsRef = useRef(getStoredUnreadUids(user?.email));
 
     useEffect(() => {
-        const stored = getStoredReadUids(user?.email);
-        readUidsRef.current = stored;
-        unreadUidsRef.current = new Set();
+        readUidsRef.current = getStoredReadUids(user?.email);
+        unreadUidsRef.current = getStoredUnreadUids(user?.email);
     }, [user?.email]);
 
-    const isEmailRead = useCallback((uid) => {
+    const isEmailRead = useCallback((uid, emailObj = null) => {
         if (uid === undefined || uid === null) return false;
         const strUid = String(uid);
-        if (unreadUidsRef.current.has(strUid)) return false;
-        if (readUidsRef.current.has(strUid)) return true;
-        const item = emailsRef.current.find(m => String(m.uid ?? m.id) === strUid);
-        return item ? Boolean(item.isRead || item.read) : false;
+        if (unreadUidsRef.current?.has(strUid)) return false;
+        if (readUidsRef.current?.has(strUid)) return true;
+        if (emailObj && (emailObj.isRead !== undefined || emailObj.read !== undefined)) {
+            return Boolean(emailObj.isRead ?? emailObj.read);
+        }
+        const item = emailsRef.current?.find(m => String(m.uid ?? m.id) === strUid);
+        return item ? Boolean(item.isRead ?? item.read) : false;
     }, []);
     const [dateFilter, setDateFilter] = useState("ALL");
     const [customDateRange, setCustomDateRange] = useState(null);
@@ -2054,6 +2073,7 @@ export const MailProvider = ({ children }) => {
         readUidsRef.current.add(strUid);
         unreadUidsRef.current.delete(strUid);
         saveStoredReadUids(user?.email, readUidsRef.current);
+        saveStoredUnreadUids(user?.email, unreadUidsRef.current);
 
         // 1. Immediately update active emails state
         const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
@@ -2140,6 +2160,7 @@ export const MailProvider = ({ children }) => {
         readUidsRef.current.delete(strUid);
         unreadUidsRef.current.add(strUid);
         saveStoredReadUids(user?.email, readUidsRef.current);
+        saveStoredUnreadUids(user?.email, unreadUidsRef.current);
 
         const currentFolderLower = currentFolderRef.current?.toLowerCase() || '';
         if (currentFolderLower === 'unread') {

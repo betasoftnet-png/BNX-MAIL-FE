@@ -47,7 +47,7 @@ const Inbox = ({ searchQuery }) => {
     (selectedEmailOverride && (String(selectedEmailOverride.uid ?? selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
   const selectedEmail = baseSelectedEmail ? {
     ...baseSelectedEmail,
-    isRead: typeof isEmailRead === 'function' ? isEmailRead(baseSelectedEmail.uid ?? baseSelectedEmail.id) : Boolean(baseSelectedEmail.isRead || baseSelectedEmail.read)
+    isRead: typeof isEmailRead === 'function' ? isEmailRead(baseSelectedEmail.uid ?? baseSelectedEmail.id, baseSelectedEmail) : Boolean(baseSelectedEmail.isRead ?? baseSelectedEmail.read)
   } : null;
 
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -172,8 +172,11 @@ const Inbox = ({ searchQuery }) => {
   const handleSelectEmail = (email) => {
     setSelectedEmailOverride(null);
     setSelectedEmailUid(email.uid);
-    if (!email.isRead && !email.read) {
-      handleMarkRead(email.uid, true, email);
+    const unread = typeof isEmailRead === 'function'
+      ? !isEmailRead(email.uid ?? email.id, email)
+      : (!email.isRead && !email.read);
+    if (unread) {
+      handleMarkRead(email.uid ?? email.id, true, email);
     }
   };
 
@@ -323,8 +326,11 @@ const Inbox = ({ searchQuery }) => {
       onNavigate={(email) => {
         setSelectedEmailOverride(null);
         setSelectedEmailUid(email.uid);
-        if (!email.isRead && !email.read) {
-          handleMarkRead(email.uid, true, email);
+        const unread = typeof isEmailRead === 'function'
+          ? !isEmailRead(email.uid ?? email.id, email)
+          : (!email.isRead && !email.read);
+        if (unread) {
+          handleMarkRead(email.uid ?? email.id, true, email);
         }
       }}
       email={selectedEmail}

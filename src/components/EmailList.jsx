@@ -344,9 +344,10 @@ const EmailList = ({
                     ? `${recipientBadge}: ${email._displayRecipient}`
                     : (getRecipientFullTooltip(email) || recipientText))
                 : sender;
+              const strUid = String(email.uid ?? email.id ?? '');
               const isRead = typeof isEmailRead === 'function'
-                ? isEmailRead(email.uid ?? email.id)
-                : Boolean(email.isRead || email.read);
+                ? isEmailRead(strUid, email)
+                : Boolean(email.isRead ?? email.read);
               const isUnread = !isRead;
               const isSelected = selectedRowKey
                 ? selectedRowKey === email._rowKey

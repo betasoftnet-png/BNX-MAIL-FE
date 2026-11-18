@@ -21,14 +21,16 @@ const Unread = ({ searchQuery }) => {
 
   const unreadEmails = emails.filter((e) => {
     const uidStr = String(e.uid ?? e.id ?? '');
-    if (isEmailRead && isEmailRead(uidStr)) return false;
+    if (typeof isEmailRead === 'function') {
+      return !isEmailRead(uidStr, e);
+    }
     return !e.isRead && !e.read;
   });
   const unreadCount = emails.length === 0 ? 0 : (unreadCounts?.unread !== undefined ? unreadCounts.unread : unreadEmails.length);
   const baseSelectedEmail = selectedEmailOverride || emails.find((e) => String(e.uid ?? e.id) === String(selectedEmailUid));
   const selectedEmail = baseSelectedEmail ? {
     ...baseSelectedEmail,
-    isRead: typeof isEmailRead === 'function' ? isEmailRead(baseSelectedEmail.uid ?? baseSelectedEmail.id) : Boolean(baseSelectedEmail.isRead || baseSelectedEmail.read)
+    isRead: typeof isEmailRead === 'function' ? isEmailRead(baseSelectedEmail.uid ?? baseSelectedEmail.id, baseSelectedEmail) : Boolean(baseSelectedEmail.isRead ?? baseSelectedEmail.read)
   } : null;
 
   const [selectedIds, setSelectedIds] = useState(new Set());

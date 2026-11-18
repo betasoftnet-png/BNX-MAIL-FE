@@ -319,7 +319,9 @@ const BulkActionsToolbar = ({
   // Determine if any of the selected emails are unread
   const isItemUnread = (e) => {
     const uidStr = String(e.uid ?? e.id ?? '');
-    if (isEmailRead && isEmailRead(uidStr)) return false;
+    if (typeof isEmailRead === 'function') {
+      return !isEmailRead(uidStr, e);
+    }
     return !e.isRead && !e.read;
   };
   const hasUnread = selectedEmails.some(isItemUnread);
