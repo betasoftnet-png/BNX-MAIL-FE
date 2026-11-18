@@ -47,7 +47,7 @@ const Inbox = ({ searchQuery }) => {
     (selectedEmailOverride && (String(selectedEmailOverride.uid ?? selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
   const selectedEmail = baseSelectedEmail ? {
     ...baseSelectedEmail,
-    isRead: isEmailRead ? (isEmailRead(baseSelectedEmail.uid ?? baseSelectedEmail.id) || baseSelectedEmail.isRead) : baseSelectedEmail.isRead
+    isRead: typeof isEmailRead === 'function' ? isEmailRead(baseSelectedEmail.uid ?? baseSelectedEmail.id) : Boolean(baseSelectedEmail.isRead || baseSelectedEmail.read)
   } : null;
 
   const [selectedIds, setSelectedIds] = useState(new Set());

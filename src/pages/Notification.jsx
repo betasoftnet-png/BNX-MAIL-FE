@@ -288,7 +288,7 @@ const Notification = ({ searchQuery }) => {
     });
   };
 
-  const unreadCountTotal = rawNotifications.filter(e => !(e.isRead || e.read || isEmailRead?.(e.uid ?? e.id))).length;
+  const unreadCountTotal = rawNotifications.filter(e => !(typeof isEmailRead === 'function' ? isEmailRead(e.uid ?? e.id) : Boolean(e.isRead || e.read))).length;
 
   const detailsComponent = selectedEmail ? (
     <EmailDetails
