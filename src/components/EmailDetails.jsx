@@ -1836,16 +1836,8 @@ const EmailDetails = ({
           {/* MAIN WHITE EMAIL CARD */}
           <div className="bg-white dark:bg-[#161b24] rounded-2xl border border-gray-200/90 dark:border-neutral-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden transition-all">
 
-            {/* EMAIL HEADER WITH BNX MAIL BRANDING (REFERENCE STYLE) */}
-            <div className="px-5 sm:px-8 py-3.5 sm:py-4 border-b border-gray-100 dark:border-neutral-800/80 flex items-center justify-between gap-3 bg-white dark:bg-[#161b24]">
-              {/* Branding */}
-              <div className="flex items-center gap-2 select-none">
-                <img src={logo} alt="BNX Mail" className="h-6 sm:h-7 w-auto object-contain shrink-0" />
-                <span className="font-bold text-base sm:text-lg tracking-tight text-[#135bec] dark:text-blue-400">
-                  BNX<span className="text-gray-900 dark:text-gray-100 font-extrabold">mail</span>
-                </span>
-              </div>
-
+            {/* EMAIL HEADER (RIGHT ACTIONS & CATEGORY) */}
+            <div className="px-5 sm:px-8 py-3 sm:py-3.5 border-b border-gray-100 dark:border-neutral-800/80 flex items-center justify-end gap-3 bg-white dark:bg-[#161b24]">
               {/* Header Right: Mailbox Category & Quick Actions */}
               <div className="flex items-center gap-3">
                 <span className="text-[10.5px] sm:text-[11.5px] font-bold tracking-widest uppercase text-gray-400 dark:text-gray-500 select-none">
