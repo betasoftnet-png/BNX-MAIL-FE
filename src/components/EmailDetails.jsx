@@ -1837,7 +1837,7 @@ const EmailDetails = ({
           <div className="bg-white dark:bg-[#161b24] rounded-2xl border border-gray-200/90 dark:border-neutral-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden transition-all">
 
             {/* EMAIL HEADER (RIGHT ACTIONS & CATEGORY) */}
-            <div className="px-5 sm:px-8 py-3 sm:py-3.5 border-b border-gray-100 dark:border-neutral-800/80 flex items-center justify-end gap-3 bg-white dark:bg-[#161b24]">
+            <div className="px-5 sm:px-8 lg:px-9 py-2.5 sm:py-2.5 border-b border-gray-100 dark:border-neutral-800/80 flex items-center justify-end gap-3 bg-white dark:bg-[#161b24]">
               {/* Header Right: Mailbox Category & Quick Actions */}
               <div className="flex items-center gap-3">
                 <span className="text-[10.5px] sm:text-[11.5px] font-bold tracking-widest uppercase text-gray-400 dark:text-gray-500 select-none">
@@ -1870,7 +1870,7 @@ const EmailDetails = ({
             </div>
 
             {/* INNER CARD CONTENT */}
-            <div className="p-5 sm:p-8 lg:p-9">
+            <div className="px-5 sm:px-8 lg:px-9 pt-3.5 sm:pt-4 pb-6 sm:pb-8 lg:pb-9">
               {/* EMAIL SUBJECT & LABELS */}
               <div className="mb-4 sm:mb-5">
                 <div className="flex flex-wrap items-center gap-2.5 min-w-0">
