@@ -1837,7 +1837,10 @@ const EmailDetails = ({
           <div className="bg-white dark:bg-[#161b24] rounded-2xl border border-gray-200/90 dark:border-neutral-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden transition-all">
 
             {/* EMAIL HEADER (SUBJECT, LABELS & QUICK ACTIONS) */}
-            <div className="px-5 sm:px-8 lg:px-9 py-3 sm:py-3.5 border-b border-gray-100 dark:border-neutral-800/80 flex items-center justify-between gap-3 sm:gap-4 bg-white dark:bg-[#161b24] min-w-0">
+            <div
+              className="px-5 sm:px-8 lg:px-9 py-3 sm:py-3.5 border-b border-gray-100 dark:border-neutral-800/80 flex items-center justify-between gap-3 sm:gap-4 bg-[#FFFFFF] min-w-0"
+              style={{ backgroundColor: '#FFFFFF' }}
+            >
               {/* Header Left: Email Subject & Labels */}
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <h1
