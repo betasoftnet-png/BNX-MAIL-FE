@@ -2,37 +2,32 @@ import React, { useState, useEffect, useRef } from "react";
 import { MdCheck, MdClose, MdVisibility, MdAttachFile } from "react-icons/md";
 
 /**
- * UndoSendToast:
- * Gmail-style Undo Send notification with a 5-second cancellation window and View Message preview.
- *
- * Requirements:
- * 1. "Message sent" success notification.
- * 2. "Undo Send" action with visible 5-second countdown.
- * 3. "View Message" action beside it.
- * 4. Mutual exclusion, cancellation, and message restoration.
+ * UndoSendItem:
+ * Individual toast item for a pending email send.
+ * Handles its own countdown, Undo click state, and Outgoing Message Preview modal.
  */
-const UndoSendToast = ({ pending, onUndo, onDismiss }) => {
-  if (!pending) return null;
+const UndoSendItem = React.memo(({ item, onUndo, onDismiss }) => {
+  if (!item || !item.sendId) return null;
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
   const [countdown, setCountdown] = useState(() => {
-    if (pending.expiresAt) {
-      return Math.max(0, Math.ceil((pending.expiresAt - Date.now()) / 1000));
+    if (item.expiresAt) {
+      return Math.max(0, Math.ceil((item.expiresAt - Date.now()) / 1000));
     }
-    return pending.delaySeconds || 5;
+    return item.delaySeconds || 5;
   });
 
   const timerRef = useRef(null);
 
   useEffect(() => {
     const updateCountdown = () => {
-      if (!pending.expiresAt) return;
-      const remaining = Math.max(0, Math.ceil((pending.expiresAt - Date.now()) / 1000));
+      if (!item.expiresAt) return;
+      const remaining = Math.max(0, Math.ceil((item.expiresAt - Date.now()) / 1000));
       setCountdown(remaining);
       if (remaining <= 0) {
         clearInterval(timerRef.current);
-        onDismiss?.();
+        onDismiss?.(item.sendId);
       }
     };
 
@@ -42,19 +37,19 @@ const UndoSendToast = ({ pending, onUndo, onDismiss }) => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [pending.expiresAt, onDismiss]);
+  }, [item.expiresAt, item.sendId, onDismiss]);
 
   const handleUndoClick = async () => {
     if (isUndoing) return; // Disable repeated clicks
     setIsUndoing(true);
     try {
-      await onUndo?.(pending.sendId);
+      await onUndo?.(item.sendId);
     } finally {
       setIsUndoing(false);
     }
   };
 
-  const emailData = pending.emailData || {};
+  const emailData = item.emailData || {};
   const attachments = Array.isArray(emailData.attachments) ? emailData.attachments : [];
 
   return (
@@ -63,7 +58,7 @@ const UndoSendToast = ({ pending, onUndo, onDismiss }) => {
       <div
         role="alert"
         aria-live="polite"
-        className="fixed bottom-6 sm:bottom-8 left-6 sm:left-8 z-[9999] max-w-[95%] sm:max-w-md pointer-events-auto select-none animate-in fade-in slide-in-from-bottom-3 duration-200"
+        className="w-full pointer-events-auto select-none animate-in fade-in slide-in-from-bottom-3 duration-200"
       >
         <div className="flex items-center gap-3 sm:gap-4 bg-[#202124] text-white px-4 py-3 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.35)] border border-gray-700/60">
           {/* Green Check Icon */}
@@ -109,7 +104,7 @@ const UndoSendToast = ({ pending, onUndo, onDismiss }) => {
           {/* Dismiss Close Icon */}
           <button
             type="button"
-            onClick={onDismiss}
+            onClick={() => onDismiss?.(item.sendId)}
             title="Dismiss notification"
             className="text-gray-400 hover:text-gray-200 hover:bg-white/10 p-1 rounded-md transition-colors cursor-pointer shrink-0 ml-1"
           >
@@ -233,6 +228,39 @@ const UndoSendToast = ({ pending, onUndo, onDismiss }) => {
         </div>
       )}
     </>
+  );
+});
+
+/**
+ * UndoSendToast:
+ * Gmail-style Undo Send notification container.
+ * Supports single pending email or multiple pending emails stacked independently.
+ *
+ * Requirements:
+ * 1. "Message sent" success notification.
+ * 2. "Undo Send" action with visible 5-second countdown.
+ * 3. "View Message" action beside it.
+ * 4. Mutual exclusion, cancellation, and message restoration.
+ * 5. Handle multiple pending emails independently.
+ */
+const UndoSendToast = ({ pending, items, onUndo, onDismiss }) => {
+  const pendingList = Array.isArray(items)
+    ? items
+    : (Array.isArray(pending) ? pending : (pending ? [pending] : []));
+
+  if (!pendingList || pendingList.length === 0) return null;
+
+  return (
+    <div className="fixed bottom-6 sm:bottom-8 left-6 sm:left-8 z-[9999] flex flex-col-reverse gap-2.5 max-w-[95%] sm:max-w-md pointer-events-none">
+      {pendingList.map((item) => (
+        <UndoSendItem
+          key={item.sendId}
+          item={item}
+          onUndo={onUndo}
+          onDismiss={onDismiss}
+        />
+      ))}
+    </div>
   );
 };
 
