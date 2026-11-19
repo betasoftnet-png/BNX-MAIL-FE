@@ -317,7 +317,8 @@ const ComposeWindow = ({
     openCompose,
     updateDraftInState,
     updateDraftUidInState,
-    isEmailStarred
+    isEmailStarred,
+    startUndoSend
   } = useMail();
 
   const { sentNotifications } = useNotificationPreferences();
@@ -1401,8 +1402,13 @@ const ComposeWindow = ({
               }).catch(() => { });
             }
           } else {
-            isEditingExistingDraftRef.current = false;
-            wasDraftStarredRef.current = false;
+            isEditingExistingDraftRef.current = Boolean(composeData.draftId || composeData.draftUid);
+            wasDraftStarredRef.current = Boolean(composeData.isStarred || composeData.starred);
+            if (composeData.draftId) setDraftId(composeData.draftId);
+            if (composeData.draftUid) imapDraftUidRef.current = composeData.draftUid;
+            if (Array.isArray(composeData.attachments) && composeData.attachments.length > 0) {
+              setAttachments(composeData.attachments);
+            }
             originalDraftSnapshotRef.current = null;
             const isCasboxMode = composeData.mode === "casbox" || composeData.mode === "chat" || composeMode === "chat" || composeMode === "casbox";
             const isCasboxReply = isCasboxMode && (composeData.replyTo || composeData.isReply || (typeof composeData.subject === "string" && composeData.subject.trim().toLowerCase().startsWith("re:")));
@@ -1845,7 +1851,29 @@ const ComposeWindow = ({
     if (cleanBcc) payload.bcc = cleanBcc;
     if (cleanAttachments.length > 0) payload.attachments = cleanAttachments;
 
-    const executeSend = async (tid) => {
+    const sendId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'send-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+
+    payload.sendId = sendId;
+    payload.undoDelay = 5;
+
+    const rawComposeSnapshot = {
+      to: cleanTo,
+      cc: cleanCc,
+      bcc: cleanBcc,
+      subject: cleanSubject,
+      body: formData.body || finalBody,
+      attachments: [...(attachments || [])],
+      draftId: currentDraftId,
+      draftUid: currentDraftUid,
+      imapDraftUid: currentImapDraftUid,
+      isStarred: isStarredDraft,
+      starred: isStarredDraft,
+      mode: composeMode
+    };
+
+    const executeSend = async () => {
       try {
         let response;
         if (draftId) {
@@ -1855,9 +1883,9 @@ const ComposeWindow = ({
               ...payload,
               isHtml: true
             });
-            response = await mailAPI.sendDbDraft(draftId);
+            response = await mailAPI.send(payload);
           } catch (dbDraftErr) {
-            console.warn("sendDbDraft failed, falling back to direct send:", dbDraftErr);
+            console.warn("createDbDraft failed, falling back to direct send:", dbDraftErr);
             response = await mailAPI.send(payload);
           }
         } else {
@@ -1865,15 +1893,24 @@ const ComposeWindow = ({
         }
 
         if (response.data?.success) {
-          if (delaySeconds > 0) {
-            toast.dismiss(tid);
-          } else {
-            if (sentNotifications) {
-              toast.success("Message sent.", { id: tid, duration: 4000 });
-            } else if (tid) {
-              toast.dismiss(tid);
-            }
-            closeCompose();
+          closeCompose();
+
+          if (typeof startUndoSend === 'function') {
+            startUndoSend({
+              sendId: response.data.data?.sendId || sendId,
+              expiresAt: response.data.data?.expiresAt || (Date.now() + 5000),
+              delaySeconds: 5,
+              emailData: {
+                to: cleanTo,
+                cc: cleanCc,
+                bcc: cleanBcc,
+                subject: cleanSubject,
+                body: finalBody,
+                attachments: cleanAttachments,
+                isHtml: true
+              },
+              rawComposeSnapshot
+            });
           }
 
           recordSentRecipient(user?.email, cleanTo);
@@ -1922,67 +1959,14 @@ const ComposeWindow = ({
         console.error("Draft send error:", err);
         const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to send email";
         setError(errorMsg);
-        toast.error(errorMsg, { id: tid });
+        toast.error(errorMsg);
       } finally {
         sendingRef.current = false;
         setSending(false);
       }
     };
 
-    if (delaySeconds > 0) {
-      let isUndone = false;
-
-      // Fake instant send by closing compose immediately
-      closeCompose();
-
-      const toastId = sentNotifications ? toast((t) => (
-        <div className="flex items-center justify-between gap-6 w-full min-w-[250px] text-sm text-black">
-          <span>Message sent.</span>
-          <button
-            type="button"
-            onClick={() => {
-              isUndone = true;
-              toast.dismiss(t.id);
-            }}
-            className="font-bold text-[#fbbc04] hover:text-yellow-300 cursor-pointer"
-          >
-            Undo
-          </button>
-        </div>
-      ), {
-        duration: delaySeconds * 1000,
-        position: "bottom-left",
-        style: {
-          background: '#202124',
-          color: '#fff',
-          borderRadius: '4px',
-          padding: '12px 24px',
-          boxShadow: '0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15)'
-        }
-      }) : null;
-
-      setTimeout(() => {
-        if (isUndone) {
-          toast.error("Sending cancelled", { id: toastId });
-          sendingRef.current = false;
-          setSending(false);
-          openCompose({
-            draft: true,
-            id: draftId,
-            to: payload.to,
-            cc: payload.cc,
-            bcc: payload.bcc,
-            subject: payload.subject,
-            body: payload.body,
-          });
-          return;
-        }
-        executeSend(toastId);
-      }, delaySeconds * 1000);
-    } else {
-      const toastId = sentNotifications ? toast.loading("Sending email...", { position: "bottom-center" }) : null;
-      executeSend(toastId);
-    }
+    executeSend();
   };
 
   /* ---------------- SCHEDULE EMAIL ---------------- */

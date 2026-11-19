@@ -167,7 +167,7 @@ const EmailDetails = ({
   const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, isEmailStarred, handleToggleStar } = useMail();
+  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, isEmailStarred, handleToggleStar, startUndoSend } = useMail();
 
   const [prefsTick, setPrefsTick] = useState(0);
   useEffect(() => {
@@ -1062,6 +1062,22 @@ const EmailDetails = ({
         isHtml: true
       };
 
+      const sendId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : 'send-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+
+      payload.sendId = sendId;
+      payload.undoDelay = 5;
+
+      const rawComposeSnapshot = {
+        to: recipient,
+        subject: payload.subject,
+        body: finalBody,
+        attachments: [...attachments],
+        draftId: draftId,
+        mode: 'mail'
+      };
+
       let res;
       if (draftId) {
         await mailAPI.createDbDraft({
@@ -1069,16 +1085,25 @@ const EmailDetails = ({
           ...payload,
           isHtml: true
         });
-        res = await mailAPI.sendDbDraft(draftId);
+        res = await mailAPI.send(payload);
       } else {
         res = await mailAPI.send(payload);
       }
 
       if (res.data?.success) {
-        if (sentNotifications) {
-          toast.success(replyMode === 'forward' ? "Forwarded successfully" : "Reply sent successfully", { id: toastId });
-        } else {
-          toast.dismiss(toastId);
+        if (toastId) toast.dismiss(toastId);
+
+        if (typeof startUndoSend === 'function') {
+          startUndoSend({
+            sendId: res.data.data?.sendId || sendId,
+            expiresAt: res.data.data?.expiresAt || (Date.now() + 5000),
+            delaySeconds: 5,
+            emailData: {
+              ...payload,
+              attachments
+            },
+            rawComposeSnapshot
+          });
         }
         
 

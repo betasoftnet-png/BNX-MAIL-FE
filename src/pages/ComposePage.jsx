@@ -107,7 +107,7 @@ const ComposePage = () => {
   const location = useLocation();
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { handleEmailSent, invalidateCache, fetchEmailsSilently, updateDraftInState, updateDraftUidInState, isEmailStarred } = useMail();
+  const { handleEmailSent, invalidateCache, fetchEmailsSilently, updateDraftInState, updateDraftUidInState, isEmailStarred, startUndoSend } = useMail();
 
   // Recipient autocomplete state
   const [contacts, setContacts] = useState(() => getStoredContacts(user?.email));
@@ -482,10 +482,43 @@ const ComposePage = () => {
       if (formData.cc) payload.cc = formData.cc;
       if (formData.bcc) payload.bcc = formData.bcc;
 
+      const sendId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : 'send-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+
+      payload.sendId = sendId;
+      payload.undoDelay = 5;
+
+      const rawComposeSnapshot = {
+        to: formData.to,
+        cc: formData.cc,
+        bcc: formData.bcc,
+        subject: formData.subject,
+        body: formData.body,
+        attachments: [],
+        draftId: targetDraftId,
+        draftUid: targetDraftUid,
+        imapDraftUid: location.state?.imapDraftUid || targetDraftUid,
+        isStarred: isStarredDraft,
+        starred: isStarredDraft,
+        mode: 'mail'
+      };
+
       const response = await mailAPI.send(payload);
 
       if (response.data?.success) {
-        if (sentNotifications) setSuccess("Email sent successfully");
+        if (typeof startUndoSend === 'function') {
+          startUndoSend({
+            sendId: response.data.data?.sendId || sendId,
+            expiresAt: response.data.data?.expiresAt || (Date.now() + 5000),
+            delaySeconds: 5,
+            emailData: {
+              ...formData,
+              isHtml: true
+            },
+            rawComposeSnapshot
+          });
+        }
         recordSentRecipient(user?.email, formData.to);
         if (formData.cc) recordSentRecipient(user?.email, formData.cc);
         if (formData.bcc) recordSentRecipient(user?.email, formData.bcc);
@@ -504,7 +537,7 @@ const ComposePage = () => {
             }
           });
         }
-        setTimeout(() => navigate("/inbox"), 1200);
+        navigate("/inbox");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to send email");

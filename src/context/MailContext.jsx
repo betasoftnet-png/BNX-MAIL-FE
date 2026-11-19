@@ -8,6 +8,7 @@ import { matchesDateRange } from '../utils/dateFilter';
 import toast from 'react-hot-toast';
 import { useNotificationPreferences } from './NotificationPreferenceContext';
 import UndoDeleteToast from '../components/UndoDeleteToast';
+import UndoSendToast from '../components/UndoSendToast';
 import {
     getStoredStarredIds,
     saveStoredStarredIds,
@@ -2472,6 +2473,129 @@ export const MailProvider = ({ children }) => {
         };
     }, [commitPendingDelete]);
 
+    /* ---------------- UNDO SEND SYSTEM (5-SECOND DELAY) ---------------- */
+    const [pendingUndoSend, setPendingUndoSend] = useState(null);
+    const pendingUndoSendRef = useRef(null);
+
+    const startUndoSend = useCallback((details) => {
+        if (!details || !details.sendId) return;
+        const now = Date.now();
+        const delaySeconds = details.delaySeconds || 5;
+        const expiresAt = details.expiresAt || (now + delaySeconds * 1000);
+
+        const newPending = {
+            sendId: details.sendId,
+            delaySeconds,
+            expiresAt,
+            emailData: details.emailData || {},
+            rawComposeSnapshot: details.rawComposeSnapshot || null
+        };
+
+        pendingUndoSendRef.current = newPending;
+        setPendingUndoSend(newPending);
+
+        try {
+            sessionStorage.setItem('bnx_pending_undo_send', JSON.stringify(newPending));
+        } catch (e) {
+            console.warn('Could not persist pending undo send to sessionStorage:', e);
+        }
+    }, []);
+
+    const handleDismissUndoSend = useCallback(() => {
+        setPendingUndoSend(null);
+        pendingUndoSendRef.current = null;
+        try {
+            sessionStorage.removeItem('bnx_pending_undo_send');
+        } catch (e) {}
+
+        // If currently viewing Sent or Outbox folder, refresh to reflect newly delivered message
+        if (currentFolderRef.current && (currentFolderRef.current.toLowerCase() === 'sent' || currentFolderRef.current.toLowerCase() === 'outbox')) {
+            fetchEmails(currentFolderRef.current, true);
+        }
+    }, [fetchEmails]);
+
+    const handleUndoSend = useCallback(async (sendId) => {
+        const currentPending = pendingUndoSendRef.current;
+        const targetSendId = sendId || currentPending?.sendId;
+        if (!targetSendId) return;
+
+        try {
+            const res = await mailAPI.undoSend(targetSendId);
+            if (res.data?.success) {
+                // Clear notification immediately
+                setPendingUndoSend(null);
+                pendingUndoSendRef.current = null;
+                try {
+                    sessionStorage.removeItem('bnx_pending_undo_send');
+                } catch (e) {}
+
+                toast.success('Sending undone.', { duration: 3000 });
+
+                // Restore original message exactly into Compose window
+                const backendData = res.data.data || {};
+                const snapshot = currentPending?.rawComposeSnapshot || {};
+
+                const restoredTo = backendData.to || snapshot.to || '';
+                const restoredCc = backendData.cc || snapshot.cc || '';
+                const restoredBcc = backendData.bcc || snapshot.bcc || '';
+                const restoredSubject = backendData.subject || snapshot.subject || '';
+                const restoredBody = backendData.body || snapshot.body || '';
+                const restoredAttachments = (backendData.attachments && backendData.attachments.length > 0)
+                    ? backendData.attachments
+                    : (snapshot.attachments || []);
+
+                openCompose({
+                    draft: true,
+                    restorePending: true,
+                    mode: snapshot.mode || 'mail',
+                    to: restoredTo,
+                    cc: restoredCc,
+                    bcc: restoredBcc,
+                    subject: restoredSubject,
+                    body: restoredBody,
+                    attachments: restoredAttachments,
+                    draftId: backendData.draftId || snapshot.draftId || null,
+                    draftUid: backendData.draftUid || snapshot.draftUid || null,
+                    isStarred: Boolean(backendData.isStarred || snapshot.isStarred)
+                });
+            } else {
+                toast.error(res.data?.message || 'Message could not be undone.', { duration: 4000 });
+                handleDismissUndoSend();
+            }
+        } catch (err) {
+            console.error('Failed to undo send:', err);
+            const errMsg = err.response?.data?.message || 'Message could not be undone. It may have already been delivered.';
+            toast.error(errMsg, { duration: 4000 });
+            handleDismissUndoSend();
+        }
+    }, [openCompose, handleDismissUndoSend]);
+
+    // Rehydrate active pending send on page refresh or navigation
+    useEffect(() => {
+        try {
+            const saved = sessionStorage.getItem('bnx_pending_undo_send');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && parsed.sendId && parsed.expiresAt > Date.now()) {
+                    mailAPI.getPendingEmail(parsed.sendId).then(res => {
+                        if (res.data?.success && res.data?.data?.status === 'PENDING_UNDO') {
+                            pendingUndoSendRef.current = parsed;
+                            setPendingUndoSend(parsed);
+                        } else {
+                            sessionStorage.removeItem('bnx_pending_undo_send');
+                        }
+                    }).catch(() => {
+                        sessionStorage.removeItem('bnx_pending_undo_send');
+                    });
+                } else {
+                    sessionStorage.removeItem('bnx_pending_undo_send');
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to rehydrate pending undo send:', e);
+        }
+    }, []);
+
     const handleDeletePermanently = async (uid, silent = false) => {
         try {
             removeSnoozedEmail(user?.email, uid);
@@ -3863,13 +3987,22 @@ export const MailProvider = ({ children }) => {
             pendingUndoDelete,
             handleUndoDelete,
             handleDismissUndo,
-            commitPendingDelete
+            commitPendingDelete,
+            pendingUndoSend,
+            startUndoSend,
+            handleUndoSend,
+            handleDismissUndoSend
         }}>
             {children}
             <UndoDeleteToast
                 pending={pendingUndoDelete}
                 onUndo={handleUndoDelete}
                 onDismiss={handleDismissUndo}
+            />
+            <UndoSendToast
+                pending={pendingUndoSend}
+                onUndo={handleUndoSend}
+                onDismiss={handleDismissUndoSend}
             />
         </MailContext.Provider>
     );
@@ -3930,6 +4063,10 @@ export const useMail = () => {
             matchesDateFilter: () => true,
             updateDraftInState: () => { },
             updateDraftUidInState: () => { },
+            startUndoSend: () => { },
+            handleUndoSend: () => { },
+            handleDismissUndoSend: () => { },
+            pendingUndoSend: null,
         };
     }
     return context;
