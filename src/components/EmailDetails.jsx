@@ -1828,129 +1828,6 @@ const EmailDetails = ({
         </div>
       </div>
 
-      {/* EMAIL SUBJECT HEADER (PURE WHITE #FFFFFF HORIZONTAL SECTION) */}
-      <div
-        className="w-full bg-[#FFFFFF] border-b border-gray-100 dark:border-neutral-800/80 shrink-0 select-text transition-colors"
-        style={{ backgroundColor: '#FFFFFF' }}
-      >
-        <div className="w-full max-w-4xl mx-auto px-5 sm:px-8 lg:px-9 py-3 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-4 min-w-0">
-          {/* Header Left: Email Subject & Labels */}
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <h1
-              className="text-lg sm:text-xl lg:text-[22px] font-bold leading-snug tracking-tight text-gray-900 dark:text-gray-100 break-words line-clamp-2 min-w-0"
-              style={{ color: theme.text }}
-              title={email.subject || "(No Subject)"}
-            >
-              {email.subject || "(No Subject)"}
-            </h1>
-
-            {/* Mailbox Badge (conditionally hidden for Inbox, Sent, Trash, and Spam) */}
-            {mailboxFolderLabel && !isSpamMode && !['inbox', 'sent', 'send', 'spam', 'junk'].some(f => mailboxFolderLabel.toLowerCase().includes(f)) && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-200/90 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 shrink-0 select-none">
-                <span>{mailboxFolderLabel}</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onArchive) {
-                      onArchive(email?.uid ?? email?.id, email?.folderName || currentFolder);
-                    } else if (handleClose) {
-                      handleClose();
-                    }
-                  }}
-                  className="hover:bg-gray-300 dark:hover:bg-neutral-600 rounded p-0.5 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition-colors cursor-pointer"
-                  title={`Remove ${mailboxFolderLabel} label`}
-                  aria-label={`Remove ${mailboxFolderLabel} label`}
-                >
-                  <MdClose size={12} />
-                </button>
-              </span>
-            )}
-
-            {isSnoozed && (
-              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs shrink-0">
-                <MdAccessTime size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                <span>{snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed"}</span>
-                <button
-                  type="button"
-                  onClick={handleUnsnoozeOption}
-                  className="ml-1 px-1.5 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-                  title="Unsnooze and return to Inbox"
-                >
-                  <MdAlarmOff size={12} />
-                  <span>Unsnooze</span>
-                </button>
-              </div>
-            )}
-
-            {localLabels
-              ?.filter((label) => {
-                const labelName = typeof label === 'string' ? label : (label?.name || label?.id || '');
-                const lower = labelName.toLowerCase();
-                return lower !== 'inbox' && lower !== 'sent' && lower !== 'send' && !lower.includes('spam') && !lower.includes('junk');
-              })
-              .map((label) => {
-                const labelId = typeof label === 'string' ? label : (label.id || label.name);
-                const labelName = typeof label === 'string' ? label : (label.name || label.id);
-                const matchedSys = findSystemLabelDefinition(label);
-                const labelColor = typeof label === 'string'
-                  ? (labels.find(l => l.name === label || l.id === label)?.colorHex || matchedSys?.colorHex || '#135bec')
-                  : (label.colorHex || matchedSys?.colorHex || '#135bec');
-                const prefKey = typeof label === 'object' ? label.prefKey : matchedSys?.prefKey;
-                return (
-                  <span
-                    key={labelId}
-                    className="px-2 py-0.5 rounded text-[11px] font-medium text-white shadow-xs flex items-center gap-1 shrink-0"
-                    style={{ backgroundColor: labelColor }}
-                  >
-                    {labelName}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveLabelOption(labelId, labelName, prefKey);
-                      }}
-                      className="hover:bg-black/20 rounded-full p-0.5 transition-colors flex items-center justify-center cursor-pointer"
-                      title="Remove label"
-                    >
-                      <MdClose size={12} />
-                    </button>
-                  </span>
-                );
-              })}
-          </div>
-
-          {/* Header Right: Mailbox Category & Quick Actions */}
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="text-[10.5px] sm:text-[11.5px] font-bold tracking-widest uppercase text-gray-400 dark:text-gray-500 select-none">
-              {currentFolder ? String(currentFolder).toUpperCase() : t("sidebar.inbox", "INBOX")}
-            </span>
-            <div className="h-4 w-px bg-gray-200 dark:bg-neutral-800 hidden sm:block" />
-            <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer"
-                title="Print email"
-                aria-label="Print email"
-              >
-                <MdPrint size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  window.open(window.location.href, '_blank', 'width=900,height=750,toolbar=no,menubar=no,location=no');
-                }}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer"
-                title="Open in new window"
-                aria-label="Open in new window"
-              >
-                <MdOpenInNew size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* CONTENT AREA (LIGHT GREY BACKGROUND CANVAS) */}
       <div className="flex-1 overflow-y-auto px-2.5 sm:px-6 md:px-8 py-5 sm:py-8 bg-[#f1f4f8] dark:bg-[#0c1017] transition-colors">
         {/* CENTERED EMAIL CONTAINER */}
@@ -1958,6 +1835,127 @@ const EmailDetails = ({
 
           {/* MAIN WHITE EMAIL CARD */}
           <div className="bg-white dark:bg-[#161b24] rounded-2xl border border-gray-200/90 dark:border-neutral-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden transition-all">
+
+            {/* EMAIL HEADER (SUBJECT, LABELS & QUICK ACTIONS) */}
+            <div
+              className="px-5 sm:px-8 lg:px-9 py-3 sm:py-3.5 border-b border-gray-100 dark:border-neutral-800/80 flex items-center justify-between gap-3 sm:gap-4 bg-[#FFFFFF] min-w-0"
+              style={{ backgroundColor: '#FFFFFF' }}
+            >
+              {/* Header Left: Email Subject & Labels */}
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <h1
+                  className="text-lg sm:text-xl lg:text-[22px] font-bold leading-snug tracking-tight text-gray-900 dark:text-gray-100 break-words line-clamp-2 min-w-0"
+                  style={{ color: theme.text }}
+                  title={email.subject || "(No Subject)"}
+                >
+                  {email.subject || "(No Subject)"}
+                </h1>
+
+                {/* Mailbox Badge (conditionally hidden for Inbox, Sent, Trash, and Spam) */}
+                {mailboxFolderLabel && !isSpamMode && !['inbox', 'sent', 'send', 'spam', 'junk'].some(f => mailboxFolderLabel.toLowerCase().includes(f)) && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-200/90 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 shrink-0 select-none">
+                    <span>{mailboxFolderLabel}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onArchive) {
+                          onArchive(email?.uid ?? email?.id, email?.folderName || currentFolder);
+                        } else if (handleClose) {
+                          handleClose();
+                        }
+                      }}
+                      className="hover:bg-gray-300 dark:hover:bg-neutral-600 rounded p-0.5 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition-colors cursor-pointer"
+                      title={`Remove ${mailboxFolderLabel} label`}
+                      aria-label={`Remove ${mailboxFolderLabel} label`}
+                    >
+                      <MdClose size={12} />
+                    </button>
+                  </span>
+                )}
+
+                {isSnoozed && (
+                  <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs shrink-0">
+                    <MdAccessTime size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span>{snoozedUntilText ? `Snoozed until ${snoozedUntilText}` : "Snoozed"}</span>
+                    <button
+                      type="button"
+                      onClick={handleUnsnoozeOption}
+                      className="ml-1 px-1.5 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                      title="Unsnooze and return to Inbox"
+                    >
+                      <MdAlarmOff size={12} />
+                      <span>Unsnooze</span>
+                    </button>
+                  </div>
+                )}
+
+                {localLabels
+                  ?.filter((label) => {
+                    const labelName = typeof label === 'string' ? label : (label?.name || label?.id || '');
+                    const lower = labelName.toLowerCase();
+                    return lower !== 'inbox' && lower !== 'sent' && lower !== 'send' && !lower.includes('spam') && !lower.includes('junk');
+                  })
+                  .map((label) => {
+                    const labelId = typeof label === 'string' ? label : (label.id || label.name);
+                    const labelName = typeof label === 'string' ? label : (label.name || label.id);
+                    const matchedSys = findSystemLabelDefinition(label);
+                    const labelColor = typeof label === 'string'
+                      ? (labels.find(l => l.name === label || l.id === label)?.colorHex || matchedSys?.colorHex || '#135bec')
+                      : (label.colorHex || matchedSys?.colorHex || '#135bec');
+                    const prefKey = typeof label === 'object' ? label.prefKey : matchedSys?.prefKey;
+                    return (
+                      <span
+                        key={labelId}
+                        className="px-2 py-0.5 rounded text-[11px] font-medium text-white shadow-xs flex items-center gap-1 shrink-0"
+                        style={{ backgroundColor: labelColor }}
+                      >
+                        {labelName}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveLabelOption(labelId, labelName, prefKey);
+                          }}
+                          className="hover:bg-black/20 rounded-full p-0.5 transition-colors flex items-center justify-center cursor-pointer"
+                          title="Remove label"
+                        >
+                          <MdClose size={12} />
+                        </button>
+                      </span>
+                    );
+                  })}
+              </div>
+
+              {/* Header Right: Mailbox Category & Quick Actions */}
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-[10.5px] sm:text-[11.5px] font-bold tracking-widest uppercase text-gray-400 dark:text-gray-500 select-none">
+                  {currentFolder ? String(currentFolder).toUpperCase() : t("sidebar.inbox", "INBOX")}
+                </span>
+                <div className="h-4 w-px bg-gray-200 dark:bg-neutral-800 hidden sm:block" />
+                <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer"
+                    title="Print email"
+                    aria-label="Print email"
+                  >
+                    <MdPrint size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.open(window.location.href, '_blank', 'width=900,height=750,toolbar=no,menubar=no,location=no');
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer"
+                    title="Open in new window"
+                    aria-label="Open in new window"
+                  >
+                    <MdOpenInNew size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* INNER CARD CONTENT */}
             <div className="px-5 sm:px-8 lg:px-9 pt-5 sm:pt-6 pb-6 sm:pb-8 lg:pb-9">
