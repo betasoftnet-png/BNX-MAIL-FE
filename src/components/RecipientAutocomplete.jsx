@@ -11,7 +11,6 @@ const RecipientAutocomplete = ({
   isLoading = false,
   query = "",
 }) => {
-  const hasQuery = Boolean(query && query.trim().length > 0);
   const hasSuggestions = Array.isArray(suggestions) && suggestions.length > 0;
   const [imageErrorMap, setImageErrorMap] = useState({});
 
@@ -19,8 +18,8 @@ const RecipientAutocomplete = ({
     setImageErrorMap((prev) => ({ ...prev, [email]: true }));
   };
 
-  // Don't show dropdown if no query and no suggestions
-  if (!hasQuery && !hasSuggestions) return null;
+  // Only display dropdown when actual matching suggestions exist
+  if (!hasSuggestions) return null;
 
   return (
     <div
@@ -31,17 +30,7 @@ const RecipientAutocomplete = ({
         e.preventDefault();
       }}
     >
-      {isLoading && !hasSuggestions ? (
-        <div className="flex items-center justify-center gap-2.5 px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400 select-none">
-          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <span>Searching contacts...</span>
-        </div>
-      ) : !hasSuggestions ? (
-        <div className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400 text-center select-none italic">
-          No matching contacts found
-        </div>
-      ) : (
-        suggestions.map((suggestion, idx) => {
+      {suggestions.map((suggestion, idx) => {
           const isHighlighted = idx === highlightedIndex;
           const isNew = suggestion.isNewRecipient || suggestion.source === "NEW_RECIPIENT";
           const category = (suggestion.category || suggestion.source || "INBOX").toUpperCase();
@@ -58,11 +47,10 @@ const RecipientAutocomplete = ({
                 onSelectSuggestion(suggestion);
               }}
               onMouseEnter={() => onHoverIndex?.(idx)}
-              className={`flex items-center gap-3.5 px-4 py-2 cursor-pointer transition-colors ${
-                isHighlighted
-                  ? "bg-blue-50/90 dark:bg-blue-950/50 text-blue-950 dark:text-blue-100"
-                  : "hover:bg-gray-50/90 dark:hover:bg-neutral-800/60 text-gray-800 dark:text-gray-200"
-              }`}
+              className={`flex items-center gap-3.5 px-4 py-2 cursor-pointer transition-colors ${isHighlighted
+                ? "bg-blue-50/90 dark:bg-blue-950/50 text-blue-950 dark:text-blue-100"
+                : "hover:bg-gray-50/90 dark:hover:bg-neutral-800/60 text-gray-800 dark:text-gray-200"
+                }`}
             >
               {/* Circular Avatar on the left */}
               {isNew ? (
@@ -124,8 +112,7 @@ const RecipientAutocomplete = ({
               </div>
             </div>
           );
-        })
-      )}
+        })}
     </div>
   );
 };
