@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import toast, { Toaster, ToastBar } from "react-hot-toast";
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
-import { MailProvider, useMail } from "./context/MailContext";
+import { MailProvider } from "./context/MailContext";
 import { SocketProvider } from "./context/SocketContext";
 import { SignupProvider } from "./context/SignupContext";
 import { LanguageProvider } from "./context/LanguageContext";
@@ -15,7 +15,6 @@ import NavBar from "./components/NavBar";
 import SideBar from "./components/SideBar";
 import FloatingCompose from "./components/FloatingCompose";
 import BitToolSidebar from "./components/BitToolSidebar";
-import SentMessageToast from "./components/SentMessageToast";
 import { StickyNote, NotesManager } from "./components/StickyNotes";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { lazyRetry } from "./utils/lazyRetry";
@@ -135,44 +134,11 @@ const getFriendlyMessage = (msg) => {
 /* ---------------- APP CONTENT (MAIN LAYOUT) ---------------- */
 const AppContent = () => {
   useKeyboardShortcuts();
-  const navigate = useNavigate();
-  const { pendingSentToast, dismissSentToast } = useMail();
   const [searchQuery, setSearchQuery] = useState("");
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isBitToolSidebarOpen, setIsBitToolSidebarOpen] = useState(false);
   const { theme, backgroundImage, isLandscapeImage } = useTheme();
-
-  const handleUndoSent = useCallback((pending) => {
-    if (pending?.canUndo && typeof pending?.onUndo === 'function') {
-      pending.onUndo();
-      dismissSentToast();
-    } else {
-      toast("Delivered emails cannot be recalled once sent to the recipient server.", {
-        icon: "ℹ️",
-        duration: 4000,
-        style: {
-          background: '#202124',
-          color: '#fff',
-          borderRadius: '8px',
-        }
-      });
-      dismissSentToast();
-    }
-  }, [dismissSentToast]);
-
-  const handleViewSentMessage = useCallback((pending) => {
-    const email = pending?.email;
-    if (!email) return;
-    const targetUid = email.uid ?? email.id;
-
-    dismissSentToast();
-
-    navigate('/sent', { state: { selectedEmailUid: targetUid, email } });
-    window.dispatchEvent(new CustomEvent('bnx-open-email', {
-      detail: { email, uid: targetUid }
-    }));
-  }, [navigate, dismissSentToast]);
 
   // Close mobile sidebar on desktop resize or Esc key
   useEffect(() => {
@@ -408,12 +374,6 @@ const AppContent = () => {
       </div>
       
       <FloatingCompose />
-      <SentMessageToast
-        pending={pendingSentToast}
-        onUndo={handleUndoSent}
-        onViewMessage={handleViewSentMessage}
-        onDismiss={dismissSentToast}
-      />
     </div>
   );
 };

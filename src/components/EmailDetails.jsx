@@ -1075,7 +1075,9 @@ const EmailDetails = ({
       }
 
       if (res.data?.success) {
-        if (toastId) {
+        if (sentNotifications) {
+          toast.success(replyMode === 'forward' ? "Forwarded successfully" : "Reply sent successfully", { id: toastId });
+        } else {
           toast.dismiss(toastId);
         }
         
@@ -1091,19 +1093,7 @@ const EmailDetails = ({
           handleEmailSent({
             draftId: sentDraftId,
             sentEmail: res.data?.data,
-            wasStarred: false,
-            emailData: {
-              from: user?.email,
-              senderEmail: user?.email,
-              senderName: user?.name,
-              to: payload.to,
-              recipientEmail: payload.to,
-              subject: payload.subject,
-              body: payload.body,
-              htmlBody: payload.body,
-              isHtml: true,
-              attachments: attachments
-            }
+            wasStarred: false
           });
         } else if (fetchEmails) {
           fetchEmails(currentFolder || "inbox", true);
