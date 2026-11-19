@@ -31,8 +31,15 @@ const Send = ({ searchQuery }) => {
 
   const selectedEmail = useMemo(() => {
     if (!selectedEmailUid) return null;
-    return emails.find((e) => String(e.uid) === String(selectedEmailUid) || (e.id && String(e.id) === String(selectedEmailUid))) ||
-      (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
+    const strUid = String(selectedEmailUid);
+    const found = emails.find((e) => String(e.uid ?? e.id ?? '') === strUid);
+    if (found) return found;
+    if (selectedEmailOverride) {
+      if (String(selectedEmailOverride.uid ?? selectedEmailOverride.id ?? '') === strUid || !selectedEmailOverride.uid) {
+        return selectedEmailOverride;
+      }
+    }
+    return null;
   }, [emails, selectedEmailUid, selectedEmailOverride]);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -47,11 +54,20 @@ const Send = ({ searchQuery }) => {
   };
 
   useEffect(() => {
-    setSelectedEmailUid(null);
-    setSelectedRowKey(null);
-    setSelectedEmailOverride(null);
+    const targetUid = location.state?.selectedEmailUid || location.state?.uid || location.state?.email?.uid || location.state?.email?.id;
+    if (targetUid !== undefined && targetUid !== null) {
+      setSelectedEmailUid(targetUid);
+      setSelectedRowKey(location.state?.email?._rowKey || null);
+      if (location.state?.email) {
+        setSelectedEmailOverride(location.state.email);
+      }
+    } else {
+      setSelectedEmailUid(null);
+      setSelectedRowKey(null);
+      setSelectedEmailOverride(null);
+    }
     setSelectedIds(new Set());
-  }, [location.pathname]);
+  }, [location.pathname, location.state]);
 
   useEffect(() => {
     const handleOpenEmail = (e) => {

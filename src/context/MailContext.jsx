@@ -422,6 +422,54 @@ export const MailProvider = ({ children }) => {
     const [pendingUndoDelete, setPendingUndoDelete] = useState(null);
     const pendingUndoDeleteRef = useRef(null);
     const undoCountdownTimerRef = useRef(null);
+
+    const [pendingSentToast, setPendingSentToast] = useState(null);
+    const pendingSentToastRef = useRef(null);
+    const sentToastCountdownRef = useRef(null);
+    const [recentlySentEmail, setRecentlySentEmail] = useState(null);
+
+    const triggerSentToast = useCallback(({ email, canUndo = false, onUndo = null, duration = 5, label = "Message sent successfully" } = {}) => {
+        if (sentToastCountdownRef.current) {
+            clearInterval(sentToastCountdownRef.current);
+        }
+        const opId = `sent_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const parsedDuration = Number(duration) > 0 ? Number(duration) : 5;
+        let countdown = parsedDuration;
+        const newToast = {
+            opId,
+            email,
+            canUndo,
+            onUndo,
+            countdown,
+            totalDuration: parsedDuration,
+            label
+        };
+        pendingSentToastRef.current = newToast;
+        setPendingSentToast(newToast);
+        if (email) setRecentlySentEmail(email);
+
+        sentToastCountdownRef.current = setInterval(() => {
+            countdown -= 1;
+            if (countdown <= 0) {
+                if (sentToastCountdownRef.current) clearInterval(sentToastCountdownRef.current);
+                pendingSentToastRef.current = null;
+                setPendingSentToast(null);
+            } else {
+                setPendingSentToast(prev => {
+                    if (!prev || prev.opId !== opId) return prev;
+                    return { ...prev, countdown };
+                });
+            }
+        }, 1000);
+    }, []);
+
+    const dismissSentToast = useCallback(() => {
+        if (sentToastCountdownRef.current) {
+            clearInterval(sentToastCountdownRef.current);
+        }
+        pendingSentToastRef.current = null;
+        setPendingSentToast(null);
+    }, []);
     const [currentPage, setCurrentPage] = useState(1);
     const currentPageRef = useRef(1);
 
@@ -3538,7 +3586,21 @@ export const MailProvider = ({ children }) => {
         fetchEmailsSilently('drafts');
         fetchEmailsSilently('sent');
         if (inboxEmailObj) fetchEmailsSilently('inbox');
-    }, [fetchEmails, fetchEmailsSilently, fetchLabelEmails, invalidateCache, isEmailStarred, user?.email, updateSentEmailLabels]);
+
+        // 7. Trigger Gmail-style success notification with Undo Send and View Message
+        if (sentEmailObj) {
+            const delayConfig = Number(localStorage.getItem("bnx_setting_undoSendDelay")) || 0;
+            const toastDuration = delayConfig > 0 ? delayConfig : 5;
+            triggerSentToast({
+                email: sentEmailObj,
+                canUndo: false,
+                duration: toastDuration,
+                label: "Message sent successfully"
+            });
+        }
+
+        return sentEmailObj;
+    }, [fetchEmails, fetchEmailsSilently, fetchLabelEmails, invalidateCache, isEmailStarred, user?.email, updateSentEmailLabels, triggerSentToast]);
 
     const updateDraftInState = useCallback((targetId, updatedFields) => {
         if (!targetId) return;
@@ -3863,7 +3925,11 @@ export const MailProvider = ({ children }) => {
             pendingUndoDelete,
             handleUndoDelete,
             handleDismissUndo,
-            commitPendingDelete
+            commitPendingDelete,
+            pendingSentToast,
+            triggerSentToast,
+            dismissSentToast,
+            recentlySentEmail
         }}>
             {children}
             <UndoDeleteToast
@@ -3930,6 +3996,10 @@ export const useMail = () => {
             matchesDateFilter: () => true,
             updateDraftInState: () => { },
             updateDraftUidInState: () => { },
+            pendingSentToast: null,
+            triggerSentToast: () => { },
+            dismissSentToast: () => { },
+            recentlySentEmail: null,
         };
     }
     return context;

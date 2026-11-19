@@ -317,7 +317,9 @@ const ComposeWindow = ({
     openCompose,
     updateDraftInState,
     updateDraftUidInState,
-    isEmailStarred
+    isEmailStarred,
+    triggerSentToast,
+    dismissSentToast
   } = useMail();
 
   const { sentNotifications } = useNotificationPreferences();
@@ -1865,16 +1867,10 @@ const ComposeWindow = ({
         }
 
         if (response.data?.success) {
-          if (delaySeconds > 0) {
+          if (tid) {
             toast.dismiss(tid);
-          } else {
-            if (sentNotifications) {
-              toast.success("Message sent.", { id: tid, duration: 4000 });
-            } else if (tid) {
-              toast.dismiss(tid);
-            }
-            closeCompose();
           }
+          closeCompose();
 
           recordSentRecipient(user?.email, cleanTo);
           if (cleanCc) recordSentRecipient(user?.email, cleanCc);
@@ -1932,53 +1928,64 @@ const ComposeWindow = ({
     if (delaySeconds > 0) {
       let isUndone = false;
 
-      // Fake instant send by closing compose immediately
+      // Close compose immediately like Gmail
       closeCompose();
 
-      const toastId = sentNotifications ? toast((t) => (
-        <div className="flex items-center justify-between gap-6 w-full min-w-[250px] text-sm text-black">
-          <span>Message sent.</span>
-          <button
-            type="button"
-            onClick={() => {
-              isUndone = true;
-              toast.dismiss(t.id);
-            }}
-            className="font-bold text-[#fbbc04] hover:text-yellow-300 cursor-pointer"
-          >
-            Undo
-          </button>
-        </div>
-      ), {
-        duration: delaySeconds * 1000,
-        position: "bottom-left",
-        style: {
-          background: '#202124',
-          color: '#fff',
-          borderRadius: '4px',
-          padding: '12px 24px',
-          boxShadow: '0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15)'
-        }
-      }) : null;
+      const prospectiveUid = String(Date.now());
+      const prospectiveSentEmail = {
+        uid: prospectiveUid,
+        id: prospectiveUid,
+        from: user?.email,
+        senderEmail: user?.email,
+        senderName: user?.name,
+        to: cleanTo,
+        recipientEmail: cleanTo,
+        cc: cleanCc,
+        bcc: cleanBcc,
+        subject: cleanSubject,
+        body: finalBody,
+        htmlBody: finalBody,
+        isHtml: true,
+        attachments: cleanAttachments,
+        sentDate: new Date().toISOString(),
+        date: new Date().toISOString(),
+        folderName: 'Sent'
+      };
 
-      setTimeout(() => {
-        if (isUndone) {
-          toast.error("Sending cancelled", { id: toastId });
-          sendingRef.current = false;
-          setSending(false);
-          openCompose({
-            draft: true,
-            id: draftId,
-            to: payload.to,
-            cc: payload.cc,
-            bcc: payload.bcc,
-            subject: payload.subject,
-            body: payload.body,
-          });
-          return;
-        }
-        executeSend(toastId);
+      let timerId = null;
+      const cancelSend = () => {
+        isUndone = true;
+        if (timerId) clearTimeout(timerId);
+        if (typeof dismissSentToast === 'function') dismissSentToast();
+        toast.error("Sending cancelled");
+        sendingRef.current = false;
+        setSending(false);
+        openCompose({
+          draft: true,
+          id: draftId,
+          to: payload.to,
+          cc: payload.cc,
+          bcc: payload.bcc,
+          subject: payload.subject,
+          body: payload.body,
+        });
+      };
+
+      if (typeof triggerSentToast === 'function') {
+        triggerSentToast({
+          email: prospectiveSentEmail,
+          canUndo: true,
+          onUndo: cancelSend,
+          duration: delaySeconds,
+          label: "Message sent successfully"
+        });
+      }
+
+      timerId = setTimeout(() => {
+        if (isUndone) return;
+        executeSend();
       }, delaySeconds * 1000);
+      return;
     } else {
       const toastId = sentNotifications ? toast.loading("Sending email...", { position: "bottom-center" }) : null;
       executeSend(toastId);
@@ -2838,8 +2845,8 @@ const ComposeWindow = ({
                   type="button"
                   onClick={() => handleSwitchMode("mail")}
                   className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${composeMode === "mail" || composeMode === "email"
-                      ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
-                      : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                    ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                     }`}
                 >
                   Mail
@@ -2848,8 +2855,8 @@ const ComposeWindow = ({
                   type="button"
                   onClick={() => handleSwitchMode("chat")}
                   className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${composeMode === "chat" || composeMode === "casbox"
-                      ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
-                      : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                    ? "bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                     }`}
                 >
                   Casbox
