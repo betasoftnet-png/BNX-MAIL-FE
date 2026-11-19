@@ -543,6 +543,7 @@ export const mergeRecipientSuggestions = (localSuggestions, remoteData, query, l
       const isDbUser = item.source === 'BNXMAIL_USER' || item.category === 'DATABASE_USER';
       merged.push({
         ...item,
+        avatarUrl: item.avatarUrl || item.profilePicture || item.avatar || null,
         category: isDbUser ? 'DATABASE_USER' : (item.category || item.source || 'INBOX'),
         source: item.source || 'INBOX'
       });
