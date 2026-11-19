@@ -44,6 +44,7 @@ import {
   getStoredContacts,
   fetchAndSyncContacts,
   filterRecipientSuggestions,
+  mergeRecipientSuggestions,
   applyRecipientSuggestion,
   recordSentRecipient,
   parseRecipientChips,
@@ -425,6 +426,7 @@ const ComposeWindow = ({
 
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const debounceTimerRef = useRef(null);
+  const searchRequestIdRef = useRef({ to: 0, cc: 0, bcc: 0 });
 
   // Recipient chips parsed from formData
   const recipientChips = useMemo(() => parseRecipientChips(formData.to || ""), [formData.to]);
@@ -570,54 +572,55 @@ const ComposeWindow = ({
       return;
     }
 
+    const currentReqId = (searchRequestIdRef.current[field] || 0) + 1;
+    searchRequestIdRef.current[field] = currentReqId;
+
     const isCasbox = (composeMode === "chat" || composeMode === "casbox") && field === 'to';
     const currentChips = getChipsForField(field);
     const existingSet = new Set(currentChips.map((c) => c.toLowerCase()));
 
-    // Priority 1-5: Instant local matches from cached contacts
-    // (1: Inbox, 2: Sent, 3: Starred, 4: Saved contacts, 5: Add Recipient if complete valid email)
-    const { suggestions: localMatches } = filterRecipientSuggestions(contacts, clean, 10, existingSet);
+    // Stage 1: Instant local communication contacts (Inbox 1, Sent 2, Starred/Saved)
+    const { suggestions: localMatches, isCompleteValidEmail, needsDatabaseLookup } =
+      filterRecipientSuggestions(contacts, clean, 10, existingSet);
+
     const filteredLocal = isCasbox ? localMatches.filter((s) => !isExternalEmailDomain(s?.email)) : localMatches;
     setSuggestions(filteredLocal);
     setShowSuggestions(true);
     setHighlightedIndex(0);
 
-    // Debounced background sync with server (communication history & saved contacts only; never database users)
+    // Debounced server search / Stage 2 database lookup
     setIsLoadingSuggestions(true);
     debounceTimerRef.current = setTimeout(async () => {
       try {
-        const res = await mailAPI.autocompleteRecipients(clean, 10);
-        const serverData = res.data?.data || res.data || [];
-        if (Array.isArray(serverData)) {
-          const filteredServer = isCasbox ? serverData.filter((s) => !isExternalEmailDomain(s?.email)) : serverData;
+        if (needsDatabaseLookup) {
+          // Stage 2: Complete valid email entered and not found in Inbox or Sent -> query registered database user
+          const res = await mailAPI.lookupUser(clean);
+          if (searchRequestIdRef.current[field] !== currentReqId) return; // Discard outdated response
 
-          const merged = [];
-          const seen = new Set(existingSet);
+          const dbUser = res?.data?.data || (res?.data && res.data.email ? res.data : null);
+          if (dbUser && dbUser.email) {
+            const merged = mergeRecipientSuggestions(filteredLocal, [dbUser], clean, 10);
+            const finalMerged = isCasbox ? merged.filter((s) => !isExternalEmailDomain(s?.email)) : merged;
+            setSuggestions(finalMerged);
+          }
+        } else if (!isCompleteValidEmail) {
+          // Stage 1: Partial query -> only sync communication contacts (contacts mode)
+          const res = await mailAPI.autocompleteRecipients(clean, 10, 'contacts');
+          if (searchRequestIdRef.current[field] !== currentReqId) return; // Discard outdated response
 
-          // Add local matches first
-          filteredLocal.forEach((s) => {
-            const k = s.email?.toLowerCase();
-            if (k && !seen.has(k)) {
-              seen.add(k);
-              merged.push(s);
-            }
-          });
-
-          // Append any server communication contacts
-          filteredServer.forEach((s) => {
-            const k = s.email?.toLowerCase();
-            if (k && !seen.has(k)) {
-              seen.add(k);
-              merged.push(s);
-            }
-          });
-
-          setSuggestions(merged);
+          const serverData = res?.data?.data || res?.data || [];
+          if (Array.isArray(serverData)) {
+            const filteredServer = isCasbox ? serverData.filter((s) => !isExternalEmailDomain(s?.email)) : serverData;
+            const merged = mergeRecipientSuggestions(filteredLocal, filteredServer, clean, 10);
+            setSuggestions(merged);
+          }
         }
       } catch (err) {
         // Keep local matches if server query fails
       } finally {
-        setIsLoadingSuggestions(false);
+        if (searchRequestIdRef.current[field] === currentReqId) {
+          setIsLoadingSuggestions(false);
+        }
       }
     }, 250);
   };

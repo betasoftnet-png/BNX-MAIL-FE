@@ -14,8 +14,10 @@ import {
   getStoredContacts,
   fetchAndSyncContacts,
   filterRecipientSuggestions,
+  mergeRecipientSuggestions,
   applyRecipientSuggestion,
-  recordSentRecipient
+  recordSentRecipient,
+  isValidEmailAddress
 } from "../utils/recipientSuggestions";
 
 
@@ -127,6 +129,9 @@ const ComposePage = () => {
   const bccDropdownRef = useRef(null);
   const bccInputRef = useRef(null);
 
+  const debounceTimerRef = useRef(null);
+  const searchRequestIdRef = useRef({ to: 0, cc: 0, bcc: 0 });
+
   useEffect(() => {
     if (user?.email) {
       fetchAndSyncContacts(user.email, mailAPI, connectionAPI).then((synced) => {
@@ -171,20 +176,63 @@ const ComposePage = () => {
   const handleFieldInputChange = (field, e) => {
     handleChange(e);
     const val = e.target.value;
-    const { suggestions } = filterRecipientSuggestions(contacts, val);
-    if (field === 'cc') {
-      setCcSuggestions(suggestions);
-      setShowCcSuggestions(suggestions.length > 0);
-      setCcHighlightedIndex(0);
-    } else if (field === 'bcc') {
-      setBccSuggestions(suggestions);
-      setShowBccSuggestions(suggestions.length > 0);
-      setBccHighlightedIndex(0);
-    } else {
-      setToSuggestions(suggestions);
-      setShowToSuggestions(suggestions.length > 0);
-      setToHighlightedIndex(0);
+    const clean = (val || "").trim();
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
+
+    const setSuggestions = field === 'cc' ? setCcSuggestions : (field === 'bcc' ? setBccSuggestions : setToSuggestions);
+    const setShowSuggestions = field === 'cc' ? setShowCcSuggestions : (field === 'bcc' ? setShowBccSuggestions : setShowToSuggestions);
+    const setHighlightedIndex = field === 'cc' ? setCcHighlightedIndex : (field === 'bcc' ? setBccHighlightedIndex : setToHighlightedIndex);
+
+    if (!clean) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const currentReqId = (searchRequestIdRef.current[field] || 0) + 1;
+    searchRequestIdRef.current[field] = currentReqId;
+
+    // Stage 1: Instant local communication contacts (Inbox 1, Sent 2, Starred/Saved)
+    const { suggestions: localMatches, isCompleteValidEmail, needsDatabaseLookup } =
+      filterRecipientSuggestions(contacts, clean, 8);
+
+    setSuggestions(localMatches);
+    setShowSuggestions(localMatches.length > 0);
+    setHighlightedIndex(0);
+
+    // Debounced server search / Stage 2 database lookup
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        if (needsDatabaseLookup) {
+          // Stage 2: Complete valid email entered and not found in Inbox or Sent -> query registered database user
+          const res = await mailAPI.lookupUser(clean);
+          if (searchRequestIdRef.current[field] !== currentReqId) return; // Discard outdated response
+
+          const dbUser = res?.data?.data || (res?.data && res.data.email ? res.data : null);
+          if (dbUser && dbUser.email) {
+            const merged = mergeRecipientSuggestions(localMatches, [dbUser], clean, 8);
+            setSuggestions(merged);
+            setShowSuggestions(merged.length > 0);
+          }
+        } else if (!isCompleteValidEmail) {
+          // Stage 1: Partial query -> only sync communication contacts
+          const res = await mailAPI.autocompleteRecipients(clean, 8, 'contacts');
+          if (searchRequestIdRef.current[field] !== currentReqId) return; // Discard outdated response
+
+          const serverData = res?.data?.data || res?.data || [];
+          if (Array.isArray(serverData)) {
+            const merged = mergeRecipientSuggestions(localMatches, serverData, clean, 8);
+            setSuggestions(merged);
+            setShowSuggestions(merged.length > 0);
+          }
+        }
+      } catch (err) {
+        // Keep local matches on error
+      }
+    }, 250);
   };
 
   const handleToInputChange = (e) => {

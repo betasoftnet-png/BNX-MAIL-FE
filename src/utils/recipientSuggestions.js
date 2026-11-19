@@ -211,7 +211,9 @@ export const getCategoryPriority = (category) => {
   switch (String(category).toUpperCase()) {
     case 'INBOX': return 1;
     case 'SENT': return 2;
-    case 'STARRED': return 3;
+    case 'BNXMAIL_USER':
+    case 'DATABASE_USER': return 3;
+    case 'STARRED':
     case 'SAVED_CONTACT':
     case 'CONTACT':
     case 'PREVIOUS_CONTACT':
@@ -429,14 +431,14 @@ export const formatRecipientChips = (chips) => {
 export const filterRecipientSuggestions = (contacts, inputValue, limit = 8, existingRecipientSet = null) => {
   const query = getActiveRecipientQuery(inputValue).trim().toLowerCase();
   if (!query || query.length === 0) {
-    return { query: '', suggestions: [] };
+    return { query: '', suggestions: [], isCompleteValidEmail: false, needsDatabaseLookup: false };
   }
 
   const existingEmails = existingRecipientSet instanceof Set 
     ? existingRecipientSet 
     : getExistingRecipientEmails(inputValue);
 
-  // 1. Filter existing contacts by email or name (partial matching)
+  // 1. Stage 1: Filter existing communication contacts by email or name (partial matching)
   const matches = (contacts || []).filter(c => {
     if (!c || !c.email) return false;
     const emailLower = c.email.toLowerCase();
@@ -453,8 +455,7 @@ export const filterRecipientSuggestions = (contacts, inputValue, limit = 8, exis
   }));
 
   // 2. Sort matches by priority:
-  // Priority 1: Inbox -> Priority 2: Sent -> Priority 3: Starred -> Priority 4: Saved contacts
-  // Within same priority: email starts with query -> name starts with query -> word in name starts with query -> count -> alphabetical
+  // Priority 1: Inbox -> Priority 2: Sent -> Priority 3: Database User -> Priority 4: Starred / Saved contacts
   matches.sort((a, b) => {
     const aPrio = getCategoryPriority(a.category || a.source);
     const bPrio = getCategoryPriority(b.category || b.source);
@@ -488,28 +489,90 @@ export const filterRecipientSuggestions = (contacts, inputValue, limit = 8, exis
   });
 
   const slicedMatches = matches.slice(0, limit);
+  const isCompleteEmail = isValidEmailAddress(query);
+  const alreadyInMatches = slicedMatches.some(m => m.email.toLowerCase() === query);
+  const alreadySelected = existingEmails.has(query);
+  const needsDatabaseLookup = isCompleteEmail && !alreadyInMatches && !alreadySelected;
 
-  // 3. Priority 5: New recipient option ONLY if query is a complete and syntactically valid email address
-  if (isValidEmailAddress(query)) {
-    const alreadyInMatches = slicedMatches.some(m => m.email.toLowerCase() === query);
-    const alreadySelected = existingEmails.has(query);
-    if (!alreadyInMatches && !alreadySelected && slicedMatches.length < limit) {
-      slicedMatches.push({
-        email: query,
-        name: query.split('@')[0],
-        category: 'NEW_RECIPIENT',
-        source: 'NEW_RECIPIENT',
-        isPreviousContact: false,
-        isNewRecipient: true,
-        count: 0
-      });
-    }
+  // 3. Fallback Priority 4/5: New recipient option ONLY if query is a complete and valid email address not already present
+  if (isCompleteEmail && !alreadyInMatches && !alreadySelected && slicedMatches.length < limit) {
+    slicedMatches.push({
+      email: query,
+      name: query.split('@')[0],
+      category: 'NEW_RECIPIENT',
+      source: 'NEW_RECIPIENT',
+      isPreviousContact: false,
+      isNewRecipient: true,
+      count: 0
+    });
   }
 
   return {
     query,
-    suggestions: slicedMatches
+    suggestions: slicedMatches,
+    isCompleteValidEmail: isCompleteEmail,
+    needsDatabaseLookup
   };
+};
+
+/**
+ * Merge local suggestions with server search/lookup results.
+ * Preserves priority order: Inbox (1) -> Sent (2) -> Database User (3) -> Saved/Starred (4) -> New Recipient (5).
+ */
+export const mergeRecipientSuggestions = (localSuggestions, remoteData, query, limit = 8) => {
+  const merged = [];
+  const seen = new Set();
+
+  // 1. Add local communication contacts (Inbox, Sent, Starred, Saved)
+  (localSuggestions || []).forEach((item) => {
+    if (!item || !item.email) return;
+    const k = item.email.toLowerCase();
+    if (item.category !== 'NEW_RECIPIENT' && !seen.has(k)) {
+      seen.add(k);
+      merged.push(item);
+    }
+  });
+
+  // 2. Add remote items (e.g. Registered database user from Stage 2 lookup or server communication contacts)
+  const remoteList = Array.isArray(remoteData) ? remoteData : (remoteData && remoteData.email ? [remoteData] : []);
+  remoteList.forEach((item) => {
+    if (!item || !item.email) return;
+    const k = item.email.toLowerCase();
+    if (!seen.has(k)) {
+      seen.add(k);
+      const isDbUser = item.source === 'BNXMAIL_USER' || item.category === 'DATABASE_USER';
+      merged.push({
+        ...item,
+        category: isDbUser ? 'DATABASE_USER' : (item.category || item.source || 'INBOX'),
+        source: item.source || 'INBOX'
+      });
+    }
+  });
+
+  // 3. If query is a complete valid email not found in communication contacts or database users:
+  // Provide manual new recipient option
+  const cleanQ = (query || '').trim().toLowerCase();
+  if (isValidEmailAddress(cleanQ) && !seen.has(cleanQ) && merged.length < limit) {
+    merged.push({
+      email: cleanQ,
+      name: cleanQ.split('@')[0],
+      category: 'NEW_RECIPIENT',
+      source: 'NEW_RECIPIENT',
+      isPreviousContact: false,
+      isNewRecipient: true,
+      count: 0
+    });
+  }
+
+  // Sort by category priority
+  merged.sort((a, b) => {
+    const aPrio = getCategoryPriority(a.category || a.source);
+    const bPrio = getCategoryPriority(b.category || b.source);
+    if (aPrio !== bPrio) return aPrio - bPrio;
+    return (a.email || '').localeCompare(b.email || '');
+  });
+
+  return merged.slice(0, limit);
 };
 
 export const applyRecipientSuggestion = (currentValue, suggestionEmail) => {
