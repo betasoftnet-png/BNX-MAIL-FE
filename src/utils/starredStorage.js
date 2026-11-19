@@ -39,7 +39,7 @@ export const getEmailStarKey = (uid, folder = '', email = null) => {
   const rawUid = uid ?? email?.uid ?? email?.id ?? '';
   const uidStr = String(rawUid).trim();
   if (!uidStr) return '';
-  
+
   const normFolder = normalizeFolderName(folder || email?.folderName, email);
   return normFolder ? `${normFolder}:${uidStr}` : uidStr;
 };
@@ -58,8 +58,7 @@ export const getStoredStarredIds = (userEmail) => {
         parsed.forEach(id => {
           if (id !== undefined && id !== null) {
             const s = String(id).trim();
-            // Discard draft keys and empty values
-            if (s && !s.startsWith('draft:') && !s.startsWith('drafts:')) {
+            if (s) {
               ids.add(s);
             }
           }
@@ -90,7 +89,7 @@ export const saveStoredStarredIds = (idSetOrArr, userEmail) => {
   try {
     const arr = (Array.isArray(idSetOrArr) ? idSetOrArr : Array.from(idSetOrArr))
       .map(id => String(id).trim())
-      .filter(id => Boolean(id) && !id.startsWith('draft:') && !id.startsWith('drafts:'));
+      .filter(id => Boolean(id));
     const json = JSON.stringify(arr);
     if (userEmail) {
       localStorage.setItem(getUserKey(STORAGE_KEY_IDS, userEmail), json);
@@ -116,16 +115,14 @@ export const getStoredStarredEmailsMap = (userEmail) => {
           Object.entries(parsed).forEach(([k, email]) => {
             if (email && typeof email === 'object') {
               const isDraft = email.isDraft === true || email.draft === true || email.folderName?.toLowerCase()?.includes('draft') || k.startsWith('draft:') || k.startsWith('drafts:');
-              if (isDraft) return;
-
-              const normFolder = normalizeFolderName(email.folderName, email) || 'inbox';
+              const normFolder = isDraft ? 'draft' : (normalizeFolderName(email.folderName, email) || 'inbox');
               const canonicalKey = getEmailStarKey(email.uid ?? email.id ?? k, normFolder, email);
-              if (canonicalKey && !canonicalKey.startsWith('draft:') && !canonicalKey.startsWith('drafts:')) {
+              if (canonicalKey) {
                 map.set(canonicalKey, {
                   ...email,
-                  folderName: email.folderName || normFolder,
-                  isDraft: false,
-                  draft: false,
+                  folderName: isDraft ? 'Drafts' : (email.folderName || normFolder),
+                  isDraft: isDraft,
+                  draft: isDraft,
                   starred: true,
                   isStarred: true
                 });
@@ -157,23 +154,21 @@ export const getStoredStarredEmailsMap = (userEmail) => {
 export const saveStoredStarredEmail = (email, userEmail, folder = '') => {
   if (!email) return;
   const isDraft = folder === 'draft' || folder === 'drafts' || email.isDraft === true || email.draft === true || email.folderName?.toLowerCase()?.includes('draft');
-  if (isDraft) return; // Never save draft emails into starred emails storage
-
-  const normFolder = normalizeFolderName(folder || email.folderName, email) || 'inbox';
+  const normFolder = isDraft ? 'draft' : (normalizeFolderName(folder || email.folderName, email) || 'inbox');
   const canonicalKey = getEmailStarKey(email.uid ?? email.id, normFolder, email);
-  if (!canonicalKey || canonicalKey.startsWith('draft:') || canonicalKey.startsWith('drafts:')) return;
+  if (!canonicalKey) return;
 
   try {
     const map = getStoredStarredEmailsMap(userEmail);
     map.set(canonicalKey, {
       ...email,
-      folderName: email.folderName || normFolder,
-      isDraft: false,
-      draft: false,
+      folderName: isDraft ? 'Drafts' : (email.folderName || normFolder),
+      isDraft: isDraft,
+      draft: isDraft,
       starred: true,
       isStarred: true
     });
-    
+
     const obj = {};
     map.forEach((val, key) => { obj[key] = val; });
     const json = JSON.stringify(obj);
@@ -313,10 +308,10 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
   const isDraft = folder === 'draft' || folder === 'drafts' || email?.isDraft === true || email?.draft === true || email?.folderName?.toLowerCase()?.includes('draft');
   const currentFolder = isDraft ? 'draft' : normalizeFolderName(folder || email?.folderName, email);
 
-  // If checking draft, check draft-specific overrides/storage for Draft folder UI only
+  // If checking draft, check draft-specific overrides/storage for Draft folder UI
   if (currentFolder === 'draft') {
     const idSet = getStoredStarredIds(userEmail);
-    if (idSet.has(`draft:${uidStr}`) || idSet.has(`drafts:${uidStr}`)) {
+    if (idSet.has(`draft:${uidStr}`) || idSet.has(`drafts:${uidStr}`) || idSet.has(uidStr)) {
       return true;
     }
     try {
@@ -324,11 +319,18 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
       const stored = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('bnx_draft_star_overrides');
       if (stored) {
         const overrides = JSON.parse(stored);
-        if (overrides[uidStr] === true || overrides[`draft:${uidStr}`] === true) {
-          return true;
+        if (overrides[uidStr] !== undefined || overrides[`draft:${uidStr}`] !== undefined) {
+          return overrides[uidStr] === true || overrides[`draft:${uidStr}`] === true;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
+    const map = getStoredStarredEmailsMap(userEmail);
+    if (map.has(`draft:${uidStr}`) || map.has(`drafts:${uidStr}`) || map.has(uidStr)) {
+      return true;
+    }
+    if (email && (email.isStarred === true || email.starred === true)) {
+      return true;
+    }
     return false;
   }
 
@@ -356,11 +358,11 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
 
   // 4. In Starred folder context (or when folder is 'starred' or unset), check any folder key in idSet or map
   if (!currentFolder || currentFolder === 'starred') {
-    if (idSet.has(uidStr) || idSet.has(`inbox:${uidStr}`) || idSet.has(`sent:${uidStr}`) || idSet.has(`starred:${uidStr}`) || idSet.has(`archive:${uidStr}`)) {
+    if (idSet.has(uidStr) || idSet.has(`inbox:${uidStr}`) || idSet.has(`sent:${uidStr}`) || idSet.has(`draft:${uidStr}`) || idSet.has(`drafts:${uidStr}`) || idSet.has(`starred:${uidStr}`) || idSet.has(`archive:${uidStr}`)) {
       return true;
     }
     const map = getStoredStarredEmailsMap(userEmail);
-    if (map.has(uidStr) || map.has(`inbox:${uidStr}`) || map.has(`sent:${uidStr}`) || map.has(`starred:${uidStr}`) || map.has(`archive:${uidStr}`)) {
+    if (map.has(uidStr) || map.has(`inbox:${uidStr}`) || map.has(`sent:${uidStr}`) || map.has(`draft:${uidStr}`) || map.has(`drafts:${uidStr}`) || map.has(`starred:${uidStr}`) || map.has(`archive:${uidStr}`)) {
       return true;
     }
     for (const id of idSet) {
@@ -368,6 +370,9 @@ export const isEmailIdStarred = (uid, userEmail, folder = '', email = null) => {
     }
     for (const k of map.keys()) {
       if (k === uidStr || k.endsWith(`:${uidStr}`)) return true;
+    }
+    if (email && (email.isStarred === true || email.starred === true)) {
+      return true;
     }
   }
 
@@ -483,8 +488,6 @@ export const deduplicateStarredEmails = (emailsList) => {
 
   for (const e of emailsList) {
     if (!e) continue;
-    const isDraft = e.isDraft === true || e.draft === true || e.folderName?.toLowerCase()?.includes('draft');
-    if (isDraft) continue;
 
     const rawUid = e.uid ?? e.id;
     const uidStr = rawUid !== undefined && rawUid !== null && String(rawUid).trim() !== ''

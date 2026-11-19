@@ -364,7 +364,7 @@ const ComposePage = () => {
     if (saved) {
       try {
         custom = JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     setAllTemplates([...DEFAULT_TEMPLATES, ...custom]);
   }, [showTemplates]);
@@ -473,6 +473,10 @@ const ComposePage = () => {
         subject: formData.subject,
         body: formData.body,
         isHtml: true,
+        draftUid: targetDraftUid,
+        uid: targetDraftUid,
+        isStarred: isStarredDraft,
+        starred: isStarredDraft,
       };
 
       if (formData.cc) payload.cc = formData.cc;
@@ -491,7 +495,13 @@ const ComposePage = () => {
             draftUid: targetDraftUid,
             imapDraftUid: location.state?.imapDraftUid || targetDraftUid,
             sentEmail: response.data?.data,
-            wasStarred: isStarredDraft
+            wasStarred: isStarredDraft,
+            emailData: {
+              ...formData,
+              isHtml: true,
+              isStarred: isStarredDraft,
+              starred: isStarredDraft
+            }
           });
         }
         setTimeout(() => navigate("/inbox"), 1200);
@@ -549,7 +559,7 @@ const ComposePage = () => {
 
   const getScheduleOptions = () => {
     const now = new Date();
-    
+
     const laterToday = new Date(now);
     if (now.getHours() >= 17) {
       laterToday.setHours(now.getHours() + 3);
@@ -612,12 +622,23 @@ const ComposePage = () => {
 
     try {
       isSavingDraftRef.current = true;
+      const isStarredDraft = Boolean(
+        location.state?.draft?.starred ||
+        location.state?.isStarred ||
+        (typeof isEmailStarred === 'function' && (
+          isEmailStarred(draftUidRef.current) ||
+          isEmailStarred(location.state?.draft?.uid) ||
+          isEmailStarred(location.state?.draft?.id)
+        ))
+      );
       const payload = {
         uid: draftUidRef.current ? String(draftUidRef.current) : null,
         to: formData.to,
         subject: formData.subject || "(No Subject)",
         body: formData.body,
         isHtml: true,
+        isStarred: isStarredDraft,
+        starred: isStarredDraft,
       };
       if (formData.cc) payload.cc = formData.cc;
       if (formData.bcc) payload.bcc = formData.bcc;
@@ -679,12 +700,29 @@ const ComposePage = () => {
             htmlBody: formData.body || "",
           });
         }
+        const isDraftStarred = Boolean(
+          location.state?.draft?.starred ||
+          location.state?.isStarred ||
+          (typeof isEmailStarred === 'function' && (
+            isEmailStarred(targetDraftId) ||
+            isEmailStarred(draftUidRef.current)
+          ))
+        );
+        const isDraftStarred = Boolean(
+          location.state?.draft?.starred ||
+          location.state?.draft?.isStarred ||
+          (typeof isEmailStarred === 'function' && (
+            isEmailStarred(targetDraftId, 'draft')
+          ))
+        );
         const payload = {
           uid: targetDraftId,
           to: formData.to,
           subject: formData.subject || "(No Subject)",
           body: formData.body,
           isHtml: true,
+          isStarred: isDraftStarred,
+          starred: isDraftStarred,
         };
         if (formData.cc) payload.cc = formData.cc;
         if (formData.bcc) payload.bcc = formData.bcc;
@@ -711,11 +749,20 @@ const ComposePage = () => {
       formData.bcc?.trim()
     );
     if (hasContent) {
+      const isDraftStarred = Boolean(
+        location.state?.draft?.starred ||
+        location.state?.isStarred ||
+        (typeof isEmailStarred === 'function' && (
+          isEmailStarred(draftUidRef.current)
+        ))
+      );
       const payload = {
         to: formData.to,
         subject: formData.subject || "(No Subject)",
         body: formData.body,
         isHtml: true,
+        isStarred: isDraftStarred,
+        starred: isDraftStarred,
       };
       if (formData.cc) payload.cc = formData.cc;
       if (formData.bcc) payload.bcc = formData.bcc;

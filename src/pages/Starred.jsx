@@ -10,6 +10,7 @@ import { useTheme } from "../context/ThemeContext";
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import { matchesScheduledAndSentEmail, deduplicateStarredEmails } from "../utils/starredStorage";
+import { getDraftAttachments } from "../utils/draftAttachmentStorage";
 
 const isDraftEmail = (email) => {
   if (!email) return false;
@@ -61,11 +62,9 @@ const Starred = ({ searchQuery }) => {
   }, [fetchEmails]);
 
   const visibleEmails = emails.filter((e) => {
-    // 1. Strictly exclude draft emails from Starred section
-    if (isDraftEmail(e)) return false;
-
-    // 2. Must be genuinely starred
-    const targetFolder = e.folderName || 'starred';
+    // 1. Must be genuinely starred
+    const isDraft = isDraftEmail(e);
+    const targetFolder = isDraft ? 'draft' : (e.folderName || 'starred');
     const isItemStarred = typeof isEmailStarred === 'function'
       ? isEmailStarred(e.uid ?? e.id, targetFolder, e)
       : Boolean(e.starred || e.isStarred);
@@ -77,7 +76,6 @@ const Starred = ({ searchQuery }) => {
   const sortedEmails = useMemo(() => {
     const sentEmails = visibleEmails.filter(e => e.folderName?.toLowerCase() === 'sent');
     const filteredVisible = visibleEmails.filter(e => {
-      if (isDraftEmail(e)) return false;
       if (e.folderName?.toLowerCase() === 'scheduled') {
         const hasSentMatch = sentEmails.some(sent => matchesScheduledAndSentEmail(e, sent));
         if (hasSentMatch) return false;
@@ -113,7 +111,16 @@ const Starred = ({ searchQuery }) => {
     (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
 
   const handleSelectEmail = (email) => {
-    if (isDraftEmail(email)) return;
+    if (isDraftEmail(email)) {
+      const restored = getDraftAttachments(email);
+      const enrichedEmail = {
+        ...email,
+        attachments: (restored && restored.length > 0) ? restored : email.attachments,
+        attachmentsJson: (restored && restored.length > 0) ? JSON.stringify(restored) : email.attachmentsJson,
+      };
+      openCompose({ draft: enrichedEmail });
+      return;
+    }
     setSelectedEmailUid(email.uid);
   };
 
@@ -133,7 +140,7 @@ const Starred = ({ searchQuery }) => {
     handleMoveToTrash(uid, targetFolder);
     setSelectedEmailUid(null);
   };
-  
+
   const handleForward = (email) => {
     openCompose({
       forward: true,
@@ -142,7 +149,7 @@ const Starred = ({ searchQuery }) => {
       originalEmail: email,
     });
   };
-const handleReply = (email) => {
+  const handleReply = (email) => {
     openCompose({
       replyTo: email.senderEmail || email.from,
       subject: `Re: ${email.subject || ""}`,
