@@ -1828,8 +1828,8 @@ const EmailDetails = ({
         </div>
       </div>
 
-      {/* CONTENT AREA (LIGHT GREY BACKGROUND CANVAS) */}
-      <div className="flex-1 overflow-y-auto px-2.5 sm:px-6 md:px-8 py-5 sm:py-8 bg-[#f1f4f8] dark:bg-[#0c1017] transition-colors">
+      {/* CONTENT AREA (WHITE BACKGROUND CANVAS) */}
+      <div className="flex-1 overflow-y-auto px-2.5 sm:px-6 md:px-8 py-5 sm:py-8 bg-[#FFFFFF] dark:bg-[#0c1017] transition-colors">
         {/* CENTERED EMAIL CONTAINER */}
         <div className="w-full max-w-4xl mx-auto flex flex-col gap-5">
 
