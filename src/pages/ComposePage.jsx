@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MdSend, MdAttachFile, MdDeleteOutline, MdClose, MdAssignment } from "react-icons/md";
-import { mailAPI, userAPI } from "../services/api";
+import { mailAPI, userAPI, connectionAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
@@ -115,9 +115,21 @@ const ComposePage = () => {
   const toDropdownRef = useRef(null);
   const toInputRef = useRef(null);
 
+  const [ccSuggestions, setCcSuggestions] = useState([]);
+  const [showCcSuggestions, setShowCcSuggestions] = useState(false);
+  const [ccHighlightedIndex, setCcHighlightedIndex] = useState(0);
+  const ccDropdownRef = useRef(null);
+  const ccInputRef = useRef(null);
+
+  const [bccSuggestions, setBccSuggestions] = useState([]);
+  const [showBccSuggestions, setShowBccSuggestions] = useState(false);
+  const [bccHighlightedIndex, setBccHighlightedIndex] = useState(0);
+  const bccDropdownRef = useRef(null);
+  const bccInputRef = useRef(null);
+
   useEffect(() => {
     if (user?.email) {
-      fetchAndSyncContacts(user.email, mailAPI).then((synced) => {
+      fetchAndSyncContacts(user.email, mailAPI, connectionAPI).then((synced) => {
         if (synced && synced.length > 0) {
           setContacts(synced);
         }
@@ -135,68 +147,141 @@ const ComposePage = () => {
       ) {
         setShowToSuggestions(false);
       }
+      if (
+        ccDropdownRef.current &&
+        !ccDropdownRef.current.contains(e.target) &&
+        ccInputRef.current &&
+        !ccInputRef.current.contains(e.target)
+      ) {
+        setShowCcSuggestions(false);
+      }
+      if (
+        bccDropdownRef.current &&
+        !bccDropdownRef.current.contains(e.target) &&
+        bccInputRef.current &&
+        !bccInputRef.current.contains(e.target)
+      ) {
+        setShowBccSuggestions(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleToInputChange = (e) => {
+  const handleFieldInputChange = (field, e) => {
     handleChange(e);
     const val = e.target.value;
     const { suggestions } = filterRecipientSuggestions(contacts, val);
-    setToSuggestions(suggestions);
-    setShowToSuggestions(suggestions.length > 0);
-    setToHighlightedIndex(0);
-  };
-
-  const handleToInputFocus = () => {
-    const { suggestions } = filterRecipientSuggestions(contacts, formData.to || "");
-    setToSuggestions(suggestions);
-    setShowToSuggestions(suggestions.length > 0);
-    setToHighlightedIndex(0);
-  };
-
-  const handleToInputBlur = () => {
-    setTimeout(() => {
-      setShowToSuggestions(false);
-    }, 150);
-  };
-
-  const handleSelectToSuggestion = (suggestion) => {
-    const updatedVal = applyRecipientSuggestion(formData.to || "", suggestion.email);
-    setFormData((prev) => ({ ...prev, to: updatedVal }));
-    setShowToSuggestions(false);
-    setToSuggestions([]);
-    if (toInputRef.current) {
-      toInputRef.current.focus();
+    if (field === 'cc') {
+      setCcSuggestions(suggestions);
+      setShowCcSuggestions(suggestions.length > 0);
+      setCcHighlightedIndex(0);
+    } else if (field === 'bcc') {
+      setBccSuggestions(suggestions);
+      setShowBccSuggestions(suggestions.length > 0);
+      setBccHighlightedIndex(0);
+    } else {
+      setToSuggestions(suggestions);
+      setShowToSuggestions(suggestions.length > 0);
+      setToHighlightedIndex(0);
     }
   };
 
-  const handleToInputKeyDown = (e) => {
-    if (showToSuggestions && toSuggestions.length > 0) {
+  const handleToInputChange = (e) => {
+    handleFieldInputChange('to', e);
+  };
+
+  const handleFieldInputFocus = (field) => {
+    const val = formData[field] || "";
+    const { suggestions } = filterRecipientSuggestions(contacts, val);
+    if (field === 'cc') {
+      setCcSuggestions(suggestions);
+      setShowCcSuggestions(suggestions.length > 0);
+      setCcHighlightedIndex(0);
+    } else if (field === 'bcc') {
+      setBccSuggestions(suggestions);
+      setShowBccSuggestions(suggestions.length > 0);
+      setBccHighlightedIndex(0);
+    } else {
+      setToSuggestions(suggestions);
+      setShowToSuggestions(suggestions.length > 0);
+      setToHighlightedIndex(0);
+    }
+  };
+
+  const handleToInputFocus = () => {
+    handleFieldInputFocus('to');
+  };
+
+  const handleFieldInputBlur = (field) => {
+    setTimeout(() => {
+      if (field === 'cc') setShowCcSuggestions(false);
+      else if (field === 'bcc') setShowBccSuggestions(false);
+      else setShowToSuggestions(false);
+    }, 150);
+  };
+
+  const handleToInputBlur = () => {
+    handleFieldInputBlur('to');
+  };
+
+  const handleSelectFieldSuggestion = (field, suggestion) => {
+    const updatedVal = applyRecipientSuggestion(formData[field] || "", suggestion.email);
+    setFormData((prev) => ({ ...prev, [field]: updatedVal }));
+    if (field === 'cc') {
+      setShowCcSuggestions(false);
+      setCcSuggestions([]);
+      if (ccInputRef.current) ccInputRef.current.focus();
+    } else if (field === 'bcc') {
+      setShowBccSuggestions(false);
+      setBccSuggestions([]);
+      if (bccInputRef.current) bccInputRef.current.focus();
+    } else {
+      setShowToSuggestions(false);
+      setToSuggestions([]);
+      if (toInputRef.current) toInputRef.current.focus();
+    }
+  };
+
+  const handleSelectToSuggestion = (suggestion) => {
+    handleSelectFieldSuggestion('to', suggestion);
+  };
+
+  const handleFieldInputKeyDown = (field, e) => {
+    const suggestions = field === 'cc' ? ccSuggestions : (field === 'bcc' ? bccSuggestions : toSuggestions);
+    const showSuggestions = field === 'cc' ? showCcSuggestions : (field === 'bcc' ? showBccSuggestions : showToSuggestions);
+    const highlightedIndex = field === 'cc' ? ccHighlightedIndex : (field === 'bcc' ? bccHighlightedIndex : toHighlightedIndex);
+    const setHighlightedIndex = field === 'cc' ? setCcHighlightedIndex : (field === 'bcc' ? setBccHighlightedIndex : setToHighlightedIndex);
+    const setShowSuggestions = field === 'cc' ? setShowCcSuggestions : (field === 'bcc' ? setShowBccSuggestions : setShowToSuggestions);
+
+    if (showSuggestions && suggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setToHighlightedIndex((prev) => (prev + 1) % toSuggestions.length);
+        setHighlightedIndex((prev) => (prev + 1) % suggestions.length);
         return;
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setToHighlightedIndex((prev) => (prev - 1 + toSuggestions.length) % toSuggestions.length);
+        setHighlightedIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
         return;
       } else if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        if (toSuggestions[toHighlightedIndex]) {
-          handleSelectToSuggestion(toSuggestions[toHighlightedIndex]);
+        if (suggestions[highlightedIndex]) {
+          handleSelectFieldSuggestion(field, suggestions[highlightedIndex]);
         }
         return;
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        setShowToSuggestions(false);
+        setShowSuggestions(false);
         return;
       }
     }
     if (e.key === 'Enter') {
       e.preventDefault();
     }
+  };
+
+  const handleToInputKeyDown = (e) => {
+    handleFieldInputKeyDown('to', e);
   };
 
   const [sending, setSending] = useState(false);
@@ -690,7 +775,17 @@ const ComposePage = () => {
                   label="Cc"
                   name="cc"
                   value={formData.cc}
-                  onChange={handleChange}
+                  onChange={(e) => handleFieldInputChange('cc', e)}
+                  onFocus={() => handleFieldInputFocus('cc')}
+                  onBlur={() => handleFieldInputBlur('cc')}
+                  onKeyDown={(e) => handleFieldInputKeyDown('cc', e)}
+                  inputRef={ccInputRef}
+                  suggestions={ccSuggestions}
+                  showSuggestions={showCcSuggestions}
+                  highlightedIndex={ccHighlightedIndex}
+                  onSelectSuggestion={(s) => handleSelectFieldSuggestion('cc', s)}
+                  onHoverIndex={setCcHighlightedIndex}
+                  dropdownRef={ccDropdownRef}
                   theme={theme}
                 />
               )}
@@ -700,7 +795,17 @@ const ComposePage = () => {
                   label="Bcc"
                   name="bcc"
                   value={formData.bcc}
-                  onChange={handleChange}
+                  onChange={(e) => handleFieldInputChange('bcc', e)}
+                  onFocus={() => handleFieldInputFocus('bcc')}
+                  onBlur={() => handleFieldInputBlur('bcc')}
+                  onKeyDown={(e) => handleFieldInputKeyDown('bcc', e)}
+                  inputRef={bccInputRef}
+                  suggestions={bccSuggestions}
+                  showSuggestions={showBccSuggestions}
+                  highlightedIndex={bccHighlightedIndex}
+                  onSelectSuggestion={(s) => handleSelectFieldSuggestion('bcc', s)}
+                  onHoverIndex={setBccHighlightedIndex}
+                  dropdownRef={bccDropdownRef}
                   theme={theme}
                 />
               )}

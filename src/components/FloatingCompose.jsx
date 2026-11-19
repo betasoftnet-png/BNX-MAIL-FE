@@ -31,7 +31,7 @@ import {
   storeInMemoryFile, 
   getInMemoryFile 
 } from "../utils/draftAttachmentStorage";
-import { mailAPI, api, userAPI, signatureAPI, casboxAPI, settingsAPI } from "../services/api";
+import { mailAPI, api, userAPI, signatureAPI, casboxAPI, settingsAPI, connectionAPI } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
@@ -47,7 +47,8 @@ import {
   applyRecipientSuggestion,
   recordSentRecipient,
   parseRecipientChips,
-  formatRecipientChips
+  formatRecipientChips,
+  isValidEmailAddress
 } from "../utils/recipientSuggestions";
 
 const CASBOX_RECIPIENT_ERROR = "This recipient is not a BNXmail user. You can send messages only to registered BNXmail accounts through Casbox.";
@@ -399,25 +400,40 @@ const ComposeWindow = ({
   const quillRef = useRef(null);
   const focusedFieldRef = useRef(null);
 
-  // Recipient autocomplete & chips state
+  // Recipient autocomplete & chips state for To, Cc, Bcc
   const [contacts, setContacts] = useState(() => getStoredContacts(user?.email));
   const [toInputValue, setToInputValue] = useState("");
   const [toSuggestions, setToSuggestions] = useState([]);
   const [showToSuggestions, setShowToSuggestions] = useState(false);
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [toHighlightedIndex, setToHighlightedIndex] = useState(0);
   const toDropdownRef = useRef(null);
   const toInputRef = useRef(null);
+
+  const [ccInputValue, setCcInputValue] = useState("");
+  const [ccSuggestions, setCcSuggestions] = useState([]);
+  const [showCcSuggestions, setShowCcSuggestions] = useState(false);
+  const [ccHighlightedIndex, setCcHighlightedIndex] = useState(0);
+  const ccDropdownRef = useRef(null);
+  const ccInputRef = useRef(null);
+
+  const [bccInputValue, setBccInputValue] = useState("");
+  const [bccSuggestions, setBccSuggestions] = useState([]);
+  const [showBccSuggestions, setShowBccSuggestions] = useState(false);
+  const [bccHighlightedIndex, setBccHighlightedIndex] = useState(0);
+  const bccDropdownRef = useRef(null);
+  const bccInputRef = useRef(null);
+
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const debounceTimerRef = useRef(null);
 
-  // Recipient chips parsed from formData.to
-  const recipientChips = useMemo(() => {
-    return parseRecipientChips(formData.to || "");
-  }, [formData.to]);
+  // Recipient chips parsed from formData
+  const recipientChips = useMemo(() => parseRecipientChips(formData.to || ""), [formData.to]);
+  const ccRecipientChips = useMemo(() => parseRecipientChips(formData.cc || ""), [formData.cc]);
+  const bccRecipientChips = useMemo(() => parseRecipientChips(formData.bcc || ""), [formData.bcc]);
 
   useEffect(() => {
     if (user?.email) {
-      fetchAndSyncContacts(user.email, mailAPI).then((synced) => {
+      fetchAndSyncContacts(user.email, mailAPI, connectionAPI).then((synced) => {
         if (synced && synced.length > 0) {
           setContacts(synced);
         }
@@ -435,87 +451,151 @@ const ComposeWindow = ({
       ) {
         setShowToSuggestions(false);
       }
+      if (
+        ccDropdownRef.current &&
+        !ccDropdownRef.current.contains(e.target) &&
+        ccInputRef.current &&
+        !ccInputRef.current.contains(e.target)
+      ) {
+        setShowCcSuggestions(false);
+      }
+      if (
+        bccDropdownRef.current &&
+        !bccDropdownRef.current.contains(e.target) &&
+        bccInputRef.current &&
+        !bccInputRef.current.contains(e.target)
+      ) {
+        setShowBccSuggestions(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleRemoveRecipientChip = (indexToRemove) => {
-    const updated = recipientChips.filter((_, idx) => idx !== indexToRemove);
-    setFormData((prev) => ({ ...prev, to: updated.join(", ") }));
-    if (toInputRef.current) {
-      toInputRef.current.focus();
+  const getChipsForField = (field) => {
+    if (field === 'cc') return ccRecipientChips;
+    if (field === 'bcc') return bccRecipientChips;
+    return recipientChips;
+  };
+
+  const getRefForField = (field) => {
+    if (field === 'cc') return ccInputRef;
+    if (field === 'bcc') return bccInputRef;
+    return toInputRef;
+  };
+
+  const handleRemoveRecipientChip = (fieldOrIdx, maybeIdx) => {
+    const field = typeof fieldOrIdx === 'string' ? fieldOrIdx : 'to';
+    const idxToRemove = typeof fieldOrIdx === 'string' ? maybeIdx : fieldOrIdx;
+    const currentChips = getChipsForField(field);
+    const updated = currentChips.filter((_, idx) => idx !== idxToRemove);
+    setFormData((prev) => ({ ...prev, [field]: updated.join(", ") }));
+    const ref = getRefForField(field);
+    if (ref.current) {
+      ref.current.focus();
     }
   };
 
-  const handleAddRecipientChip = (emailToAdd) => {
+  const handleAddRecipientChip = (fieldOrEmail, maybeEmail) => {
+    const field = typeof maybeEmail === 'string' ? fieldOrEmail : 'to';
+    const emailToAdd = typeof maybeEmail === 'string' ? maybeEmail : fieldOrEmail;
     if (!emailToAdd) return;
     const clean = emailToAdd.trim();
     if (!clean) return;
-    const isCasbox = composeMode === "chat" || composeMode === "casbox";
+
+    const isCasbox = (composeMode === "chat" || composeMode === "casbox") && field === 'to';
     if (isCasbox && isExternalEmailDomain(clean)) {
       setError(CASBOX_RECIPIENT_ERROR);
       toast.error(CASBOX_RECIPIENT_ERROR);
       return;
     }
-    const exists = recipientChips.some(c => c.toLowerCase() === clean.toLowerCase());
+
+    // Require complete valid email or existing contact match
+    const isExisting = (contacts || []).some((c) => c.email?.toLowerCase() === clean.toLowerCase());
+    if (!isExisting && !isValidEmailAddress(clean)) {
+      toast.error("Please enter a complete, valid email address (e.g. name@example.com)");
+      return;
+    }
+
+    const currentChips = getChipsForField(field);
+    const exists = currentChips.some((c) => c.toLowerCase() === clean.toLowerCase());
     if (!exists) {
-      const updated = [...recipientChips, clean];
-      setFormData((prev) => ({ ...prev, to: updated.join(", ") }));
+      const updated = [...currentChips, clean];
+      setFormData((prev) => ({ ...prev, [field]: updated.join(", ") }));
     }
-    setToInputValue("");
-    setShowToSuggestions(false);
-    setToSuggestions([]);
-    if (toInputRef.current) {
-      toInputRef.current.focus();
+
+    if (field === 'to') {
+      setToInputValue("");
+      setShowToSuggestions(false);
+      setToSuggestions([]);
+      if (toInputRef.current) toInputRef.current.focus();
+    } else if (field === 'cc') {
+      setCcInputValue("");
+      setShowCcSuggestions(false);
+      setCcSuggestions([]);
+      if (ccInputRef.current) ccInputRef.current.focus();
+    } else if (field === 'bcc') {
+      setBccInputValue("");
+      setShowBccSuggestions(false);
+      setBccSuggestions([]);
+      if (bccInputRef.current) bccInputRef.current.focus();
     }
+  };
+
+  const handleSelectFieldSuggestion = (field, suggestion) => {
+    if (!suggestion || !suggestion.email) return;
+    handleAddRecipientChip(field, suggestion.email);
   };
 
   const handleSelectToSuggestion = (suggestion) => {
-    if (!suggestion || !suggestion.email) return;
-    handleAddRecipientChip(suggestion.email);
+    handleSelectFieldSuggestion('to', suggestion);
   };
 
-  const triggerSuggestionsSearch = (val) => {
+  const triggerSuggestionsSearch = (fieldOrVal, maybeVal) => {
+    const field = typeof maybeVal === 'string' ? fieldOrVal : 'to';
+    const val = typeof maybeVal === 'string' ? maybeVal : fieldOrVal;
+
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
     const clean = (val || "").trim();
+    const setSuggestions = field === 'cc' ? setCcSuggestions : (field === 'bcc' ? setBccSuggestions : setToSuggestions);
+    const setShowSuggestions = field === 'cc' ? setShowCcSuggestions : (field === 'bcc' ? setShowBccSuggestions : setShowToSuggestions);
+    const setHighlightedIndex = field === 'cc' ? setCcHighlightedIndex : (field === 'bcc' ? setBccHighlightedIndex : setToHighlightedIndex);
+
     if (!clean) {
-      setToSuggestions([]);
-      setShowToSuggestions(false);
+      setSuggestions([]);
+      setShowSuggestions(false);
       setIsLoadingSuggestions(false);
       return;
     }
 
-    const isCasbox = composeMode === "chat" || composeMode === "casbox";
-    const existingSet = new Set(recipientChips.map(c => c.toLowerCase()));
+    const isCasbox = (composeMode === "chat" || composeMode === "casbox") && field === 'to';
+    const currentChips = getChipsForField(field);
+    const existingSet = new Set(currentChips.map((c) => c.toLowerCase()));
 
-    // Priority 1: Instant local matches from cached contacts
+    // Priority 1-5: Instant local matches from cached contacts
+    // (1: Inbox, 2: Sent, 3: Starred, 4: Saved contacts, 5: Add Recipient if complete valid email)
     const { suggestions: localMatches } = filterRecipientSuggestions(contacts, clean, 10, existingSet);
-    const filteredLocal = isCasbox ? localMatches.filter(s => !isExternalEmailDomain(s?.email)) : localMatches;
-    setToSuggestions(filteredLocal);
-    setShowToSuggestions(true);
-    setToHighlightedIndex(0);
+    const filteredLocal = isCasbox ? localMatches.filter((s) => !isExternalEmailDomain(s?.email)) : localMatches;
+    setSuggestions(filteredLocal);
+    setShowSuggestions(true);
+    setHighlightedIndex(0);
 
-    // Debounced server search (Priority 1: previous contacts, Fallback: registered BNXmail users)
+    // Debounced background sync with server (communication history & saved contacts only; never database users)
     setIsLoadingSuggestions(true);
     debounceTimerRef.current = setTimeout(async () => {
       try {
         const res = await mailAPI.autocompleteRecipients(clean, 10);
         const serverData = res.data?.data || res.data || [];
         if (Array.isArray(serverData)) {
-          const filteredServer = isCasbox ? serverData.filter(s => !isExternalEmailDomain(s?.email)) : serverData;
+          const filteredServer = isCasbox ? serverData.filter((s) => !isExternalEmailDomain(s?.email)) : serverData;
 
           const merged = [];
           const seen = new Set(existingSet);
 
-          // Priority 1: matching previous contacts first
-          const allPrevious = [
-            ...filteredLocal,
-            ...filteredServer.filter(s => s.isPreviousContact || s.source === "PREVIOUS_CONTACT")
-          ];
-          allPrevious.forEach(s => {
+          // Add local matches first
+          filteredLocal.forEach((s) => {
             const k = s.email?.toLowerCase();
             if (k && !seen.has(k)) {
               seen.add(k);
@@ -523,9 +603,8 @@ const ComposeWindow = ({
             }
           });
 
-          // Fallback: registered BNXmail users from database
-          const allFallback = filteredServer.filter(s => !s.isPreviousContact && s.source !== "PREVIOUS_CONTACT");
-          allFallback.forEach(s => {
+          // Append any server communication contacts
+          filteredServer.forEach((s) => {
             const k = s.email?.toLowerCase();
             if (k && !seen.has(k)) {
               seen.add(k);
@@ -533,7 +612,7 @@ const ComposeWindow = ({
             }
           });
 
-          setToSuggestions(merged);
+          setSuggestions(merged);
         }
       } catch (err) {
         // Keep local matches if server query fails
@@ -543,87 +622,120 @@ const ComposeWindow = ({
     }, 250);
   };
 
-  const handleToInputChange = (e) => {
+  const handleFieldInputChange = (field, e) => {
     const val = e.target.value;
+    const currentChips = getChipsForField(field);
+    const setInputVal = field === 'cc' ? setCcInputValue : (field === 'bcc' ? setBccInputValue : setToInputValue);
+
     if (val.includes(",") || val.includes(";")) {
       const parts = val.split(/[,;]/);
       const trailing = parts.pop() || "";
-      const completeAddrs = parts.map(p => p.trim()).filter(Boolean);
+      const completeAddrs = parts.map((p) => p.trim()).filter(Boolean);
       if (completeAddrs.length > 0) {
-        const isCasbox = composeMode === "chat" || composeMode === "casbox";
-        const newChips = [...recipientChips];
-        completeAddrs.forEach(addr => {
+        const isCasbox = (composeMode === "chat" || composeMode === "casbox") && field === 'to';
+        const newChips = [...currentChips];
+        completeAddrs.forEach((addr) => {
           if (isCasbox && isExternalEmailDomain(addr)) {
             setError(CASBOX_RECIPIENT_ERROR);
             toast.error(CASBOX_RECIPIENT_ERROR);
             return;
           }
-          if (!newChips.some(c => c.toLowerCase() === addr.toLowerCase())) {
-            newChips.push(addr);
+          const isExisting = (contacts || []).some((c) => c.email?.toLowerCase() === addr.toLowerCase());
+          if (isExisting || isValidEmailAddress(addr)) {
+            if (!newChips.some((c) => c.toLowerCase() === addr.toLowerCase())) {
+              newChips.push(addr);
+            }
           }
         });
-        setFormData((prev) => ({ ...prev, to: newChips.join(", ") }));
+        setFormData((prev) => ({ ...prev, [field]: newChips.join(", ") }));
       }
-      setToInputValue(trailing);
-      triggerSuggestionsSearch(trailing);
+      setInputVal(trailing);
+      triggerSuggestionsSearch(field, trailing);
       return;
     }
 
-    setToInputValue(val);
-    triggerSuggestionsSearch(val);
+    setInputVal(val);
+    triggerSuggestionsSearch(field, val);
   };
 
-  const handleToInputFocus = () => {
-    focusedFieldRef.current = 'to';
-    if (toInputValue.trim().length > 0) {
-      triggerSuggestionsSearch(toInputValue);
+  const handleToInputChange = (e) => {
+    handleFieldInputChange('to', e);
+  };
+
+  const handleFieldInputFocus = (field) => {
+    focusedFieldRef.current = field;
+    const inputVal = field === 'cc' ? ccInputValue : (field === 'bcc' ? bccInputValue : toInputValue);
+    if (inputVal.trim().length > 0) {
+      triggerSuggestionsSearch(field, inputVal);
     }
   };
 
-  const handleToInputBlur = () => {
-    if (focusedFieldRef.current === 'to') focusedFieldRef.current = null;
+  const handleToInputFocus = () => {
+    handleFieldInputFocus('to');
+  };
+
+  const handleFieldInputBlur = (field) => {
+    if (focusedFieldRef.current === field) focusedFieldRef.current = null;
+    const setShowSuggestions = field === 'cc' ? setShowCcSuggestions : (field === 'bcc' ? setShowBccSuggestions : setShowToSuggestions);
     setTimeout(() => {
-      setShowToSuggestions(false);
+      setShowSuggestions(false);
     }, 200);
   };
 
-  const handleToInputKeyDown = (e) => {
+  const handleToInputBlur = () => {
+    handleFieldInputBlur('to');
+  };
+
+  const handleFieldInputKeyDown = (field, e) => {
     e.stopPropagation();
-    if (showToSuggestions && toSuggestions.length > 0) {
+    const suggestions = field === 'cc' ? ccSuggestions : (field === 'bcc' ? bccSuggestions : toSuggestions);
+    const showSuggestions = field === 'cc' ? showCcSuggestions : (field === 'bcc' ? showBccSuggestions : showToSuggestions);
+    const highlightedIndex = field === 'cc' ? ccHighlightedIndex : (field === 'bcc' ? bccHighlightedIndex : toHighlightedIndex);
+    const setHighlightedIndex = field === 'cc' ? setCcHighlightedIndex : (field === 'bcc' ? setBccHighlightedIndex : setToHighlightedIndex);
+    const setShowSuggestions = field === 'cc' ? setShowCcSuggestions : (field === 'bcc' ? setShowBccSuggestions : setShowToSuggestions);
+    const inputVal = field === 'cc' ? ccInputValue : (field === 'bcc' ? bccInputValue : toInputValue);
+
+    if (showSuggestions && suggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setToHighlightedIndex((prev) => (prev + 1) % toSuggestions.length);
+        setHighlightedIndex((prev) => (prev + 1) % suggestions.length);
         return;
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setToHighlightedIndex((prev) => (prev - 1 + toSuggestions.length) % toSuggestions.length);
+        setHighlightedIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
         return;
       } else if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        if (toSuggestions[toHighlightedIndex]) {
-          handleSelectToSuggestion(toSuggestions[toHighlightedIndex]);
+        if (suggestions[highlightedIndex]) {
+          handleSelectFieldSuggestion(field, suggestions[highlightedIndex]);
           return;
         }
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        setShowToSuggestions(false);
+        setShowSuggestions(false);
         return;
       }
     }
 
     if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
       e.preventDefault();
-      if (toInputValue.trim().length > 0) {
-        handleAddRecipientChip(toInputValue.trim());
+      if (inputVal.trim().length > 0) {
+        handleAddRecipientChip(field, inputVal.trim());
       }
       return;
     }
 
-    if (e.key === 'Backspace' && toInputValue === '' && recipientChips.length > 0) {
-      e.preventDefault();
-      handleRemoveRecipientChip(recipientChips.length - 1);
-      return;
+    if (e.key === 'Backspace' && (!inputVal || inputVal.length === 0)) {
+      const currentChips = getChipsForField(field);
+      if (currentChips.length > 0) {
+        e.preventDefault();
+        handleRemoveRecipientChip(field, currentChips.length - 1);
+      }
     }
+  };
+
+  const handleToInputKeyDown = (e) => {
+    handleFieldInputKeyDown('to', e);
   };
 
   const dynamicQuillModules = useMemo(() => ({
@@ -3027,48 +3139,116 @@ const ComposeWindow = ({
               {/* CC */}
               {showCc && (composeMode === "mail" || composeMode === "email") && (
                 <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
-                  <div className="text-gray-400 dark:text-gray-500 w-10">Cc:</div>
-                  <input
-                    type="text"
-                    name="cc"
-                    value={formData.cc || ""}
-                    onChange={handleChange}
-                    onFocus={() => { focusedFieldRef.current = 'cc'; }}
-                    onBlur={() => { if (focusedFieldRef.current === 'cc') focusedFieldRef.current = null; }}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      handleStandardInputAutoCorrect(e, autoCorrect);
-                      if (e.key === 'Enter') e.preventDefault();
-                    }}
-                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                    placeholder="carboncopy@example.com"
-                    spellCheck={spellingCheck ? "true" : "false"}
-                    autoCorrect={autoCorrect ? "on" : "off"}
-                  />
+                  <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">Cc:</div>
+                  <div className="flex-1 relative flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
+                    {ccRecipientChips.map((recipient, idx) => (
+                      <span
+                        key={"cc_chip_" + idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200/90 dark:border-blue-800/80 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300 max-w-full select-none"
+                      >
+                        <MdPersonOutline size={13} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span className="truncate max-w-[160px] sm:max-w-[220px]" title={recipient}>
+                          {recipient}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveRecipientChip('cc', idx);
+                          }}
+                          className="text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 ml-0.5 cursor-pointer text-xs leading-none p-0.5"
+                          title="Remove recipient"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                    <div className="flex-1 relative flex items-center min-w-[120px]">
+                      <input
+                        ref={ccInputRef}
+                        type="text"
+                        name="cc_input"
+                        className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm py-0.5"
+                        placeholder={ccRecipientChips.length === 0 ? "carboncopy@example.com" : ""}
+                        value={ccInputValue}
+                        onChange={(e) => handleFieldInputChange('cc', e)}
+                        onFocus={() => handleFieldInputFocus('cc')}
+                        onBlur={() => handleFieldInputBlur('cc')}
+                        onKeyDown={(e) => handleFieldInputKeyDown('cc', e)}
+                        spellCheck={spellingCheck ? "true" : "false"}
+                        autoCorrect={autoCorrect ? "on" : "off"}
+                      />
+                      {showCcSuggestions && (
+                        <RecipientAutocomplete
+                          suggestions={ccSuggestions}
+                          highlightedIndex={ccHighlightedIndex}
+                          onSelectSuggestion={(s) => handleSelectFieldSuggestion('cc', s)}
+                          onHoverIndex={setCcHighlightedIndex}
+                          dropdownRef={ccDropdownRef}
+                          isLoading={isLoadingSuggestions}
+                          query={ccInputValue}
+                        />
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* BCC */}
               {showBcc && (composeMode === "mail" || composeMode === "email") && (
                 <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
-                  <div className="text-gray-400 dark:text-gray-500 w-10">Bcc:</div>
-                  <input
-                    type="text"
-                    name="bcc"
-                    value={formData.bcc || ""}
-                    onChange={handleChange}
-                    onFocus={() => { focusedFieldRef.current = 'bcc'; }}
-                    onBlur={() => { if (focusedFieldRef.current === 'bcc') focusedFieldRef.current = null; }}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      handleStandardInputAutoCorrect(e, autoCorrect);
-                      if (e.key === 'Enter') e.preventDefault();
-                    }}
-                    className="flex-1 outline-none bg-transparent dark:text-gray-100 placeholder-gray-400"
-                    placeholder="blindcopy@example.com"
-                    spellCheck={spellingCheck ? "true" : "false"}
-                    autoCorrect={autoCorrect ? "on" : "off"}
-                  />
+                  <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">Bcc:</div>
+                  <div className="flex-1 relative flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
+                    {bccRecipientChips.map((recipient, idx) => (
+                      <span
+                        key={"bcc_chip_" + idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200/90 dark:border-blue-800/80 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300 max-w-full select-none"
+                      >
+                        <MdPersonOutline size={13} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span className="truncate max-w-[160px] sm:max-w-[220px]" title={recipient}>
+                          {recipient}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveRecipientChip('bcc', idx);
+                          }}
+                          className="text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 ml-0.5 cursor-pointer text-xs leading-none p-0.5"
+                          title="Remove recipient"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                    <div className="flex-1 relative flex items-center min-w-[120px]">
+                      <input
+                        ref={bccInputRef}
+                        type="text"
+                        name="bcc_input"
+                        className="w-full outline-none bg-transparent dark:text-gray-100 placeholder-gray-400 text-sm py-0.5"
+                        placeholder={bccRecipientChips.length === 0 ? "blindcopy@example.com" : ""}
+                        value={bccInputValue}
+                        onChange={(e) => handleFieldInputChange('bcc', e)}
+                        onFocus={() => handleFieldInputFocus('bcc')}
+                        onBlur={() => handleFieldInputBlur('bcc')}
+                        onKeyDown={(e) => handleFieldInputKeyDown('bcc', e)}
+                        spellCheck={spellingCheck ? "true" : "false"}
+                        autoCorrect={autoCorrect ? "on" : "off"}
+                      />
+                      {showBccSuggestions && (
+                        <RecipientAutocomplete
+                          suggestions={bccSuggestions}
+                          highlightedIndex={bccHighlightedIndex}
+                          onSelectSuggestion={(s) => handleSelectFieldSuggestion('bcc', s)}
+                          onHoverIndex={setBccHighlightedIndex}
+                          dropdownRef={bccDropdownRef}
+                          isLoading={isLoadingSuggestions}
+                          query={bccInputValue}
+                        />
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 

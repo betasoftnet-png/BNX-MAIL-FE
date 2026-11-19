@@ -192,6 +192,35 @@ export const saveStoredContacts = (userEmail, contacts) => {
   } catch (e) {}
 };
 
+export const isValidEmailAddress = (email) => {
+  if (!email || typeof email !== 'string') return false;
+  const clean = email.trim();
+  // Standard syntax: username @ domain . tld (tld >= 2 letters, no trailing dots)
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  if (!emailRegex.test(clean)) return false;
+  const parts = clean.split('@');
+  if (parts.length !== 2) return false;
+  const domainParts = parts[1].split('.');
+  if (domainParts.length < 2) return false;
+  const tld = domainParts[domainParts.length - 1];
+  return typeof tld === 'string' && tld.length >= 2;
+};
+
+export const getCategoryPriority = (category) => {
+  if (!category) return 4;
+  switch (String(category).toUpperCase()) {
+    case 'INBOX': return 1;
+    case 'SENT': return 2;
+    case 'STARRED': return 3;
+    case 'SAVED_CONTACT':
+    case 'CONTACT':
+    case 'PREVIOUS_CONTACT':
+      return 4;
+    case 'NEW_RECIPIENT': return 5;
+    default: return 4;
+  }
+};
+
 export const recordSentRecipient = (userEmail, recipientStr) => {
   if (!recipientStr || typeof window === 'undefined') return;
   const myEmail = (userEmail || '').trim().toLowerCase();
@@ -214,7 +243,10 @@ export const recordSentRecipient = (userEmail, recipientStr) => {
     } else {
       map.set(parsed.email, {
         email: parsed.email,
-        name: parsed.name,
+        name: parsed.name || parsed.email.split('@')[0],
+        category: 'SENT',
+        source: 'SENT',
+        isPreviousContact: true,
         count: 1,
         lastSeen: Date.now()
       });
@@ -225,42 +257,121 @@ export const recordSentRecipient = (userEmail, recipientStr) => {
   saveStoredContacts(userEmail, updated);
 };
 
-export const fetchAndSyncContacts = async (userEmail, mailAPI) => {
+export const fetchAndSyncContacts = async (userEmail, mailAPI, connectionAPI) => {
   if (!userEmail || !mailAPI) return getStoredContacts(userEmail);
   const myEmail = userEmail.trim().toLowerCase();
   const stored = getStoredContacts(myEmail);
   const contactsMap = new Map(stored.map(c => [c.email, c]));
 
   try {
-    const [sentRes, inboxRes] = await Promise.allSettled([
-      mailAPI.getSent(1, 50),
-      mailAPI.getInbox(1, 50)
-    ]);
-
-    const allEmails = [];
-    if (sentRes.status === 'fulfilled' && sentRes.value?.data) {
-      const d = sentRes.value.data.data !== undefined ? sentRes.value.data.data : sentRes.value.data;
-      const list = Array.isArray(d) ? d : (d?.emails || d?.messages || []);
-      allEmails.push(...list);
-    }
-    if (inboxRes.status === 'fulfilled' && inboxRes.value?.data) {
-      const d = inboxRes.value.data.data !== undefined ? inboxRes.value.data.data : inboxRes.value.data;
-      const list = Array.isArray(d) ? d : (d?.emails || d?.messages || []);
-      allEmails.push(...list);
+    const promises = [
+      mailAPI.getInbox ? mailAPI.getInbox(1, 50) : Promise.resolve({ data: [] }),
+      mailAPI.getSent ? mailAPI.getSent(1, 50) : Promise.resolve({ data: [] }),
+      mailAPI.getStarred ? mailAPI.getStarred(1, 50) : Promise.resolve({ data: [] }),
+    ];
+    if (connectionAPI && connectionAPI.getAccepted) {
+      promises.push(connectionAPI.getAccepted());
     }
 
-    const fetchedContacts = extractContactsFromEmails(allEmails, myEmail);
-    fetchedContacts.forEach(fc => {
-      if (!contactsMap.has(fc.email)) {
-        contactsMap.set(fc.email, fc);
-      } else {
-        const existing = contactsMap.get(fc.email);
-        existing.count = Math.max(existing.count || 1, fc.count || 1);
-        if (fc.name && fc.name !== fc.email.split('@')[0]) {
-          existing.name = fc.name;
-        }
+    const results = await Promise.allSettled(promises);
+    const inboxRes = results[0];
+    const sentRes = results[1];
+    const starredRes = results[2];
+    const connRes = results[3];
+
+    const getList = (res) => {
+      if (res && res.status === 'fulfilled' && res.value?.data) {
+        const d = res.value.data.data !== undefined ? res.value.data.data : res.value.data;
+        return Array.isArray(d) ? d : (d?.emails || d?.messages || []);
       }
+      return [];
+    };
+
+    const inboxEmails = getList(inboxRes);
+    const sentEmails = getList(sentRes);
+    const starredEmails = getList(starredRes);
+
+    const addContactToMap = (email, name, category, count = 1, lastSeen = Date.now()) => {
+      if (!email || !email.includes('@')) return;
+      const cleanEmail = email.trim().toLowerCase();
+      if (myEmail && cleanEmail === myEmail) return;
+
+      const newPriority = getCategoryPriority(category);
+      if (contactsMap.has(cleanEmail)) {
+        const existing = contactsMap.get(cleanEmail);
+        existing.count = Math.max(existing.count || 1, count);
+        existing.lastSeen = Math.max(existing.lastSeen || 0, lastSeen);
+        if (name && name !== cleanEmail.split('@')[0]) {
+          existing.name = name;
+        }
+        const existingPriority = getCategoryPriority(existing.category || existing.source);
+        if (newPriority < existingPriority) {
+          existing.category = category;
+          existing.source = category;
+        }
+      } else {
+        contactsMap.set(cleanEmail, {
+          email: cleanEmail,
+          name: name || cleanEmail.split('@')[0],
+          category,
+          source: category,
+          isPreviousContact: true,
+          count,
+          lastSeen
+        });
+      }
+    };
+
+    // 1. Inbox: Senders who previously emailed the user
+    inboxEmails.forEach((e) => {
+      const fromList = [e.from, e.sender, e.senderEmail].filter(Boolean);
+      fromList.forEach((field) => {
+        splitAddresses(field).forEach((addr) => {
+          const parsed = parseAddress(addr);
+          if (parsed && parsed.email) {
+            addContactToMap(parsed.email, parsed.name, 'INBOX', 1, e.receivedDate || e.date || Date.now());
+          }
+        });
+      });
     });
+
+    // 2. Sent: Recipients previously emailed by the user
+    sentEmails.forEach((e) => {
+      const toList = [e.to, e.recipient, e.recipientEmail, e.cc, e.bcc].filter(Boolean);
+      toList.forEach((field) => {
+        splitAddresses(field).forEach((addr) => {
+          const parsed = parseAddress(addr);
+          if (parsed && parsed.email) {
+            addContactToMap(parsed.email, parsed.name, 'SENT', 1, e.sentDate || e.date || Date.now());
+          }
+        });
+      });
+    });
+
+    // 3. Starred: Contacts in starred emails
+    starredEmails.forEach((e) => {
+      const addrs = [e.from, e.sender, e.senderEmail, e.to, e.recipient, e.recipientEmail].filter(Boolean);
+      addrs.forEach((field) => {
+        splitAddresses(field).forEach((addr) => {
+          const parsed = parseAddress(addr);
+          if (parsed && parsed.email) {
+            addContactToMap(parsed.email, parsed.name, 'STARRED', 1, e.date || Date.now());
+          }
+        });
+      });
+    });
+
+    // 4. Saved Contacts & Accepted Connections
+    if (connRes && connRes.status === 'fulfilled' && connRes.value?.data) {
+      const conns = Array.isArray(connRes.value.data.data) ? connRes.value.data.data : (Array.isArray(connRes.value.data) ? connRes.value.data : []);
+      conns.forEach((c) => {
+        const email = c.contactEmail || c.email;
+        const name = c.contactDisplayName || c.contactUsername || c.name;
+        if (email) {
+          addContactToMap(email, name, 'SAVED_CONTACT', 1, Date.now());
+        }
+      });
+    }
 
     const merged = Array.from(contactsMap.values());
     saveStoredContacts(myEmail, merged);
@@ -316,7 +427,7 @@ export const formatRecipientChips = (chips) => {
 };
 
 export const filterRecipientSuggestions = (contacts, inputValue, limit = 8, existingRecipientSet = null) => {
-  const query = getActiveRecipientQuery(inputValue).toLowerCase();
+  const query = getActiveRecipientQuery(inputValue).trim().toLowerCase();
   if (!query || query.length === 0) {
     return { query: '', suggestions: [] };
   }
@@ -325,7 +436,7 @@ export const filterRecipientSuggestions = (contacts, inputValue, limit = 8, exis
     ? existingRecipientSet 
     : getExistingRecipientEmails(inputValue);
 
-  // Filter contacts
+  // 1. Filter existing contacts by email or name (partial matching)
   const matches = (contacts || []).filter(c => {
     if (!c || !c.email) return false;
     const emailLower = c.email.toLowerCase();
@@ -336,17 +447,19 @@ export const filterRecipientSuggestions = (contacts, inputValue, limit = 8, exis
     return emailLower.includes(query) || nameLower.includes(query);
   }).map(c => ({
     ...c,
-    source: c.source || 'PREVIOUS_CONTACT',
-    isPreviousContact: c.isPreviousContact !== undefined ? c.isPreviousContact : true
+    category: c.category || c.source || 'INBOX',
+    source: c.category || c.source || 'INBOX',
+    isPreviousContact: true
   }));
 
-  // Sort matches by relevance:
-  // 1. Email starts with query (e.g. typing 'D' -> 'david@...')
-  // 2. Name starts with query (e.g. typing 'HR' -> 'HR Manager')
-  // 3. Word in name starts with query
-  // 4. Contact count / frequency
-  // 5. Substring / Alphabetical
+  // 2. Sort matches by priority:
+  // Priority 1: Inbox -> Priority 2: Sent -> Priority 3: Starred -> Priority 4: Saved contacts
+  // Within same priority: email starts with query -> name starts with query -> word in name starts with query -> count -> alphabetical
   matches.sort((a, b) => {
+    const aPrio = getCategoryPriority(a.category || a.source);
+    const bPrio = getCategoryPriority(b.category || b.source);
+    if (aPrio !== bPrio) return aPrio - bPrio;
+
     const aEmail = a.email.toLowerCase();
     const bEmail = b.email.toLowerCase();
     const aName = (a.name || '').toLowerCase();
@@ -374,9 +487,28 @@ export const filterRecipientSuggestions = (contacts, inputValue, limit = 8, exis
     return aEmail.localeCompare(bEmail);
   });
 
+  const slicedMatches = matches.slice(0, limit);
+
+  // 3. Priority 5: New recipient option ONLY if query is a complete and syntactically valid email address
+  if (isValidEmailAddress(query)) {
+    const alreadyInMatches = slicedMatches.some(m => m.email.toLowerCase() === query);
+    const alreadySelected = existingEmails.has(query);
+    if (!alreadyInMatches && !alreadySelected && slicedMatches.length < limit) {
+      slicedMatches.push({
+        email: query,
+        name: query.split('@')[0],
+        category: 'NEW_RECIPIENT',
+        source: 'NEW_RECIPIENT',
+        isPreviousContact: false,
+        isNewRecipient: true,
+        count: 0
+      });
+    }
+  }
+
   return {
     query,
-    suggestions: matches.slice(0, limit)
+    suggestions: slicedMatches
   };
 };
 
