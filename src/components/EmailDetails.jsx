@@ -69,7 +69,8 @@ import { useNotificationPreferences } from "../context/NotificationPreferenceCon
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
-import { mailAPI, reportAPI, blockedContactsAPI } from "../services/api";
+import { mailAPI, reportAPI, blockedContactsAPI, readReceiptAPI } from "../services/api";
+import { isBusinessAccount } from "../utils/accountUtils";
 import toast from "react-hot-toast";
 import logo from "../assets/bnx-remove.png";
 import html2pdf from "html2pdf.js";
@@ -427,6 +428,51 @@ const EmailDetails = ({
   };
 
   const [showRecipientDetails, setShowRecipientDetails] = useState(false);
+
+  // Read Receipt state and handlers
+  const isBusinessUser = isBusinessAccount(user);
+  const isSender = Boolean(cleanSenderEmail && user?.email && cleanSenderEmail.toLowerCase() === user.email.toLowerCase());
+  const isSentMail = Boolean(isSender || currentFolder === 'Sent' || email?.category === 'SENT' || (email?.folderName && email.folderName.toLowerCase().includes('sent')));
+
+  const [isRespondingReceipt, setIsRespondingReceipt] = useState(false);
+  const [receiptDismissed, setReceiptDismissed] = useState(false);
+  const [localReceiptStatus, setLocalReceiptStatus] = useState(null);
+
+  useEffect(() => {
+    setReceiptDismissed(false);
+    setLocalReceiptStatus(null);
+  }, [email?.uid, email?.messageId, email?.readReceiptId]);
+
+  const handleAcceptReadReceipt = async () => {
+    if (!email?.readReceiptId || isRespondingReceipt) return;
+    setIsRespondingReceipt(true);
+    try {
+      await readReceiptAPI.respond(email.readReceiptId, 'ACCEPT');
+      toast.success("Read receipt sent.");
+      setLocalReceiptStatus('READ');
+      setReceiptDismissed(true);
+    } catch (err) {
+      console.error("Error sending read receipt:", err);
+      toast.error("Failed to send read receipt.");
+    } finally {
+      setIsRespondingReceipt(false);
+    }
+  };
+
+  const handleDeclineReadReceipt = async () => {
+    if (!email?.readReceiptId || isRespondingReceipt) return;
+    setIsRespondingReceipt(true);
+    try {
+      await readReceiptAPI.respond(email.readReceiptId, 'DECLINE');
+      toast.info("Read receipt request declined.");
+      setLocalReceiptStatus('DECLINED');
+      setReceiptDismissed(true);
+    } catch (err) {
+      console.error("Error declining read receipt:", err);
+    } finally {
+      setIsRespondingReceipt(false);
+    }
+  };
 
   useEffect(() => {
     setShowRecipientDetails(false);
@@ -2012,6 +2058,86 @@ const EmailDetails = ({
 
             {/* INNER CARD CONTENT */}
             <div className="px-5 sm:px-8 lg:px-9 pt-5 sm:pt-6 pb-6 sm:pb-8 lg:pb-9">
+
+              {/* Read Receipt Request Banner for Recipient */}
+              {!isSentMail && !isSender && email?.readReceiptRequested && !receiptDismissed && (!email?.readReceiptStatus || email?.readReceiptStatus === 'PENDING') && (
+                <div className="mb-4 p-3.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2.5 text-blue-900 dark:text-blue-200 text-xs sm:text-sm">
+                    <MdRemoveRedEye className="text-blue-600 dark:text-blue-400 shrink-0 text-lg" />
+                    <span>
+                      The sender has requested a read receipt. Would you like to send one?
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={handleAcceptReadReceipt}
+                      disabled={isRespondingReceipt}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+                    >
+                      Send Receipt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeclineReadReceipt}
+                      disabled={isRespondingReceipt}
+                      className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-50 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-lg transition-colors cursor-pointer border border-gray-200/80 dark:border-neutral-700"
+                    >
+                      Don't Send
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Read Receipt Status Indicator for Business Senders */}
+              {isBusinessUser && isSentMail && email?.readReceiptRequested && (
+                <div className="mb-4 px-3.5 py-2.5 rounded-xl bg-gray-50/90 dark:bg-neutral-800/50 border border-gray-200/90 dark:border-neutral-700/60 flex items-center justify-between gap-3 text-xs shadow-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-600 dark:text-gray-400">Read Receipt:</span>
+                    {(() => {
+                      const status = (localReceiptStatus || email?.readReceiptStatus || 'PENDING').toUpperCase();
+                      if (status === 'READ') {
+                        return (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                            <span>Read{email?.readReceiptRecipient ? ` by ${email.readReceiptRecipient}` : ''}</span>
+                          </span>
+                        );
+                      } else if (status === 'DECLINED') {
+                        return (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-neutral-700">
+                            <span>Declined</span>
+                          </span>
+                        );
+                      } else if (status === 'UNSUPPORTED') {
+                        return (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                            <span>Unsupported</span>
+                          </span>
+                        );
+                      } else if (status === 'FAILED') {
+                        return (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
+                            <span>Failed</span>
+                          </span>
+                        );
+                      } else {
+                        return (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            <span>Receipt Pending</span>
+                          </span>
+                        );
+                      }
+                    })()}
+                  </div>
+                  {email?.readReceiptRespondedAt && (
+                    <span className="text-gray-400 dark:text-gray-500 text-[11px] font-medium shrink-0">
+                      {formatDate(email.readReceiptRespondedAt)}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* SENDER INFO (EMAIL HEADER - GMAIL/PEPSICO STYLE) */}
               <div className="flex items-start justify-between gap-3 pb-3 mb-5 border-b border-gray-100 dark:border-neutral-800">

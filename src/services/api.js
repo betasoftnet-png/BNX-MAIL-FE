@@ -349,6 +349,18 @@ export const mailAPI = {
     getCategory: (category) => api.get(`${API_ENDPOINTS.MAIL.CATEGORY}/${category}`),
 };
 
+// Read Receipt APIs (Business Accounts & Recipient Confirmation)
+export const readReceiptAPI = {
+    respond: (receiptId, action = 'ACCEPT', reason = '') =>
+        api.post(`/api/mail/read-receipt/${receiptId}/respond`, { action, reason }),
+    updateStatus: (receiptId, status, reason = '') =>
+        api.post(`/api/mail/read-receipt/${receiptId}/status`, { status, reason }),
+    getReceipt: (receiptId) =>
+        api.get(`/api/mail/read-receipt/${receiptId}`),
+    queryStatus: (params) =>
+        api.get('/api/mail/read-receipt/status', { params }),
+};
+
 // Email Management APIs
 export const emailAPI = {
     createEmail: (data, token) => api.post(API_ENDPOINTS.EMAILS.CREATE, data, {

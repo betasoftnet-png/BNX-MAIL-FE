@@ -51,6 +51,7 @@ import {
   formatRecipientChips,
   isValidEmailAddress
 } from "../utils/recipientSuggestions";
+import { isBusinessAccount } from "../utils/accountUtils";
 
 const CASBOX_RECIPIENT_ERROR = "This recipient is not a BNXmail user. You can send messages only to registered BNXmail accounts through Casbox.";
 
@@ -308,6 +309,8 @@ const ComposeWindow = ({
   const { t } = useTranslation();
   const { theme } = useTheme();
   const { user } = useAuth();
+  const isBusiness = isBusinessAccount(user);
+  const [requestReadReceipt, setRequestReadReceipt] = useState(false);
   const {
     fetchEmails,
     fetchEmailsSilently,
@@ -1850,6 +1853,9 @@ const ComposeWindow = ({
     if (cleanCc) payload.cc = cleanCc;
     if (cleanBcc) payload.bcc = cleanBcc;
     if (cleanAttachments.length > 0) payload.attachments = cleanAttachments;
+    if (isBusiness && requestReadReceipt) {
+      payload.requestReadReceipt = true;
+    }
 
     const sendId = (typeof crypto !== 'undefined' && crypto.randomUUID)
       ? crypto.randomUUID()
@@ -3475,6 +3481,22 @@ const ComposeWindow = ({
                   )}
                 </div>
 
+                {/* Request Read Receipt (Business Accounts Only) */}
+                {isBusiness && (composeMode === "mail" || composeMode === "email") && (
+                  <label
+                    className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white cursor-pointer select-none px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
+                    title="Request a notification when the recipient reads this email"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={requestReadReceipt}
+                      onChange={(e) => setRequestReadReceipt(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-neutral-700 cursor-pointer"
+                    />
+                    <span className="font-medium whitespace-nowrap">Request Read Receipt</span>
+                  </label>
+                )}
+
                 {/* Schedule Send Dropdown Menu */}
                 {showScheduleMenu && (
                   <div
@@ -3694,6 +3716,22 @@ const ComposeWindow = ({
                     </button>
                   )}
                 </div>
+
+                {/* Request Read Receipt (Business Accounts Only) */}
+                {isBusiness && (composeMode === "mail" || composeMode === "email") && (
+                  <label
+                    className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white cursor-pointer select-none px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
+                    title="Request a notification when recipient reads this email"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={requestReadReceipt}
+                      onChange={(e) => setRequestReadReceipt(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-neutral-700 cursor-pointer"
+                    />
+                    <span className="font-medium whitespace-nowrap">Request Read Receipt</span>
+                  </label>
+                )}
 
                 {/* Schedule Send Dropdown Menu */}
                 {showScheduleMenu && (
