@@ -23,6 +23,12 @@ import {
     isEmailValidScheduled,
     deduplicateStarredEmails
 } from '../utils/starredStorage';
+import {
+    getStoredPinnedIds,
+    saveStoredPinnedIds,
+    getEmailPinKey,
+    isEmailPinned as checkEmailPinned
+} from '../utils/pinnedStorage';
 import { deduplicateAllMailEmails } from '../utils/allMailDeduplication';
 import {
     extractEmailAddresses,
@@ -519,6 +525,85 @@ export const MailProvider = ({ children }) => {
             currentFolderRef.current?.toLowerCase() === 'drafts';
         const f = isDraft ? 'draft' : (folder || email?.folderName || '');
         return isEmailIdStarred(u, user?.email, f, email);
+    }, [user?.email]);
+
+    /* ---------------- PINNED EMAILS SYSTEM ---------------- */
+    const [pinnedIds, setPinnedIds] = useState(() => getStoredPinnedIds(user?.email));
+    const pinnedIdsRef = useRef(pinnedIds);
+
+    useEffect(() => {
+        pinnedIdsRef.current = pinnedIds;
+    }, [pinnedIds]);
+
+    useEffect(() => {
+        const loaded = getStoredPinnedIds(user?.email);
+        setPinnedIds(loaded);
+        pinnedIdsRef.current = loaded;
+    }, [user?.email]);
+
+    useEffect(() => {
+        const handlePinnedSync = () => {
+            const loaded = getStoredPinnedIds(user?.email);
+            setPinnedIds(loaded);
+            pinnedIdsRef.current = loaded;
+        };
+        window.addEventListener('storage', handlePinnedSync);
+        window.addEventListener('bnx-pinned-emails-changed', handlePinnedSync);
+        return () => {
+            window.removeEventListener('storage', handlePinnedSync);
+            window.removeEventListener('bnx-pinned-emails-changed', handlePinnedSync);
+        };
+    }, [user?.email]);
+
+    const isEmailPinned = useCallback((uid, email = null) => {
+        if (!uid && uid !== 0 && !email) return false;
+        if (email && email.isPinned === true) return true;
+        const key = getEmailPinKey(uid, email);
+        if (!key) return false;
+        const currentSet = pinnedIdsRef.current || pinnedIds;
+        return currentSet.has(key);
+    }, [pinnedIds]);
+
+    const handleTogglePin = useCallback((uid, email = null) => {
+        const key = getEmailPinKey(uid, email);
+        if (!key) return false;
+        const next = new Set(pinnedIdsRef.current || []);
+        let isNowPinned = false;
+        if (next.has(key)) {
+            next.delete(key);
+            isNowPinned = false;
+        } else {
+            next.add(key);
+            isNowPinned = true;
+        }
+        saveStoredPinnedIds(next, user?.email);
+        setPinnedIds(next);
+        pinnedIdsRef.current = next;
+        return isNowPinned;
+    }, [user?.email]);
+
+    const handlePinEmails = useCallback((uids) => {
+        if (!Array.isArray(uids) || uids.length === 0) return;
+        const next = new Set(pinnedIdsRef.current || []);
+        uids.forEach(uid => {
+            const key = getEmailPinKey(uid);
+            if (key) next.add(key);
+        });
+        saveStoredPinnedIds(next, user?.email);
+        setPinnedIds(next);
+        pinnedIdsRef.current = next;
+    }, [user?.email]);
+
+    const handleUnpinEmails = useCallback((uids) => {
+        if (!Array.isArray(uids) || uids.length === 0) return;
+        const next = new Set(pinnedIdsRef.current || []);
+        uids.forEach(uid => {
+            const key = getEmailPinKey(uid);
+            if (key) next.delete(key);
+        });
+        saveStoredPinnedIds(next, user?.email);
+        setPinnedIds(next);
+        pinnedIdsRef.current = next;
     }, [user?.email]);
 
     useEffect(() => {
@@ -4011,6 +4096,11 @@ export const MailProvider = ({ children }) => {
             handleToggleStar,
             isEmailStarred,
             starredIds,
+            pinnedIds,
+            isEmailPinned,
+            handleTogglePin,
+            handlePinEmails,
+            handleUnpinEmails,
             handleMarkRead,
             handleMarkUnread,
             isEmailRead,
@@ -4099,6 +4189,11 @@ export const useMail = () => {
             handleToggleStar: async () => { },
             isEmailStarred: () => false,
             starredIds: new Set(),
+            pinnedIds: new Set(),
+            isEmailPinned: () => false,
+            handleTogglePin: () => false,
+            handlePinEmails: () => { },
+            handleUnpinEmails: () => { },
             handleMoveToTrash: async () => { },
             handleDeletePermanently: async () => { },
             handleArchive: async () => { },

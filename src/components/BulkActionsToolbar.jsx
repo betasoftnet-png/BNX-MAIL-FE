@@ -17,7 +17,9 @@ import {
   MdClose,
   MdBlock,
   MdAlarmOff,
-  MdCheck
+  MdCheck,
+  MdPushPin,
+  MdOutlinePushPin
 } from "react-icons/md";
 import toast from "react-hot-toast";
 import {
@@ -58,7 +60,11 @@ const BulkActionsToolbar = ({
     handleApplyLabel,
     handleRemoveLabel,
     openCompose,
-    isEmailRead
+    isEmailRead,
+    isEmailPinned,
+    handlePinEmails,
+    handleUnpinEmails,
+    pinnedIds
   } = useMail();
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -222,6 +228,40 @@ const BulkActionsToolbar = ({
       return true;
     });
   }, [selectedEmails]);
+
+  // Check if current view is Inbox
+  const isInboxFolder = Boolean(
+    folder?.toLowerCase() === "inbox" ||
+    folder?.toLowerCase() === "all-inbox" ||
+    folder?.toLowerCase() === "allinbox" ||
+    folder?.toLowerCase() === "unread" ||
+    (!folder && typeof window !== "undefined" && (
+      window.location.pathname === "/inbox" ||
+      window.location.pathname === "/all-inbox" ||
+      window.location.pathname === "/" ||
+      window.location.pathname?.startsWith("/inbox")
+    ))
+  );
+
+  // Check if all selected emails are currently pinned
+  const allSelectedArePinned = useMemo(() => {
+    if (!uniqueSelectedEmails.length || !isEmailPinned) return false;
+    return uniqueSelectedEmails.every((e) => isEmailPinned(e.uid ?? e.id, e));
+  }, [uniqueSelectedEmails, isEmailPinned, pinnedIds]);
+
+  // Bulk Pin / Unpin
+  const handleBulkPinToggle = useCallback(() => {
+    if (!uniqueSelectedEmails.length) return;
+    const uids = uniqueSelectedEmails.map((e) => e.uid ?? e.id);
+    if (allSelectedArePinned) {
+      handleUnpinEmails?.(uids);
+      toast.success(uniqueSelectedEmails.length === 1 ? "Email unpinned" : "Emails unpinned");
+    } else {
+      handlePinEmails?.(uids);
+      toast.success(uniqueSelectedEmails.length === 1 ? "Email pinned" : "Emails pinned");
+    }
+    setSelectedIds(new Set());
+  }, [uniqueSelectedEmails, allSelectedArePinned, handleUnpinEmails, handlePinEmails, setSelectedIds]);
 
   // Bulk Archive
   const handleBulkArchive = useCallback(async () => {
@@ -505,6 +545,26 @@ const BulkActionsToolbar = ({
             title={t("snooze.unsnooze", "Unsnooze / Return to Inbox")}
           >
             <MdAlarmOff size={19} />
+          </button>
+        )}
+
+        {/* Pin / Unpin */}
+        {isInboxFolder && (
+          <button
+            onClick={handleBulkPinToggle}
+            className={`p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all cursor-pointer flex items-center justify-center ${
+              allSelectedArePinned
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+            }`}
+            title={allSelectedArePinned ? t("common.unpin", "Unpin") : t("common.pin", "Pin")}
+            aria-label={allSelectedArePinned ? "Unpin selected email" : "Pin selected email"}
+          >
+            {allSelectedArePinned ? (
+              <MdPushPin size={19} />
+            ) : (
+              <MdOutlinePushPin size={19} />
+            )}
           </button>
         )}
 

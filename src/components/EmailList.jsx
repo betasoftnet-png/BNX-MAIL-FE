@@ -1,7 +1,7 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile, MdRestore, MdAlarmOff } from "react-icons/md";
+import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile, MdRestore, MdAlarmOff, MdPushPin } from "react-icons/md";
 import { Pencil } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -49,7 +49,7 @@ const EmailList = ({
   const { user } = useAuth();
   const location = useLocation();
   const { theme, emailsPerPage, backgroundImage } = useTheme();
-  const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead } = useMail();
+  const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead, isEmailPinned, handleTogglePin } = useMail();
   const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
   const [, setPrefsTick] = useState(0);
   useEffect(() => {
@@ -373,6 +373,8 @@ const EmailList = ({
                 email.folderName?.toLowerCase() === 'spam' ||
                 email.isSpam === true
               );
+              const itemUid = email.uid ?? email.id;
+              const isItemPinned = Boolean(email.isPinned || (typeof isEmailPinned === 'function' && isEmailPinned(itemUid, email)));
 
               return (
                 <div
@@ -383,9 +385,13 @@ const EmailList = ({
                       ? "bg-blue-50/70 dark:bg-blue-950/30 border-l-[3px] border-blue-500"
                       : isSelected
                         ? "bg-primary/5 dark:bg-primary/10 border-l-[3px] border-primary"
-                        : isUnread
-                          ? "bg-black/[0.01] dark:bg-white/[0.02] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] border-l-[3px] border-transparent"
-                          : "bg-transparent hover:bg-black/[0.02] dark:hover:bg-white/[0.02] border-l-[3px] border-transparent"
+                        : isItemPinned
+                          ? isUnread
+                            ? "bg-blue-50/25 dark:bg-blue-950/20 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 border-l-[3px] border-blue-500/80"
+                            : "bg-blue-50/15 dark:bg-blue-950/10 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 border-l-[3px] border-blue-500/80"
+                          : isUnread
+                            ? "bg-black/[0.01] dark:bg-white/[0.02] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] border-l-[3px] border-transparent"
+                            : "bg-transparent hover:bg-black/[0.02] dark:hover:bg-white/[0.02] border-l-[3px] border-transparent"
                     }`}
                 >
                   {/* Checkbox */}
@@ -413,7 +419,6 @@ const EmailList = ({
                           currentFolder?.toLowerCase() === "draft" ||
                           currentFolder?.toLowerCase() === "drafts";
                         const itemFolder = isDraft ? "draft" : (email.folderName || currentFolder);
-                        const itemUid = email.uid ?? email.id;
                         const isItemStarred = typeof isEmailStarred === 'function'
                           ? isEmailStarred(itemUid, itemFolder, email)
                           : Boolean(email.starred || email.isStarred);
@@ -435,6 +440,24 @@ const EmailList = ({
                           </button>
                         );
                       })()}
+                    </div>
+                  )}
+
+                  {/* Pinned Visual Indicator */}
+                  {isItemPinned && (
+                    <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTogglePin?.(itemUid, email);
+                        }}
+                        className="inline-flex items-center justify-center p-1 rounded-full cursor-pointer text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors duration-150"
+                        title="Pinned - Click to unpin"
+                        aria-label="Pinned email - Click to unpin"
+                      >
+                        <MdPushPin size={18} className="rotate-45 fill-current" />
+                      </button>
                     </div>
                   )}
 

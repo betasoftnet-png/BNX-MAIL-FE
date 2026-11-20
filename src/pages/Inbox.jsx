@@ -21,7 +21,7 @@ const Inbox = ({ searchQuery }) => {
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
   const { user } = useAuth();
-  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter, dateFilter, customDateRange, resetDateFilter, isEmailRead } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleMarkRead, handleSnooze, handleApplyLabel, handleArchive, openCompose, matchesDateFilter, dateFilter, customDateRange, resetDateFilter, isEmailRead, isEmailPinned, pinnedIds } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
@@ -32,7 +32,7 @@ const Inbox = ({ searchQuery }) => {
       if (t && ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(t.toUpperCase())) {
         return t.toUpperCase();
       }
-    } catch (e) {}
+    } catch (e) { }
     return 'ALL';
   });
 
@@ -113,6 +113,23 @@ const Inbox = ({ searchQuery }) => {
         (typeof matchesDateFilter === 'function' ? matchesDateFilter(e) : true);
     }
   );
+
+  // Pinned emails appear at the TOP of the Inbox list, preserving relative order among pinned and among unpinned
+  const sortedEmails = React.useMemo(() => {
+    if (!visibleEmails || visibleEmails.length === 0) return [];
+    const pinned = [];
+    const unpinned = [];
+    visibleEmails.forEach((email) => {
+      const uid = email.uid ?? email.id;
+      const isPinned = typeof isEmailPinned === 'function' ? isEmailPinned(uid, email) : false;
+      if (isPinned) {
+        pinned.push({ ...email, isPinned: true });
+      } else {
+        unpinned.push({ ...email, isPinned: false });
+      }
+    });
+    return [...pinned, ...unpinned];
+  }, [visibleEmails, pinnedIds, isEmailPinned]);
 
   useEffect(() => {
     setSelectedEmailUid(null);
@@ -218,7 +235,7 @@ const Inbox = ({ searchQuery }) => {
     <div className="flex-1 flex flex-col overflow-hidden">
       {loading && <div className="p-4 text-center text-xs opacity-60">Loading emails...</div>}
       <EmailList
-        emails={visibleEmails}
+        emails={sortedEmails}
         selectedEmailId={selectedEmailUid}
         onSelectEmail={handleSelectEmail}
         onDelete={(uid) => handleMoveToTrash(uid, currentFolder)}
@@ -254,7 +271,7 @@ const Inbox = ({ searchQuery }) => {
     <BulkActionsToolbar
       selectedIds={selectedIds}
       setSelectedIds={setSelectedIds}
-      visibleEmails={visibleEmails}
+      visibleEmails={sortedEmails}
       folder={currentFolder}
       visibilityFolder={activeTab === 'IMPORTANT' ? 'important' : currentFolder}
     />
@@ -322,7 +339,7 @@ const Inbox = ({ searchQuery }) => {
   const detailsComponent = selectedEmail ? (
     <EmailDetails
       visibilityFolder={activeTab === 'IMPORTANT' ? 'important' : currentFolder}
-      emailList={visibleEmails}
+      emailList={sortedEmails}
       onNavigate={(email) => {
         setSelectedEmailOverride(null);
         setSelectedEmailUid(email.uid);
