@@ -15,6 +15,7 @@ import {
   MdArrowDropDown,
   MdFileDownload,
   MdRemoveRedEye,
+  MdOutlineVisibility,
   MdArrowBack,
   MdPersonOutline,
   MdInsertDriveFile,
@@ -3481,22 +3482,6 @@ const ComposeWindow = ({
                   )}
                 </div>
 
-                {/* RRR (Request Read Receipt) - Business Accounts Only */}
-                {isBusiness && (composeMode === "mail" || composeMode === "email") && (
-                  <label
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white cursor-pointer select-none px-1.5 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
-                    title="Request Read Receipt"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={requestReadReceipt}
-                      onChange={(e) => setRequestReadReceipt(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-neutral-700 cursor-pointer"
-                    />
-                    <span className="whitespace-nowrap leading-none">RRR</span>
-                  </label>
-                )}
-
                 {/* Schedule Send Dropdown Menu */}
                 {showScheduleMenu && (
                   <div
@@ -3618,6 +3603,23 @@ const ComposeWindow = ({
                   <MdAttachFile size={19} className="transform rotate-45" />
                 </button>
 
+                {/* Request Read Receipt (Business Accounts Only) */}
+                {isBusiness && (composeMode === "mail" || composeMode === "email") && (
+                  <button
+                    type="button"
+                    onClick={() => setRequestReadReceipt(!requestReadReceipt)}
+                    className={`p-1.5 rounded-full transition-colors cursor-pointer shrink-0 flex items-center justify-center ${
+                      requestReadReceipt
+                        ? "bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/60 ring-1 ring-blue-500/30"
+                        : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10"
+                    }`}
+                    title="Request Read Receipt"
+                    aria-label="Request Read Receipt"
+                  >
+                    {requestReadReceipt ? <MdRemoveRedEye size={19} /> : <MdOutlineVisibility size={19} />}
+                  </button>
+                )}
+
                 <div className="relative">
                   <button
                     type="button"
@@ -3717,22 +3719,6 @@ const ComposeWindow = ({
                   )}
                 </div>
 
-                {/* RRR (Request Read Receipt) - Business Accounts Only */}
-                {isBusiness && (composeMode === "mail" || composeMode === "email") && (
-                  <label
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white cursor-pointer select-none px-1.5 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
-                    title="Request Read Receipt"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={requestReadReceipt}
-                      onChange={(e) => setRequestReadReceipt(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-neutral-700 cursor-pointer"
-                    />
-                    <span className="whitespace-nowrap leading-none">RRR</span>
-                  </label>
-                )}
-
                 {/* Schedule Send Dropdown Menu */}
                 {showScheduleMenu && (
                   <div
@@ -3823,11 +3809,28 @@ const ComposeWindow = ({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer shrink-0"
                   title="Attach file"
                 >
                   <MdAttachFile size={18} className="transform rotate-45" />
                 </button>
+
+                {/* Request Read Receipt (Business Accounts Only) */}
+                {isBusiness && (composeMode === "mail" || composeMode === "email") && (
+                  <button
+                    type="button"
+                    onClick={() => setRequestReadReceipt(!requestReadReceipt)}
+                    className={`p-2 rounded-full transition-colors cursor-pointer shrink-0 flex items-center justify-center ${
+                      requestReadReceipt
+                        ? "bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/60 ring-1 ring-blue-500/30"
+                        : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10"
+                    }`}
+                    title="Request Read Receipt"
+                    aria-label="Request Read Receipt"
+                  >
+                    {requestReadReceipt ? <MdRemoveRedEye size={18} /> : <MdOutlineVisibility size={18} />}
+                  </button>
+                )}
 
                 {/* Signatures quick selector */}
                 {(composeMode === "mail" || composeMode === "email") && (
