@@ -24,6 +24,7 @@ import {
   isLabelVisibleInMessageList,
   findSystemLabelDefinition
 } from "../utils/labelPreferences";
+import { getFullLabelPath } from "../utils/labelHierarchy";
 
 const EmailList = ({
   emails,
@@ -542,12 +543,15 @@ const EmailList = ({
                         const labelId = typeof label === 'string' ? label : (label.id || label.name);
                         const labelName = typeof label === 'string' ? label : (label.name || label.id);
                         const matchedSys = findSystemLabelDefinition(label);
+                        const customObj = typeof label === 'object' ? label : (labels || []).find(l => String(l.id) === String(labelId) || l.name === labelName);
+                        const fullPath = customObj ? getFullLabelPath(customObj, labels) : labelName;
                         const labelColor = typeof label === 'string'
                           ? (labels.find(l => l.name === label || l.id === label)?.colorHex || matchedSys?.colorHex || '#135bec')
                           : (label.colorHex || matchedSys?.colorHex || '#135bec');
                         return (
                           <span
                             key={labelId}
+                            title={fullPath}
                             className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-tight text-white border border-black/5 dark:border-white/5"
                             style={{ backgroundColor: labelColor }}
                           >

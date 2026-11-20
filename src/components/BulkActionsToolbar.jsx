@@ -35,6 +35,7 @@ import {
   matchesLabelIdentity,
   resolveViewFolderForVisibility,
 } from "../utils/labelPreferences";
+import { getFullLabelPath } from "../utils/labelHierarchy";
 
 const BulkActionsToolbar = ({
   selectedIds,
@@ -814,7 +815,9 @@ const BulkActionsToolbar = ({
                               >
                                 <div className="flex items-center gap-2 truncate">
                                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
-                                  <span className="truncate">{lbl.name}</span>
+                                  <span className="truncate" title={getFullLabelPath(lbl, labels) || lbl.name}>
+                                    {getFullLabelPath(lbl, labels) || lbl.name}
+                                  </span>
                                 </div>
                                 {isAssigned && <MdCheck size={16} className="text-blue-500 shrink-0" />}
                               </button>

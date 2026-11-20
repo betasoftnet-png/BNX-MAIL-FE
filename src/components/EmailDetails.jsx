@@ -10,6 +10,7 @@ import {
   matchesLabelIdentity,
   resolveViewFolderForVisibility,
 } from "../utils/labelPreferences";
+import { getFullLabelPath } from "../utils/labelHierarchy";
 
 const Size = Quill.import('attributors/style/size');
 Size.whitelist = [
@@ -1862,7 +1863,9 @@ const EmailDetails = ({
                             >
                               <div className="flex items-center gap-2 truncate">
                                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
-                                <span className="truncate text-gray-800 dark:text-gray-200">{lbl.name}</span>
+                                <span className="truncate text-gray-800 dark:text-gray-200" title={getFullLabelPath(lbl, labels) || lbl.name}>
+                                  {getFullLabelPath(lbl, labels) || lbl.name}
+                                </span>
                               </div>
                               {isApplied && <MdCheck size={16} className="text-blue-500 shrink-0" />}
                             </button>

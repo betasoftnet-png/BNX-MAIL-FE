@@ -16,6 +16,7 @@ import {
   Trash2, 
   ChevronDown, 
   ChevronUp, 
+  ChevronRight,
   Plus, 
   Settings, 
   HelpCircle,
@@ -42,6 +43,7 @@ import {
   MdLabelImportant 
 } from "react-icons/md";
 import { canAccessAllInbox } from "../utils/accountUtils";
+import { getFullLabelPath, getValidParentCandidates } from "../utils/labelHierarchy";
 
 const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) => {
   const { t } = useTranslation();
@@ -72,6 +74,38 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
   const [editingLabel, setEditingLabel] = useState(null);
   const labelMenuRef = useRef(null);
   const [, setPrefsTick] = useState(0);
+  const [collapsedLabelIds, setCollapsedLabelIds] = useState(() => new Set());
+
+  // Auto-expand parent labels when currently viewing a child label
+  useEffect(() => {
+    if (location.pathname.startsWith('/label/')) {
+      const activeId = location.pathname.split('/label/')[1];
+      if (activeId && Array.isArray(labels) && labels.length > 0) {
+        const labelMap = new Map(labels.map(l => [String(l.id), l]));
+        let curr = labelMap.get(String(activeId));
+        const ancestors = [];
+        const visited = new Set();
+        while (curr && curr.parentId != null && !visited.has(String(curr.parentId))) {
+          visited.add(String(curr.parentId));
+          ancestors.push(String(curr.parentId));
+          curr = labelMap.get(String(curr.parentId));
+        }
+        if (ancestors.length > 0) {
+          setCollapsedLabelIds(prev => {
+            let changed = false;
+            const next = new Set(prev);
+            ancestors.forEach(aId => {
+              if (next.has(aId)) {
+                next.delete(aId);
+                changed = true;
+              }
+            });
+            return changed ? next : prev;
+          });
+        }
+      }
+    }
+  }, [location.pathname, labels]);
 
   useEffect(() => {
     const handlePrefsChange = () => setPrefsTick((t) => t + 1);
@@ -562,6 +596,12 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                   );
                   return children.map(label => {
                     const isLabelActive = location.pathname === `/label/${label.id}`;
+                    // Find if this label has any visible children
+                    const subChildren = visibleLabels.filter(
+                      (l) => l.parentId != null && String(l.parentId) === String(label.id)
+                    );
+                    const hasChildren = subChildren.length > 0;
+                    const isCollapsed = collapsedLabelIds.has(String(label.id));
 
                     return (
                       <div key={label.id} className="group">
@@ -575,6 +615,30 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                           style={{ paddingLeft: `${14 + (depth * 14)}px` }}
                         >
                           <div className="flex items-center min-w-0 flex-1">
+                            {/* Expand/Collapse Chevron Button */}
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCollapsedLabelIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(String(label.id))) {
+                                      next.delete(String(label.id));
+                                    } else {
+                                      next.add(String(label.id));
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className="p-0.5 -ml-1 mr-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer shrink-0 hide-on-collapse"
+                                title={isCollapsed ? t('sidebar.expand', 'Expand') : t('sidebar.collapse', 'Collapse')}
+                                aria-label={isCollapsed ? "Expand sub-labels" : "Collapse sub-labels"}
+                              >
+                                {isCollapsed ? <ChevronRight size={14} strokeWidth={2.2} /> : <ChevronDown size={14} strokeWidth={2.2} />}
+                              </button>
+                            ) : null}
+
                             {/* Simple colored tag icon aligned strictly in column */}
                             <div className="w-5 flex items-center justify-center shrink-0">
                               <MdLabel style={{ color: label.colorHex || "#135bec" }} size={18} className="shrink-0" />
@@ -635,7 +699,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                             )}
                           </div>
                         </div>
-                        {renderLabelTree(label.id, depth + 1)}
+                        {hasChildren && !isCollapsed && renderLabelTree(label.id, depth + 1)}
                       </div>
                     );
                   });
@@ -708,7 +772,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                 >
                   <option value="" style={{ color: "black" }}>{t('sidebar.top_level', 'Top Level (No Parent)')}</option>
                   {labels.map(l => (
-                    <option key={l.id} value={l.id} style={{ color: "black" }}>{l.name}</option>
+                    <option key={l.id} value={l.id} style={{ color: "black" }}>{getFullLabelPath(l, labels)}</option>
                   ))}
                 </select>
               </div>
@@ -786,8 +850,8 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
                   style={{ color: theme.text, borderColor: theme.border }}
                 >
                   <option value="" style={{ color: "black" }}>{t('sidebar.top_level', 'Top Level (No Parent)')}</option>
-                  {labels.filter(l => l.id !== editingLabel.id).map(l => (
-                    <option key={l.id} value={l.id} style={{ color: "black" }}>{l.name}</option>
+                  {getValidParentCandidates(editingLabel.id, labels).map(l => (
+                    <option key={l.id} value={l.id} style={{ color: "black" }}>{getFullLabelPath(l, labels)}</option>
                   ))}
                 </select>
               </div>

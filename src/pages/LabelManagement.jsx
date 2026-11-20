@@ -31,6 +31,7 @@ import {
   MdCheck
 } from "react-icons/md";
 import toast from "react-hot-toast";
+import { getFullLabelPath, getValidParentCandidates, flattenLabelTree } from "../utils/labelHierarchy";
 import {
   getCustomLabelVisibility,
   setCustomLabelVisibility,
@@ -122,6 +123,9 @@ const LabelManagement = ({ embedded = false }) => {
 
   const [labelToDelete, setLabelToDelete] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  // Hierarchically sorted and depth-annotated labels
+  const hierarchicalLabels = useMemo(() => flattenLabelTree(labels), [labels]);
 
   // Sync custom labels visibility state
   const loadCustomVisibility = () => {
@@ -375,21 +379,28 @@ const LabelManagement = ({ embedded = false }) => {
       return;
     }
 
+    const parentId = newLabelParentId ? parseInt(newLabelParentId, 10) : null;
     const isDuplicate = labels.some(
-      (l) => l.name.trim().toLowerCase() === trimmed.toLowerCase()
+      (l) =>
+        l.name.trim().toLowerCase() === trimmed.toLowerCase() &&
+        String(l.parentId || "") === String(parentId || "")
     );
     if (isDuplicate) {
-      toast.error(`A label with the name "${trimmed}" already exists.`);
+      toast.error(
+        parentId
+          ? `A label with the name "${trimmed}" already exists under this parent.`
+          : `A top-level label with the name "${trimmed}" already exists.`
+      );
       return;
     }
 
     setCreateSubmitting(true);
     try {
-      const parentId = newLabelParentId ? parseInt(newLabelParentId, 10) : null;
       const res = await handleCreateLabel(trimmed, newLabelColor, parentId);
       if (res) {
         setIsCreateOpen(false);
         setNewLabelName("");
+        setNewLabelParentId("");
         if (typeof fetchLabels === "function") fetchLabels();
       }
     } catch (err) {
@@ -416,19 +427,24 @@ const LabelManagement = ({ embedded = false }) => {
       return;
     }
 
+    const parentId = editLabelParentId ? parseInt(editLabelParentId, 10) : null;
     const isDuplicate = labels.some(
       (l) =>
         String(l.id) !== String(editingLabel.id) &&
-        l.name.trim().toLowerCase() === trimmed.toLowerCase()
+        l.name.trim().toLowerCase() === trimmed.toLowerCase() &&
+        String(l.parentId || "") === String(parentId || "")
     );
     if (isDuplicate) {
-      toast.error(`Another label with the name "${trimmed}" already exists.`);
+      toast.error(
+        parentId
+          ? `Another label with the name "${trimmed}" already exists under this parent.`
+          : `Another top-level label with the name "${trimmed}" already exists.`
+      );
       return;
     }
 
     setEditSubmitting(true);
     try {
-      const parentId = editLabelParentId ? parseInt(editLabelParentId, 10) : null;
       const success = await handleUpdateLabel(
         editingLabel.id,
         trimmed,
@@ -699,7 +715,7 @@ const LabelManagement = ({ embedded = false }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
-                {labels.length === 0 ? (
+                {hierarchicalLabels.length === 0 ? (
                   <tr>
                     <td
                       colSpan={4}
@@ -709,7 +725,7 @@ const LabelManagement = ({ embedded = false }) => {
                     </td>
                   </tr>
                 ) : (
-                  labels.map((lbl) => {
+                  hierarchicalLabels.map((lbl) => {
                     const strId = String(lbl.id);
                     const prefs = draftCustomVisibility[strId] || {
                       showInLabelList: true,
@@ -722,15 +738,26 @@ const LabelManagement = ({ embedded = false }) => {
                         className="hover:bg-blue-50/30 dark:hover:bg-gray-750/30 transition-colors"
                       >
                         {/* Label Name & Color Icon */}
-                        <td className="py-2.5 px-3 sm:px-5 font-medium text-gray-800 dark:text-gray-200 min-w-0">
+                        <td
+                          className="py-2.5 px-3 sm:px-5 font-medium text-gray-800 dark:text-gray-200 min-w-0"
+                          style={{ paddingLeft: `${14 + (lbl.depth * 20)}px` }}
+                        >
                           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+                            {lbl.depth > 0 && (
+                              <span className="text-gray-400 dark:text-gray-500 font-mono text-xs select-none shrink-0">└─</span>
+                            )}
                             <span
                               className="w-3.5 h-3.5 rounded-xs shrink-0 shadow-2xs"
                               style={{ backgroundColor: lbl.colorHex || "#135bec" }}
                             />
-                            <span className="font-semibold truncate min-w-0 flex-1 text-gray-900 dark:text-gray-100" title={lbl.name}>
+                            <span className="font-semibold truncate min-w-0 flex-1 text-gray-900 dark:text-gray-100" title={lbl.fullPath || lbl.name}>
                               {lbl.name}
                             </span>
+                            {lbl.depth > 0 && (
+                              <span className="text-[11px] text-gray-400 dark:text-gray-500 hidden md:inline-block truncate">
+                                ({lbl.fullPath})
+                              </span>
+                            )}
                           </div>
                         </td>
 
@@ -891,7 +918,7 @@ const LabelManagement = ({ embedded = false }) => {
                     <option value="">Top level (no parent)</option>
                     {labels.map((l) => (
                       <option key={l.id} value={l.id}>
-                        {l.name}
+                        {getFullLabelPath(l, labels)}
                       </option>
                     ))}
                   </select>
@@ -980,7 +1007,7 @@ const LabelManagement = ({ embedded = false }) => {
               </div>
 
               {/* Nesting (optional) */}
-              {labels.filter((l) => String(l.id) !== String(editingLabel.id)).length > 0 && (
+              {getValidParentCandidates(editingLabel.id, labels).length > 0 && (
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Nest label under: (optional)
@@ -991,13 +1018,11 @@ const LabelManagement = ({ embedded = false }) => {
                     className="w-full px-3 py-2 text-xs rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
                     <option value="">Top level (no parent)</option>
-                    {labels
-                      .filter((l) => String(l.id) !== String(editingLabel.id))
-                      .map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
+                    {getValidParentCandidates(editingLabel.id, labels).map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {getFullLabelPath(l, labels)}
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
