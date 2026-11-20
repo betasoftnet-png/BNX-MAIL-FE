@@ -1,7 +1,7 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile, MdRestore, MdAlarmOff, MdPushPin, MdLabelImportant, MdLabelImportantOutline } from "react-icons/md";
+import { MdArchive, MdUnarchive, MdDelete, MdStar, MdStarBorder, MdAccessTime, MdWbSunny, MdNightsStay, MdToday, MdEvent, MdUpdate, MdDateRange, MdKeyboardArrowLeft, MdKeyboardArrowRight, MdAttachFile, MdRestore, MdAlarmOff, MdPushPin } from "react-icons/md";
 import { Pencil } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -49,7 +49,7 @@ const EmailList = ({
   const { user } = useAuth();
   const location = useLocation();
   const { theme, emailsPerPage, backgroundImage } = useTheme();
-  const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead, isEmailPinned, handleTogglePin, isEmailImportant, handleToggleImportant } = useMail();
+  const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead, isEmailPinned, handleTogglePin } = useMail();
   const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
   const [, setPrefsTick] = useState(0);
   useEffect(() => {
@@ -436,36 +436,6 @@ const EmailList = ({
                               <MdStar size={20} className="text-yellow-500 fill-current" />
                             ) : (
                               <MdStarBorder size={20} className="text-gray-400 dark:text-gray-500" />
-                            )}
-                          </button>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Important Chevron Marker */}
-                  {!isRowTrash && !isRowSpam && (
-                    <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                      {(() => {
-                        const itemFolder = email.folderName || currentFolder || 'INBOX';
-                        const isItemImportant = typeof isEmailImportant === 'function'
-                          ? isEmailImportant(itemUid, email, itemFolder)
-                          : Boolean(email.isImportant || email.important);
-                        return (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleImportant?.(itemUid, itemFolder, email);
-                            }}
-                            className="inline-flex items-center justify-center p-1 rounded-full cursor-pointer text-gray-400 dark:text-gray-500 hover:bg-gray-200/75 dark:hover:bg-white/10 transition-colors duration-150"
-                            title={isItemImportant ? "Important (click to mark not important)" : "Not important (click to mark important)"}
-                            aria-label={isItemImportant ? "Mark as not important" : "Mark as important"}
-                          >
-                            {isItemImportant ? (
-                              <MdLabelImportant size={20} className="text-yellow-500 fill-current" />
-                            ) : (
-                              <MdLabelImportantOutline size={20} className="text-gray-400 dark:text-gray-500 hover:text-yellow-500" />
                             )}
                           </button>
                         );
