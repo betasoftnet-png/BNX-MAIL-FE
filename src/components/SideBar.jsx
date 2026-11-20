@@ -39,8 +39,7 @@ import {
   MdGroup, 
   MdChat, 
   MdCloudUpload,
-  MdArchive,
-  MdLabelImportant 
+  MdArchive
 } from "react-icons/md";
 import { canAccessAllInbox } from "../utils/accountUtils";
 import { getFullLabelPath, getValidParentCandidates } from "../utils/labelHierarchy";
@@ -161,7 +160,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
       case 'Starred':
         return <Star size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Important':
-        return <MdLabelImportant size={20} className={iconClass} />;
+        return <Bookmark size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Snoozed':
         return <Clock size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Sent':

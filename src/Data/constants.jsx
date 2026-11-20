@@ -20,9 +20,9 @@ import {
   MdMailOutline,
   MdNotificationsNone,
   MdBackup,
-  MdLabel,
-  MdLabelImportant
+  MdLabel
 } from 'react-icons/md';
+import { Bookmark } from 'lucide-react';
 
 export const SIDEBAR_ITEMS = [
   {
@@ -63,7 +63,7 @@ export const SIDEBAR_ITEMS = [
   },
   {
     name: 'Important',
-    icon: <MdLabelImportant size={20} />,
+    icon: <Bookmark size={20} />,
     path: '/important',
     count: 0
   },
