@@ -19,7 +19,9 @@ import {
   MdAlarmOff,
   MdCheck,
   MdPushPin,
-  MdOutlinePushPin
+  MdOutlinePushPin,
+  MdLabelImportant,
+  MdLabelImportantOutline
 } from "react-icons/md";
 import toast from "react-hot-toast";
 import {
@@ -64,7 +66,9 @@ const BulkActionsToolbar = ({
     isEmailPinned,
     handlePinEmails,
     handleUnpinEmails,
-    pinnedIds
+    pinnedIds,
+    isEmailImportant,
+    handleToggleImportant
   } = useMail();
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -262,6 +266,28 @@ const BulkActionsToolbar = ({
     }
     setSelectedIds(new Set());
   }, [uniqueSelectedEmails, allSelectedArePinned, handleUnpinEmails, handlePinEmails, setSelectedIds]);
+
+  // Check if all selected emails are currently important
+  const allSelectedAreImportant = useMemo(() => {
+    if (!uniqueSelectedEmails.length || !isEmailImportant) return false;
+    return uniqueSelectedEmails.every((e) => isEmailImportant(e.uid ?? e.id, e, e.folderName || folder));
+  }, [uniqueSelectedEmails, isEmailImportant, folder]);
+
+  // Bulk Important / Not Important
+  const handleBulkImportant = useCallback(async (markImportant) => {
+    setShowMoreMenu(false);
+    if (!uniqueSelectedEmails.length) return;
+    toast.loading(markImportant ? "Marking as important..." : "Marking as not important...", { id: "bulk-important" });
+    try {
+      await Promise.all(uniqueSelectedEmails.map((e) =>
+        handleToggleImportant?.(e.uid ?? e.id, e.folderName || folder, e, markImportant)
+      ));
+      setSelectedIds(new Set());
+      toast.success(markImportant ? "Marked as important" : "Marked as not important", { id: "bulk-important" });
+    } catch (err) {
+      toast.error("Failed to update importance", { id: "bulk-important" });
+    }
+  }, [uniqueSelectedEmails, handleToggleImportant, folder, setSelectedIds]);
 
   // Bulk Archive
   const handleBulkArchive = useCallback(async () => {
@@ -798,6 +824,25 @@ const BulkActionsToolbar = ({
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Mark as important / not important */}
+                {allSelectedAreImportant ? (
+                  <button
+                    onClick={() => handleBulkImportant(false)}
+                    onMouseEnter={() => { setShowSnoozeSub(false); setShowLabelSub(false); }}
+                    className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300 cursor-pointer"
+                  >
+                    <MdLabelImportantOutline size={16} className="text-gray-400" /> {t("common.mark_not_important", "Mark as not important")}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleBulkImportant(true)}
+                    onMouseEnter={() => { setShowSnoozeSub(false); setShowLabelSub(false); }}
+                    className="w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-2.5 text-gray-700 dark:text-gray-300 cursor-pointer"
+                  >
+                    <MdLabelImportant size={16} className="text-yellow-500" /> {t("common.mark_important", "Mark as important")}
+                  </button>
                 )}
 
                 {/* Unsubscribe */}

@@ -29,6 +29,12 @@ import {
     getEmailPinKey,
     isEmailPinned as checkEmailPinned
 } from '../utils/pinnedStorage';
+import {
+    getStoredImportantIds,
+    saveStoredImportantIds,
+    getEmailImportantKey,
+    isEmailIdImportant
+} from '../utils/importantStorage';
 import { deduplicateAllMailEmails } from '../utils/allMailDeduplication';
 import {
     extractEmailAddresses,
@@ -403,6 +409,7 @@ export const MailProvider = ({ children }) => {
         unread: 0,
         spam: 0,
         trash: 0,
+        important: 0,
         snoozed: getActiveSnoozedCount(user?.email)
     }));
 
@@ -605,6 +612,71 @@ export const MailProvider = ({ children }) => {
         setPinnedIds(next);
         pinnedIdsRef.current = next;
     }, [user?.email]);
+
+    /* ---------------- IMPORTANT EMAILS SYSTEM ---------------- */
+    const [importantIds, setImportantIds] = useState(() => getStoredImportantIds(user?.email));
+    const importantIdsRef = useRef(importantIds);
+
+    useEffect(() => {
+        importantIdsRef.current = importantIds;
+    }, [importantIds]);
+
+    useEffect(() => {
+        const loaded = getStoredImportantIds(user?.email);
+        setImportantIds(loaded);
+        importantIdsRef.current = loaded;
+    }, [user?.email]);
+
+    const isEmailImportant = useCallback((uid, email = null, folder = null) => {
+        if (!uid && uid !== 0 && !email) return false;
+        if (email && typeof email.isImportant === 'boolean') {
+            return email.isImportant;
+        }
+        const strUid = String(uid ?? email?.uid ?? email?.id ?? '');
+        if (!strUid) return false;
+        return isEmailIdImportant(strUid, folder || currentFolderRef.current, email, importantIdsRef.current);
+    }, []);
+
+    const handleToggleImportant = useCallback(async (uid, folder = 'INBOX', emailObj = null, requestedStatus = null) => {
+        if (!uid && uid !== 0 && !emailObj) return false;
+        const strUid = String(uid ?? emailObj?.uid ?? emailObj?.id ?? '');
+        if (!strUid) return false;
+
+        const targetFolder = folder || emailObj?.folderName || currentFolderRef.current || 'INBOX';
+        const currentStatus = isEmailImportant(strUid, emailObj, targetFolder);
+        const nextStatus = requestedStatus !== null ? Boolean(requestedStatus) : !currentStatus;
+
+        // Optimistically update local cache
+        const currentSet = getStoredImportantIds(user?.email);
+        const nextSet = new Set(currentSet);
+        const key = getEmailImportantKey(strUid, targetFolder, emailObj);
+        if (nextStatus) {
+            nextSet.add(strUid);
+            if (key) nextSet.add(key);
+        } else {
+            nextSet.delete(strUid);
+            if (key) nextSet.delete(key);
+        }
+        saveStoredImportantIds(nextSet, user?.email);
+        setImportantIds(nextSet);
+        importantIdsRef.current = nextSet;
+
+        // Optimistically update in state
+        setEmails(prev => prev.map(m => {
+            if (String(m.uid ?? m.id ?? '') === strUid) {
+                return { ...m, isImportant: nextStatus, important: nextStatus };
+            }
+            return m;
+        }));
+
+        try {
+            await mailAPI.toggleImportant(strUid, targetFolder, nextStatus);
+        } catch (err) {
+            console.error("Failed to update important status:", err);
+        }
+
+        return nextStatus;
+    }, [user?.email, isEmailImportant]);
 
     useEffect(() => {
         currentFolderRef.current = currentFolder;
@@ -1050,6 +1122,7 @@ export const MailProvider = ({ children }) => {
                 case 'draft':
                 case 'drafts': res = await mailAPI.getDrafts(targetPage, limit); break;
                 case 'starred': res = await getStarredWithDrafts(targetPage, limit, false); break;
+                case 'important': res = await mailAPI.getImportant(targetPage, limit); break;
                 case 'trash': res = await mailAPI.getTrash(targetPage, limit); break;
                 case 'spam': res = await mailAPI.getSpam(targetPage, limit); break;
                 case 'snoozed': res = await mailAPI.getSnoozed(targetPage, limit); break;
@@ -1272,6 +1345,12 @@ export const MailProvider = ({ children }) => {
                         ...prev,
                         allmail: unread
                     }));
+                } else if (countKey === 'important') {
+                    const unread = normalizedEmails.filter(e => !e.isRead).length;
+                    setUnreadCounts(prev => ({
+                        ...prev,
+                        important: unread
+                    }));
                 }
 
                 // Only update active screen if it matches the current folder
@@ -1351,6 +1430,7 @@ export const MailProvider = ({ children }) => {
                 case 'draft':
                 case 'drafts': res = await mailAPI.getDrafts(targetPage, limit); break;
                 case 'starred': res = await getStarredWithDrafts(targetPage, limit, force); break;
+                case 'important': res = await mailAPI.getImportant(targetPage, limit); break;
                 case 'trash': res = await mailAPI.getTrash(targetPage, limit); break;
                 case 'spam': res = await mailAPI.getSpam(targetPage, limit); break;
                 case 'snoozed': res = await mailAPI.getSnoozed(targetPage, limit); break;
@@ -4096,6 +4176,9 @@ export const MailProvider = ({ children }) => {
             handleToggleStar,
             isEmailStarred,
             starredIds,
+            handleToggleImportant,
+            isEmailImportant,
+            importantIds,
             pinnedIds,
             isEmailPinned,
             handleTogglePin,
@@ -4189,6 +4272,9 @@ export const useMail = () => {
             handleToggleStar: async () => { },
             isEmailStarred: () => false,
             starredIds: new Set(),
+            handleToggleImportant: async () => false,
+            isEmailImportant: () => false,
+            importantIds: new Set(),
             pinnedIds: new Set(),
             isEmailPinned: () => false,
             handleTogglePin: () => false,

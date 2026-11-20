@@ -27,6 +27,8 @@ import {
   MdReply, 
   MdForward,
   MdStarBorder,
+  MdLabelImportant,
+  MdLabelImportantOutline,
   MdFileDownload,
   MdRemoveRedEye,
   MdClose,
@@ -167,7 +169,7 @@ const EmailDetails = ({
   const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, isEmailStarred, handleToggleStar, startUndoSend } = useMail();
+  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, isEmailStarred, handleToggleStar, isEmailImportant, handleToggleImportant, startUndoSend } = useMail();
 
   const [prefsTick, setPrefsTick] = useState(0);
   useEffect(() => {
@@ -201,6 +203,15 @@ const EmailDetails = ({
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
+  const isImportant = typeof isEmailImportant === 'function' ? isEmailImportant(email?.uid ?? email?.id, email, email?.folderName || currentFolder) : Boolean(email?.isImportant || email?.important);
+
+  const handleImportantClick = () => {
+    const targetUid = email?.uid ?? email?.id;
+    const targetFolder = email?.folderName || currentFolder || 'INBOX';
+    if (handleToggleImportant) {
+      handleToggleImportant(targetUid, targetFolder, email);
+    }
+  };
   const [isFullscreen, setIsFullscreen] = useState(false);
   const isTrashMode = Boolean(
     isTrash ||
@@ -1629,6 +1640,20 @@ const EmailDetails = ({
                 />
               </button>
 
+              <button
+                type="button"
+                onClick={handleImportantClick}
+                className="p-2 rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                title={isImportant ? t("common.mark_not_important", "Important (click to mark not important)") : t("common.mark_important", "Not important (click to mark important)")}
+                aria-label={isImportant ? "Mark as not important" : "Mark as important"}
+              >
+                {isImportant ? (
+                  <MdLabelImportant size={20} className="text-yellow-500 fill-current drop-shadow-sm" />
+                ) : (
+                  <MdLabelImportantOutline size={20} className="text-gray-400 dark:text-gray-500 hover:text-yellow-500" />
+                )}
+              </button>
+
               <div className="relative" ref={snoozeRef}>
                 <button
                   ref={snoozeButtonRef}
@@ -2135,6 +2160,21 @@ const EmailDetails = ({
                       <MdStar size={18} className="text-yellow-500 fill-current drop-shadow-xs" />
                     ) : (
                       <MdStarBorder size={18} className="text-gray-400 dark:text-gray-500" />
+                    )}
+                  </button>
+
+                  {/* Important Button */}
+                  <button
+                    type="button"
+                    onClick={handleImportantClick}
+                    className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                    title={isImportant ? t("common.mark_not_important", "Important (click to mark not important)") : t("common.mark_important", "Not important (click to mark important)")}
+                    aria-label={isImportant ? "Mark as not important" : "Mark as important"}
+                  >
+                    {isImportant ? (
+                      <MdLabelImportant size={18} className="text-yellow-500 fill-current drop-shadow-xs" />
+                    ) : (
+                      <MdLabelImportantOutline size={18} className="text-gray-400 dark:text-gray-500 hover:text-yellow-500" />
                     )}
                   </button>
 

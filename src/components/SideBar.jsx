@@ -38,7 +38,8 @@ import {
   MdGroup, 
   MdChat, 
   MdCloudUpload,
-  MdArchive 
+  MdArchive,
+  MdLabelImportant 
 } from "react-icons/md";
 import { canAccessAllInbox } from "../utils/accountUtils";
 
@@ -126,7 +127,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
       case 'Starred':
         return <Star size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Important':
-        return <Bookmark size={20} strokeWidth={strokeWidth} className={iconClass} />;
+        return <MdLabelImportant size={20} className={iconClass} />;
       case 'Snoozed':
         return <Clock size={20} strokeWidth={strokeWidth} className={iconClass} />;
       case 'Sent':
@@ -218,7 +219,7 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
   const isSidebarNavVisible = (name) =>
     sidebarVisibilityPreferences?.[`folder:${name}`] !== false;
 
-  const mainNavItems = ["Inbox", "Starred", "Sent", "Draft", "Trash", "Snoozed"]
+  const mainNavItems = ["Inbox", "Starred", "Important", "Sent", "Draft", "Trash", "Snoozed"]
     .filter(name => (name !== "All Inbox" || showAllInbox) && isSidebarNavVisible(name));
 
   const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Manage Labels", "Analytics", "Mail Backup"]

@@ -52,7 +52,7 @@ export const SIDEBAR_ITEMS = [
   {
     name: 'Important',
     icon: <MdLabelImportant size={20} />,
-    path: '/inbox?tab=IMPORTANT',
+    path: '/important',
     count: 0
   },
   {
@@ -172,6 +172,7 @@ export const API_ENDPOINTS = {
     INBOX: '/api/mail/inbox',
     SENT: '/api/mail/sent',
     STARRED: '/api/mail/starred',
+    IMPORTANT: '/api/mail/important',
     TRASH: '/api/mail/trash',
     SPAM: '/api/mail/spam',
     SNOOZED: '/api/mail/snoozed',

@@ -26,6 +26,7 @@ const ForgotPassword = lazyRetry(() => import("./pages/ForgotPassword"), "Forgot
 const CreateMailbox = lazyRetry(() => import("./pages/CreateMailbox"), "CreateMailbox");
 const Inbox = lazyRetry(() => import("./pages/Inbox"), "Inbox");
 const Starred = lazyRetry(() => import("./pages/Starred"), "Starred");
+const Important = lazyRetry(() => import("./pages/Important"), "Important");
 const Unread = lazyRetry(() => import("./pages/Unread"), "Unread");
 const Draft = lazyRetry(() => import("./pages/Draft"), "Draft");
 const Send = lazyRetry(() => import("./pages/Send"), "Send");
@@ -298,6 +299,7 @@ const AppContent = () => {
                   <Route path="/inbox" element={<Inbox />} />
                   <Route path="/all-inbox" element={<Inbox />} />
                   <Route path="/starred" element={<Starred />} />
+                  <Route path="/important" element={<Important />} />
                   <Route path="/unread" element={<Unread />} />
                   <Route path="/snoozed" element={<Snoozed />} />
                   <Route path="/draft" element={<Draft />} />
