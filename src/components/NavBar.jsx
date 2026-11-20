@@ -898,16 +898,15 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             )}
           </div>
 
-          <div className="h-6 w-[1px] bg-white/20 ml-0.5 sm:ml-1 hidden sm:block shrink-0" />
           <button
             onClick={onToggleBitToolSidebar}
-            className="h-8 sm:h-9 px-1.5 sm:px-2 rounded-full bg-white dark:hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 cursor-pointer"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0 cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-sm"
             title={t('navbar.bit_tools', 'Toggle BIT Tools')}
           >
             <img
               src={bitToolLogo}
               alt="BIT Tool"
-              className="h-4 sm:h-5 object-contain opacity-80 hover:opacity-100"
+              className="w-full h-full object-cover rounded-full"
             />
           </button>
         </div>
