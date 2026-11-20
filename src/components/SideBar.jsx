@@ -219,10 +219,10 @@ const SideBar = ({ isDesktopOpen, isMobileOpen, onCloseMobile, onOpenNotes }) =>
   const isSidebarNavVisible = (name) =>
     sidebarVisibilityPreferences?.[`folder:${name}`] !== false;
 
-  const mainNavItems = ["Inbox", "Starred", "Important", "Sent", "Draft", "Trash", "Snoozed"]
+  const mainNavItems = ["Inbox", "Starred", "Sent", "Draft", "Trash", "Snoozed"]
     .filter(name => (name !== "All Inbox" || showAllInbox) && isSidebarNavVisible(name));
 
-  const moreNavItems = ["All Inbox", "Scheduled", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Manage Labels", "Analytics", "Mail Backup"]
+  const moreNavItems = ["All Inbox", "Scheduled", "Important", "Spam", "All Mail", "Archive", "Unread", "Templates", "Subscriptions", "Manage Labels", "Analytics", "Mail Backup"]
     .filter(name => (name !== "All Inbox" || showAllInbox) && isSidebarNavVisible(name));
 
   return (

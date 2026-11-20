@@ -50,12 +50,6 @@ export const SIDEBAR_ITEMS = [
     count: 0
   },
   {
-    name: 'Important',
-    icon: <MdLabelImportant size={20} />,
-    path: '/important',
-    count: 0
-  },
-  {
     name: 'Sent',
     icon: <MdSend size={20} />,
     path: '/sent',
@@ -65,6 +59,12 @@ export const SIDEBAR_ITEMS = [
     name: 'Scheduled',
     icon: <MdAccessTime size={20} />,
     path: '/scheduled',
+    count: 0
+  },
+  {
+    name: 'Important',
+    icon: <MdLabelImportant size={20} />,
+    path: '/important',
     count: 0
   },
   {
