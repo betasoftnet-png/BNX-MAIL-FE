@@ -2473,191 +2473,6 @@ export const MailProvider = ({ children }) => {
         };
     }, [commitPendingDelete]);
 
-    /* ---------------- UNDO SEND SYSTEM (5-SECOND DELAY) ---------------- */
-    const [pendingUndoSends, setPendingUndoSends] = useState([]);
-    const pendingUndoSendsRef = useRef([]);
-
-    // Keep pendingUndoSend pointing to the most recent pending email for backwards compatibility
-    const pendingUndoSend = pendingUndoSends[pendingUndoSends.length - 1] || null;
-
-    const startUndoSend = useCallback((details) => {
-        if (!details || !details.sendId) return;
-        const now = Date.now();
-        const delaySeconds = details.delaySeconds || 5;
-        const expiresAt = details.expiresAt || (now + delaySeconds * 1000);
-
-        const newPending = {
-            sendId: details.sendId,
-            delaySeconds,
-            expiresAt,
-            emailData: details.emailData || {},
-            rawComposeSnapshot: details.rawComposeSnapshot || null
-        };
-
-        setPendingUndoSends(prev => {
-            const next = [...prev.filter(p => p.sendId !== newPending.sendId), newPending];
-            pendingUndoSendsRef.current = next;
-            try {
-                sessionStorage.setItem('bnx_pending_undo_sends', JSON.stringify(next));
-                sessionStorage.setItem('bnx_pending_undo_send', JSON.stringify(newPending));
-            } catch (e) {
-                console.warn('Could not persist pending undo sends to sessionStorage:', e);
-            }
-            return next;
-        });
-    }, []);
-
-    const handleDismissUndoSend = useCallback((sendId) => {
-        setPendingUndoSends(prev => {
-            const next = sendId ? prev.filter(p => p.sendId !== sendId) : [];
-            pendingUndoSendsRef.current = next;
-            try {
-                if (next.length > 0) {
-                    sessionStorage.setItem('bnx_pending_undo_sends', JSON.stringify(next));
-                    sessionStorage.setItem('bnx_pending_undo_send', JSON.stringify(next[next.length - 1]));
-                } else {
-                    sessionStorage.removeItem('bnx_pending_undo_sends');
-                    sessionStorage.removeItem('bnx_pending_undo_send');
-                }
-            } catch (e) {}
-            return next;
-        });
-
-        // If currently viewing Sent or Outbox folder, refresh to reflect newly delivered message
-        if (currentFolderRef.current && (currentFolderRef.current.toLowerCase() === 'sent' || currentFolderRef.current.toLowerCase() === 'outbox')) {
-            fetchEmails(currentFolderRef.current, true);
-        }
-    }, [fetchEmails]);
-
-    const handleUndoSend = useCallback(async (sendId) => {
-        const list = pendingUndoSendsRef.current || [];
-        const targetItem = sendId
-            ? list.find(p => p.sendId === sendId)
-            : list[list.length - 1];
-        const targetSendId = targetItem?.sendId || sendId;
-        if (!targetSendId) return;
-
-        try {
-            const res = await mailAPI.undoSend(targetSendId);
-            if (res.data?.success) {
-                // Clear notification for this sendId immediately
-                handleDismissUndoSend(targetSendId);
-
-                toast.success('Sending undone.', { duration: 3000 });
-
-                // Restore original message exactly into Compose window
-                const backendData = res.data.data || {};
-                const snapshot = targetItem?.rawComposeSnapshot || {};
-
-                const restoredTo = backendData.to || snapshot.to || '';
-                const restoredCc = backendData.cc || snapshot.cc || '';
-                const restoredBcc = backendData.bcc || snapshot.bcc || '';
-                const restoredSubject = backendData.subject || snapshot.subject || '';
-                const restoredBody = backendData.body || snapshot.body || '';
-                const restoredAttachments = (backendData.attachments && backendData.attachments.length > 0)
-                    ? backendData.attachments
-                    : (snapshot.attachments || []);
-
-                openCompose({
-                    draft: true,
-                    restorePending: true,
-                    mode: snapshot.mode || 'mail',
-                    to: restoredTo,
-                    cc: restoredCc,
-                    bcc: restoredBcc,
-                    subject: restoredSubject,
-                    body: restoredBody,
-                    attachments: restoredAttachments,
-                    draftId: backendData.draftId || snapshot.draftId || null,
-                    draftUid: backendData.draftUid || snapshot.draftUid || null,
-                    isStarred: Boolean(backendData.isStarred || snapshot.isStarred)
-                });
-            } else {
-                toast.error(res.data?.message || 'Message could not be undone.', { duration: 4000 });
-                handleDismissUndoSend(targetSendId);
-            }
-        } catch (err) {
-            console.error('Failed to undo send:', err);
-            const errMsg = err.response?.data?.message || 'Message could not be undone. It may have already been delivered.';
-            toast.error(errMsg, { duration: 4000 });
-            handleDismissUndoSend(targetSendId);
-        }
-    }, [openCompose, handleDismissUndoSend]);
-
-    // Rehydrate active pending send(s) from backend and sessionStorage on page refresh or navigation
-    useEffect(() => {
-        const rehydratePendingSends = async () => {
-            try {
-                let storedMap = {};
-                try {
-                    const multiSaved = sessionStorage.getItem('bnx_pending_undo_sends');
-                    if (multiSaved) {
-                        const parsedMulti = JSON.parse(multiSaved);
-                        if (Array.isArray(parsedMulti)) {
-                            parsedMulti.forEach(p => {
-                                if (p && p.sendId) storedMap[p.sendId] = p;
-                            });
-                        }
-                    }
-                    const singleSaved = sessionStorage.getItem('bnx_pending_undo_send');
-                    if (singleSaved) {
-                        const parsedSingle = JSON.parse(singleSaved);
-                        if (parsedSingle && parsedSingle.sendId) storedMap[parsedSingle.sendId] = parsedSingle;
-                    }
-                } catch (e) {}
-
-                // Query backend source of truth
-                const res = await mailAPI.getActivePendingEmails();
-                if (res.data?.success && Array.isArray(res.data.data)) {
-                    const now = Date.now();
-                    const activeFromBackend = res.data.data.filter(item => item.status === 'PENDING_UNDO' && item.expiresAt > now);
-
-                    const activeList = activeFromBackend.map(item => {
-                        const localSnapshot = storedMap[item.sendId];
-                        return {
-                            sendId: item.sendId,
-                            delaySeconds: item.remainingSeconds || 5,
-                            expiresAt: item.expiresAt,
-                            emailData: {
-                                to: item.to || localSnapshot?.emailData?.to || '',
-                                cc: item.cc || localSnapshot?.emailData?.cc || '',
-                                bcc: item.bcc || localSnapshot?.emailData?.bcc || '',
-                                subject: item.subject || localSnapshot?.emailData?.subject || '',
-                                body: item.body || localSnapshot?.emailData?.body || '',
-                                attachments: item.attachments || localSnapshot?.emailData?.attachments || [],
-                                isHtml: item.isHtml ?? localSnapshot?.emailData?.isHtml ?? true
-                            },
-                            rawComposeSnapshot: localSnapshot?.rawComposeSnapshot || {
-                                to: item.to,
-                                cc: item.cc,
-                                bcc: item.bcc,
-                                subject: item.subject,
-                                body: item.body,
-                                attachments: item.attachments,
-                                draftId: item.draftId,
-                                draftUid: item.draftUid,
-                                isStarred: item.isStarred
-                            }
-                        };
-                    });
-
-                    pendingUndoSendsRef.current = activeList;
-                    setPendingUndoSends(activeList);
-                    if (activeList.length > 0) {
-                        sessionStorage.setItem('bnx_pending_undo_sends', JSON.stringify(activeList));
-                    } else {
-                        sessionStorage.removeItem('bnx_pending_undo_sends');
-                        sessionStorage.removeItem('bnx_pending_undo_send');
-                    }
-                }
-            } catch (e) {
-                // User may not be logged in or network issue
-            }
-        };
-
-        rehydratePendingSends();
-    }, []);
-
     const handleDeletePermanently = async (uid, silent = false) => {
         try {
             removeSnoozedEmail(user?.email, uid);
@@ -3983,6 +3798,199 @@ export const MailProvider = ({ children }) => {
 
         return list;
     }, [emails]);
+
+    /* ---------------- UNDO SEND SYSTEM (5-SECOND DELAY) ---------------- */
+    const [pendingUndoSends, setPendingUndoSends] = useState([]);
+    const pendingUndoSendsRef = useRef([]);
+
+    // Keep pendingUndoSend pointing to the most recent pending email for backwards compatibility
+    const pendingUndoSend = pendingUndoSends[pendingUndoSends.length - 1] || null;
+
+    const openComposeRef = useRef(openCompose);
+    useEffect(() => {
+        openComposeRef.current = openCompose;
+    }, [openCompose]);
+
+    const startUndoSend = useCallback((details) => {
+        if (!details || !details.sendId) return;
+        const now = Date.now();
+        const delaySeconds = details.delaySeconds || 5;
+        const expiresAt = details.expiresAt || (now + delaySeconds * 1000);
+
+        const newPending = {
+            sendId: details.sendId,
+            delaySeconds,
+            expiresAt,
+            emailData: details.emailData || {},
+            rawComposeSnapshot: details.rawComposeSnapshot || null
+        };
+
+        setPendingUndoSends(prev => {
+            const next = [...prev.filter(p => p.sendId !== newPending.sendId), newPending];
+            pendingUndoSendsRef.current = next;
+            try {
+                sessionStorage.setItem('bnx_pending_undo_sends', JSON.stringify(next));
+                sessionStorage.setItem('bnx_pending_undo_send', JSON.stringify(newPending));
+            } catch (e) {
+                console.warn('Could not persist pending undo sends to sessionStorage:', e);
+            }
+            return next;
+        });
+    }, []);
+
+    const handleDismissUndoSend = useCallback((sendId) => {
+        setPendingUndoSends(prev => {
+            const next = sendId ? prev.filter(p => p.sendId !== sendId) : [];
+            pendingUndoSendsRef.current = next;
+            try {
+                if (next.length > 0) {
+                    sessionStorage.setItem('bnx_pending_undo_sends', JSON.stringify(next));
+                    sessionStorage.setItem('bnx_pending_undo_send', JSON.stringify(next[next.length - 1]));
+                } else {
+                    sessionStorage.removeItem('bnx_pending_undo_sends');
+                    sessionStorage.removeItem('bnx_pending_undo_send');
+                }
+            } catch (e) {}
+            return next;
+        });
+
+        // If currently viewing Sent or Outbox folder, refresh to reflect newly delivered message
+        if (currentFolderRef.current && (currentFolderRef.current.toLowerCase() === 'sent' || currentFolderRef.current.toLowerCase() === 'outbox')) {
+            fetchEmails(currentFolderRef.current, true);
+        }
+    }, [fetchEmails]);
+
+    const handleUndoSend = useCallback(async (sendId) => {
+        const list = pendingUndoSendsRef.current || [];
+        const targetItem = sendId
+            ? list.find(p => p.sendId === sendId)
+            : list[list.length - 1];
+        const targetSendId = targetItem?.sendId || sendId;
+        if (!targetSendId) return;
+
+        try {
+            const res = await mailAPI.undoSend(targetSendId);
+            if (res.data?.success) {
+                // Clear notification for this sendId immediately
+                handleDismissUndoSend(targetSendId);
+
+                toast.success('Sending undone.', { duration: 3000 });
+
+                // Restore original message exactly into Compose window
+                const backendData = res.data.data || {};
+                const snapshot = targetItem?.rawComposeSnapshot || {};
+
+                const restoredTo = backendData.to || snapshot.to || '';
+                const restoredCc = backendData.cc || snapshot.cc || '';
+                const restoredBcc = backendData.bcc || snapshot.bcc || '';
+                const restoredSubject = backendData.subject || snapshot.subject || '';
+                const restoredBody = backendData.body || snapshot.body || '';
+                const restoredAttachments = (backendData.attachments && backendData.attachments.length > 0)
+                    ? backendData.attachments
+                    : (snapshot.attachments || []);
+
+                const doOpenCompose = openComposeRef.current || openCompose;
+                if (typeof doOpenCompose === 'function') {
+                    doOpenCompose({
+                        draft: true,
+                        restorePending: true,
+                        mode: snapshot.mode || 'mail',
+                        to: restoredTo,
+                        cc: restoredCc,
+                        bcc: restoredBcc,
+                        subject: restoredSubject,
+                        body: restoredBody,
+                        attachments: restoredAttachments,
+                        draftId: backendData.draftId || snapshot.draftId || null,
+                        draftUid: backendData.draftUid || snapshot.draftUid || null,
+                        isStarred: Boolean(backendData.isStarred || snapshot.isStarred)
+                    });
+                }
+            } else {
+                toast.error(res.data?.message || 'Message could not be undone.', { duration: 4000 });
+                handleDismissUndoSend(targetSendId);
+            }
+        } catch (err) {
+            console.error('Failed to undo send:', err);
+            const errMsg = err.response?.data?.message || 'Message could not be undone. It may have already been delivered.';
+            toast.error(errMsg, { duration: 4000 });
+            handleDismissUndoSend(targetSendId);
+        }
+    }, [openCompose, handleDismissUndoSend]);
+
+    // Rehydrate active pending send(s) from backend and sessionStorage on page refresh or navigation
+    useEffect(() => {
+        const rehydratePendingSends = async () => {
+            try {
+                let storedMap = {};
+                try {
+                    const multiSaved = sessionStorage.getItem('bnx_pending_undo_sends');
+                    if (multiSaved) {
+                        const parsedMulti = JSON.parse(multiSaved);
+                        if (Array.isArray(parsedMulti)) {
+                            parsedMulti.forEach(p => {
+                                if (p && p.sendId) storedMap[p.sendId] = p;
+                            });
+                        }
+                    }
+                    const singleSaved = sessionStorage.getItem('bnx_pending_undo_send');
+                    if (singleSaved) {
+                        const parsedSingle = JSON.parse(singleSaved);
+                        if (parsedSingle && parsedSingle.sendId) storedMap[parsedSingle.sendId] = parsedSingle;
+                    }
+                } catch (e) {}
+
+                // Query backend source of truth
+                const res = await mailAPI.getActivePendingEmails();
+                if (res.data?.success && Array.isArray(res.data.data)) {
+                    const now = Date.now();
+                    const activeFromBackend = res.data.data.filter(item => item.status === 'PENDING_UNDO' && item.expiresAt > now);
+
+                    const activeList = activeFromBackend.map(item => {
+                        const localSnapshot = storedMap[item.sendId];
+                        return {
+                            sendId: item.sendId,
+                            delaySeconds: item.remainingSeconds || 5,
+                            expiresAt: item.expiresAt,
+                            emailData: {
+                                to: item.to || localSnapshot?.emailData?.to || '',
+                                cc: item.cc || localSnapshot?.emailData?.cc || '',
+                                bcc: item.bcc || localSnapshot?.emailData?.bcc || '',
+                                subject: item.subject || localSnapshot?.emailData?.subject || '',
+                                body: item.body || localSnapshot?.emailData?.body || '',
+                                attachments: item.attachments || localSnapshot?.emailData?.attachments || [],
+                                isHtml: item.isHtml ?? localSnapshot?.emailData?.isHtml ?? true
+                            },
+                            rawComposeSnapshot: localSnapshot?.rawComposeSnapshot || {
+                                to: item.to,
+                                cc: item.cc,
+                                bcc: item.bcc,
+                                subject: item.subject,
+                                body: item.body,
+                                attachments: item.attachments,
+                                draftId: item.draftId,
+                                draftUid: item.draftUid,
+                                isStarred: item.isStarred
+                            }
+                        };
+                    });
+
+                    pendingUndoSendsRef.current = activeList;
+                    setPendingUndoSends(activeList);
+                    if (activeList.length > 0) {
+                        sessionStorage.setItem('bnx_pending_undo_sends', JSON.stringify(activeList));
+                    } else {
+                        sessionStorage.removeItem('bnx_pending_undo_sends');
+                        sessionStorage.removeItem('bnx_pending_undo_send');
+                    }
+                }
+            } catch (e) {
+                // User may not be logged in or network issue
+            }
+        };
+
+        rehydratePendingSends();
+    }, []);
 
     return (
         <MailContext.Provider value={{
