@@ -3684,13 +3684,13 @@ const ComposeWindow = ({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between border-t pt-3 mt-2 shrink-0 relative flex-nowrap min-w-0" style={{ borderColor: theme.border }}>
-              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 flex-nowrap overflow-x-auto scrollbar-none">
+            <div className="flex items-center justify-between border-t pt-2.5 mt-2 shrink-0 relative flex-nowrap min-w-0" style={{ borderColor: theme.border }}>
+              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-nowrap shrink-0">
                 <div className="inline-flex rounded-full shadow-md hover:shadow-lg transition-all shrink-0">
                   <button
                     type="submit"
                     disabled={sending || uploading}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold whitespace-nowrap disabled:opacity-60 cursor-pointer ${(composeMode === "mail" || composeMode === "email") ? "rounded-l-full border-r border-white/20" : "rounded-full"}`}
+                    className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 text-white text-xs font-semibold whitespace-nowrap disabled:opacity-60 cursor-pointer ${(composeMode === "mail" || composeMode === "email") ? "rounded-l-full border-r border-white/20" : "rounded-full"}`}
                     style={{ background: `linear-gradient(135deg, ${theme.accent || '#135bec'} 0%, #3b82f6 100%)` }}
                   >
                     {sending
@@ -3708,7 +3708,7 @@ const ComposeWindow = ({
                         setShowScheduleMenu(!showScheduleMenu);
                         setShowCustomSchedule(false);
                       }}
-                      className="px-2 py-2 rounded-r-full text-white text-xs font-semibold disabled:opacity-60 cursor-pointer flex items-center justify-center hover:bg-white/10"
+                      className="px-2 py-1.5 sm:py-2 rounded-r-full text-white text-xs font-semibold disabled:opacity-60 cursor-pointer flex items-center justify-center hover:bg-white/10"
                       style={{ background: `linear-gradient(135deg, ${theme.accent || '#135bec'} 0%, #3b82f6 100%)` }}
                       title="Schedule send"
                     >
@@ -3809,8 +3809,9 @@ const ComposeWindow = ({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer shrink-0"
+                  className="p-1.5 sm:p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer shrink-0 flex items-center justify-center"
                   title="Attach file"
+                  aria-label="Attach file"
                 >
                   <MdAttachFile size={18} className="transform rotate-45" />
                 </button>
@@ -3820,7 +3821,7 @@ const ComposeWindow = ({
                   <button
                     type="button"
                     onClick={() => setRequestReadReceipt(!requestReadReceipt)}
-                    className={`p-2 rounded-full transition-colors cursor-pointer shrink-0 flex items-center justify-center ${
+                    className={`p-1.5 sm:p-2 rounded-full transition-colors cursor-pointer shrink-0 flex items-center justify-center ${
                       requestReadReceipt
                         ? "bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/60 ring-1 ring-blue-500/30"
                         : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10"
@@ -3834,15 +3835,18 @@ const ComposeWindow = ({
 
                 {/* Signatures quick selector */}
                 {(composeMode === "mail" || composeMode === "email") && (
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <button
                       type="button"
                       onClick={() => setShowSignaturesMenu(!showSignaturesMenu)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xs font-semibold"
+                      className={`flex items-center gap-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xs font-semibold shrink-0 cursor-pointer ${
+                        isComposeMaximized ? 'px-2.5 py-1.5' : 'p-1.5 sm:p-2'
+                      }`}
                       title="Insert Signature"
+                      aria-label="Insert Signature"
                     >
-                      <MdEditDocument size={16} />
-                      <span className="hidden sm:inline">{t('settings.signature_label', 'Signature')}</span>
+                      <MdEditDocument size={18} />
+                      {isComposeMaximized && <span>{t('settings.signature_label', 'Signature')}</span>}
                     </button>
 
                     {showSignaturesMenu && (
@@ -3891,15 +3895,18 @@ const ComposeWindow = ({
 
                 {/* Inline Templates quick selector */}
                 {(composeMode === "mail" || composeMode === "email") && (
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <button
                       type="button"
                       onClick={() => setShowTemplates(!showTemplates)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-550 dark:text-gray-400 text-xs font-semibold"
+                      className={`flex items-center gap-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xs font-semibold shrink-0 cursor-pointer ${
+                        isComposeMaximized ? 'px-2.5 py-1.5' : 'p-1.5 sm:p-2'
+                      }`}
                       title="Insert Template"
+                      aria-label="Insert Template"
                     >
-                      <MdAssignment size={16} />
-                      <span className="hidden sm:inline">{t('sidebar.templates', 'Templates')}</span>
+                      <MdAssignment size={18} />
+                      {isComposeMaximized && <span>{t('sidebar.templates', 'Templates')}</span>}
                     </button>
 
                     {showTemplates && (
@@ -3947,10 +3954,14 @@ const ComposeWindow = ({
               <button
                 type="button"
                 onClick={handleDiscard}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-semibold transition-colors cursor-pointer"
+                className={`flex items-center gap-1 rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
+                  isComposeMaximized ? 'px-2.5 py-1.5' : 'p-1.5 sm:p-2'
+                }`}
+                title="Discard draft"
+                aria-label="Discard draft"
               >
                 <MdDeleteOutline size={18} />
-                <span className="hidden sm:inline">{t('compose.discard', 'Discard')}</span>
+                {isComposeMaximized && <span>{t('compose.discard', 'Discard')}</span>}
               </button>
             </div>
           )}
