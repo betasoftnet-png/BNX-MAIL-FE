@@ -3453,8 +3453,8 @@ const ComposeWindow = ({
           />
           {/* ACTIONS FOOTER */}
           {isReply ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-t shrink-0 relative bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800">
-              <div className="flex items-center flex-wrap gap-4 sm:gap-5 flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 px-5 py-3 border-t shrink-0 relative bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800 flex-nowrap min-w-0">
+              <div className="flex items-center gap-2.5 sm:gap-4 flex-1 min-w-0 flex-nowrap overflow-x-auto scrollbar-none">
                 {/* SPLIT SEND PILL BUTTON */}
                 <div className="inline-flex items-center rounded-full overflow-hidden shadow-sm hover:shadow transition-all bg-blue-600 hover:bg-blue-700 text-white shrink-0">
                   <button
@@ -3481,11 +3481,11 @@ const ComposeWindow = ({
                   )}
                 </div>
 
-                {/* Request Read Receipt (Business Accounts Only) */}
+                {/* RRR (Request Read Receipt) - Business Accounts Only */}
                 {isBusiness && (composeMode === "mail" || composeMode === "email") && (
                   <label
-                    className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white cursor-pointer select-none px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
-                    title="Request a notification when the recipient reads this email"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white cursor-pointer select-none px-1.5 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
+                    title="Request Read Receipt"
                   >
                     <input
                       type="checkbox"
@@ -3493,7 +3493,7 @@ const ComposeWindow = ({
                       onChange={(e) => setRequestReadReceipt(e.target.checked)}
                       className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-neutral-700 cursor-pointer"
                     />
-                    <span className="font-medium whitespace-nowrap">Request Read Receipt</span>
+                    <span className="whitespace-nowrap leading-none">RRR</span>
                   </label>
                 )}
 
@@ -3682,9 +3682,9 @@ const ComposeWindow = ({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between border-t pt-3 mt-2 shrink-0 relative" style={{ borderColor: theme.border }}>
-              <div className="flex items-center gap-2">
-                <div className="inline-flex rounded-full shadow-md hover:shadow-lg transition-all">
+            <div className="flex items-center justify-between border-t pt-3 mt-2 shrink-0 relative flex-nowrap min-w-0" style={{ borderColor: theme.border }}>
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 flex-nowrap overflow-x-auto scrollbar-none">
+                <div className="inline-flex rounded-full shadow-md hover:shadow-lg transition-all shrink-0">
                   <button
                     type="submit"
                     disabled={sending || uploading}
@@ -3717,11 +3717,11 @@ const ComposeWindow = ({
                   )}
                 </div>
 
-                {/* Request Read Receipt (Business Accounts Only) */}
+                {/* RRR (Request Read Receipt) - Business Accounts Only */}
                 {isBusiness && (composeMode === "mail" || composeMode === "email") && (
                   <label
-                    className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white cursor-pointer select-none px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
-                    title="Request a notification when recipient reads this email"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white cursor-pointer select-none px-1.5 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
+                    title="Request Read Receipt"
                   >
                     <input
                       type="checkbox"
@@ -3729,7 +3729,7 @@ const ComposeWindow = ({
                       onChange={(e) => setRequestReadReceipt(e.target.checked)}
                       className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-neutral-700 cursor-pointer"
                     />
-                    <span className="font-medium whitespace-nowrap">Request Read Receipt</span>
+                    <span className="whitespace-nowrap leading-none">RRR</span>
                   </label>
                 )}
 
