@@ -4085,6 +4085,13 @@ export const MailProvider = ({ children }) => {
 
     // Rehydrate active pending send(s) from backend and sessionStorage on page refresh or navigation
     useEffect(() => {
+        const token = localStorage.getItem('accessToken');
+        if (!user || !token) {
+            setPendingUndoSends([]);
+            pendingUndoSendsRef.current = [];
+            return;
+        }
+
         const rehydratePendingSends = async () => {
             try {
                 let storedMap = {};
@@ -4155,7 +4162,7 @@ export const MailProvider = ({ children }) => {
         };
 
         rehydratePendingSends();
-    }, []);
+    }, [user]);
 
     return (
         <MailContext.Provider value={{
