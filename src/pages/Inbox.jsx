@@ -9,7 +9,7 @@ import { mailAPI } from "../services/api";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
-import { MdRefresh, MdInbox, MdLocalOffer, MdPeople, MdInfo, MdLabelImportant, MdSend, MdDrafts, MdStar, MdDelete, MdEdit, MdCheck, MdWork, MdRateReview } from "react-icons/md";
+import { MdRefresh, MdInbox, MdLocalOffer, MdPeople, MdInfo, MdLabelImportant, MdSend, MdDrafts, MdStar, MdDelete, MdEdit, MdCheck, MdWork } from "react-icons/md";
 import toast from "react-hot-toast";
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
@@ -68,7 +68,6 @@ const Inbox = ({ searchQuery }) => {
     { id: 'SOCIAL', label: 'Social', icon: MdPeople, color: '#3b82f6', category: true },
     { id: 'UPDATES', label: 'Updates', icon: MdInfo, color: '#f97316', category: true },
     { id: 'JOB', label: 'Job', icon: MdWork, color: '#0d9488', category: true },
-    { id: 'REVIEW', label: 'Review', icon: MdRateReview, color: '#a855f7', category: true },
     { id: 'SENT', label: 'Sent', icon: MdSend, color: '#8b5cf6', category: false },
     { id: 'DRAFT', label: 'Drafts', icon: MdDrafts, color: '#64748b', category: false },
     { id: 'STARRED', label: 'Starred', icon: MdStar, color: '#eab308', category: false },
@@ -76,7 +75,7 @@ const Inbox = ({ searchQuery }) => {
   ];
 
   const isAllInbox = location.pathname === '/all-inbox';
-  const isCategoryTab = ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB', 'REVIEW'].includes(activeTab);
+  const isCategoryTab = ['ALL', 'IMPORTANT', 'PROMOTIONS', 'SOCIAL', 'UPDATES', 'JOB'].includes(activeTab);
 
   useEffect(() => {
     if (isAllInbox && !canAccessAllInbox(user)) {
@@ -203,6 +202,10 @@ const Inbox = ({ searchQuery }) => {
       let parsed = JSON.parse(saved);
       if (parsed.includes('PRIMARY')) {
         parsed = parsed.map(t => t === 'PRIMARY' ? 'ALL' : t);
+        localStorage.setItem('inbox_visible_tabs', JSON.stringify(parsed));
+      }
+      if (parsed.includes('REVIEW')) {
+        parsed = parsed.filter(t => t !== 'REVIEW');
         localStorage.setItem('inbox_visible_tabs', JSON.stringify(parsed));
       }
       if (!parsed.includes('ALL')) parsed.unshift('ALL');
