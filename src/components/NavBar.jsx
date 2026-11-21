@@ -25,7 +25,7 @@ import {
 } from "../utils/searchUtils";
 import { getEmailPreviewSnippet } from "../utils/htmlUtils";
 
-const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSidebar, onToggleBitToolSidebar, onOpenNotes, isDesktopSidebarOpen = true }) => {
+const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSidebar, onToggleBitToolSidebar, isBitToolSidebarOpen = false, onOpenNotes, isDesktopSidebarOpen = true }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -893,14 +893,20 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           </div>
 
           <button
+            type="button"
             onClick={onToggleBitToolSidebar}
-            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center shrink-0 cursor-pointer hover:opacity-90 active:scale-95 transition-all drop-shadow-sm"
-            title={t('navbar.bit_tools', 'Toggle BIT Tools')}
+            className={`w-7 h-7 sm:w-8 sm:h-8 p-1 sm:p-1.5 rounded-lg border border-white flex items-center justify-center shrink-0 cursor-pointer transition-all duration-200 drop-shadow-sm active:scale-95 ${
+              isBitToolSidebarOpen
+                ? "bg-white/20"
+                : "bg-[#195bac] hover:bg-white/15 active:bg-white/25"
+            }`}
+            title="Bit Tools"
+            aria-label="Bit Tools"
           >
             <img
               src={bitToolLogo}
-              alt="BIT Tool"
-              className="w-full h-full object-contain"
+              alt="Bit Tools"
+              className="w-full h-full object-contain pointer-events-none"
             />
           </button>
         </div>

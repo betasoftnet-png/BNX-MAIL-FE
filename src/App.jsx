@@ -262,6 +262,7 @@ const AppContent = () => {
           }
           onOpenMenu={() => setIsMobileSidebarOpen(prev => !prev)}
           onToggleBitToolSidebar={() => setIsBitToolSidebarOpen(v => !v)}
+          isBitToolSidebarOpen={isBitToolSidebarOpen}
           onOpenNotes={() => setShowNotesManager(v => !v)}
         />
 
