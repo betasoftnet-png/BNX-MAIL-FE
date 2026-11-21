@@ -233,7 +233,6 @@ const Inbox = ({ searchQuery }) => {
 
   const listComponent = (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {loading && <div className="p-4 text-center text-xs opacity-60">Loading emails...</div>}
       <EmailList
         emails={sortedEmails}
         selectedEmailId={selectedEmailUid}

@@ -88,9 +88,7 @@ export const SocketProvider = ({ children }) => {
                 break;
             case 'send_progress':
                 if (data.status === 'completed') {
-                    if (sentNotifications) {
-                        toast.success('Email sent successfully');
-                    }
+                    // "Message sent" toast is shown immediately after send action; suppress duplicate toast here
                     if (fetchEmails) fetchEmails(undefined, true);
                     if (fetchEmailsSilently) {
                         fetchEmailsSilently('sent');

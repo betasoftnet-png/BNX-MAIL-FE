@@ -50,7 +50,7 @@ const EmailList = ({
   const { user } = useAuth();
   const location = useLocation();
   const { theme, emailsPerPage, backgroundImage } = useTheme();
-  const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, labels, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead, isEmailPinned, handleTogglePin } = useMail();
+  const { openCompose, isComposeOpen, totalEmails, currentPage, handlePageChange, loading, fetchError, refreshEmails, labels, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, dateFilter, resetDateFilter, currentFolder, isEmailStarred, isEmailRead, isEmailPinned, handleTogglePin } = useMail();
   const isAllInbox = location.pathname === '/all-inbox' || currentFolder?.toLowerCase() === 'all-inbox' || currentFolder?.toLowerCase() === 'allinbox';
   const [, setPrefsTick] = useState(0);
   useEffect(() => {
@@ -310,7 +310,26 @@ const EmailList = ({
         </div>
       )}
       <div className={`flex-1 overflow-y-auto bg-transparent hidden-scrollbar transition-opacity duration-300 pb-16 lg:pb-0 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-        {emails.length === 0 ? (
+        {loading && emails.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[50vh] text-gray-400 p-8">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="text-base font-medium text-gray-500 dark:text-gray-400">Loading messages...</p>
+          </div>
+        ) : fetchError && emails.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[50vh] text-gray-400 p-8">
+            <span className="text-5xl mb-4 opacity-75">⚠️</span>
+            <p className="text-base font-medium text-gray-600 dark:text-gray-300">{fetchError}</p>
+            {typeof refreshEmails === 'function' && (
+              <button
+                type="button"
+                onClick={() => refreshEmails(currentFolder)}
+                className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        ) : emails.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-gray-400 p-8">
             <span className="text-5xl mb-4 opacity-75">📭</span>
             <p className="text-base font-medium text-gray-500 dark:text-gray-400">Your folder is empty</p>

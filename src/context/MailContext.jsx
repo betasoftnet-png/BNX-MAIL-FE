@@ -402,6 +402,7 @@ export const MailProvider = ({ children }) => {
         }
     }, []);
     const [loading, setLoading] = useState(false);
+    const [fetchError, setFetchError] = useState(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const isRefreshingRef = useRef(false);
     const [unreadCounts, setUnreadCounts] = useState(() => ({
@@ -1412,6 +1413,7 @@ export const MailProvider = ({ children }) => {
 
         if (!silent || force) {
             setLoading(true);
+            setFetchError(null);
         }
 
         // Clear emails & reset total count if switching folders to avoid flashing stale content
@@ -1473,6 +1475,7 @@ export const MailProvider = ({ children }) => {
             }
 
             if (res.data?.success) {
+                setFetchError(null);
                 const data = res.data.data || {};
                 const rawEmails = Array.isArray(data) ? data : (data.emails || []);
                 const isDraftFolder = folderKey === 'draft' || folderKey === 'drafts';
@@ -1682,6 +1685,7 @@ export const MailProvider = ({ children }) => {
                 }
             }
         } catch (error) {
+            setFetchError(error?.response?.data?.message || error?.message || 'Failed to load emails');
             if (!silent) {
                 console.error(`Failed to fetch ${folder}:`, error);
                 toast.error(error?.response?.data?.message || (force ? `Failed to refresh ${folder}` : `Failed to load ${folder}`));
@@ -1691,7 +1695,7 @@ export const MailProvider = ({ children }) => {
                 setIsRefreshing(false);
                 isRefreshingRef.current = false;
             }
-            if ((!silent || force) && currentFolderRef.current.toLowerCase() === folderKey) setLoading(false);
+            if (!silent || force) setLoading(false);
         }
     }, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts, fetchAllInboxEmails, fetchAllMailEmails, invalidateCache, fetchLabelEmails]);
 
@@ -3993,12 +3997,6 @@ export const MailProvider = ({ children }) => {
         setPendingUndoSends(prev => {
             const next = [...prev.filter(p => p.sendId !== newPending.sendId), newPending];
             pendingUndoSendsRef.current = next;
-            try {
-                sessionStorage.setItem('bnx_pending_undo_sends', JSON.stringify(next));
-                sessionStorage.setItem('bnx_pending_undo_send', JSON.stringify(newPending));
-            } catch (e) {
-                console.warn('Could not persist pending undo sends to sessionStorage:', e);
-            }
             return next;
         });
     }, []);
@@ -4007,17 +4005,14 @@ export const MailProvider = ({ children }) => {
         setPendingUndoSends(prev => {
             const next = sendId ? prev.filter(p => p.sendId !== sendId) : [];
             pendingUndoSendsRef.current = next;
-            try {
-                if (next.length > 0) {
-                    sessionStorage.setItem('bnx_pending_undo_sends', JSON.stringify(next));
-                    sessionStorage.setItem('bnx_pending_undo_send', JSON.stringify(next[next.length - 1]));
-                } else {
-                    sessionStorage.removeItem('bnx_pending_undo_sends');
-                    sessionStorage.removeItem('bnx_pending_undo_send');
-                }
-            } catch (e) {}
             return next;
         });
+        try {
+            sessionStorage.removeItem('bnx_pending_undo_sends');
+            sessionStorage.removeItem('bnx_pending_undo_send');
+            localStorage.removeItem('bnx_pending_undo_sends');
+            localStorage.removeItem('bnx_pending_undo_send');
+        } catch (e) {}
 
         // If currently viewing Sent or Outbox folder, refresh to reflect newly delivered message
         if (currentFolderRef.current && (currentFolderRef.current.toLowerCase() === 'sent' || currentFolderRef.current.toLowerCase() === 'outbox')) {
@@ -4083,92 +4078,22 @@ export const MailProvider = ({ children }) => {
         }
     }, [openCompose, handleDismissUndoSend]);
 
-    // Rehydrate active pending send(s) from backend and sessionStorage on page refresh or navigation
+    // Ensure no persisted notification state survives on load or page refresh
     useEffect(() => {
-        const token = localStorage.getItem('accessToken');
-        if (!user || !token) {
-            setPendingUndoSends([]);
-            pendingUndoSendsRef.current = [];
-            return;
-        }
-
-        const rehydratePendingSends = async () => {
-            try {
-                let storedMap = {};
-                try {
-                    const multiSaved = sessionStorage.getItem('bnx_pending_undo_sends');
-                    if (multiSaved) {
-                        const parsedMulti = JSON.parse(multiSaved);
-                        if (Array.isArray(parsedMulti)) {
-                            parsedMulti.forEach(p => {
-                                if (p && p.sendId) storedMap[p.sendId] = p;
-                            });
-                        }
-                    }
-                    const singleSaved = sessionStorage.getItem('bnx_pending_undo_send');
-                    if (singleSaved) {
-                        const parsedSingle = JSON.parse(singleSaved);
-                        if (parsedSingle && parsedSingle.sendId) storedMap[parsedSingle.sendId] = parsedSingle;
-                    }
-                } catch (e) {}
-
-                // Query backend source of truth
-                const res = await mailAPI.getActivePendingEmails();
-                if (res.data?.success && Array.isArray(res.data.data)) {
-                    const now = Date.now();
-                    const activeFromBackend = res.data.data.filter(item => item.status === 'PENDING_UNDO' && item.expiresAt > now);
-
-                    const activeList = activeFromBackend.map(item => {
-                        const localSnapshot = storedMap[item.sendId];
-                        return {
-                            sendId: item.sendId,
-                            delaySeconds: item.remainingSeconds || 5,
-                            expiresAt: item.expiresAt,
-                            emailData: {
-                                to: item.to || localSnapshot?.emailData?.to || '',
-                                cc: item.cc || localSnapshot?.emailData?.cc || '',
-                                bcc: item.bcc || localSnapshot?.emailData?.bcc || '',
-                                subject: item.subject || localSnapshot?.emailData?.subject || '',
-                                body: item.body || localSnapshot?.emailData?.body || '',
-                                attachments: item.attachments || localSnapshot?.emailData?.attachments || [],
-                                isHtml: item.isHtml ?? localSnapshot?.emailData?.isHtml ?? true
-                            },
-                            rawComposeSnapshot: localSnapshot?.rawComposeSnapshot || {
-                                to: item.to,
-                                cc: item.cc,
-                                bcc: item.bcc,
-                                subject: item.subject,
-                                body: item.body,
-                                attachments: item.attachments,
-                                draftId: item.draftId,
-                                draftUid: item.draftUid,
-                                isStarred: item.isStarred
-                            }
-                        };
-                    });
-
-                    pendingUndoSendsRef.current = activeList;
-                    setPendingUndoSends(activeList);
-                    if (activeList.length > 0) {
-                        sessionStorage.setItem('bnx_pending_undo_sends', JSON.stringify(activeList));
-                    } else {
-                        sessionStorage.removeItem('bnx_pending_undo_sends');
-                        sessionStorage.removeItem('bnx_pending_undo_send');
-                    }
-                }
-            } catch (e) {
-                // User may not be logged in or network issue
-            }
-        };
-
-        rehydratePendingSends();
-    }, [user]);
+        try {
+            sessionStorage.removeItem('bnx_pending_undo_sends');
+            sessionStorage.removeItem('bnx_pending_undo_send');
+            localStorage.removeItem('bnx_pending_undo_sends');
+            localStorage.removeItem('bnx_pending_undo_send');
+        } catch (e) {}
+    }, []);
 
     return (
         <MailContext.Provider value={{
             emails,
             getFolderEmails,
             loading,
+            fetchError,
             isRefreshing,
             currentFolder,
             setCurrentFolder,
@@ -4267,6 +4192,7 @@ export const useMail = () => {
             emails: [],
             getFolderEmails: () => [],
             loading: false,
+            fetchError: null,
             isRefreshing: false,
             labels: [],
             unreadCounts: { inbox: 0, unread: 0, spam: 0, trash: 0 },
