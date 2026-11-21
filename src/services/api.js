@@ -176,18 +176,14 @@ api.interceptors.request.use(
             }
         }
 
-        const hasAuth = config.headers && (
-            (typeof config.headers.has === 'function' && (config.headers.has('Authorization') || config.headers.has('authorization'))) ||
-            config.headers.Authorization ||
-            config.headers['Authorization'] ||
-            config.headers['authorization']
-        );
-
-        if (token && !hasAuth) {
-            if (typeof config.headers.set === 'function') {
+        if (token && !isAuthEndpoint) {
+            if (typeof config.headers?.set === 'function') {
                 config.headers.set('Authorization', `Bearer ${token}`);
+            } else if (config.headers) {
+                config.headers['Authorization'] = `Bearer ${token}`;
+                delete config.headers['authorization'];
             } else {
-                config.headers.Authorization = `Bearer ${token}`;
+                config.headers = { Authorization: `Bearer ${token}` };
             }
         }
         return config;
@@ -296,7 +292,9 @@ api.interceptors.response.use(
                     originalRequest.headers.set('Authorization', `Bearer ${newAccessToken}`);
                 } else if (originalRequest.headers) {
                     originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
-                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                    delete originalRequest.headers['authorization'];
+                } else {
+                    originalRequest.headers = { Authorization: `Bearer ${newAccessToken}` };
                 }
                 return api(originalRequest);
             } catch (refreshError) {
