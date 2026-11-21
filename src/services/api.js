@@ -29,6 +29,40 @@ export const api = axios.create({
     withCredentials: false,
 });
 
+// Standalone unintercepted Axios instance specifically for auth refresh / token exchange
+const authClient = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    timeout: 15000,
+    withCredentials: false,
+});
+
+// Helper to set Authorization header cleanly across AxiosHeaders or standard objects
+export const setAuthHeader = (config, token) => {
+    if (!token) return;
+    if (typeof config.headers?.set === 'function') {
+        config.headers.set('Authorization', `Bearer ${token}`);
+    } else if (config.headers) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+        delete config.headers['authorization'];
+    } else {
+        config.headers = { Authorization: `Bearer ${token}` };
+    }
+};
+
+const isAuthEndpoint = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    return (
+        url.includes('/api/auth/login') ||
+        url.includes('/api/auth/refresh') ||
+        url.includes('/api/auth/register') ||
+        url.includes('/api/auth/forgot-password') ||
+        url.includes('/api/auth/reset-password')
+    );
+};
+
 // Safely parse JWT to inspect expiration without external dependencies
 export const parseJwt = (token) => {
     if (!token || typeof token !== 'string') return null;
@@ -49,8 +83,21 @@ export const parseJwt = (token) => {
     }
 };
 
-// Singleton in-flight refresh promise to prevent duplicate concurrent calls
+// Singleton in-flight refresh promise and request queue to prevent duplicate concurrent calls
 let refreshPromise = null;
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach((prom) => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
 
 export const refreshAccessToken = async () => {
     if (refreshPromise) {
@@ -64,10 +111,7 @@ export const refreshAccessToken = async () => {
 
     refreshPromise = (async () => {
         try {
-            const res = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH}`, { refreshToken }, {
-                headers: { 'Content-Type': 'application/json' },
-                timeout: 15000
-            });
+            const res = await authClient.post(API_ENDPOINTS.AUTH.REFRESH, { refreshToken });
 
             // Extract tokens from ApiResponse structure: res.data.data or res.data
             const responseData = res.data?.data || res.data || {};
@@ -108,9 +152,17 @@ export const refreshAccessToken = async () => {
     return refreshPromise;
 };
 
+let isHandlingExpiry = false;
+
 const handleSessionExpiry = () => {
+    if (isHandlingExpiry) return;
+    isHandlingExpiry = true;
+
     const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/create-mailbox'].includes(window.location.pathname) || window.location.pathname.startsWith('/signup');
-    if (isAuthPage) return;
+    if (isAuthPage) {
+        isHandlingExpiry = false;
+        return;
+    }
 
     const activeEmail = localStorage.getItem('bnx_active_email');
     let sessionsStr = localStorage.getItem('bnx_sessions');
@@ -150,17 +202,27 @@ const handleSessionExpiry = () => {
 // Request Interceptor
 api.interceptors.request.use(
     async (config) => {
+        if (isAuthEndpoint(config.url)) {
+            return config;
+        }
+
+        // If a token refresh is currently in flight, wait for it so pending requests use the fresh token
+        if (isRefreshing && refreshPromise) {
+            try {
+                const freshToken = await refreshPromise;
+                if (freshToken) {
+                    setAuthHeader(config, freshToken);
+                    return config;
+                }
+            } catch (e) {
+                // If refresh failed, allow request to proceed to response interceptor for 401 handling
+            }
+        }
+
         let token = localStorage.getItem('accessToken');
         const refreshToken = localStorage.getItem('refreshToken');
 
-        const isAuthEndpoint = config.url && (
-            config.url.includes('/api/auth/login') ||
-            config.url.includes('/api/auth/refresh') ||
-            config.url.includes('/api/auth/register') ||
-            config.url.includes('/api/auth/forgot-password')
-        );
-
-        if (token && refreshToken && !isAuthEndpoint) {
+        if (token && refreshToken) {
             const payload = parseJwt(token);
             if (payload && payload.exp) {
                 const expiryMs = payload.exp * 1000;
@@ -176,16 +238,10 @@ api.interceptors.request.use(
             }
         }
 
-        if (token && !isAuthEndpoint) {
-            if (typeof config.headers?.set === 'function') {
-                config.headers.set('Authorization', `Bearer ${token}`);
-            } else if (config.headers) {
-                config.headers['Authorization'] = `Bearer ${token}`;
-                delete config.headers['authorization'];
-            } else {
-                config.headers = { Authorization: `Bearer ${token}` };
-            }
+        if (token) {
+            setAuthHeader(config, token);
         }
+
         return config;
     },
     (error) => {
@@ -268,49 +324,65 @@ api.interceptors.response.use(
 
         if (error.response?.status === 401) {
             const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/create-mailbox'].includes(window.location.pathname) || window.location.pathname.startsWith('/signup');
-            const isAuthEndpoint = originalRequest?.url && (
-                originalRequest.url.includes('/api/auth/login') ||
-                originalRequest.url.includes('/api/auth/refresh') ||
-                originalRequest.url.includes('/api/auth/register')
-            );
 
-            if (isAuthPage || isAuthEndpoint) {
+            if (isAuthPage || isAuthEndpoint(originalRequest?.url)) {
                 return Promise.reject(error);
             }
 
-            if (originalRequest._retry) {
-                // Do NOT logout user on individual API failure. Just reject the error.
+            if (originalRequest?._retry) {
+                // Do NOT retry multiple times. Reject the error.
                 console.warn('Request failed 401 after token retry for endpoint:', originalRequest.url);
                 return Promise.reject(error);
             }
 
+            // If a refresh is already in progress, queue this request to be retried with the new token
+            if (isRefreshing) {
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                })
+                    .then((newToken) => {
+                        originalRequest._retry = true;
+                        setAuthHeader(originalRequest, newToken);
+                        return api(originalRequest);
+                    })
+                    .catch((err) => {
+                        return Promise.reject(err);
+                    });
+            }
+
+            isRefreshing = true;
             originalRequest._retry = true;
 
-            try {
-                const newAccessToken = await refreshAccessToken();
-                if (typeof originalRequest.headers?.set === 'function') {
-                    originalRequest.headers.set('Authorization', `Bearer ${newAccessToken}`);
-                } else if (originalRequest.headers) {
-                    originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
-                    delete originalRequest.headers['authorization'];
-                } else {
-                    originalRequest.headers = { Authorization: `Bearer ${newAccessToken}` };
-                }
-                return api(originalRequest);
-            } catch (refreshError) {
-                const refreshMsg = refreshError.response?.data?.message?.toLowerCase() || '';
-                const isExplicitRevokedOrExpired = (refreshError.response?.status === 400 || refreshError.response?.status === 401) &&
-                    (refreshMsg.includes('refresh token') || refreshMsg.includes('expired') || refreshMsg.includes('revoked'));
-                const isNoToken = refreshError.message === 'No refresh token available';
+            return new Promise((resolve, reject) => {
+                refreshAccessToken()
+                    .then((newToken) => {
+                        setAuthHeader(originalRequest, newToken);
+                        processQueue(null, newToken);
+                        resolve(api(originalRequest));
+                    })
+                    .catch((refreshError) => {
+                        processQueue(refreshError, null);
 
-                if (isExplicitRevokedOrExpired || isNoToken) {
-                    console.warn('Refresh token explicitly revoked or expired. Terminating session.');
-                    handleSessionExpiry();
-                } else {
-                    console.warn('Temporary error during token refresh. Preserving session:', refreshError?.message);
-                }
-                return Promise.reject(refreshError);
-            }
+                        const status = refreshError.response?.status;
+                        const refreshMsg = (refreshError.response?.data?.message || '').toLowerCase();
+                        const isNoToken = refreshError.message === 'No refresh token available';
+                        const isExplicitAuthFailure = status === 401 ||
+                            (status === 400 && (refreshMsg.includes('refresh token') || refreshMsg.includes('expired') || refreshMsg.includes('revoked'))) ||
+                            isNoToken;
+
+                        if (isExplicitAuthFailure) {
+                            console.warn('Refresh token explicitly revoked or expired. Terminating session.');
+                            handleSessionExpiry();
+                        } else {
+                            console.warn('Temporary error during token refresh. Preserving session:', refreshError?.message);
+                        }
+
+                        reject(refreshError);
+                    })
+                    .finally(() => {
+                        isRefreshing = false;
+                    });
+            });
         }
 
         return Promise.reject(error);
@@ -360,7 +432,7 @@ export const authAPI = {
             headers: { 'X-Device-Name': name }
         });
     },
-    refresh: (refreshToken) => api.post(API_ENDPOINTS.AUTH.REFRESH, { refreshToken }),
+    refresh: (refreshToken) => authClient.post(API_ENDPOINTS.AUTH.REFRESH, { refreshToken }),
     logout: (refreshToken) => api.post(API_ENDPOINTS.AUTH.LOGOUT, { refreshToken }),
     sessions: () => api.get(API_ENDPOINTS.AUTH.SESSIONS),
     revokeSession: (sessionId) => api.delete(`/api/auth/sessions/${sessionId}`),
