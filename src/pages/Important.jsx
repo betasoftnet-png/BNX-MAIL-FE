@@ -2,7 +2,7 @@ import { useTranslation } from "../context/LanguageContext";
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMail } from "../context/MailContext";
-import { MdLabelImportant, MdRefresh } from "react-icons/md";
+import { MdLabelImportant } from "react-icons/md";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
@@ -279,50 +279,12 @@ const Important = ({ searchQuery }) => {
   ) : (
     <div className="flex flex-col border-b border-gray-100 dark:border-gray-800 bg-transparent shrink-0">
       <div className="flex px-4 pt-1 items-center gap-2 sm:gap-3 text-sm font-medium">
-        {/* Select All Checkbox */}
-        <div className="flex items-center shrink-0 pr-1">
-          <input
-            type="checkbox"
-            checked={sortedEmails.length > 0 && sortedEmails.every(e => selectedIds.has(`${e.uid}__${e.folderName || 'important'}`))}
-            onChange={(e) => {
-              if (e.target.checked) {
-                const all = new Set(sortedEmails.map(email => `${email.uid}__${email.folderName || 'important'}`));
-                setSelectedIds(all);
-              } else {
-                setSelectedIds(new Set());
-              }
-            }}
-            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
-            title={t("common.select_all", "Select all")}
-            aria-label="Select all"
-          />
-        </div>
-
-        {/* Refresh Button */}
-        <button
-          onClick={() => refreshEmails("important")}
-          disabled={loading || isRefreshing}
-          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
-          title={t("common.refresh", "Refresh mail")}
-        >
-          <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
-        </button>
-
-        {/* Important Tab / Title */}
-        <div className="flex gap-2 sm:gap-6 overflow-x-auto hidden-scrollbar flex-1">
-          <div
-            className="py-3 px-2 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-default font-medium text-sm"
-            style={{ borderColor: theme.accent || "#135bec", color: theme.accent || "#135bec" }}
-          >
-            <MdLabelImportant size={18} />
-            <span>{t("sidebar.important", "Important")}</span>
-            <span
-              className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-bold shadow-sm"
-              style={{ backgroundColor: theme.accent || "#135bec" }}
-            >
-              {sortedEmails.length}
-            </span>
-          </div>
+        {/* Important Heading */}
+        <div className="flex items-center gap-2 py-3 px-2 whitespace-nowrap cursor-default font-medium text-sm text-black dark:text-white">
+          <MdLabelImportant size={18} className="text-[#eab308] shrink-0" />
+          <span className="text-black dark:text-white font-medium text-sm leading-none">
+            {t("sidebar.important", "Important")}
+          </span>
         </div>
       </div>
     </div>
