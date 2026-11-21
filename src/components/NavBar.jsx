@@ -897,8 +897,8 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
             onClick={onToggleBitToolSidebar}
             className={`w-7 h-7 sm:w-8 sm:h-8 p-1 sm:p-1.5 rounded-lg border border-white flex items-center justify-center shrink-0 cursor-pointer transition-all duration-200 drop-shadow-sm active:scale-95 ${
               isBitToolSidebarOpen
-                ? "bg-white/20"
-                : "bg-[#195bac] hover:bg-white/15 active:bg-white/25"
+                ? "bg-white/25"
+                : "bg-white/10 hover:bg-white/20 active:bg-white/25"
             }`}
             title="Bit Tools"
             aria-label="Bit Tools"
