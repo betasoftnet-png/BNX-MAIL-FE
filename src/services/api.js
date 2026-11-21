@@ -29,10 +29,153 @@ export const api = axios.create({
     withCredentials: false,
 });
 
+// Safely parse JWT to inspect expiration without external dependencies
+export const parseJwt = (token) => {
+    if (!token || typeof token !== 'string') return null;
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        const base64Url = parts[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+            atob(base64)
+                .split('')
+                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+        );
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+};
+
+// Singleton in-flight refresh promise to prevent duplicate concurrent calls
+let refreshPromise = null;
+
+export const refreshAccessToken = async () => {
+    if (refreshPromise) {
+        return refreshPromise;
+    }
+
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+        return Promise.reject(new Error('No refresh token available'));
+    }
+
+    refreshPromise = (async () => {
+        try {
+            const res = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH}`, { refreshToken }, {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 15000
+            });
+
+            // Extract tokens from ApiResponse structure: res.data.data or res.data
+            const responseData = res.data?.data || res.data || {};
+            const newAccessToken = responseData.accessToken;
+            const newRefreshToken = responseData.refreshToken || refreshToken;
+
+            if (!newAccessToken) {
+                throw new Error('No access token in refresh response');
+            }
+
+            // Persist tokens
+            localStorage.setItem('accessToken', newAccessToken);
+            localStorage.setItem('refreshToken', newRefreshToken);
+            api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+
+            // Sync multi-account sessions store
+            const activeEmail = localStorage.getItem('bnx_active_email');
+            try {
+                const sessionsStr = localStorage.getItem('bnx_sessions');
+                if (sessionsStr) {
+                    const sessions = JSON.parse(sessionsStr);
+                    if (activeEmail && sessions[activeEmail]) {
+                        sessions[activeEmail].accessToken = newAccessToken;
+                        sessions[activeEmail].refreshToken = newRefreshToken;
+                        localStorage.setItem('bnx_sessions', JSON.stringify(sessions));
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not update bnx_sessions on token refresh:', e);
+            }
+
+            return newAccessToken;
+        } finally {
+            refreshPromise = null;
+        }
+    })();
+
+    return refreshPromise;
+};
+
+const handleSessionExpiry = () => {
+    const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/create-mailbox'].includes(window.location.pathname) || window.location.pathname.startsWith('/signup');
+    if (isAuthPage) return;
+
+    const activeEmail = localStorage.getItem('bnx_active_email');
+    let sessionsStr = localStorage.getItem('bnx_sessions');
+    let sessions = {};
+    try {
+        sessions = sessionsStr ? JSON.parse(sessionsStr) : {};
+    } catch (e) { }
+
+    if (activeEmail && sessions[activeEmail]) {
+        delete sessions[activeEmail];
+        localStorage.setItem('bnx_sessions', JSON.stringify(sessions));
+    }
+
+    const remainingEmails = Object.keys(sessions);
+    if (remainingEmails.length > 0) {
+        const nextEmail = remainingEmails[0];
+        const nextSession = sessions[nextEmail];
+
+        localStorage.setItem('bnx_active_email', nextEmail);
+        localStorage.setItem('accessToken', nextSession.accessToken);
+        localStorage.setItem('refreshToken', nextSession.refreshToken || '');
+        localStorage.setItem('userProfile', JSON.stringify(nextSession.userProfile));
+
+        window.location.href = '/inbox';
+    } else {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userProfile');
+        localStorage.removeItem('tempToken');
+        localStorage.removeItem('bnx_active_email');
+        localStorage.removeItem('bnx_sessions');
+
+        window.location.href = '/login';
+    }
+};
+
 // Request Interceptor
 api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('accessToken');
+    async (config) => {
+        let token = localStorage.getItem('accessToken');
+        const refreshToken = localStorage.getItem('refreshToken');
+
+        const isAuthEndpoint = config.url && (
+            config.url.includes('/api/auth/login') ||
+            config.url.includes('/api/auth/refresh') ||
+            config.url.includes('/api/auth/register') ||
+            config.url.includes('/api/auth/forgot-password')
+        );
+
+        if (token && refreshToken && !isAuthEndpoint) {
+            const payload = parseJwt(token);
+            if (payload && payload.exp) {
+                const expiryMs = payload.exp * 1000;
+                const nowMs = Date.now();
+                // If token expires within 60 seconds or is already expired, proactively refresh
+                if (nowMs >= expiryMs - 60000) {
+                    try {
+                        token = await refreshAccessToken();
+                    } catch (e) {
+                        console.warn('Proactive token refresh attempt:', e?.message);
+                    }
+                }
+            }
+        }
+
         const hasAuth = config.headers && (
             (typeof config.headers.has === 'function' && (config.headers.has('Authorization') || config.headers.has('authorization'))) ||
             config.headers.Authorization ||
@@ -127,58 +270,46 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        if (error.response?.status === 401 || error.response?.status === 403) {
+        if (error.response?.status === 401) {
             const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/create-mailbox'].includes(window.location.pathname) || window.location.pathname.startsWith('/signup');
+            const isAuthEndpoint = originalRequest?.url && (
+                originalRequest.url.includes('/api/auth/login') ||
+                originalRequest.url.includes('/api/auth/refresh') ||
+                originalRequest.url.includes('/api/auth/register')
+            );
 
-            if (!originalRequest._retry && !isAuthPage) {
-                originalRequest._retry = true;
-                const refreshToken = localStorage.getItem('refreshToken');
-
-                if (refreshToken) {
-                    try {
-                        const res = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH}`, { refreshToken });
-                        if (res.data?.accessToken) {
-                            localStorage.setItem('accessToken', res.data.accessToken);
-                            localStorage.setItem('refreshToken', res.data.refreshToken);
-                            api.defaults.headers.common['Authorization'] = `Bearer ${res.data.accessToken}`;
-                            originalRequest.headers['Authorization'] = `Bearer ${res.data.accessToken}`;
-                            return api(originalRequest);
-                        }
-                    } catch (refreshError) {
-                        console.error('Token refresh failed:', refreshError);
-                    }
-                }
+            if (isAuthPage || isAuthEndpoint) {
+                return Promise.reject(error);
             }
 
-            // If refresh fails or it's a second 401, remove current session
-            if (!isAuthPage) {
-                const activeEmail = localStorage.getItem('bnx_active_email');
-                let sessionsStr = localStorage.getItem('bnx_sessions');
-                let sessions = {};
-                try {
-                    sessions = sessionsStr ? JSON.parse(sessionsStr) : {};
-                } catch (e) { }
+            if (originalRequest._retry) {
+                console.warn('Request failed 401 after token retry. Session expired.');
+                handleSessionExpiry();
+                return Promise.reject(error);
+            }
 
-                if (activeEmail && sessions[activeEmail]) {
-                    delete sessions[activeEmail];
-                    localStorage.setItem('bnx_sessions', JSON.stringify(sessions));
+            originalRequest._retry = true;
+
+            try {
+                const newAccessToken = await refreshAccessToken();
+                if (typeof originalRequest.headers?.set === 'function') {
+                    originalRequest.headers.set('Authorization', `Bearer ${newAccessToken}`);
+                } else if (originalRequest.headers) {
+                    originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
                 }
+                return api(originalRequest);
+            } catch (refreshError) {
+                const isExplicitAuthFailure = refreshError.response?.status === 400 || refreshError.response?.status === 401;
+                const isNoToken = refreshError.message === 'No refresh token available';
 
-                const remainingEmails = Object.keys(sessions);
-                if (remainingEmails.length > 0) {
-                    const nextEmail = remainingEmails[0];
-                    const nextSession = sessions[nextEmail];
-
-                    localStorage.setItem('bnx_active_email', nextEmail);
-                    localStorage.setItem('accessToken', nextSession.accessToken);
-                    localStorage.setItem('refreshToken', nextSession.refreshToken || '');
-                    localStorage.setItem('userProfile', JSON.stringify(nextSession.userProfile));
-
-                    window.location.href = '/inbox';
+                if (isExplicitAuthFailure || isNoToken) {
+                    console.warn('Refresh token invalid or expired. Terminating session.');
+                    handleSessionExpiry();
                 } else {
-                    localStorage.clear();
-                    window.location.href = '/login';
+                    console.warn('Temporary network error during token refresh. Keeping session:', refreshError?.message);
                 }
+                return Promise.reject(refreshError);
             }
         }
 
