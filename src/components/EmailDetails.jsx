@@ -437,20 +437,32 @@ const EmailDetails = ({
   const [isRespondingReceipt, setIsRespondingReceipt] = useState(false);
   const [receiptDismissed, setReceiptDismissed] = useState(false);
   const [localReceiptStatus, setLocalReceiptStatus] = useState(null);
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const dismissedReceiptUidsRef = useRef(new Set());
+
+  const currentEmailKey = String(email?.uid ?? email?.id ?? email?.messageId ?? '');
+  const isReceiptDismissed = receiptDismissed || (Boolean(currentEmailKey) && dismissedReceiptUidsRef.current.has(currentEmailKey));
 
   useEffect(() => {
     setReceiptDismissed(false);
     setLocalReceiptStatus(null);
-  }, [email?.uid, email?.messageId, email?.readReceiptId]);
+    setShowDeclineModal(false);
+  }, [email?.uid, email?.messageId]);
 
-  const handleAcceptReadReceipt = async () => {
-    if (!email?.readReceiptId || isRespondingReceipt) return;
+  const handleAcceptReadReceipt = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const receiptId = email?.readReceiptId || email?.uid || email?.id;
+    if (!receiptId || isRespondingReceipt) return;
     setIsRespondingReceipt(true);
     try {
-      await readReceiptAPI.respond(email.readReceiptId, 'ACCEPT');
+      await readReceiptAPI.respond(receiptId, 'ACCEPT');
       toast.success("Read receipt sent.");
       setLocalReceiptStatus('READ');
       setReceiptDismissed(true);
+      if (currentEmailKey) dismissedReceiptUidsRef.current.add(currentEmailKey);
     } catch (err) {
       console.error("Error sending read receipt:", err);
       toast.error("Failed to send read receipt.");
@@ -459,16 +471,42 @@ const EmailDetails = ({
     }
   };
 
-  const handleDeclineReadReceipt = async () => {
-    if (!email?.readReceiptId || isRespondingReceipt) return;
+  const handleOpenDeclineReceiptModal = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setShowDeclineModal(true);
+  };
+
+  const handleConfirmDeclineReadReceipt = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isRespondingReceipt) return;
     setIsRespondingReceipt(true);
+
     try {
-      await readReceiptAPI.respond(email.readReceiptId, 'DECLINE');
-      toast.info("Read receipt request declined.");
+      const receiptId = email?.readReceiptId || email?.uid || email?.id;
+      if (receiptId) {
+        try {
+          await readReceiptAPI.respond(receiptId, 'DECLINE');
+        } catch (apiErr) {
+          console.warn("Read receipt API decline response:", apiErr);
+        }
+      }
+
+      if (currentEmailKey) {
+        dismissedReceiptUidsRef.current.add(currentEmailKey);
+      }
       setLocalReceiptStatus('DECLINED');
       setReceiptDismissed(true);
+      setShowDeclineModal(false);
+      toast.success("Read receipt request dismissed.");
     } catch (err) {
       console.error("Error declining read receipt:", err);
+      toast.error("Failed to dismiss read receipt.");
     } finally {
       setIsRespondingReceipt(false);
     }
@@ -2060,7 +2098,7 @@ const EmailDetails = ({
             <div className="px-5 sm:px-8 lg:px-9 pt-5 sm:pt-6 pb-6 sm:pb-8 lg:pb-9">
 
               {/* Read Receipt Request Banner for Recipient */}
-              {!isSentMail && !isSender && email?.readReceiptRequested && !receiptDismissed && (!email?.readReceiptStatus || email?.readReceiptStatus === 'PENDING') && (
+              {!isSentMail && !isSender && email?.readReceiptRequested && !isReceiptDismissed && (!email?.readReceiptStatus || email?.readReceiptStatus === 'PENDING') && (
                 <div className="mb-4 p-3.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
                   <div className="flex items-center gap-2.5 text-blue-900 dark:text-blue-200 text-xs sm:text-sm">
                     <MdRemoveRedEye className="text-blue-600 dark:text-blue-400 shrink-0 text-lg" />
@@ -2079,7 +2117,7 @@ const EmailDetails = ({
                     </button>
                     <button
                       type="button"
-                      onClick={handleDeclineReadReceipt}
+                      onClick={handleOpenDeclineReceiptModal}
                       disabled={isRespondingReceipt}
                       className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-50 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-lg transition-colors cursor-pointer border border-gray-200/80 dark:border-neutral-700"
                     >
@@ -3059,6 +3097,67 @@ const EmailDetails = ({
                   {reportLoading ? "Submitting..." : "Submit Report"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Read Receipt Decline Confirmation Modal */}
+      {showDeclineModal && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isRespondingReceipt) setShowDeclineModal(false);
+          }}
+        >
+          <div
+            className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col border border-gray-100 dark:border-neutral-800 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center bg-gray-50/80 dark:bg-neutral-800/60">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <MdRemoveRedEye className="text-blue-600 dark:text-blue-400" size={20} />
+                <span>Read Receipt</span>
+              </h3>
+              <button
+                type="button"
+                disabled={isRespondingReceipt}
+                onClick={() => setShowDeclineModal(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors cursor-pointer disabled:opacity-50"
+                aria-label="Close"
+              >
+                <MdClose size={18} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
+                Are you sure you don't want to send a read receipt to the sender?
+              </p>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50/50 dark:bg-neutral-800/30 border-t border-gray-100 dark:border-neutral-800 flex justify-end items-center gap-3">
+              <button
+                type="button"
+                disabled={isRespondingReceipt}
+                onClick={() => setShowDeclineModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isRespondingReceipt}
+                onClick={handleConfirmDeclineReadReceipt}
+                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-colors shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                {isRespondingReceipt && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                <span>Yes, Don't Send</span>
+              </button>
             </div>
           </div>
         </div>,
