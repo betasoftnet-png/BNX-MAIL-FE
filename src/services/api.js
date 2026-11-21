@@ -2,7 +2,21 @@ import axios from 'axios';
 import { API_ENDPOINTS } from '../Data/constants';
 import chatCache from './chatCache';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const getApiBaseUrl = () => {
+    if (import.meta.env.VITE_API_URL) {
+        return import.meta.env.VITE_API_URL;
+    }
+    if (typeof window !== 'undefined') {
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocal) {
+            return ''; // Use Vite dev proxy
+        }
+        return 'https://api.bnxmail.com';
+    }
+    return 'https://api.bnxmail.com';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // console.log('🔧 API Base URL:', API_BASE_URL);
 
