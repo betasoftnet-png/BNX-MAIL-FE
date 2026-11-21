@@ -283,8 +283,8 @@ api.interceptors.response.use(
             }
 
             if (originalRequest._retry) {
-                console.warn('Request failed 401 after token retry. Session expired.');
-                handleSessionExpiry();
+                // Do NOT logout user on individual API failure. Just reject the error.
+                console.warn('Request failed 401 after token retry for endpoint:', originalRequest.url);
                 return Promise.reject(error);
             }
 
@@ -300,14 +300,16 @@ api.interceptors.response.use(
                 }
                 return api(originalRequest);
             } catch (refreshError) {
-                const isExplicitAuthFailure = refreshError.response?.status === 400 || refreshError.response?.status === 401;
+                const refreshMsg = refreshError.response?.data?.message?.toLowerCase() || '';
+                const isExplicitRevokedOrExpired = (refreshError.response?.status === 400 || refreshError.response?.status === 401) &&
+                    (refreshMsg.includes('refresh token') || refreshMsg.includes('expired') || refreshMsg.includes('revoked'));
                 const isNoToken = refreshError.message === 'No refresh token available';
 
-                if (isExplicitAuthFailure || isNoToken) {
-                    console.warn('Refresh token invalid or expired. Terminating session.');
+                if (isExplicitRevokedOrExpired || isNoToken) {
+                    console.warn('Refresh token explicitly revoked or expired. Terminating session.');
                     handleSessionExpiry();
                 } else {
-                    console.warn('Temporary network error during token refresh. Keeping session:', refreshError?.message);
+                    console.warn('Temporary error during token refresh. Preserving session:', refreshError?.message);
                 }
                 return Promise.reject(refreshError);
             }
