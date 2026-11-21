@@ -198,7 +198,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     setShowSearchResults(false);
     setIsSearchOpen(false);
 
-    const isDraft = email.isDraft || email.draft || 
+    const isDraft = email.isDraft || email.draft ||
       email.folderName?.toLowerCase() === 'draft' || email.folderName?.toLowerCase() === 'drafts';
 
     if (isDraft && typeof openCompose === 'function') {
@@ -379,11 +379,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   <div
                     key={`${e.uid || e.id || currentIdx}`}
                     onClick={() => handleSelectEmailSuggestion(e)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-left transition-all border ${
-                      isSelected
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-left transition-all border ${isSelected
                         ? "bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 shadow-sm"
                         : "border-transparent hover:bg-black/5 dark:hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     {/* Sender Profile Image / Avatar */}
                     <div className="shrink-0">
@@ -451,11 +450,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   <div
                     key={m.id || currentIdx}
                     onClick={() => handleSelectCasboxSuggestion(m)}
-                    className={`flex flex-col p-2.5 rounded-xl cursor-pointer text-left transition-all border ${
-                      isSelected
+                    className={`flex flex-col p-2.5 rounded-xl cursor-pointer text-left transition-all border ${isSelected
                         ? "bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 shadow-sm"
                         : "border-transparent hover:bg-black/5 dark:hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between gap-2 min-w-0 mb-0.5">
                       <span className="text-[10px] font-semibold text-gray-900 dark:text-gray-100 truncate">
@@ -559,9 +557,8 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                 handleOpenSearch();
               }
             }}
-            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex md:hidden items-center justify-center text-white/85 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all cursor-pointer shrink-0 border border-transparent hover:border-white/15 ${
-              isSearchOpen ? "bg-white/20 text-white" : ""
-            }`}
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex md:hidden items-center justify-center text-white/85 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all cursor-pointer shrink-0 border border-transparent hover:border-white/15 ${isSearchOpen ? "bg-white/20 text-white" : ""
+              }`}
             title={t('navbar.search_mail', 'Search mail')}
             aria-label={t('navbar.search_mail', 'Search mail')}
             aria-expanded={isSearchOpen}
@@ -572,11 +569,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           {/* DESKTOP EXPANDABLE SEARCH BAR (desktop view only: md+) */}
           <div
             ref={searchContainerRef}
-            className={`relative hidden md:flex items-center justify-end transition-all duration-300 ease-in-out shrink-0 ${
-              isSearchOpen
+            className={`relative hidden md:flex items-center justify-end transition-all duration-300 ease-in-out shrink-0 ${isSearchOpen
                 ? "md:w-64 lg:w-72 xl:w-80 max-w-[48vw]"
                 : "w-9"
-            }`}
+              }`}
           >
             {!isSearchOpen ? (
               <button
@@ -637,11 +633,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                           e.stopPropagation();
                           setShowDateFilterDropdown((prev) => !prev);
                         }}
-                        className={`p-1 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${
-                          showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
+                        className={`p-1 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
                             ? "bg-white/25 text-white shadow-xs"
                             : "text-white/75 hover:text-white hover:bg-white/10"
-                        }`}
+                          }`}
                         title={t('navbar.filter_by_date', 'Filter options')}
                         aria-label="Filter options"
                         aria-expanded={showDateFilterDropdown}
@@ -680,11 +675,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                                   setShowDateFilterDropdown(false);
                                 }
                               }}
-                              className={`w-full text-left px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between cursor-pointer ${
-                                dateFilter === item.value
+                              className={`w-full text-left px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between cursor-pointer ${dateFilter === item.value
                                   ? "text-blue-600 dark:text-blue-400 font-medium bg-blue-50/50 dark:bg-blue-900/20"
                                   : ""
-                              }`}
+                                }`}
                             >
                               <span>{item.label}</span>
                               {dateFilter === item.value && <Check size={13} className="text-blue-600 dark:text-blue-400" />}
@@ -711,7 +705,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
                   {/* Suggestions Dropdown */}
                   {showSearchResults && searchQuery.trim().length > 0 && (
-                    <div 
+                    <div
                       className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 sm:p-3 max-h-[500px] sm:max-h-[540px] overflow-y-auto z-[9999] w-[340px] sm:w-[460px] md:w-[520px] max-w-[95vw] animate-fade-in"
                       style={{ borderColor: theme.border || '#e2e8f0' }}
                     >
@@ -900,13 +894,13 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
           <button
             onClick={onToggleBitToolSidebar}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0 cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-sm"
+            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center shrink-0 cursor-pointer hover:opacity-90 active:scale-95 transition-all drop-shadow-sm"
             title={t('navbar.bit_tools', 'Toggle BIT Tools')}
           >
             <img
               src={bitToolLogo}
               alt="BIT Tool"
-              className="w-full h-full object-cover rounded-full"
+              className="w-full h-full object-contain"
             />
           </button>
         </div>
@@ -965,11 +959,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                       e.stopPropagation();
                       setShowDateFilterDropdown((prev) => !prev);
                     }}
-                    className={`p-1 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${
-                      showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
+                    className={`p-1 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${showDateFilterDropdown || (dateFilter && dateFilter !== "ALL")
                         ? "bg-white/25 text-white shadow-xs"
                         : "text-white/75 hover:text-white hover:bg-white/10"
-                    }`}
+                      }`}
                     title={t('navbar.filter_by_date', 'Filter options')}
                     aria-label="Filter options"
                     aria-expanded={showDateFilterDropdown}
@@ -1008,11 +1001,10 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                               setShowDateFilterDropdown(false);
                             }
                           }}
-                          className={`w-full text-left px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between cursor-pointer ${
-                            dateFilter === item.value
+                          className={`w-full text-left px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between cursor-pointer ${dateFilter === item.value
                               ? "text-blue-600 dark:text-blue-400 font-medium bg-blue-50/50 dark:bg-blue-900/20"
                               : ""
-                          }`}
+                            }`}
                         >
                           <span>{item.label}</span>
                           {dateFilter === item.value && <Check size={13} className="text-blue-600 dark:text-blue-400" />}
@@ -1039,7 +1031,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
               {/* Suggestions Dropdown for Mobile */}
               {showSearchResults && searchQuery.trim().length > 0 && (
-                <div 
+                <div
                   className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-900 border shadow-2xl rounded-2xl p-2.5 max-h-[60vh] overflow-y-auto z-[9999] w-full animate-fade-in"
                   style={{ borderColor: theme.border || '#e2e8f0' }}
                 >
