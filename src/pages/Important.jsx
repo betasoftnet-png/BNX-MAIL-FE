@@ -6,7 +6,6 @@ import { MdLabelImportant, MdRefresh } from "react-icons/md";
 import EmailList from "../components/EmailList";
 import EmailDetails from "../components/EmailDetails";
 import { useTheme } from "../context/ThemeContext";
-
 import BulkActionsToolbar from "../components/BulkActionsToolbar";
 import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import { getDraftAttachments } from "../utils/draftAttachmentStorage";
@@ -38,7 +37,10 @@ const Important = ({ searchQuery }) => {
     handleUnarchive,
     handleSnooze,
     openCompose,
-    matchesDateFilter
+    matchesDateFilter,
+    isEmailRead,
+    isEmailPinned,
+    pinnedIds
   } = useMail();
 
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
@@ -68,11 +70,47 @@ const Important = ({ searchQuery }) => {
       if (uid !== undefined && uid !== null) {
         setSelectedEmailUid(uid);
         if (email) setSelectedEmailOverride(email);
+        if (email && !email.isRead && handleMarkRead) {
+          handleMarkRead(uid);
+        }
       }
     };
     window.addEventListener('bnx-open-email', handleOpenEmail);
     return () => window.removeEventListener('bnx-open-email', handleOpenEmail);
-  }, []);
+  }, [handleMarkRead]);
+
+  useEffect(() => {
+    const handleShortcutAction = (e) => {
+      if (e.detail?.handled) return;
+      const action = e.detail?.action;
+      if (!action) return;
+
+      if (action === "back") {
+        if (selectedEmailUid) {
+          e.detail.handled = true;
+          setSelectedEmailUid(null);
+        } else if (selectedIds.size > 0) {
+          e.detail.handled = true;
+          setSelectedIds(new Set());
+        }
+      } else if (action === "delete") {
+        if (!selectedEmailUid && selectedIds.size > 0) {
+          e.detail.handled = true;
+          handleMoveToTrash(Array.from(selectedIds), "important");
+          setSelectedIds(new Set());
+        }
+      } else if (action === "archive") {
+        if (!selectedEmailUid && selectedIds.size > 0) {
+          e.detail.handled = true;
+          selectedIds.forEach((uid) => handleArchive(uid, "important"));
+          setSelectedIds(new Set());
+        }
+      }
+    };
+
+    window.addEventListener("bnx-shortcut-action", handleShortcutAction);
+    return () => window.removeEventListener("bnx-shortcut-action", handleShortcutAction);
+  }, [selectedEmailUid, selectedIds, handleMoveToTrash, handleArchive]);
 
   useEffect(() => {
     fetchEmails('important');
@@ -108,7 +146,7 @@ const Important = ({ searchQuery }) => {
       return isNaN(t) ? 0 : t;
     };
 
-    return uniqueEmails.sort((a, b) => {
+    const sorted = uniqueEmails.sort((a, b) => {
       const timeA = getTimestamp(a);
       const timeB = getTimestamp(b);
       if (timeA === 0 && timeB === 0) return 0;
@@ -120,10 +158,27 @@ const Important = ({ searchQuery }) => {
       if (!isNaN(uidA) && !isNaN(uidB)) return uidB - uidA;
       return 0;
     });
-  }, [visibleEmails]);
 
-  const selectedEmail = sortedEmails.find((e) => String(e.uid) === String(selectedEmailUid)) ||
-    (selectedEmailOverride && (String(selectedEmailOverride.uid) === String(selectedEmailUid) || String(selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
+    const pinned = [];
+    const unpinned = [];
+    sorted.forEach((email) => {
+      const uid = email.uid ?? email.id;
+      const isPinned = typeof isEmailPinned === 'function' ? isEmailPinned(uid, email) : false;
+      if (isPinned) {
+        pinned.push({ ...email, isPinned: true });
+      } else {
+        unpinned.push({ ...email, isPinned: false });
+      }
+    });
+    return [...pinned, ...unpinned];
+  }, [visibleEmails, pinnedIds, isEmailPinned]);
+
+  const baseSelectedEmail = sortedEmails.find((e) => String(e.uid ?? e.id) === String(selectedEmailUid)) ||
+    (selectedEmailOverride && (String(selectedEmailOverride.uid ?? selectedEmailOverride.id) === String(selectedEmailUid)) ? selectedEmailOverride : null);
+  const selectedEmail = baseSelectedEmail ? {
+    ...baseSelectedEmail,
+    isRead: typeof isEmailRead === 'function' ? isEmailRead(baseSelectedEmail.uid ?? baseSelectedEmail.id, baseSelectedEmail) : Boolean(baseSelectedEmail.isRead ?? baseSelectedEmail.read)
+  } : null;
 
   const handleSelectEmail = (email) => {
     if (isDraftEmail(email)) {
@@ -136,7 +191,14 @@ const Important = ({ searchQuery }) => {
       openCompose({ draft: enrichedEmail });
       return;
     }
+    setSelectedEmailOverride(null);
     setSelectedEmailUid(email.uid);
+    const unread = typeof isEmailRead === 'function'
+      ? !isEmailRead(email.uid ?? email.id, email)
+      : (!email.isRead && !email.read);
+    if (unread && handleMarkRead) {
+      handleMarkRead(email.uid ?? email.id, true, email);
+    }
   };
 
   const handleDelete = (uid, folder) => {
@@ -166,21 +228,31 @@ const Important = ({ searchQuery }) => {
   /* ---------------- MAIN UI ---------------- */
   const detailsComponent = selectedEmail ? (
     <EmailDetails
+      visibilityFolder="important"
       emailList={sortedEmails}
       onNavigate={(email) => {
         setSelectedEmailOverride(null);
         setSelectedEmailUid(email.uid);
-        if (!email.isRead && !email.read) {
-          handleMarkRead?.(email.uid, true, email);
+        const unread = typeof isEmailRead === 'function'
+          ? !isEmailRead(email.uid ?? email.id, email)
+          : (!email.isRead && !email.read);
+        if (unread && handleMarkRead) {
+          handleMarkRead(email.uid ?? email.id, true, email);
         }
       }}
       email={selectedEmail}
-      onBack={() => setSelectedEmailUid(null)}
-      onClose={() => setSelectedEmailUid(null)}
+      onBack={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
+      onClose={() => {
+        setSelectedEmailOverride(null);
+        setSelectedEmailUid(null);
+      }}
       onDelete={(uid) => {
         handleDelete(uid, selectedEmail?.folderName);
       }}
-      onStar={handleToggleStar}
+      onStar={(uid, f) => handleToggleStar(uid, f || "important")}
       onArchive={(uid) => {
         handleArchive(uid, "important");
         setSelectedEmailUid(null);
@@ -202,85 +274,85 @@ const Important = ({ searchQuery }) => {
       setSelectedIds={setSelectedIds}
       visibleEmails={sortedEmails}
       folder="important"
+      visibilityFolder="important"
     />
   ) : (
-    <div
-      className="flex items-center justify-between px-4 py-2 border-b select-none transition-colors duration-150"
-      style={{
-        backgroundColor: theme.mode === "dark" ? (theme.cardBg || "#1e293b") : (theme.cardBg || "#ffffff"),
-        borderColor: theme.border || "#e5e7eb"
-      }}
-    >
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <MdLabelImportant size={22} className="text-yellow-500" />
-          <h1 className="text-base font-semibold" style={{ color: theme.text || "#1f2937" }}>
-            {t("sidebar.important", "Important")}
-          </h1>
+    <div className="flex flex-col border-b border-gray-100 dark:border-gray-800 bg-transparent shrink-0">
+      <div className="flex px-4 pt-1 items-center gap-2 sm:gap-3 text-sm font-medium">
+        {/* Select All Checkbox */}
+        <div className="flex items-center shrink-0 pr-1">
+          <input
+            type="checkbox"
+            checked={sortedEmails.length > 0 && sortedEmails.every(e => selectedIds.has(`${e.uid}__${e.folderName || 'important'}`))}
+            onChange={(e) => {
+              if (e.target.checked) {
+                const all = new Set(sortedEmails.map(email => `${email.uid}__${email.folderName || 'important'}`));
+                setSelectedIds(all);
+              } else {
+                setSelectedIds(new Set());
+              }
+            }}
+            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white dark:bg-[#1e1e1e]"
+            title={t("common.select_all", "Select all")}
+            aria-label="Select all"
+          />
         </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-          ({sortedEmails.length})
-        </span>
-      </div>
 
-      <div className="flex items-center gap-1">
+        {/* Refresh Button */}
         <button
-          onClick={() => refreshEmails()}
-          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          title={t("common.refresh", "Refresh")}
+          onClick={() => refreshEmails("important")}
+          disabled={loading || isRefreshing}
+          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 flex items-center justify-center cursor-pointer shrink-0"
+          title={t("common.refresh", "Refresh mail")}
         >
-          <MdRefresh size={18} className={isRefreshing ? "animate-spin text-blue-600" : ""} />
+          <MdRefresh size={18} className={(loading || isRefreshing) ? "animate-spin" : ""} />
         </button>
+
+        {/* Important Tab / Title */}
+        <div className="flex gap-2 sm:gap-6 overflow-x-auto hidden-scrollbar flex-1">
+          <div
+            className="py-3 px-2 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-default font-medium text-sm"
+            style={{ borderColor: theme.accent || "#135bec", color: theme.accent || "#135bec" }}
+          >
+            <MdLabelImportant size={18} />
+            <span>{t("sidebar.important", "Important")}</span>
+            <span
+              className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-bold shadow-sm"
+              style={{ backgroundColor: theme.accent || "#135bec" }}
+            >
+              {sortedEmails.length}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
 
   const listComponent = (
-    <div className="flex-1 overflow-y-auto">
-      {loading && sortedEmails.length === 0 ? (
-        <div className="flex items-center justify-center h-64 text-gray-500 text-sm">
-          {t("common.loading", "Loading important emails...")}
-        </div>
-      ) : sortedEmails.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 text-center px-4">
-          <MdLabelImportant size={48} className="text-yellow-500/40 mb-3" />
-          <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
-            {t("important.empty_title", "No important messages")}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mt-1">
-            {t("important.empty_desc", "Messages marked as important automatically or manually will appear here.")}
-          </p>
-        </div>
-      ) : (
-        <EmailList
-          emails={sortedEmails}
-          selectedEmailId={selectedEmailUid}
-          onSelectEmail={handleSelectEmail}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          onStar={handleToggleStar}
-          onDelete={handleDelete}
-        />
-      )}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {loading && <div className="p-4 text-center text-xs opacity-60">Loading emails...</div>}
+      <EmailList
+        emails={sortedEmails}
+        selectedEmailId={selectedEmailUid}
+        onSelectEmail={handleSelectEmail}
+        onDelete={(uid) => handleMoveToTrash(uid, "important")}
+        onStar={(uid, f) => handleToggleStar(uid, f || "important")}
+        onArchive={(uid) => handleArchive(uid, "important")}
+        onSnooze={handleSnooze}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+      />
     </div>
   );
 
   return (
-    <div
-      className="flex-1 flex flex-col h-full overflow-hidden"
-      style={{
-        backgroundColor: theme.mode === "dark" ? (theme.bg || "#0f172a") : (theme.bg || "#f8fafc"),
-        color: theme.text
-      }}
-    >
-      <ReadingPaneLayout
-        layoutMode={readingPaneMode}
-        isDetailsOpen={Boolean(selectedEmail)}
-        headerComponent={headerComponent}
-        listComponent={listComponent}
-        detailsComponent={detailsComponent}
-      />
-    </div>
+    <ReadingPaneLayout
+      mode={readingPaneMode || 'no_split'}
+      hasSelection={!!selectedEmail}
+      listComponent={listComponent}
+      detailsComponent={detailsComponent}
+      headerComponent={headerComponent}
+    />
   );
 };
 
