@@ -146,6 +146,13 @@ export const refreshAccessToken = async () => {
                 console.warn('Could not update bnx_sessions on token refresh:', e);
             }
 
+            // Notify WebSocket and active listeners of token rotation
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('bnx-token-refreshed', {
+                    detail: { accessToken: newAccessToken, refreshToken: newRefreshToken }
+                }));
+            }
+
             return newAccessToken;
         } finally {
             refreshPromise = null;

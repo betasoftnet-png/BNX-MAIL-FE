@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext';
 import { useMail } from './MailContext';
 import toast from 'react-hot-toast';
 import { useNotificationPreferences } from './NotificationPreferenceContext';
+import { refreshAccessToken, parseJwt } from '../services/api';
 
 const SocketContext = createContext();
 
@@ -158,19 +159,13 @@ export const SocketProvider = ({ children }) => {
         }, delay);
     }, []);
 
-    const connectSocket = useCallback(() => {
+    const connectSocket = useCallback(async () => {
         if (!isAuthenticatedRef.current) return;
 
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
-
-        // Prevent duplicate connections: check if existing socket is already OPEN or CONNECTING
+        // Prevent duplicate connections: do not spawn if already active or connected
         const existingClient = clientRef.current;
-        const existingWs = existingClient?.webSocket;
         if (existingClient && (existingClient.connected || existingClient.active)) {
-            if (existingWs && (existingWs.readyState === 1 || existingWs.readyState === 0)) {
-                return;
-            }
+            return;
         }
 
         // Clean up previous client before creating a new one
@@ -181,34 +176,37 @@ export const SocketProvider = ({ children }) => {
             clientRef.current = null;
         }
 
+        let token = localStorage.getItem('accessToken');
+        if (!token) return;
+
+        // Ensure token is fresh before establishing STOMP session
+        const payload = parseJwt(token);
+        if (payload && payload.exp && Date.now() >= payload.exp * 1000 - 30000) {
+            try {
+                token = await refreshAccessToken();
+            } catch (e) {
+                console.warn('Could not refresh token prior to STOMP connect:', e?.message);
+            }
+        }
+        if (!token) return;
+
         const currentGen = ++generationRef.current;
         const { wsUrl, sockJsUrl } = getWsEndpoints();
         const useSockJs = useSockJsFallbackRef.current;
 
         const client = new Client({
-            // NOTE: Do not define brokerURL when using webSocketFactory, as brokerURL overrides webSocketFactory in StompJS
             connectHeaders: {
                 Authorization: `Bearer ${token}`
             },
             connectionTimeout: 10000,
             reconnectDelay: 0, // Disabled built-in loop; controlled by exponential backoff scheduleReconnect
-            heartbeatIncoming: 10000,
-            heartbeatOutgoing: 10000,
+            heartbeatIncoming: 20000,
+            heartbeatOutgoing: 20000,
             webSocketFactory: () => {
                 if (useSockJs) {
                     return new SockJS(sockJsUrl);
                 }
-                const socket = new WebSocket(wsUrl);
-                const originalSend = socket.send.bind(socket);
-
-                // Safe wrapper: NEVER call socket.send when CONNECTING, CLOSING, or CLOSED
-                socket.send = function (data) {
-                    if (this.readyState === 1) {
-                        return originalSend(data);
-                    }
-                };
-
-                return socket;
+                return new WebSocket(wsUrl);
             }
         });
 
@@ -243,9 +241,23 @@ export const SocketProvider = ({ children }) => {
             }
         };
 
-        client.onStompError = (frame) => {
+        client.onStompError = async (frame) => {
             if (currentGen !== generationRef.current) return;
-            console.error('STOMP broker reported error:', frame?.headers?.message);
+            const errorMsg = frame?.headers?.message || '';
+            console.error('STOMP broker reported error:', errorMsg);
+
+            // If session was closed or authentication failed, refresh token before reconnecting
+            const isAuthOrSessionClosed = errorMsg.includes('Session closed') ||
+                                          errorMsg.includes('Authentication') ||
+                                          errorMsg.includes('expired') ||
+                                          errorMsg.includes('Unauthorized');
+            if (isAuthOrSessionClosed && isAuthenticatedRef.current) {
+                try {
+                    await refreshAccessToken();
+                } catch (e) {
+                    console.warn('Token refresh on STOMP error skipped:', e?.message);
+                }
+            }
         };
 
         client.onWebSocketError = (event) => {
@@ -309,6 +321,21 @@ export const SocketProvider = ({ children }) => {
             scheduleReconnect();
         }
     }, [clearReconnectTimer, scheduleReconnect]);
+
+    // Listen to token refresh events from api.js to keep STOMP connect headers fresh
+    useEffect(() => {
+        const handleTokenRefreshed = (e) => {
+            const freshToken = e.detail?.accessToken;
+            if (freshToken && isAuthenticatedRef.current && clientRef.current) {
+                clientRef.current.connectHeaders = {
+                    Authorization: `Bearer ${freshToken}`
+                };
+            }
+        };
+
+        window.addEventListener('bnx-token-refreshed', handleTokenRefreshed);
+        return () => window.removeEventListener('bnx-token-refreshed', handleTokenRefreshed);
+    }, []);
 
     useEffect(() => {
         if (!isAuthenticated) {
