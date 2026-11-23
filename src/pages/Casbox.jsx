@@ -4049,7 +4049,7 @@ const Casbox = () => {
     const otherEmail = getOtherUserEmail(selectedMessage);
 
     const matchingMsgIds = messages
-      .filter(m => (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && (isCurrentlyArchived ? Boolean(m.isArchived || m.archived) : !Boolean(m.isArchived || m.archived)))
+      .filter(m => m && (m.senderEmail === otherEmail || m.receiverEmail === otherEmail) && (isCurrentlyArchived ? Boolean(m.isArchived || m.archived) : !Boolean(m.isArchived || m.archived)))
       .map(m => m.id);
 
     const targetIds = matchingMsgIds.length > 0 ? matchingMsgIds : [selectedMessage.id];

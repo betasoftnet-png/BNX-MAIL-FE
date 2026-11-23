@@ -588,7 +588,7 @@ const ComposeWindow = ({
     const { suggestions: localMatches, isCompleteValidEmail, needsDatabaseLookup } =
       filterRecipientSuggestions(contacts, clean, 10, existingSet);
 
-    const filteredLocal = isCasbox ? localMatches.filter((s) => !isExternalEmailDomain(s?.email)) : localMatches;
+    const filteredLocal = isCasbox ? localMatches.filter((s) => s && s.email && !isExternalEmailDomain(s.email)) : localMatches;
     setSuggestions(filteredLocal);
     setShowSuggestions(true);
     setHighlightedIndex(0);
@@ -605,7 +605,7 @@ const ComposeWindow = ({
           const dbUser = res?.data?.data || (res?.data && res.data.email ? res.data : null);
           if (dbUser && dbUser.email) {
             const merged = mergeRecipientSuggestions(filteredLocal, [dbUser], clean, 10);
-            const finalMerged = isCasbox ? merged.filter((s) => !isExternalEmailDomain(s?.email)) : merged;
+            const finalMerged = isCasbox ? merged.filter((s) => s && s.email && !isExternalEmailDomain(s.email)) : merged;
             setSuggestions(finalMerged);
           }
         } else if (!isCompleteValidEmail) {
@@ -615,7 +615,7 @@ const ComposeWindow = ({
 
           const serverData = res?.data?.data || res?.data || [];
           if (Array.isArray(serverData)) {
-            const filteredServer = isCasbox ? serverData.filter((s) => !isExternalEmailDomain(s?.email)) : serverData;
+            const filteredServer = isCasbox ? serverData.filter((s) => s && s.email && !isExternalEmailDomain(s.email)) : serverData;
             const merged = mergeRecipientSuggestions(filteredLocal, filteredServer, clean, 10);
             setSuggestions(merged);
           }

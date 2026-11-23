@@ -240,7 +240,19 @@ export const AuthProvider = ({ children }) => {
 
     const getSessions = () => {
         const sessions = getStoredSessions();
-        return Object.keys(sessions).map(email => sessions[email].userProfile);
+        if (!sessions || typeof sessions !== 'object') return [];
+        return Object.keys(sessions)
+            .map(email => {
+                const s = sessions[email];
+                if (!s) return null;
+                const profile = s.userProfile || { email };
+                if (typeof profile === 'object' && profile !== null) {
+                    if (!profile.email) profile.email = email;
+                    return profile;
+                }
+                return { email };
+            })
+            .filter(profile => Boolean(profile && typeof profile === 'object' && profile.email));
     };
 
     return (

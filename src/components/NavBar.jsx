@@ -39,8 +39,8 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
     : location.pathname.startsWith('/vault') ? 'vault'
       : 'mail';
 
-  const allSessions = getSessions();
-  const otherSessions = allSessions.filter(sess => sess.email !== user?.email);
+  const allSessions = getSessions() || [];
+  const otherSessions = allSessions.filter(sess => sess && typeof sess === 'object' && sess.email && sess.email !== user?.email);
 
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);

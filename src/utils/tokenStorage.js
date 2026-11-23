@@ -181,11 +181,22 @@ export const getStoredSessions = () => {
 export const saveStoredSession = (email, sessionData) => {
     if (!isBrowser || !email) return;
     try {
+        const cleanEmail = email.trim().toLowerCase();
         const sessions = getStoredSessions();
-        sessions[email] = {
-            ...(sessions[email] || {}),
-            ...sessionData
+        const existing = sessions[cleanEmail] || sessions[email] || {};
+        const profile = sessionData?.userProfile || existing.userProfile || getUserProfile() || { email: cleanEmail };
+        if (profile && typeof profile === 'object') {
+            if (!profile.email) profile.email = cleanEmail;
+        }
+        sessions[cleanEmail] = {
+            ...existing,
+            ...(sessionData || {}),
+            userProfile: profile
         };
+        // Clean up legacy cased key if different
+        if (cleanEmail !== email && sessions[email]) {
+            delete sessions[email];
+        }
         localStorage.setItem(KEYS.SESSIONS, JSON.stringify(sessions));
     } catch (e) {}
 };
@@ -193,7 +204,23 @@ export const saveStoredSession = (email, sessionData) => {
 export const saveAllStoredSessions = (sessions) => {
     if (!isBrowser) return;
     try {
-        localStorage.setItem(KEYS.SESSIONS, JSON.stringify(sessions || {}));
+        const cleaned = {};
+        if (sessions && typeof sessions === 'object') {
+            for (const [key, val] of Object.entries(sessions)) {
+                if (key && val && typeof val === 'object') {
+                    const cleanKey = key.trim().toLowerCase();
+                    const profile = val.userProfile || { email: cleanKey };
+                    if (profile && typeof profile === 'object' && !profile.email) {
+                        profile.email = cleanKey;
+                    }
+                    cleaned[cleanKey] = {
+                        ...val,
+                        userProfile: profile
+                    };
+                }
+            }
+        }
+        localStorage.setItem(KEYS.SESSIONS, JSON.stringify(cleaned));
     } catch (e) {}
 };
 

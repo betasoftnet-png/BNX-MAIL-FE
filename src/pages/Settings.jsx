@@ -1795,8 +1795,8 @@ const Settings = () => {
                 </div>
 
                 <div className="flex flex-col gap-3 w-full">
-                  {getSessions().length > 0 ? (
-                    getSessions().map(session => (
+                  {(getSessions() || []).filter(s => s && typeof s === 'object' && s.email).length > 0 ? (
+                    (getSessions() || []).filter(s => s && typeof s === 'object' && s.email).map(session => (
                       <div
                         key={session.email}
                         onClick={() => switchAccount(session.email)}

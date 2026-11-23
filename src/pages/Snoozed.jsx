@@ -71,7 +71,7 @@ const Snoozed = ({ searchQuery }) => {
 
   const visibleEmails = useMemo(() => {
     // 1. Ensure only genuinely snoozed emails are displayed
-    const snoozedOnly = (emails || []).filter((e) => isEmailCurrentlySnoozed(e, user?.email));
+    const snoozedOnly = (emails || []).filter((e) => e && isEmailCurrentlySnoozed(e, user?.email));
     // 2. Prevent duplicate entries using unique identifier deduplication
     const deduped = deduplicateSnoozedEmails(snoozedOnly);
     // 3. Apply date filter if set

@@ -146,9 +146,11 @@ export const refreshAccessToken = async () => {
             // Sync multi-account sessions store if activeEmail is known
             const activeEmail = getActiveEmail();
             if (activeEmail) {
+                const currentProfile = getUserProfile();
                 saveStoredSession(activeEmail, {
                     accessToken: newAccessToken,
-                    refreshToken: newRefreshToken
+                    refreshToken: newRefreshToken,
+                    ...(currentProfile ? { userProfile: currentProfile } : {})
                 });
             }
 
