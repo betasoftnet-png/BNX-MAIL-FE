@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import { authAPI, refreshAccessToken, parseJwt } from '../services/api';
 import {
     getAccessToken,
     getRefreshToken,
@@ -60,6 +60,57 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setLoading(false);
     }, []);
+
+    // Automatic Proactive Background Token Renewal:
+    // Periodically checks JWT access token expiration and silently refreshes before expiry
+    // so active users are never logged out and never experience session interruptions.
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        const checkAndRefreshToken = async () => {
+            const token = getAccessToken();
+            const refreshToken = getRefreshToken();
+            if (!token || !refreshToken) return;
+
+            const payload = parseJwt(token);
+            if (!payload || !payload.exp) return;
+
+            const expiryMs = payload.exp * 1000;
+            const nowMs = Date.now();
+            const timeUntilExpiryMs = expiryMs - nowMs;
+
+            // If token expires within 5 minutes (or has already expired), silently refresh in the background
+            if (timeUntilExpiryMs <= 5 * 60 * 1000) {
+                try {
+                    await refreshAccessToken();
+                } catch (err) {
+                    console.warn('[Silent Refresh] Proactive token renewal delayed:', err?.message);
+                }
+            }
+        };
+
+        // Check on mount or authentication change
+        checkAndRefreshToken();
+
+        // Check every 60 seconds
+        const timer = setInterval(checkAndRefreshToken, 60 * 1000);
+
+        // Immediate check when user wakes laptop or switches back to tab
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                checkAndRefreshToken();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', checkAndRefreshToken);
+
+        return () => {
+            clearInterval(timer);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', checkAndRefreshToken);
+        };
+    }, [isAuthenticated]);
 
     const login = (data) => {
         const { accessToken, refreshToken, mailboxes, ...profile } = data;

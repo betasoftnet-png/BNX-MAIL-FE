@@ -366,7 +366,7 @@ const Settings = () => {
   const [securityToggles, setSecurityToggles] = useState({
     loginAlerts: true,
     sslEnforced: true,
-    idleTimeout: "30_mins",
+    idleTimeout: "never",
     reAuthSensitive: true,
     locationHistory: false,
     recoveryMethodsEnabled: true

@@ -340,8 +340,9 @@ api.interceptors.response.use(
 
             if (originalRequest?._retry) {
                 // Do NOT retry multiple times. The refreshed token was also rejected by the server.
-                console.error('Request failed 401 after token retry for endpoint:', originalRequest.url, error.response?.data);
-                handleSessionExpiry();
+                console.warn('Request failed 401 after token retry for endpoint:', originalRequest.url, error.response?.data);
+                // Do NOT automatically log out the user on individual mail/API request failures.
+                // The session must ONLY terminate on manual logout or when the refresh token itself is revoked in DB.
                 return Promise.reject(error);
             }
 
@@ -374,17 +375,22 @@ api.interceptors.response.use(
                         processQueue(refreshError, null);
 
                         const status = refreshError.response?.status;
-                        const refreshMsg = (refreshError.response?.data?.message || '').toLowerCase();
-                        const isNoToken = refreshError.message === 'No refresh token available';
-                        const isExplicitAuthFailure = status === 401 ||
-                            (status === 400 && (refreshMsg.includes('refresh token') || refreshMsg.includes('expired') || refreshMsg.includes('revoked'))) ||
-                            isNoToken;
+                        const refreshData = refreshError.response?.data || {};
+                        const refreshMsg = (refreshData.message || refreshData.error || '').toLowerCase();
+                        
+                        // ONLY log out if the backend /api/auth/refresh endpoint explicitly rejected the refresh token as revoked/expired/not in database
+                        const isExplicitRefreshRejection = status === 401 && (
+                            refreshMsg.includes('expired') ||
+                            refreshMsg.includes('revoked') ||
+                            refreshMsg.includes('not in database') ||
+                            refreshMsg.includes('invalid')
+                        );
 
-                        if (isExplicitAuthFailure) {
-                            console.warn('Refresh token explicitly revoked or expired. Terminating session.');
+                        if (isExplicitRefreshRejection) {
+                            console.warn('Refresh token explicitly revoked or expired in database. Terminating session.');
                             handleSessionExpiry();
                         } else {
-                            console.warn('Temporary error during token refresh. Preserving session:', refreshError?.message);
+                            console.warn('Temporary error, server hiccup, or network issue during token refresh. Preserving session:', refreshError?.message);
                         }
 
                         reject(refreshError);
