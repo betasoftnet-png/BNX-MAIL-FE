@@ -26,6 +26,37 @@
       <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#135bec;border-radius:50%;animation:bnx-spin 0.8s linear infinite;"></div>
     </div>
   </div>
+  <script>
+    // Automatic recovery from transient HTTP/2 stream drops and dynamic chunk load failures
+    window.addEventListener('vite:preloadError', (event) => {
+      console.warn('Vite preload error detected, reloading to recover:', event);
+      const reloadKey = 'bnx_chunk_reload';
+      const lastReload = sessionStorage.getItem(reloadKey);
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        window.location.reload();
+      }
+    });
+
+    window.addEventListener('error', (event) => {
+      const isChunkError = event?.message && (
+        event.message.includes('Failed to fetch dynamically imported module') ||
+        event.message.includes('Loading chunk') ||
+        event.message.includes('ERR_HTTP2_PING_FAILED')
+      );
+      const isScriptTagError = event?.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK');
+      if (isChunkError || isScriptTagError) {
+        const reloadKey = 'bnx_asset_reload';
+        const lastReload = sessionStorage.getItem(reloadKey);
+        const now = Date.now();
+        if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+          sessionStorage.setItem(reloadKey, String(now));
+          window.location.reload();
+        }
+      }
+    }, true);
+  </script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 
