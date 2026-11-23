@@ -42,13 +42,15 @@ const authClient = axios.create({
 // Helper to set Authorization header cleanly across AxiosHeaders or standard objects
 export const setAuthHeader = (config, token) => {
     if (!token) return;
-    if (typeof config.headers?.set === 'function') {
+    if (!config.headers) {
+        config.headers = {};
+    }
+    if (typeof config.headers.set === 'function') {
         config.headers.set('Authorization', `Bearer ${token}`);
-    } else if (config.headers) {
-        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    config.headers['Authorization'] = `Bearer ${token}`;
+    if (config.headers['authorization']) {
         delete config.headers['authorization'];
-    } else {
-        config.headers = { Authorization: `Bearer ${token}` };
     }
 };
 
@@ -340,8 +342,9 @@ api.interceptors.response.use(
             }
 
             if (originalRequest?._retry) {
-                // Do NOT retry multiple times. Reject the error.
-                console.warn('Request failed 401 after token retry for endpoint:', originalRequest.url);
+                // Do NOT retry multiple times. The refreshed token was also rejected by the server.
+                console.error('Request failed 401 after token retry for endpoint:', originalRequest.url, error.response?.data);
+                handleSessionExpiry();
                 return Promise.reject(error);
             }
 
