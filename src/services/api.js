@@ -69,8 +69,11 @@ export const parseJwt = (token) => {
     try {
         const parts = token.split('.');
         if (parts.length !== 3) return null;
-        const base64Url = parts[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const pad = base64.length % 4;
+        if (pad) {
+            base64 += '='.repeat(4 - pad);
+        }
         const jsonPayload = decodeURIComponent(
             atob(base64)
                 .split('')
@@ -207,7 +210,7 @@ api.interceptors.request.use(
         }
 
         // If a token refresh is currently in flight, wait for it so pending requests use the fresh token
-        if (isRefreshing && refreshPromise) {
+        if (refreshPromise) {
             try {
                 const freshToken = await refreshPromise;
                 if (freshToken) {

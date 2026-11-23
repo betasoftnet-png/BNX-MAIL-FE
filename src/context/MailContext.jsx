@@ -1133,6 +1133,7 @@ export const MailProvider = ({ children }) => {
                     try {
                         res = await mailAPI.getUnread(targetPage, limit);
                     } catch (err) {
+                        if (err?.response?.status === 401) throw err;
                         res = await mailAPI.getInbox(targetPage, limit);
                     }
                     if (res?.data?.success && res.data.data) {
@@ -1369,6 +1370,8 @@ export const MailProvider = ({ children }) => {
                 // Timeout on silent refresh, will retry on next cycle
             } else if (e?.message === 'Network Error' || e?.code === 'ERR_NETWORK') {
                 // Transient network glitch or connection reset; background sync will retry on next interval
+            } else if (e?.response?.status === 401) {
+                // Auth error handled by interceptor, suppress noisy repetitive background logs
             } else if (e?.name !== 'CanceledError' && e?.code !== 'ERR_CANCELED') {
                 console.warn(`[Silent Refresh] Background sync skipped for ${folder}:`, e?.message || e);
             }
@@ -1442,6 +1445,7 @@ export const MailProvider = ({ children }) => {
                     try {
                         res = await mailAPI.getUnread(targetPage, limit);
                     } catch (err) {
+                        if (err?.response?.status === 401) throw err;
                         res = await mailAPI.getInbox(targetPage, limit);
                     }
                     if (res?.data?.success && res.data.data) {
