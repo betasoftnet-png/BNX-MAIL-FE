@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RefreshCw, History, Share2, Trash2, X, Globe, Percent, Tag, ArrowUpDown, Plus, Minus, X as XIcon, Divide, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { getAccessToken } from '../utils/tokenStorage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,6 +17,8 @@ const queryClient = new QueryClient({
 const API_BASE = import.meta.env.VITE_CALCULATOR_API_BASE_URL || 'https://api.bit-tool.com/api/calculator';
 
 function CalcInner() {
+  const { user } = useAuth();
+  const userEmail = user?.email || '';
   const [tape, setTape] = useState([]);
   const [currentInput, setCurrentInput] = useState('');
   const [runningTotal, setRunningTotal] = useState(0);
@@ -56,9 +60,9 @@ function CalcInner() {
 
   // Fetch History
   const { data: tapeHistory = [], refetch: refetchTapeHistory } = useQuery({
-    queryKey: ['calc-tape-history'],
+    queryKey: ['calc-tape-history', userEmail],
     queryFn: async () => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (!token) return [];
       const res = await fetch(`${API_BASE}/history?allApps=true`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) {
@@ -72,9 +76,9 @@ function CalcInner() {
   });
 
   const { data: compareHistory = [], refetch: refetchCompareHistory } = useQuery({
-    queryKey: ['calc-compare-history'],
+    queryKey: ['calc-compare-history', userEmail],
     queryFn: async () => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (!token) return [];
       const res = await fetch(`${API_BASE}/compare/history`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) {
@@ -92,7 +96,7 @@ function CalcInner() {
     mutationFn: async (tapeOverride) => {
       const activeTape = Array.isArray(tapeOverride) ? tapeOverride : tape;
       if (activeTape.length === 0) throw new Error('Tape is empty');
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       
       // 1. Create Session
       const sessionRes = await fetch(`${API_BASE}/sessions`, {
@@ -147,7 +151,7 @@ function CalcInner() {
   const saveCompareMutation = useMutation({
     mutationFn: async () => {
       if (compareItems.length === 0) throw new Error('Compare is empty');
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       
       // 1. Create Compare Session
       const sessionRes = await fetch(`${API_BASE}/compare/sessions`, {

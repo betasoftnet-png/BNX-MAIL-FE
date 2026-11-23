@@ -1,5 +1,6 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect } from 'react';
+import { getAccessToken, getActiveEmail } from "../utils/tokenStorage";
 import {
   MdChevronLeft,
   MdChevronRight,
@@ -50,7 +51,7 @@ export default function CalendarPanel() {
     const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
     
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       
       const res = await fetch(`${CALENDAR_API_BASE}/search?startDate=${start.toISOString()}&endDate=${end.toISOString()}&allApps=true`, {
         headers: {
@@ -108,7 +109,7 @@ export default function CalendarPanel() {
     setError('');
     
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       
       // Build base date ISO
       const selectedYear = selectedDate.getFullYear();
@@ -139,7 +140,7 @@ export default function CalendarPanel() {
       } else if (addType === 'reminder') {
         endpoint = '/reminders';
         const dateIso = new Date(`${selectedYear}-${selectedMonth}-${selectedDay}T${formData.startTime}:00`).toISOString();
-        const activeEmail = localStorage.getItem('bnx_active_email') || 'me@example.com';
+        const activeEmail = getActiveEmail() || 'me@example.com';
         body = {
           title: formData.title,
           description: formData.description,

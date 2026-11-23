@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Search, Plus, X, User, Phone, Mail, Briefcase, AlertCircle, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { getAccessToken } from '../utils/tokenStorage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +29,8 @@ const initialFormState = { name: '', email: '', phonenumber: '', role: '' };
 
 function ContactPanelInner() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const userEmail = user?.email || '';
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,9 +38,9 @@ function ContactPanelInner() {
   const [formData, setFormData] = useState(initialFormState);
 
   const { data: contacts = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['global-contacts'],
+    queryKey: ['global-contacts', userEmail],
     queryFn: async () => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (!token) throw new Error('No access token found');
       
       const res = await fetch(`${API_BASE}/get-all`, {
@@ -76,7 +80,7 @@ function ContactPanelInner() {
 
   const createMutation = useMutation({
     mutationFn: async (payload) => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       const res = await fetch(`${API_BASE}/add`, {
         method: 'POST',
         headers: {
@@ -103,7 +107,7 @@ function ContactPanelInner() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, payload }) => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       let res = await fetch(`${API_BASE}/update/${id}`, {
         method: 'PUT',
         headers: {

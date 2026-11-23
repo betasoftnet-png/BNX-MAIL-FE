@@ -1,4 +1,5 @@
 import { settingsAPI, mailAPI } from "../services/api";
+import { getAccessToken, getActiveEmail, getUserProfile } from "../utils/tokenStorage";
 import {
   normalizeSystemLabelPrefsMap,
   mergeBackendSystemLabelSettings,
@@ -128,7 +129,7 @@ const sanitizeSidebarPrefs = (prefs) => {
 const readStoredSidebarPrefs = () => {
   try {
     if (typeof window !== 'undefined') {
-      const activeEmail = localStorage.getItem("bnx_active_email");
+      const activeEmail = getActiveEmail();
       const userKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail}` : null;
       const lowerKey = activeEmail ? `bnx_sidebar_prefs_${activeEmail.trim().toLowerCase()}` : null;
       const saved =
@@ -146,7 +147,7 @@ const readStoredSidebarPrefs = () => {
 const readStoredCustomPrefs = () => {
   try {
     if (typeof window !== 'undefined') {
-      const activeEmail = localStorage.getItem("bnx_active_email");
+      const activeEmail = getActiveEmail();
       const userKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail}` : null;
       const lowerKey = activeEmail ? `bnx_custom_label_prefs_${activeEmail.trim().toLowerCase()}` : null;
       const saved =
@@ -166,15 +167,12 @@ const SIDEBAR_VISIBILITY_PREFS_KEY = "bnx_sidebar_visibility_prefs";
 
 const getActiveSidebarAccountEmail = () => {
   if (typeof window === "undefined") return "";
-  const direct = localStorage.getItem("bnx_active_email");
+  const direct = getActiveEmail();
   if (direct && direct.trim()) return direct.trim();
   try {
-    const profileRaw = localStorage.getItem("userProfile");
-    if (profileRaw) {
-      const parsed = JSON.parse(profileRaw);
-      if (parsed?.email && String(parsed.email).trim()) {
-        return String(parsed.email).trim();
-      }
+    const profile = getUserProfile();
+    if (profile?.email && String(profile.email).trim()) {
+      return String(profile.email).trim();
     }
   } catch (e) {}
   return "";
@@ -252,14 +250,14 @@ export const ThemeProvider = ({ children }) => {
 
   const syncSystemLabelSettingsFromServer = useCallback(async () => {
     if (typeof window === "undefined") return null;
-    const tokenAtStart = localStorage.getItem("accessToken");
+    const tokenAtStart = getAccessToken();
     if (!tokenAtStart) return null;
 
     const reqSeq = ++syncSeqRef.current;
     try {
       const response = await mailAPI.getSystemLabelSettings();
       if (reqSeq !== syncSeqRef.current) return null;
-      if (localStorage.getItem("accessToken") !== tokenAtStart) return null;
+      if (getAccessToken() !== tokenAtStart) return null;
 
       const base = readStoredSidebarPrefs();
       const merged = mergeBackendSystemLabelSettings(response?.data, base);
@@ -288,7 +286,7 @@ export const ThemeProvider = ({ children }) => {
           setCustomLabelPreferencesState(readStoredCustomPrefs());
           applySidebarVisibilityState(readStoredSidebarVisibilityPrefs());
           setLabelPrefsVersion((v) => v + 1);
-          if (localStorage.getItem("accessToken")) {
+          if (getAccessToken()) {
             syncSystemLabelSettingsFromServer();
           }
           return;
@@ -348,7 +346,7 @@ export const ThemeProvider = ({ children }) => {
     setSidebarPreferencesState(readStoredSidebarPrefs());
     setCustomLabelPreferencesState(readStoredCustomPrefs());
     applySidebarVisibilityState(readStoredSidebarVisibilityPrefs());
-    if (localStorage.getItem("accessToken")) {
+    if (getAccessToken()) {
       syncSystemLabelSettingsFromServer();
     }
     const savedAccent = localStorage.getItem("bnx_accent_color");

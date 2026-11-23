@@ -1,6 +1,18 @@
 import axios from 'axios';
 import { API_ENDPOINTS } from '../Data/constants';
 import chatCache from './chatCache';
+import {
+    getAccessToken,
+    setAccessToken,
+    getRefreshToken,
+    setRefreshToken,
+    getActiveEmail,
+    setAuthSession,
+    clearAuthSession,
+    getStoredSessions,
+    saveStoredSession,
+    saveAllStoredSessions
+} from '../utils/tokenStorage';
 
 const getApiBaseUrl = () => {
     if (import.meta.env.VITE_API_URL) {
@@ -109,7 +121,7 @@ export const refreshAccessToken = async () => {
         return refreshPromise;
     }
 
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = getRefreshToken();
     if (!refreshToken) {
         return Promise.reject(new Error('No refresh token available'));
     }
@@ -127,28 +139,20 @@ export const refreshAccessToken = async () => {
                 throw new Error('No access token in refresh response');
             }
 
-            // Persist tokens
-            localStorage.setItem('accessToken', newAccessToken);
-            localStorage.setItem('refreshToken', newRefreshToken);
-            api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+            // Persist tokens isolated to this tab's sessionStorage
+            setAccessToken(newAccessToken);
+            setRefreshToken(newRefreshToken);
 
-            // Sync multi-account sessions store
-            const activeEmail = localStorage.getItem('bnx_active_email');
-            try {
-                const sessionsStr = localStorage.getItem('bnx_sessions');
-                if (sessionsStr) {
-                    const sessions = JSON.parse(sessionsStr);
-                    if (activeEmail && sessions[activeEmail]) {
-                        sessions[activeEmail].accessToken = newAccessToken;
-                        sessions[activeEmail].refreshToken = newRefreshToken;
-                        localStorage.setItem('bnx_sessions', JSON.stringify(sessions));
-                    }
-                }
-            } catch (e) {
-                console.warn('Could not update bnx_sessions on token refresh:', e);
+            // Sync multi-account sessions store if activeEmail is known
+            const activeEmail = getActiveEmail();
+            if (activeEmail) {
+                saveStoredSession(activeEmail, {
+                    accessToken: newAccessToken,
+                    refreshToken: newRefreshToken
+                });
             }
 
-            // Notify WebSocket and active listeners of token rotation
+            // Notify WebSocket and active listeners of token rotation within the current tab
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('bnx-token-refreshed', {
                     detail: { accessToken: newAccessToken, refreshToken: newRefreshToken }
@@ -176,37 +180,31 @@ const handleSessionExpiry = () => {
         return;
     }
 
-    const activeEmail = localStorage.getItem('bnx_active_email');
-    let sessionsStr = localStorage.getItem('bnx_sessions');
-    let sessions = {};
-    try {
-        sessions = sessionsStr ? JSON.parse(sessionsStr) : {};
-    } catch (e) { }
+    const activeEmail = getActiveEmail();
+    let sessions = getStoredSessions();
 
     if (activeEmail && sessions[activeEmail]) {
         delete sessions[activeEmail];
-        localStorage.setItem('bnx_sessions', JSON.stringify(sessions));
+        saveAllStoredSessions(sessions);
     }
+
+    // Clean up current tab's session
+    clearAuthSession();
 
     const remainingEmails = Object.keys(sessions);
     if (remainingEmails.length > 0) {
         const nextEmail = remainingEmails[0];
         const nextSession = sessions[nextEmail];
 
-        localStorage.setItem('bnx_active_email', nextEmail);
-        localStorage.setItem('accessToken', nextSession.accessToken);
-        localStorage.setItem('refreshToken', nextSession.refreshToken || '');
-        localStorage.setItem('userProfile', JSON.stringify(nextSession.userProfile));
+        setAuthSession({
+            accessToken: nextSession.accessToken,
+            refreshToken: nextSession.refreshToken || '',
+            userProfile: nextSession.userProfile,
+            activeEmail: nextEmail
+        });
 
         window.location.href = '/inbox';
     } else {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('userProfile');
-        localStorage.removeItem('tempToken');
-        localStorage.removeItem('bnx_active_email');
-        localStorage.removeItem('bnx_sessions');
-
         window.location.href = '/login';
     }
 };
@@ -231,8 +229,8 @@ api.interceptors.request.use(
             }
         }
 
-        let token = localStorage.getItem('accessToken');
-        const refreshToken = localStorage.getItem('refreshToken');
+        let token = getAccessToken();
+        const refreshToken = getRefreshToken();
 
         if (token && refreshToken) {
             const payload = parseJwt(token);
@@ -303,32 +301,31 @@ api.interceptors.response.use(
         );
 
         if (isSuspendedError) {
-            const activeEmail = localStorage.getItem('bnx_active_email');
-            let sessionsStr = localStorage.getItem('bnx_sessions');
-            let sessions = {};
-            try {
-                sessions = sessionsStr ? JSON.parse(sessionsStr) : {};
-            } catch (e) { }
+            const activeEmail = getActiveEmail();
+            let sessions = getStoredSessions();
 
             if (activeEmail && sessions[activeEmail]) {
                 delete sessions[activeEmail];
-                localStorage.setItem('bnx_sessions', JSON.stringify(sessions));
+                saveAllStoredSessions(sessions);
             }
+
+            clearAuthSession();
 
             const remainingEmails = Object.keys(sessions);
             if (remainingEmails.length > 0) {
-                // If they have other active sessions, just switch to one of them
+                // If they have other active sessions, just switch this tab to one of them
                 const nextEmail = remainingEmails[0];
                 const nextSession = sessions[nextEmail];
 
-                localStorage.setItem('bnx_active_email', nextEmail);
-                localStorage.setItem('accessToken', nextSession.accessToken);
-                localStorage.setItem('refreshToken', nextSession.refreshToken || '');
-                localStorage.setItem('userProfile', JSON.stringify(nextSession.userProfile));
+                setAuthSession({
+                    accessToken: nextSession.accessToken,
+                    refreshToken: nextSession.refreshToken || '',
+                    userProfile: nextSession.userProfile,
+                    activeEmail: nextEmail
+                });
 
                 window.location.href = '/inbox';
             } else {
-                localStorage.clear();
                 window.location.href = `/login?suspended=true&email=${encodeURIComponent(activeEmail || '')}`;
             }
             return Promise.reject(error);

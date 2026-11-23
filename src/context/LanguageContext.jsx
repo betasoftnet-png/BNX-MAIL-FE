@@ -7,6 +7,7 @@ import te from '../locales/te.json';
 import ml from '../locales/ml.json';
 import kn from '../locales/kn.json';
 import { settingsAPI } from '../services/api';
+import { getAccessToken } from '../utils/tokenStorage';
 
 const translations = { en, ta, hi, te, ml, kn };
 
@@ -27,7 +28,7 @@ export const LanguageProvider = ({ children }) => {
   const [currentLanguage, setCurrentLanguage] = useState('en');
 
   const fetchUserLanguage = async () => {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     if (!token) return;
 
     try {

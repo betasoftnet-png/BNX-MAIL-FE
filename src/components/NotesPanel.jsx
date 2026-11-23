@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Plus, X, Edit2, Trash2, Pin, StickyNote, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { getAccessToken } from '../utils/tokenStorage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +42,8 @@ const NOTE_COLORS = [
 
 function NotesPanelInner() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const userEmail = user?.email || '';
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
@@ -47,9 +51,9 @@ function NotesPanelInner() {
   const [formData, setFormData] = useState(initialFormState);
 
   const { data: notes = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['global-notes'],
+    queryKey: ['global-notes', userEmail],
     queryFn: async () => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (!token) throw new Error('No access token found');
       
       const res = await fetch(`${API_BASE}?allApps=true`, {
@@ -66,7 +70,7 @@ function NotesPanelInner() {
 
   const createMutation = useMutation({
     mutationFn: async (payload) => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       const res = await fetch(`${API_BASE}/create`, {
         method: 'POST',
         headers: {
@@ -90,7 +94,7 @@ function NotesPanelInner() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, payload }) => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       const res = await fetch(`${API_BASE}/update/${id}`, {
         method: 'PUT',
         headers: {
@@ -117,7 +121,7 @@ function NotesPanelInner() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       const res = await fetch(`${API_BASE}/delete/${id}`, {
         method: 'DELETE',
         headers: {

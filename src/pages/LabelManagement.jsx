@@ -4,6 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useTranslation } from "../context/LanguageContext";
 import { mailAPI } from "../services/api";
+import { getAccessToken } from "../utils/tokenStorage";
 import { Tag } from "lucide-react";
 import {
   MdLabel,
@@ -145,7 +146,7 @@ const LabelManagement = ({ embedded = false }) => {
 
   useEffect(() => {
     let active = true;
-    if (typeof refreshSystemLabelSettings === "function" && typeof window !== "undefined" && localStorage.getItem("accessToken")) {
+    if (typeof refreshSystemLabelSettings === "function" && typeof window !== "undefined" && getAccessToken()) {
       setIsLoadingSystemLabels(true);
       Promise.resolve(refreshSystemLabelSettings()).finally(() => {
         if (active) setIsLoadingSystemLabels(false);

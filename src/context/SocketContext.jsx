@@ -6,6 +6,7 @@ import { useMail } from './MailContext';
 import toast from 'react-hot-toast';
 import { useNotificationPreferences } from './NotificationPreferenceContext';
 import { refreshAccessToken, parseJwt } from '../services/api';
+import { getAccessToken } from '../utils/tokenStorage';
 
 const SocketContext = createContext();
 
@@ -176,7 +177,7 @@ export const SocketProvider = ({ children }) => {
             clientRef.current = null;
         }
 
-        let token = localStorage.getItem('accessToken');
+        let token = getAccessToken();
         if (!token) return;
 
         // Ensure token is fresh before establishing STOMP session

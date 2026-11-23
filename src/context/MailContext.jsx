@@ -421,13 +421,15 @@ export const MailProvider = ({ children }) => {
         }));
     }, [user?.email]);
 
-    // Reset folder page caches and All Inbox status when switching accounts or user profiles
+    // Reset folder page caches, emails, and All Inbox status when switching accounts or user profiles
     useEffect(() => {
         pagesCache.current = {};
         silentFetchInFlight.current.clear();
         invalidateCache('all-inbox');
         invalidateCache('allinbox');
         invalidateCache('inbox');
+        setEmails([]);
+        setTotalEmails(0);
         if (!canAccessAllInbox(user)) {
             setUnreadCounts(prev => ({ ...prev, allinbox: 0 }));
         }

@@ -1,11 +1,5 @@
 // Utility for managing label and category visibility preferences across BNXmail
-
-const CUSTOM_LABEL_PREFS_KEY = 'bnx_custom_label_prefs';
-const CATEGORY_PREFS_KEY = 'bnx_category_prefs';
-const IMAP_PREFS_KEY = 'bnx_imap_prefs';
-
-const getActiveEmail = () =>
-  typeof window !== 'undefined' ? localStorage.getItem('bnx_active_email') : null;
+import { getActiveEmail } from './tokenStorage';
 
 const readUserScopedJson = (baseKey, fallback = {}) => {
   try {

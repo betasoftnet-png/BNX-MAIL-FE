@@ -7,6 +7,7 @@ import { useMail } from "../context/MailContext";
 import { MdSettings, MdEmail, MdLogout, MdLightMode, MdDarkMode, MdNotifications, MdCheckCircle, MdManageAccounts, MdPersonAdd, MdPhotoCamera, MdMenu, MdAdd, MdApps, MdOutlineNoteAlt } from "react-icons/md";
 import { userAPI, casboxAPI, chatAPI } from "../services/api";
 import toast from "react-hot-toast";
+import { getAccessToken, setUserProfile, saveStoredSession } from "../utils/tokenStorage";
 import { SlidersHorizontal, Calendar, Check, ChevronRight, Search, X, Pencil } from "lucide-react";
 // import logo from "../assets/bnx.jpeg";
 
@@ -279,21 +280,12 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
         if (newUrl && user) {
           const updatedUser = { ...user, profilePictureUrl: newUrl };
 
-          // Update active profile
-          localStorage.setItem('userProfile', JSON.stringify(updatedUser));
+          // Update active profile in tab's sessionStorage
+          setUserProfile(updatedUser);
 
-          // Update in sessions list
-          try {
-            const sessionsStr = localStorage.getItem('bnx_sessions');
-            if (sessionsStr) {
-              const sessions = JSON.parse(sessionsStr);
-              if (user.email && sessions[user.email]) {
-                sessions[user.email].userProfile = updatedUser;
-                localStorage.setItem('bnx_sessions', JSON.stringify(sessions));
-              }
-            }
-          } catch (e) {
-            console.error("Failed to update sessions storage", e);
+          // Update in stored sessions
+          if (user?.email) {
+            saveStoredSession(user.email, { userProfile: updatedUser });
           }
         }
 
@@ -805,7 +797,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   <button
                     onClick={() => {
                       setShowDropdown(false);
-                      const token = localStorage.getItem("accessToken") || "";
+                      const token = getAccessToken() || "";
                       window.open(`https://account.beta-softnet.com/security?token=${encodeURIComponent(token)}`, "_blank");
                     }}
                     className="mt-3 px-3.5 py-1.5 border rounded-full text-[9.5px] font-semibold hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all cursor-pointer flex items-center gap-1.5"

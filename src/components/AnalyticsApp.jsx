@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MdTrendingUp, MdEmail, MdInbox, MdSend, MdDelete, MdReport, MdArchive, MdDrafts, MdPerson } from 'react-icons/md';
 import { api } from '../services/api';
+import { getAccessToken } from '../utils/tokenStorage';
 import { 
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line,
@@ -18,7 +19,7 @@ const AnalyticsApp = ({ onClose }) => {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = getAccessToken();
         if (!token) throw new Error('No token found');
         
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
