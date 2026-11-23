@@ -887,7 +887,7 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
           <button
             type="button"
             onClick={onToggleBitToolSidebar}
-            className={`w-8 h-8 sm:w-9 sm:h-9 p-1 rounded-lg border border-white flex items-center justify-center shrink-0 cursor-pointer transition-all duration-200 drop-shadow-sm active:scale-95 ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 p-1 rounded-lg border border-white flex items-center justify-center shrink-0 cursor-pointer transition-all duration-200 drop-shadow-sm active:scale-95 translate-x-1 sm:translate-x-1.5 ${
               isBitToolSidebarOpen
                 ? "bg-white/25"
                 : "bg-white/10 hover:bg-white/20 active:bg-white/25"
