@@ -190,6 +190,7 @@ export const SocketProvider = ({ children }) => {
             connectHeaders: {
                 Authorization: `Bearer ${token}`
             },
+            connectionTimeout: 10000,
             reconnectDelay: 0, // Disabled built-in loop; controlled by exponential backoff scheduleReconnect
             heartbeatIncoming: 10000,
             heartbeatOutgoing: 10000,
