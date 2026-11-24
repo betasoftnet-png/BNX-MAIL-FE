@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, getApiBaseUrl } from './api';
 
 export const mailBackupAPI = {
     getBackups: (params = {}) => {
@@ -11,8 +11,9 @@ export const mailBackupAPI = {
         return api.get(`/api/mail-backups/${id}`);
     },
     getAttachmentDownloadUrl: (id, attachmentId) => {
-        const apiBaseUrl = import.meta.env.VITE_API_URL || '';
-        return `${apiBaseUrl}/api/mail-backups/${id}/attachments/${attachmentId}`;
+        const apiBaseUrl = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : (import.meta.env.VITE_API_URL || '');
+        const base = apiBaseUrl ? apiBaseUrl.replace(/\/+$/, '') : '';
+        return `${base}/api/mail-backups/${id}/attachments/${attachmentId}`;
     },
     verifyOtp: (otp) => {
         return api.post('/api/mail-backups/verify-otp', { otp });

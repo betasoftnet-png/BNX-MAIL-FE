@@ -13,9 +13,10 @@ const queryClient = new QueryClient({
 });
 
 const fetchWeather = async (lat, lon) => {
-    // using .env for api bases if available
-    const baseUrl = import.meta.env.VITE_OPEN_METEO_API;
-    const url = `${baseUrl}?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m&current=temperature_2m,is_day,relative_humidity_2m,wind_speed_10m&timezone=auto`;
+    // using .env for api bases if available with safe fallback
+    const baseUrl = import.meta.env.VITE_OPEN_METEO_API || 'https://api.open-meteo.com/v1/forecast';
+    const cleanBase = baseUrl.replace(/\/+$/, '');
+    const url = `${cleanBase}?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m&current=temperature_2m,is_day,relative_humidity_2m,wind_speed_10m&timezone=auto`;
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error('Failed to fetch weather data');
@@ -24,8 +25,9 @@ const fetchWeather = async (lat, lon) => {
 };
 
 const fetchLocationName = async (lat, lon) => {
-    const baseUrl = import.meta.env.VITE_BIGDATA_CLOUD_API;
-    const url = `${baseUrl}?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
+    const baseUrl = import.meta.env.VITE_BIGDATA_CLOUD_API || 'https://api.bigdatacloud.net/data/reverse-geocode-client';
+    const cleanBase = baseUrl.replace(/\/+$/, '');
+    const url = `${cleanBase}?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error('Failed to fetch location name');

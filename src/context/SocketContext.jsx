@@ -12,8 +12,8 @@ const SocketContext = createContext();
 
 // Dynamic URL resolver: prevents connecting to 'undefined' and handles production vs development
 const getWsEndpoints = () => {
-    let wsUrl = import.meta.env.VITE_WS_URL;
-    let httpUrl = import.meta.env.VITE_API_URL;
+    let wsUrl = (import.meta.env.VITE_WS_URL || '').trim();
+    let httpUrl = (import.meta.env.VITE_API_URL || '').trim();
 
     if (typeof window !== 'undefined') {
         const isSecure = window.location.protocol === 'https:';
@@ -35,7 +35,28 @@ const getWsEndpoints = () => {
         if (!httpUrl) httpUrl = 'https://api.bnxmail.com';
     }
 
-    const sockJsUrl = httpUrl.endsWith('/ws') ? httpUrl : `${httpUrl}/ws`;
+    // Ensure valid protocols on dynamically configured URLs
+    if (httpUrl && !/^https?:\/\//i.test(httpUrl)) {
+        if (httpUrl.startsWith('//')) {
+            httpUrl = (typeof window !== 'undefined' ? window.location.protocol : 'https:') + httpUrl;
+        } else if (httpUrl.startsWith('localhost') || httpUrl.startsWith('127.0.0.1')) {
+            httpUrl = `http://${httpUrl}`;
+        } else {
+            httpUrl = `https://${httpUrl}`;
+        }
+    }
+    if (wsUrl && !/^(wss?):\/\//i.test(wsUrl)) {
+        if (wsUrl.startsWith('//')) {
+            wsUrl = (typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:') + wsUrl;
+        } else if (wsUrl.startsWith('localhost') || wsUrl.startsWith('127.0.0.1')) {
+            wsUrl = `ws://${wsUrl}`;
+        } else {
+            wsUrl = `wss://${wsUrl}`;
+        }
+    }
+
+    const cleanHttp = httpUrl.replace(/\/+$/, '');
+    const sockJsUrl = cleanHttp.endsWith('/ws') ? cleanHttp : `${cleanHttp}/ws`;
     return { wsUrl, sockJsUrl };
 };
 

@@ -14,9 +14,22 @@ import {
     saveAllStoredSessions
 } from '../utils/tokenStorage';
 
-const getApiBaseUrl = () => {
-    if (import.meta.env.VITE_API_URL) {
-        return import.meta.env.VITE_API_URL;
+export const getApiBaseUrl = () => {
+    let raw = (import.meta.env.VITE_API_URL || '').trim();
+    if (raw) {
+        // Strip trailing slashes
+        raw = raw.replace(/\/+$/, '');
+        // Ensure proper protocol if missing (prevents browser parsing host:port as an unknown scheme)
+        if (!/^https?:\/\//i.test(raw)) {
+            if (raw.startsWith('//')) {
+                raw = (typeof window !== 'undefined' ? window.location.protocol : 'https:') + raw;
+            } else if (raw.startsWith('localhost') || raw.startsWith('127.0.0.1')) {
+                raw = `http://${raw}`;
+            } else {
+                raw = `https://${raw}`;
+            }
+        }
+        return raw;
     }
     if (typeof window !== 'undefined') {
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -419,7 +432,7 @@ const getDeviceName = () => {
 
 // System APIs
 export const systemAPI = {
-    getStatus: () => axios.get(`${API_BASE_URL}/api/auth/system-status`)
+    getStatus: () => api.get('/api/auth/system-status')
 };
 
 // Auth APIs

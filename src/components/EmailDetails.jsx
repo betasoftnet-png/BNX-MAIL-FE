@@ -171,7 +171,7 @@ const EmailDetails = ({
   const { sentNotifications } = useNotificationPreferences();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, isEmailStarred, handleToggleStar, isEmailImportant, handleToggleImportant, startUndoSend } = useMail();
+  const { openCompose, labels, fetchLabels, handleRemoveLabel, handleCreateLabel, fetchEmails, currentFolder, handleMarkRead, handleMarkUnread, handleEmailSent, handleApplyLabel, handleSnooze: contextHandleSnooze, handleUnsnooze: contextHandleUnsnooze, isEmailStarred, handleToggleStar, isEmailImportant, handleToggleImportant, startUndoSend } = useMail();
 
   const [prefsTick, setPrefsTick] = useState(0);
   useEffect(() => {
@@ -308,8 +308,35 @@ const EmailDetails = ({
 
   const processedHtmlBody = useMemo(() => {
     const raw = email?.htmlBody || email?.body || "";
-    return sanitizeAndTargetEmailLinks(raw);
-  }, [email?.htmlBody, email?.body]);
+    let sanitized = sanitizeAndTargetEmailLinks(raw);
+    if (imagePreviews && Object.keys(imagePreviews).length > 0 && typeof DOMParser !== 'undefined') {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(sanitized, "text/html");
+        const cidImgs = doc.querySelectorAll("img[data-cid]");
+        let modified = false;
+        cidImgs.forEach((img) => {
+          const cid = (img.getAttribute("data-cid") || "").trim();
+          if (!cid) return;
+          const matchedKey = Object.keys(imagePreviews).find((k) =>
+            k.toLowerCase() === cid.toLowerCase() ||
+            k.toLowerCase().includes(cid.toLowerCase()) ||
+            cid.toLowerCase().includes(k.toLowerCase())
+          );
+          if (matchedKey && imagePreviews[matchedKey]) {
+            img.setAttribute("src", imagePreviews[matchedKey]);
+            modified = true;
+          }
+        });
+        if (modified) {
+          sanitized = doc.body.innerHTML;
+        }
+      } catch (err) {
+        // Fallback
+      }
+    }
+    return sanitized;
+  }, [email?.htmlBody, email?.body, imagePreviews]);
 
   const processedPlainBody = useMemo(() => {
     const raw = email?.body || email?.textPlain || "(No content available)";
@@ -320,12 +347,37 @@ const EmailDetails = ({
     const link = e.target.closest("a");
     if (!link) return;
 
-    const href = link.getAttribute("href");
-    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+    const href = (link.getAttribute("href") || "").trim();
+    if (!href || href.startsWith("#") || href.startsWith("javascript:")) {
+      e.preventDefault();
+      return;
+    }
 
-    // Ensure safe new tab opening attributes
-    link.setAttribute("target", "_blank");
-    link.setAttribute("rel", "noopener noreferrer");
+    // Handle mailto: protocol cleanly without opening a blank browser tab (which triggers ERR_UNKNOWN_URL_SCHEME)
+    if (/^mailto:/i.test(href)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const mailtoContent = href.replace(/^mailto:/i, "");
+      const [toPart, queryPart] = mailtoContent.split("?");
+      let subject = "";
+      let body = "";
+      if (queryPart) {
+        const params = new URLSearchParams(queryPart);
+        subject = params.get("subject") || "";
+        body = params.get("body") || "";
+      }
+      if (typeof openCompose === "function") {
+        openCompose({
+          to: decodeURIComponent(toPart || ""),
+          subject: subject ? decodeURIComponent(subject) : "",
+          body: body ? decodeURIComponent(body) : "",
+          mode: "mail"
+        });
+      } else {
+        window.location.href = href;
+      }
+      return;
+    }
 
     // For external hyperlinks (http, https, //), guarantee opening in a new tab without altering current tab
     if (
@@ -337,6 +389,14 @@ const EmailDetails = ({
       e.preventDefault();
       e.stopPropagation();
       window.open(link.href, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Block any other unsupported schemes to prevent browser net::ERR_UNKNOWN_URL_SCHEME
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.warn("Blocked navigation to unsupported scheme:", href);
     }
   };
 

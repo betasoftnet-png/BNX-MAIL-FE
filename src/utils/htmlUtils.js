@@ -104,12 +104,55 @@ export const sanitizeAndTargetEmailLinks = (htmlContent) => {
       const baseElements = doc.querySelectorAll("base");
       baseElements.forEach((b) => b.remove());
 
+      // Handle all hyperlinks safely
       const anchors = doc.querySelectorAll("a[href]");
       anchors.forEach((a) => {
-        const href = a.getAttribute("href");
-        if (href && !href.startsWith("#")) {
+        const href = (a.getAttribute("href") || "").trim();
+        if (!href) return;
+
+        // 1. Insecure/dangerous protocols
+        if (/^(javascript|vbscript|data|file):/i.test(href)) {
+          a.removeAttribute("href");
+          a.setAttribute("role", "button");
+          return;
+        }
+
+        // 2. Safe web links: enforce target="_blank" and rel="noopener noreferrer"
+        if (/^(https?:)?\/\//i.test(href)) {
           a.setAttribute("target", "_blank");
           a.setAttribute("rel", "noopener noreferrer");
+        } else if (/^mailto:/i.test(href)) {
+          // Do NOT set target="_blank" on mailto links; opening a new tab targeting mailto triggers net::ERR_UNKNOWN_URL_SCHEME
+          a.removeAttribute("target");
+          a.setAttribute("rel", "noopener noreferrer");
+        } else if (/^tel:/i.test(href)) {
+          a.removeAttribute("target");
+        } else if (href.startsWith("#")) {
+          // Internal anchor - leave intact
+          a.removeAttribute("target");
+        } else if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) {
+          // Any other unrecognized protocol (e.g. cid:, intent:, etc.)
+          a.removeAttribute("href");
+          a.setAttribute("role", "button");
+        }
+      });
+
+      // Handle all inline images (especially cid: schemes from email MIME parts)
+      const images = doc.querySelectorAll("img[src]");
+      images.forEach((img) => {
+        const src = (img.getAttribute("src") || "").trim();
+        if (!src) return;
+
+        if (/^cid:/i.test(src)) {
+          // cid: is an email MIME Content-ID, unsupported by web browsers and throws ERR_UNKNOWN_URL_SCHEME
+          const cidName = src.replace(/^cid:/i, "").replace(/^<|>$/g, "").trim();
+          img.setAttribute("data-cid", cidName);
+          // Set a safe 1x1 transparent placeholder so the browser doesn't attempt to fetch the unknown scheme
+          img.setAttribute("src", "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E");
+          img.setAttribute("loading", "lazy");
+        } else if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(src) && !/^(https?|data|blob):/i.test(src)) {
+          // Any other unknown URL scheme on images
+          img.setAttribute("src", "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E");
         }
       });
 
@@ -120,11 +163,27 @@ export const sanitizeAndTargetEmailLinks = (htmlContent) => {
   }
 
   // Regex fallback in environments where DOMParser is unavailable or throws
-  return htmlContent.replace(/<a\b([^>]*?)>/gi, (match, attrs) => {
+  let cleaned = htmlContent.replace(/<img\b([^>]*?)src\s*=\s*(['"])cid:([^'"]*?)\2([^>]*?)>/gi, (match, before, quote, cid, after) => {
+    const cleanCid = cid.replace(/^<|>$/g, "").trim();
+    return `<img${before}src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E" data-cid="${cleanCid}" loading="lazy"${after}>`;
+  });
+
+  return cleaned.replace(/<a\b([^>]*?)>/gi, (match, attrs) => {
     if (!/href\s*=/i.test(attrs)) return match;
 
     const hrefMatch = attrs.match(/href\s*=\s*(['"])(.*?)\1/i);
-    if (hrefMatch && hrefMatch[2].startsWith("#")) return match;
+    const href = hrefMatch ? hrefMatch[2].trim() : "";
+    if (href.startsWith("#")) return match;
+
+    if (/^mailto:/i.test(href)) {
+      // Remove target="_blank" from mailto
+      return `<a${attrs.replace(/target\s*=\s*(['"])[^'"]*\1/gi, '')}>`;
+    }
+
+    if (!/^(https?:)?\/\//i.test(href)) {
+      // Non-web scheme - do not force target="_blank"
+      return match;
+    }
 
     let updated = attrs;
     if (/target\s*=\s*(['"])[^'"]*\1/i.test(updated)) {

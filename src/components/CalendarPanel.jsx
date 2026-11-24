@@ -11,7 +11,7 @@ import {
   MdClose
 } from 'react-icons/md';
 
-const CALENDAR_API_BASE = import.meta.env.VITE_APP_CALENDAR_API;
+const CALENDAR_API_BASE = import.meta.env.VITE_APP_CALENDAR_API || 'https://api.bit-tool.com/api/calendar';
 
 export default function CalendarPanel() {
   const { t } = useTranslation();

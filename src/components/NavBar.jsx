@@ -26,6 +26,24 @@ import {
 } from "../utils/searchUtils";
 import { getEmailPreviewSnippet } from "../utils/htmlUtils";
 
+const resolveProfilePictureUrl = (url) => {
+  if (!url || typeof url !== 'string' || !url.trim()) return null;
+  const clean = url.trim();
+  // Valid absolute or data/blob schemes
+  if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('data:') || clean.startsWith('blob:')) {
+    return clean;
+  }
+  // Reject unsupported schemes that trigger ERR_UNKNOWN_URL_SCHEME
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(clean)) {
+    return null;
+  }
+  const base = (import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '' : 'https://api.bnxmail.com')).replace(/\/+$/, '');
+  if (clean.startsWith('/')) {
+    return base ? `${base}${clean}` : clean;
+  }
+  return base ? `${base}/api/users/profile-picture/${encodeURIComponent(clean)}` : `/api/users/profile-picture/${encodeURIComponent(clean)}`;
+};
+
 const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSidebar, onToggleBitToolSidebar, isBitToolSidebarOpen = false, onOpenNotes, isDesktopSidebarOpen = true }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -378,11 +396,12 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   >
                     {/* Sender Profile Image / Avatar */}
                     <div className="shrink-0">
-                      {e.avatarUrl ? (
+                      {resolveProfilePictureUrl(e.avatarUrl) ? (
                         <img
-                          src={e.avatarUrl}
+                          src={resolveProfilePictureUrl(e.avatarUrl)}
                           alt={personName}
                           className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700 shadow-xs"
+                          onError={(err) => { err.currentTarget.style.display = 'none'; }}
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-blue-500 text-white shadow-xs select-none">
@@ -715,11 +734,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
               onClick={() => setShowDropdown(!showDropdown)}
               className="flex items-center gap-1.5 sm:gap-2 p-1 sm:pr-2.5 lg:pr-3 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-transparent hover:border-white/20 cursor-pointer"
             >
-              {user?.profilePictureUrl ? (
+              {resolveProfilePictureUrl(user?.profilePictureUrl) ? (
                 <img
-                  src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${user.profilePictureUrl}`}
+                  src={resolveProfilePictureUrl(user.profilePictureUrl)}
                   alt="Profile"
                   className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover shadow-sm border border-white/20 shrink-0"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
                 />
               ) : (
                 <div
@@ -764,11 +786,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                   />
 
                   <div className="relative inline-block group cursor-pointer mb-2.5" onClick={() => fileInputRef.current?.click()}>
-                    {user?.profilePictureUrl ? (
+                    {resolveProfilePictureUrl(user?.profilePictureUrl) ? (
                       <img
-                        src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${user.profilePictureUrl}`}
+                        src={resolveProfilePictureUrl(user.profilePictureUrl)}
                         alt={user?.username}
                         className={`w-16 h-16 rounded-full object-cover border-2 border-primary/20 ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-80 transition-opacity'}`}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
                       />
                     ) : (
                       <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-sm ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-90 transition-opacity'}`} style={{ backgroundColor: theme.accent || "#135bec" }}>
@@ -820,11 +845,14 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                         className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-all border-b last:border-b-0 dark:border-gray-800/30"
                       >
                         <div className="flex items-center gap-2.5 truncate">
-                          {sess.profilePictureUrl ? (
+                          {resolveProfilePictureUrl(sess.profilePictureUrl) ? (
                             <img
-                              src={`${import.meta.env.VITE_API_URL || "https://api.bnxmail.com"}${sess.profilePictureUrl}`}
+                              src={resolveProfilePictureUrl(sess.profilePictureUrl)}
                               alt={sess.username}
                               className="w-7 h-7 rounded-full object-cover shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
                             />
                           ) : (
                             <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0" style={{ backgroundColor: theme.accent || "#135bec" }}>

@@ -1,6 +1,7 @@
 import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useTheme } from "../context/ThemeContext";
+import { useMail } from "../context/MailContext";
 import { 
   MdHelpOutline, 
   MdAssignment, 
@@ -127,6 +128,7 @@ const highlightMatch = (text, query) => {
 const Support = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const { openCompose } = useMail();
 
   // Element Refs for smooth scrolling navigation
   const ticketRef = useRef(null);
@@ -914,7 +916,21 @@ const Support = () => {
               {/* Email Support Card */}
               <div 
                 onClick={() => {
-                  window.location.href = "mailto:support@beta-softnet.com?subject=BNX Mail Support Inquiry";
+                  if (typeof openCompose === "function") {
+                    openCompose({
+                      to: "support@beta-softnet.com",
+                      subject: "BNX Mail Support Inquiry",
+                      mode: "mail"
+                    });
+                  } else {
+                    try {
+                      const a = document.createElement("a");
+                      a.href = "mailto:support@beta-softnet.com?subject=BNX Mail Support Inquiry";
+                      a.click();
+                    } catch (err) {
+                      console.warn("Mail client unavailable", err);
+                    }
+                  }
                 }}
                 className="bg-white/5 hover:bg-white/10 p-4 rounded-xl border border-white/10 hover:border-white/15 flex items-center justify-between gap-4 transition-all duration-300 group cursor-pointer"
               >
