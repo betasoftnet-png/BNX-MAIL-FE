@@ -348,16 +348,23 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         const handleTokenRefreshed = (e) => {
             const freshToken = e.detail?.accessToken;
-            if (freshToken && isAuthenticatedRef.current && clientRef.current) {
-                clientRef.current.connectHeaders = {
-                    Authorization: `Bearer ${freshToken}`
-                };
+            if (freshToken && isAuthenticatedRef.current) {
+                if (clientRef.current) {
+                    clientRef.current.connectHeaders = {
+                        Authorization: `Bearer ${freshToken}`
+                    };
+                }
+                // If the socket was disconnected due to expired token, immediately reconnect with the new token
+                if (!isConnected && (!clientRef.current || !clientRef.current.connected)) {
+                    clearReconnectTimer();
+                    connectSocket();
+                }
             }
         };
 
         window.addEventListener('bnx-token-refreshed', handleTokenRefreshed);
         return () => window.removeEventListener('bnx-token-refreshed', handleTokenRefreshed);
-    }, []);
+    }, [connectSocket, clearReconnectTimer, isConnected]);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -385,7 +392,7 @@ export const SocketProvider = ({ children }) => {
                 clientRef.current = null;
             }
         };
-    }, [isAuthenticated, connectSocket, clearReconnectTimer]);
+    }, [isAuthenticated, user?.email, connectSocket, clearReconnectTimer]);
 
     const subscribeToChat = useCallback((chatId, callback) => {
         const client = clientRef.current;
