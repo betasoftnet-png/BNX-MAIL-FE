@@ -513,12 +513,51 @@ const cleanSenderEmailParam = (input) => {
     return str;
 };
 
+// In-flight promise and short-term cache for storage quota to prevent duplicate/concurrent requests
+let inFlightStorageQuotaPromise = null;
+let cachedStorageQuota = null;
+let lastStorageQuotaFetch = 0;
+const STORAGE_QUOTA_CACHE_TTL = 30000; // 30 seconds
+
+export const invalidateStorageQuotaCache = () => {
+    cachedStorageQuota = null;
+    lastStorageQuotaFetch = 0;
+};
+
 // Mail APIs
 export const mailAPI = {
     getInbox: (page = 1, limit = 50) => api.get(`${API_ENDPOINTS.MAIL.INBOX}?page=${page}&limit=${limit}`),
     getSent: (page = 1, limit = 50) => api.get(`${API_ENDPOINTS.MAIL.SENT}?page=${page}&limit=${limit}`),
     getDrafts: (page = 1, limit = 50) => api.get(`${API_ENDPOINTS.MAIL.DRAFTS}?page=${page}&limit=${limit}`),
-    getStorageQuota: () => api.get('/api/mail/storage-quota'),
+    getStorageQuota: (forceRefresh = false) => {
+        const now = Date.now();
+        if (!forceRefresh && cachedStorageQuota && (now - lastStorageQuotaFetch < STORAGE_QUOTA_CACHE_TTL)) {
+            return Promise.resolve(cachedStorageQuota);
+        }
+
+        if (inFlightStorageQuotaPromise) {
+            return inFlightStorageQuotaPromise;
+        }
+
+        inFlightStorageQuotaPromise = api.get('/api/mail/storage-quota')
+            .then((res) => {
+                cachedStorageQuota = res;
+                lastStorageQuotaFetch = Date.now();
+                return res;
+            })
+            .catch((err) => {
+                if (cachedStorageQuota) {
+                    console.warn('Storage quota fetch failed/timed out, using cached quota:', err?.message || err);
+                    return cachedStorageQuota;
+                }
+                throw err;
+            })
+            .finally(() => {
+                inFlightStorageQuotaPromise = null;
+            });
+
+        return inFlightStorageQuotaPromise;
+    },
     saveDraft: (data) => api.post(API_ENDPOINTS.MAIL.DRAFTS, data),
     downloadAttachment: (uid, fileName, folder = 'INBOX') => api.get(`/api/mail/${uid}/attachments/${fileName}?folder=${folder}`, { responseType: 'blob' }),
     createDbDraft: (data) => api.post('/api/mail/drafts', data),
@@ -536,7 +575,10 @@ export const mailAPI = {
     getTrash: (page = 1, limit = 50) => api.get(`${API_ENDPOINTS.MAIL.TRASH}?page=${page}&limit=${limit}`),
     getSpam: (page = 1, limit = 50) => api.get(`${API_ENDPOINTS.MAIL.SPAM}?page=${page}&limit=${limit}`),
     getSnoozed: (page = 1, limit = 50) => api.get(`${API_ENDPOINTS.MAIL.SNOOZED}?page=${page}&limit=${limit}`),
-    send: (data) => api.post(API_ENDPOINTS.MAIL.SEND, data),
+    send: (data) => {
+        invalidateStorageQuotaCache();
+        return api.post(API_ENDPOINTS.MAIL.SEND, data);
+    },
     undoSend: (sendId) => api.post(`/api/mail/undo-send/${sendId}`),
     getPendingEmail: (sendId) => api.get(`/api/mail/pending/${sendId}`),
     getActivePendingEmails: () => api.get('/api/mail/pending'),
@@ -550,14 +592,20 @@ export const mailAPI = {
     markUnread: (uid) => api.post(`${API_ENDPOINTS.MAIL.UNREAD}/${uid}`),
     trash: (uid, folder = 'INBOX') => api.post(`${API_ENDPOINTS.MAIL.MOVE_TRASH}/${uid}?folder=${folder}`),
     restore: (uid) => api.post(`${API_ENDPOINTS.MAIL.RESTORE}/${uid}`),
-    permanentDelete: (uid) => api.delete(`${API_ENDPOINTS.MAIL.PERMANENT}/${uid}`),
+    permanentDelete: (uid) => {
+        invalidateStorageQuotaCache();
+        return api.delete(`${API_ENDPOINTS.MAIL.PERMANENT}/${uid}`);
+    },
     snooze: (uid, wakeUpAt, folder = 'INBOX') => api.post(`${API_ENDPOINTS.MAIL.SNOOZE}/${uid}?wakeUpAt=${encodeURIComponent(wakeUpAt)}&folder=${encodeURIComponent(folder)}`),
     getArchive: (page = 1, limit = 50) => api.get(`${API_ENDPOINTS.MAIL.ARCHIVE}?page=${page}&limit=${limit}`),
     archive: (uid, folder = 'INBOX') => api.post(`${API_ENDPOINTS.MAIL.MOVE_ARCHIVE}/${uid}?folder=${folder}`),
     unarchive: (uid) => api.post(`${API_ENDPOINTS.MAIL.UNARCHIVE}/${uid}`),
     markSpam: (uid, folder = 'INBOX') => api.post(`${API_ENDPOINTS.MAIL.SPAM}/${uid}?folder=${folder}`),
     restoreSpam: (uid) => api.post(`/api/mail/restore-spam/${uid}`),
-    clearSpam: () => api.post('/api/mail/spam/clear'),
+    clearSpam: () => {
+        invalidateStorageQuotaCache();
+        return api.post('/api/mail/spam/clear');
+    },
 
     unsubscribe: (senderEmail) => {
         const email = cleanSenderEmailParam(senderEmail);

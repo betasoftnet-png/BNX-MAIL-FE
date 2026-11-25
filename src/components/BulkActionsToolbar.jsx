@@ -502,22 +502,64 @@ const BulkActionsToolbar = ({
   // Bulk Apply / Remove Label
   const handleBulkToggleLabel = async (labelId, isCurrentlyAssigned) => {
     try {
-      if (isCurrentlyAssigned && typeof handleRemoveLabel === "function") {
-        toast.loading("Removing label...", { id: "bulk-label" });
-        await Promise.all(selectedEmails.map((e) => handleRemoveLabel(e.uid, labelId, e.folderName || folder, true)));
+      const strLabelId = String(labelId);
+      const targets = selectedEmails.filter((e) => {
+        const currentLabels = Array.isArray(e.labels) ? e.labels : [];
+        const hasLabel = currentLabels.some(
+          (l) => matchesLabelIdentity(l, labelId) || String(l?.id ?? l) === strLabelId
+        );
+        return isCurrentlyAssigned ? hasLabel : !hasLabel;
+      });
+
+      if (targets.length === 0) {
         setSelectedIds(new Set());
         setShowMoreMenu(false);
         setShowLabelSub(false);
-        toast.success("Label removed", { id: "bulk-label" });
+        toast.success(isCurrentlyAssigned ? "Label removed" : "Label applied", { id: "bulk-label" });
+        return;
+      }
+
+      toast.loading(isCurrentlyAssigned ? "Removing label..." : "Applying label...", { id: "bulk-label" });
+
+      // Process in controlled batches of 3 to prevent HTTP connection exhaustion and 60000ms timeouts
+      const BATCH_SIZE = 3;
+      let failureCount = 0;
+
+      for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+        const batch = targets.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batch.map((e) =>
+            isCurrentlyAssigned && typeof handleRemoveLabel === "function"
+              ? handleRemoveLabel(e.uid, labelId, e.folderName || folder, true)
+              : handleApplyLabel(e.uid, labelId, e.folderName || folder, true)
+          )
+        );
+        failureCount += results.filter((r) => r.status === "rejected").length;
+      }
+
+      setSelectedIds(new Set());
+      setShowMoreMenu(false);
+      setShowLabelSub(false);
+
+      if (failureCount === 0) {
+        toast.success(isCurrentlyAssigned ? "Label removed" : "Label applied", { id: "bulk-label" });
+      } else if (failureCount < targets.length) {
+        toast.success(
+          isCurrentlyAssigned
+            ? `Removed label from ${targets.length - failureCount} of ${targets.length} emails`
+            : `Applied label to ${targets.length - failureCount} of ${targets.length} emails`,
+          { id: "bulk-label" }
+        );
       } else {
-        toast.loading("Applying label...", { id: "bulk-label" });
-        await Promise.all(selectedEmails.map((e) => handleApplyLabel(e.uid, labelId, e.folderName || folder, true)));
-        setSelectedIds(new Set());
-        setShowMoreMenu(false);
-        setShowLabelSub(false);
-        toast.success("Label applied", { id: "bulk-label" });
+        toast.error(
+          isCurrentlyAssigned ? "Failed to remove label (timed out)" : "Failed to apply label (timed out)",
+          { id: "bulk-label" }
+        );
       }
     } catch (err) {
+      setSelectedIds(new Set());
+      setShowMoreMenu(false);
+      setShowLabelSub(false);
       toast.error(isCurrentlyAssigned ? "Failed to remove label" : "Failed to apply label", { id: "bulk-label" });
     }
   };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from "../context/LanguageContext";
 import { mailAPI } from '../services/api';
 import { Cloud } from 'lucide-react';
@@ -11,10 +11,18 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
     percentage: 0
   });
   const [loading, setLoading] = useState(true);
+  const lastFetchRef = useRef(0);
 
-  const fetchStorage = useCallback(async () => {
+  const fetchStorage = useCallback(async (force = false) => {
+    const now = Date.now();
+    // Throttle automatic refetches (e.g. on focus) to at most once per 30 seconds unless forced
+    if (!force && now - lastFetchRef.current < 30000) {
+      return;
+    }
+    lastFetchRef.current = now;
+
     try {
-      const res = await mailAPI.getStorageQuota();
+      const res = await mailAPI.getStorageQuota(force);
       const apiData = res.data?.data || res.data;
       if (apiData && (apiData.storageUsed !== undefined || apiData.used !== undefined || res.data?.success)) {
         const rawUsed = apiData.storageUsed ?? apiData.used ?? 0;
@@ -41,27 +49,32 @@ const StorageWidget = ({ isDesktopOpen, isExpanded }) => {
         });
       }
     } catch (err) {
-      console.error("Failed to fetch storage quota", err);
+      // Graceful timeout or connection error handling without breaking UI
+      console.warn("Storage quota temporarily unavailable:", err?.message || err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchStorage();
+    fetchStorage(false);
 
-    const handleStorageUpdate = () => {
-      fetchStorage();
+    const handleFocusUpdate = () => {
+      fetchStorage(false);
     };
 
-    window.addEventListener('focus', handleStorageUpdate);
-    window.addEventListener('storageQuotaUpdated', handleStorageUpdate);
-    window.addEventListener('bnx_storage_updated', handleStorageUpdate);
+    const handleForcedUpdate = () => {
+      fetchStorage(true);
+    };
+
+    window.addEventListener('focus', handleFocusUpdate);
+    window.addEventListener('storageQuotaUpdated', handleForcedUpdate);
+    window.addEventListener('bnx_storage_updated', handleForcedUpdate);
 
     return () => {
-      window.removeEventListener('focus', handleStorageUpdate);
-      window.removeEventListener('storageQuotaUpdated', handleStorageUpdate);
-      window.removeEventListener('bnx_storage_updated', handleStorageUpdate);
+      window.removeEventListener('focus', handleFocusUpdate);
+      window.removeEventListener('storageQuotaUpdated', handleForcedUpdate);
+      window.removeEventListener('bnx_storage_updated', handleForcedUpdate);
     };
   }, [fetchStorage]);
 
