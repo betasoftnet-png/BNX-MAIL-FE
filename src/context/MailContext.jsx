@@ -393,6 +393,7 @@ export const MailProvider = ({ children }) => {
     const currentFolderRef = useRef('inbox');
     const pagesCache = useRef({});
     const silentFetchInFlight = useRef(new Set());
+    const activeFetchInFlight = useRef(new Map());
     const invalidateCache = useCallback((folder) => {
         if (!folder) return;
         const folderKey = folder.toLowerCase();
@@ -1464,6 +1465,12 @@ export const MailProvider = ({ children }) => {
             return;
         }
 
+        // Deduplicate concurrent in-flight requests for the exact same folder and page
+        const reqKey = `${folderKey}_${targetPage}_${limit}`;
+        if (!force && activeFetchInFlight.current.has(reqKey)) {
+            return activeFetchInFlight.current.get(reqKey);
+        }
+
         if (!silent || force) {
             setLoading(true);
             setFetchError(null);
@@ -1477,7 +1484,8 @@ export const MailProvider = ({ children }) => {
         setCurrentFolder(folder);
         currentFolderRef.current = folder;
 
-        try {
+        const runFetch = async () => {
+            try {
             let res;
             switch (folder.toLowerCase()) {
                 case 'inbox': res = await mailAPI.getInbox(targetPage, limit); break;
@@ -1760,13 +1768,30 @@ export const MailProvider = ({ children }) => {
                 toast.error(error?.response?.data?.message || (force ? `Failed to refresh ${folder}` : `Failed to load ${folder}`));
             }
         } finally {
+            activeFetchInFlight.current.delete(reqKey);
             if (force) {
                 setIsRefreshing(false);
                 isRefreshingRef.current = false;
             }
             if (!silent || force) setLoading(false);
         }
-    }, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts, fetchAllInboxEmails, fetchAllMailEmails, invalidateCache, fetchLabelEmails]);
+    };
+
+    const fetchPromise = runFetch();
+    activeFetchInFlight.current.set(reqKey, fetchPromise);
+    return fetchPromise;
+}, [user, limit, updateCurrentPage, fetchEmailsSilently, getStarredWithDrafts, fetchAllInboxEmails, fetchAllMailEmails, invalidateCache, fetchLabelEmails]);
+
+// Restore real-time folder emails automatically when network recovers
+useEffect(() => {
+    const handleOnline = () => {
+        if (currentFolderRef.current) {
+            fetchEmails(currentFolderRef.current, true, currentPageRef.current, true);
+        }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+}, [fetchEmails]);
 
     const refreshEmails = useCallback(async (folder) => {
         if (isRefreshingRef.current) return;

@@ -71,6 +71,7 @@ export const SocketProvider = ({ children }) => {
 
     // Lifecycle, single-timer, and generation tracking refs
     const clientRef = useRef(null);
+    const isConnectingRef = useRef(false);
     const generationRef = useRef(0);
     const reconnectTimerRef = useRef(null);
     const reconnectAttemptsRef = useRef(0);
@@ -83,6 +84,25 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         notifPrefsRef.current = notifPrefs;
     }, [notifPrefs]);
+
+    // Safely deactivate a STOMP client without triggering "WebSocket is closed before connection is established"
+    const safeDeactivate = useCallback((clientInstance) => {
+        if (!clientInstance) return;
+        try {
+            const ws = clientInstance.webSocket;
+            if (ws && ws.readyState === 0) { // WebSocket.CONNECTING
+                // Defer deactivation until handshake completes so browser does not throw error
+                ws.onopen = () => {
+                    try { clientInstance.deactivate(); } catch (e) {}
+                };
+                ws.onerror = () => {
+                    try { clientInstance.deactivate(); } catch (e) {}
+                };
+                return;
+            }
+            clientInstance.deactivate();
+        } catch (e) {}
+    }, []);
 
     const handlePersonalNotification = (data) => {
         const { fetchEmails, fetchEmailsSilently, invalidateCache, currentFolder } = mailRef.current || {};
@@ -161,6 +181,7 @@ export const SocketProvider = ({ children }) => {
 
     const scheduleReconnect = useCallback(() => {
         if (!isAuthenticatedRef.current) return;
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
         if (reconnectTimerRef.current) return; // Only ONE reconnect timer at a time!
 
         const attempts = reconnectAttemptsRef.current;
@@ -183,6 +204,8 @@ export const SocketProvider = ({ children }) => {
 
     const connectSocket = useCallback(async () => {
         if (!isAuthenticatedRef.current) return;
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+        if (isConnectingRef.current) return;
 
         // Prevent duplicate connections: do not spawn if already active or connected
         const existingClient = clientRef.current;
@@ -190,16 +213,19 @@ export const SocketProvider = ({ children }) => {
             return;
         }
 
-        // Clean up previous client before creating a new one
+        // Clean up previous client safely before creating a new one
         if (existingClient) {
-            try {
-                existingClient.deactivate();
-            } catch (e) {}
+            safeDeactivate(existingClient);
             clientRef.current = null;
         }
 
+        isConnectingRef.current = true;
+
         let token = getAccessToken();
-        if (!token) return;
+        if (!token) {
+            isConnectingRef.current = false;
+            return;
+        }
 
         // Ensure token is fresh before establishing STOMP session
         const payload = parseJwt(token);
@@ -210,7 +236,10 @@ export const SocketProvider = ({ children }) => {
                 console.warn('Could not refresh token prior to STOMP connect:', e?.message);
             }
         }
-        if (!token) return;
+        if (!token) {
+            isConnectingRef.current = false;
+            return;
+        }
 
         const currentGen = ++generationRef.current;
         const { wsUrl, sockJsUrl } = getWsEndpoints();
@@ -233,6 +262,7 @@ export const SocketProvider = ({ children }) => {
         });
 
         client.onConnect = (frame) => {
+            isConnectingRef.current = false;
             if (currentGen !== generationRef.current) return;
             reconnectAttemptsRef.current = 0;
             clearReconnectTimer();
@@ -264,6 +294,7 @@ export const SocketProvider = ({ children }) => {
         };
 
         client.onStompError = async (frame) => {
+            isConnectingRef.current = false;
             if (currentGen !== generationRef.current) return;
             const errorMsg = frame?.headers?.message || '';
             console.error('STOMP broker reported error:', errorMsg);
@@ -283,18 +314,21 @@ export const SocketProvider = ({ children }) => {
         };
 
         client.onWebSocketError = (event) => {
+            isConnectingRef.current = false;
             if (currentGen !== generationRef.current) return;
             setIsConnected(false);
             scheduleReconnect();
         };
 
         client.onWebSocketClose = () => {
+            isConnectingRef.current = false;
             if (currentGen !== generationRef.current) return;
             setIsConnected(false);
             scheduleReconnect();
         };
 
         client.onDisconnect = () => {
+            isConnectingRef.current = false;
             if (currentGen !== generationRef.current) return;
             setIsConnected(false);
         };
@@ -340,9 +374,24 @@ export const SocketProvider = ({ children }) => {
         try {
             client.activate();
         } catch (e) {
+            isConnectingRef.current = false;
             scheduleReconnect();
         }
-    }, [clearReconnectTimer, scheduleReconnect]);
+    }, [clearReconnectTimer, scheduleReconnect, safeDeactivate]);
+
+    // Listen to network online status to immediately restore WebSocket connection
+    useEffect(() => {
+        const handleOnline = () => {
+            reconnectAttemptsRef.current = 0;
+            clearReconnectTimer();
+            if (isAuthenticatedRef.current && (!clientRef.current || !clientRef.current.connected)) {
+                connectSocket();
+            }
+        };
+
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [connectSocket, clearReconnectTimer]);
 
     // Listen to token refresh events from api.js to keep STOMP connect headers fresh
     useEffect(() => {
@@ -369,10 +418,9 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         if (!isAuthenticated) {
             clearReconnectTimer();
+            isConnectingRef.current = false;
             if (clientRef.current) {
-                try {
-                    clientRef.current.deactivate();
-                } catch (e) {}
+                safeDeactivate(clientRef.current);
                 clientRef.current = null;
             }
             setStompClient(null);
@@ -385,14 +433,13 @@ export const SocketProvider = ({ children }) => {
 
         return () => {
             clearReconnectTimer();
+            isConnectingRef.current = false;
             if (clientRef.current) {
-                try {
-                    clientRef.current.deactivate();
-                } catch (e) {}
+                safeDeactivate(clientRef.current);
                 clientRef.current = null;
             }
         };
-    }, [isAuthenticated, user?.email, connectSocket, clearReconnectTimer]);
+    }, [isAuthenticated, user?.email, connectSocket, clearReconnectTimer, safeDeactivate]);
 
     const subscribeToChat = useCallback((chatId, callback) => {
         const client = clientRef.current;

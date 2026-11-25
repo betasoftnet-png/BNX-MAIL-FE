@@ -61,7 +61,7 @@ const authClient = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 15000,
+    timeout: 30000,
     withCredentials: false,
 });
 
@@ -228,6 +228,13 @@ const handleSessionExpiry = () => {
 // Request Interceptor
 api.interceptors.request.use(
     async (config) => {
+        // Fast-fail if browser is completely offline to avoid hung requests and timeouts
+        if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.onLine === false) {
+            const offlineErr = new Error('Network connection is offline');
+            offlineErr.code = 'ERR_NETWORK_OFFLINE';
+            return Promise.reject(offlineErr);
+        }
+
         if (isAuthEndpoint(config.url)) {
             return config;
         }
