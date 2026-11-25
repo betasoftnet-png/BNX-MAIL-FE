@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   MdCalendarToday, MdCalculate, MdPeople, MdKeyboard,
-  MdTranslate, MdFilterCenterFocus, MdCloudQueue, MdNewspaper,
+  MdTranslate, MdFilterCenterFocus, MdNewspaper,
   MdAdd, MdCheck, MdClose, MdOutlineEdit, MdTune, MdApps, MdOutlineNoteAlt
 } from "react-icons/md";
 import { useTheme } from "../context/ThemeContext";
@@ -11,7 +11,6 @@ import CalendarPanel from "./CalendarPanel";
 import ContactPanel from "./ContactPanel";
 import NotesPanel from "./NotesPanel";
 import CalcPopover from "./CalcPopover";
-import WeatherPanel from "./WeatherPanel";
 import VirtualKeyboard from "./VirtualKeyboard";
 import betalogo from '../assets/beta2.png';
 
@@ -21,8 +20,7 @@ const ALL_TOOLS = [
   { id: "calculator", name: "Calculator", icon: MdCalculate, color: "#10b981", ringClass: "border-[#10b981]", textClass: "text-[#10b981]", bgClass: "bg-emerald-50 dark:bg-emerald-950/20" },
   { id: "contacts", name: "Connections", icon: MdPeople, color: "#3b82f6", ringClass: "border-[#3b82f6]", textClass: "text-[#3b82f6]", bgClass: "bg-blue-50 dark:bg-blue-950/20" },
   { id: "notes", name: "Notes", icon: MdOutlineNoteAlt, color: "#eab308", ringClass: "border-[#eab308]", textClass: "text-[#eab308]", bgClass: "bg-yellow-50 dark:bg-yellow-950/20" },
-  { id: "keyboard", name: "Keyboard", icon: MdKeyboard, color: "#6366f1", ringClass: "border-[#6366f1]", textClass: "text-[#6366f1]", bgClass: "bg-indigo-50 dark:bg-indigo-950/20" },
-  { id: "weather", name: "Weather", tooltipName: "Cloud", icon: MdCloudQueue, color: "#06b6d4", ringClass: "border-[#06b6d4]", textClass: "text-[#06b6d4]", bgClass: "bg-cyan-50 dark:bg-cyan-950/20" }
+  { id: "keyboard", name: "Keyboard", icon: MdKeyboard, color: "#6366f1", ringClass: "border-[#6366f1]", textClass: "text-[#6366f1]", bgClass: "bg-indigo-50 dark:bg-indigo-950/20" }
 ];
 
 const BitToolSidebar = ({
@@ -35,7 +33,7 @@ const BitToolSidebar = ({
   onDeleteNote
 }) => {
   const { theme, backgroundImage } = useTheme();
-  const [pinnedTools, setPinnedTools] = useState(["calendar", "calculator", "contacts", "notes", "keyboard", "weather"]);
+  const [pinnedTools, setPinnedTools] = useState(["calendar", "calculator", "contacts", "notes", "keyboard"]);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedTool, setSelectedTool] = useState(null);
   const [showAppLauncher, setShowAppLauncher] = useState(false);
@@ -49,9 +47,6 @@ const BitToolSidebar = ({
 
   // Contacts Search State
   const [contactsSearch, setContactsSearch] = useState("");
-
-  // Weather State
-  const [weatherCity, setWeatherCity] = useState("New York");
 
   // Width-based toggle handled dynamically via window size & inline styles
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
@@ -122,8 +117,6 @@ const BitToolSidebar = ({
         return <ContactPanel />;
       case "notes":
         return <NotesPanel />;
-      case "weather":
-        return <WeatherPanel />;
       default:
         return null;
     }
