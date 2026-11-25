@@ -12,6 +12,7 @@ import ReadingPaneLayout from "../components/ReadingPaneLayout";
 import toast from "react-hot-toast";
 import { getTodayDateString } from "../utils/dateFilter";
 import { deduplicateAllMailEmails } from "../utils/allMailDeduplication";
+import { matchesLabelIdentity } from "../utils/labelPreferences";
 
 const AllMail = ({ searchQuery }) => {
   const { t } = useTranslation();
@@ -22,9 +23,20 @@ const AllMail = ({ searchQuery }) => {
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
 
+  // Filter emails strictly by labelId if on a custom label route (/label/:labelId)
+  const filteredEmails = useMemo(() => {
+    if (!labelId) return emails;
+    const targetLabel = labels.find(l => String(l.id) === String(labelId)) || labelId;
+    return (emails || []).filter(e => {
+      if (!e) return false;
+      const emailLabels = Array.isArray(e.labels) ? e.labels : [];
+      return emailLabels.some(l => matchesLabelIdentity(l, targetLabel) || String(l?.id ?? l) === String(labelId));
+    });
+  }, [emails, labelId, labels]);
+
   const uniqueEmails = useMemo(() => {
-    return deduplicateAllMailEmails(emails);
-  }, [emails]);
+    return deduplicateAllMailEmails(filteredEmails);
+  }, [filteredEmails]);
 
   const selectedEmail = selectedEmailOverride || uniqueEmails.find(
     (e) => String(e.uid) === String(selectedEmailUid) || `${e.uid}__${e.folderName || ''}` === String(selectedEmailUid)

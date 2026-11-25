@@ -704,7 +704,7 @@ export const MailProvider = ({ children }) => {
         currentFolderRef.current = `label-${labelId}`;
         try {
             // Fetching all emails for a specific label
-            // Assuming the endpoint follows the pattern /api/mail/labels/{id}
+            // Endpoint follows the pattern /api/mail/labels/{id}
             const res = await api.get(`${API_ENDPOINTS.MAIL.LABELS}/${labelId}?page=${targetPage}&limit=${limit}`);
             if (res.data?.success) {
                 const data = res.data.data;
@@ -721,6 +721,7 @@ export const MailProvider = ({ children }) => {
                     }
                 }
 
+                const customLabelTarget = (labels || []).find(l => String(l.id) === String(labelId));
                 const normalizedEmails = (data.emails || data || []).map(m => {
                     const uidStr = String(m.uid ?? m.id ?? '');
                     const f = m.folderName || `label-${labelId}`;
@@ -728,8 +729,19 @@ export const MailProvider = ({ children }) => {
                     const isMarkedRead = readUidsRef.current ? readUidsRef.current.has(uidStr) : false;
                     const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
                     const isRead = !isMarkedUnread && (isMarkedRead || (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)));
+                    
+                    // Ensure the target label is attached if returned by the label API endpoint
+                    let emailLabels = Array.isArray(m.labels) ? [...m.labels] : [];
+                    if (customLabelTarget) {
+                        const hasTarget = emailLabels.some(l => matchesLabelIdentity(l, customLabelTarget) || String(l?.id ?? l) === String(labelId));
+                        if (!hasTarget) {
+                            emailLabels.push(customLabelTarget);
+                        }
+                    }
+
                     return {
                         ...m,
+                        labels: emailLabels,
                         isRead,
                         read: isRead,
                         starred: isStarred,
@@ -737,7 +749,12 @@ export const MailProvider = ({ children }) => {
                     };
                 }).filter(m => {
                     const isTrash = m.folderName?.toLowerCase() === 'trash' || m.folderName?.toLowerCase() === 'deleted' || m.isTrash === true || m.isDeleted === true || m.deleted === true;
-                    return !isTrash;
+                    if (isTrash) return false;
+                    // Double check email has matching label
+                    if (customLabelTarget) {
+                        return (m.labels || []).some(l => matchesLabelIdentity(l, customLabelTarget) || String(l?.id ?? l) === String(labelId));
+                    }
+                    return true;
                 });
 
                 normalizedEmails.sort((a, b) => {
@@ -746,7 +763,14 @@ export const MailProvider = ({ children }) => {
                     return dateB - dateA;
                 });
 
-                setEmails(attachStoredSystemLabels(normalizedEmails));
+                const finalEmails = attachStoredSystemLabels(normalizedEmails);
+                // Cache the page for instant tab/folder switching
+                const cacheKey = `label-${labelId}`;
+                if (!pagesCache.current[cacheKey]) pagesCache.current[cacheKey] = {};
+                pagesCache.current[cacheKey][targetPage] = finalEmails;
+                pagesCache.current[`${cacheKey}_total`] = Math.max(totalCount, finalEmails.length);
+
+                setEmails(finalEmails);
             }
         } catch (error) {
             console.error('Failed to fetch label emails:', error);
@@ -1155,7 +1179,15 @@ export const MailProvider = ({ children }) => {
                     }
                     break;
                 }
-                default: res = await mailAPI.getInbox(targetPage, limit);
+                default: {
+                    if (folderKey.startsWith('label-')) {
+                        const lblId = folderKey.replace('label-', '');
+                        res = await api.get(`${API_ENDPOINTS.MAIL.LABELS}/${lblId}?page=${targetPage}&limit=${limit}`);
+                    } else {
+                        res = await mailAPI.getInbox(targetPage, limit);
+                    }
+                    break;
+                }
             }
 
             if (res && res.data?.success) {
@@ -1226,6 +1258,21 @@ export const MailProvider = ({ children }) => {
 
                 if (folderKey === 'all-mail' || folderKey === 'allmail') {
                     normalizedEmails = deduplicateAllMailEmails(normalizedEmails);
+                }
+
+                if (folderKey.startsWith('label-')) {
+                    const lblId = folderKey.replace('label-', '');
+                    const customLabelTarget = (labels || []).find(l => String(l.id) === String(lblId));
+                    if (customLabelTarget) {
+                        normalizedEmails = normalizedEmails.map(m => {
+                            let emailLabels = Array.isArray(m.labels) ? [...m.labels] : [];
+                            const hasTarget = emailLabels.some(l => matchesLabelIdentity(l, customLabelTarget) || String(l?.id ?? l) === String(lblId));
+                            if (!hasTarget) {
+                                emailLabels.push(customLabelTarget);
+                            }
+                            return { ...m, labels: emailLabels };
+                        }).filter(m => (m.labels || []).some(l => matchesLabelIdentity(l, customLabelTarget) || String(l?.id ?? l) === String(lblId)));
+                    }
                 }
 
                 normalizedEmails = attachStoredSystemLabels(normalizedEmails);
@@ -1549,6 +1596,21 @@ export const MailProvider = ({ children }) => {
 
                 if (folderKey === 'all-mail' || folderKey === 'allmail') {
                     normalizedEmails = deduplicateAllMailEmails(normalizedEmails);
+                }
+
+                if (folderKey.startsWith('label-')) {
+                    const lblId = folderKey.replace('label-', '');
+                    const customLabelTarget = (labels || []).find(l => String(l.id) === String(lblId));
+                    if (customLabelTarget) {
+                        normalizedEmails = normalizedEmails.map(m => {
+                            let emailLabels = Array.isArray(m.labels) ? [...m.labels] : [];
+                            const hasTarget = emailLabels.some(l => matchesLabelIdentity(l, customLabelTarget) || String(l?.id ?? l) === String(lblId));
+                            if (!hasTarget) {
+                                emailLabels.push(customLabelTarget);
+                            }
+                            return { ...m, labels: emailLabels };
+                        }).filter(m => (m.labels || []).some(l => matchesLabelIdentity(l, customLabelTarget) || String(l?.id ?? l) === String(lblId)));
+                    }
                 }
 
                 normalizedEmails = attachStoredSystemLabels(normalizedEmails);
