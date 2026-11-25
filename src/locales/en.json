@@ -2,6 +2,7 @@
   "sidebar": {
     "all_inbox": "All Inbox",
     "inbox": "Inbox",
+    "important": "Important",
     "analytics": "Analytics",
     "starred": "Starred",
     "sent": "Sent",
