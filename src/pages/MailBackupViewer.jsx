@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { mailBackupAPI } from "../services/mailBackupApi";
 import { useTheme } from "../context/ThemeContext";
@@ -213,7 +213,7 @@ const MailBackupViewer = () => {
                     : (backup.body ? (/<[a-z][\s\S]*>/i.test(backup.body) ? sanitizeAndTargetEmailLinks(backup.body) : linkifyPlainText(backup.body)) : "")
                 }}
                 style={{ color: theme.text }}
-                className="whitespace-pre-wrap font-sans"
+                className="whitespace-pre-wrap font-sans email-body-content"
               />
             </div>
 

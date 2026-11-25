@@ -187,7 +187,7 @@ const UndoSendItem = React.memo(({ item, onUndo, onDismiss }) => {
               {/* Email Content Body */}
               <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
                 <div
-                  className="prose dark:prose-invert max-w-none text-sm text-gray-800 dark:text-gray-200 min-h-[140px] p-4 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800"
+                  className="prose dark:prose-invert max-w-none email-body-content text-sm text-gray-800 dark:text-gray-200 min-h-[140px] p-4 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800"
                   dangerouslySetInnerHTML={{ __html: emailData.body || "" }}
                 />
               </div>

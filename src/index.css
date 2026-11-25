@@ -996,17 +996,128 @@
   color: #60a5fa;
 }
 
-.email-body-content ul,
-.email-body-content ol {
-  padding-left: 1.5em;
-  margin-top: 0.6em;
-  margin-bottom: 0.8em;
+/* ==========================================================================
+   Email Body List Formatting (Preserves Bullets & Numbers against Tailwind Resets)
+   ========================================================================== */
+
+/* Unordered Lists (Bullet points) */
+.email-body-content ul {
+  list-style-type: disc !important;
+  padding-left: 2em !important;
+  margin-top: 0.6em !important;
+  margin-bottom: 0.8em !important;
 }
 
-.email-body-content li {
-  margin-bottom: 0.3em;
-  line-height: 1.6;
+/* Ordered Lists (Numbered lists) */
+.email-body-content ol {
+  list-style-type: decimal !important;
+  padding-left: 2em !important;
+  margin-top: 0.6em !important;
+  margin-bottom: 0.8em !important;
 }
+
+/* Nested Unordered Lists */
+.email-body-content ul ul,
+.email-body-content ol ul {
+  list-style-type: circle !important;
+  padding-left: 1.5em !important;
+  margin-top: 0.3em !important;
+  margin-bottom: 0.3em !important;
+}
+
+/* Deeply Nested Unordered Lists */
+.email-body-content ul ul ul,
+.email-body-content ol ul ul,
+.email-body-content ol ol ul,
+.email-body-content ul ol ul {
+  list-style-type: square !important;
+  padding-left: 1.5em !important;
+  margin-top: 0.3em !important;
+  margin-bottom: 0.3em !important;
+}
+
+/* Nested Ordered Lists */
+.email-body-content ol ol,
+.email-body-content ul ol {
+  list-style-type: lower-alpha !important;
+  padding-left: 1.5em !important;
+  margin-top: 0.3em !important;
+  margin-bottom: 0.3em !important;
+}
+
+/* Deeply Nested Ordered Lists */
+.email-body-content ol ol ol,
+.email-body-content ul ol ol,
+.email-body-content ul ul ol,
+.email-body-content ol ul ol {
+  list-style-type: lower-roman !important;
+  padding-left: 1.5em !important;
+  margin-top: 0.3em !important;
+  margin-bottom: 0.3em !important;
+}
+
+/* List Items */
+.email-body-content li {
+  display: list-item !important;
+  margin-bottom: 0.35em !important;
+  line-height: 1.6 !important;
+}
+
+/* Preserve custom inline list styles if email specifically provided one */
+.email-body-content ul[style*="list-style-type: none"],
+.email-body-content ol[style*="list-style-type: none"],
+.email-body-content li[style*="list-style-type: none"] {
+  list-style-type: none !important;
+}
+
+.email-body-content ul[style*="list-style-type: circle"],
+.email-body-content ol[style*="list-style-type: circle"],
+.email-body-content li[style*="list-style-type: circle"] {
+  list-style-type: circle !important;
+}
+
+.email-body-content ul[style*="list-style-type: square"],
+.email-body-content ol[style*="list-style-type: square"],
+.email-body-content li[style*="list-style-type: square"] {
+  list-style-type: square !important;
+}
+
+.email-body-content ul[style*="list-style-type: disc"],
+.email-body-content ol[style*="list-style-type: disc"],
+.email-body-content li[style*="list-style-type: disc"] {
+  list-style-type: disc !important;
+}
+
+.email-body-content ul[style*="list-style-type: decimal"],
+.email-body-content ol[style*="list-style-type: decimal"],
+.email-body-content li[style*="list-style-type: decimal"] {
+  list-style-type: decimal !important;
+}
+
+/* Quill-specific list attribute and indentation support */
+.email-body-content li[data-list="bullet"] {
+  list-style-type: disc !important;
+}
+
+.email-body-content li[data-list="ordered"] {
+  list-style-type: decimal !important;
+}
+
+.email-body-content .ql-indent-1:not(.ql-direction-rtl) { padding-left: 2.5em !important; }
+.email-body-content li.ql-indent-1:not(.ql-direction-rtl) { margin-left: 1.5em !important; }
+.email-body-content .ql-indent-2:not(.ql-direction-rtl) { padding-left: 4.5em !important; }
+.email-body-content li.ql-indent-2:not(.ql-direction-rtl) { margin-left: 3em !important; }
+.email-body-content .ql-indent-3:not(.ql-direction-rtl) { padding-left: 6.5em !important; }
+.email-body-content li.ql-indent-3:not(.ql-direction-rtl) { margin-left: 4.5em !important; }
+.email-body-content .ql-indent-4:not(.ql-direction-rtl) { padding-left: 8.5em !important; }
+.email-body-content li.ql-indent-4:not(.ql-direction-rtl) { margin-left: 6em !important; }
+.email-body-content .ql-indent-5:not(.ql-direction-rtl) { padding-left: 10.5em !important; }
+.email-body-content li.ql-indent-5:not(.ql-direction-rtl) { margin-left: 7.5em !important; }
+
+.email-body-content ul li.ql-indent-1 { list-style-type: circle !important; }
+.email-body-content ul li.ql-indent-2 { list-style-type: square !important; }
+.email-body-content ol li.ql-indent-1 { list-style-type: lower-alpha !important; }
+.email-body-content ol li.ql-indent-2 { list-style-type: lower-roman !important; }
 
 /* ==========================================================================
    Chat Content Area Typography Scaling (~1-2px reduction)

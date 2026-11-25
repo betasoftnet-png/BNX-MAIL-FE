@@ -74,7 +74,7 @@ import { isBusinessAccount } from "../utils/accountUtils";
 import toast from "react-hot-toast";
 import logo from "../assets/bnx-remove.png";
 import html2pdf from "html2pdf.js";
-import { sanitizeAndTargetEmailLinks, linkifyPlainText } from "../utils/htmlUtils";
+import { sanitizeAndTargetEmailLinks, linkifyPlainText, isHtmlContentString } from "../utils/htmlUtils";
 import {
   formatRecipientsDisplay,
   formatRecipientGroupDisplay,
@@ -297,14 +297,7 @@ const EmailDetails = ({
   const isHtmlContent = Boolean(
     email?.htmlBody ||
     (email?.isHtml && email?.body) ||
-    (email?.body && (
-      email.body.trim().startsWith('<!DOCTYPE html') ||
-      email.body.trim().startsWith('<html') ||
-      email.body.includes('</html>') ||
-      email.body.includes('</p>') ||
-      email.body.includes('</div>') ||
-      email.body.includes('</td>')
-    ))
+    (email?.body && isHtmlContentString(email.body))
   );
 
   const processedHtmlBody = useMemo(() => {
@@ -1148,14 +1141,11 @@ const EmailDetails = ({
 
     let bodyContent = "";
     // Detect if content is HTML
-    const isHtml = emailObj.htmlBody || (emailObj.isHtml && emailObj.body) || (emailObj.body && (
-      emailObj.body.trim().startsWith('<!DOCTYPE html') ||
-      emailObj.body.trim().startsWith('<html') ||
-      emailObj.body.includes('</html>') ||
-      emailObj.body.includes('</p>') ||
-      emailObj.body.includes('</div>') ||
-      emailObj.body.includes('</td>')
-    ));
+    const isHtml = Boolean(
+      emailObj.htmlBody ||
+      (emailObj.isHtml && emailObj.body) ||
+      (emailObj.body && isHtmlContentString(emailObj.body))
+    );
 
     if (isHtml) {
       bodyContent = emailObj.htmlBody || emailObj.body;

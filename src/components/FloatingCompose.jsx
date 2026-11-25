@@ -98,6 +98,27 @@ const extractFormattedPlainText = (content) => {
   if (!content) return "";
   let text = String(content).trim();
   if (/<[a-z][\s\S]*>/i.test(text)) {
+    try {
+      if (typeof DOMParser !== "undefined") {
+        const doc = new DOMParser().parseFromString(text, "text/html");
+        // Prepend bullet markers to unordered list items so quote preserves bullet points
+        doc.querySelectorAll("ul").forEach((ul) => {
+          ul.querySelectorAll(":scope > li").forEach((li) => {
+            li.prepend("• ");
+          });
+        });
+        // Prepend numbers to ordered list items so quote preserves numbering
+        doc.querySelectorAll("ol").forEach((ol) => {
+          let count = 1;
+          ol.querySelectorAll(":scope > li").forEach((li) => {
+            li.prepend(`${count}. `);
+            count++;
+          });
+        });
+        text = doc.body.innerHTML;
+      }
+    } catch (e) {}
+
     text = text
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
@@ -124,7 +145,7 @@ import "react-quill/dist/quill.snow.css";
 import ImageResize from 'quill-image-resize-module-react';
 import FontSizeDropdown from "./FontSizeDropdown";
 import { attachQuillAutoCorrect, handleStandardInputAutoCorrect } from "../utils/autoCorrect";
-import { extractPlainTextFromHtml } from "../utils/htmlUtils";
+import { extractPlainTextFromHtml, isHtmlContentString, inlineListStylesForEmail } from "../utils/htmlUtils";
 import { attachLinkValidation } from "../utils/quillPatch";
 import { validateAndNormalizeUrl } from "../utils/urlValidator";
 
@@ -956,17 +977,14 @@ const ComposeWindow = ({
 
     let bodyContent = "";
     // Detect if content is HTML
-    const isHtml = email.htmlBody || (email.isHtml && email.body) || (email.body && (
-      email.body.trim().startsWith('<!DOCTYPE html') ||
-      email.body.trim().startsWith('<html') ||
-      email.body.includes('</html>') ||
-      email.body.includes('</p>') ||
-      email.body.includes('</div>') ||
-      email.body.includes('</td>')
-    ));
+    const isHtml = Boolean(
+      email.htmlBody ||
+      (email.isHtml && email.body) ||
+      (email.body && isHtmlContentString(email.body))
+    );
 
     if (isHtml) {
-      bodyContent = email.htmlBody || email.body;
+      bodyContent = inlineListStylesForEmail(email.htmlBody || email.body);
     } else {
       const rawText = email.body || email.textPlain || "";
       if (rawText) {
@@ -997,6 +1015,7 @@ const ComposeWindow = ({
   };
 
   const getFinalBody = (bodyVal) => {
+    let result = bodyVal || "";
     if (isReply && quotedMessage) {
       const cleanUserBody = bodyVal || "";
       const escapedQuote = quotedMessage
@@ -1011,9 +1030,9 @@ const ComposeWindow = ({
           <div style="white-space: pre-wrap;">${escapedQuote}</div>
         </div>
       `;
-      return `${cleanUserBody}${originalQuoteHtml}`;
+      result = `${cleanUserBody}${originalQuoteHtml}`;
     }
-    return bodyVal;
+    return inlineListStylesForEmail(result);
   };
 
   const [isMobile, setIsMobile] = useState(() => (typeof window !== "undefined" ? window.innerWidth < 768 : false));

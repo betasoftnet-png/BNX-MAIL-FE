@@ -1,4 +1,4 @@
-﻿import { useTranslation } from "../context/LanguageContext";
+import { useTranslation } from "../context/LanguageContext";
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
@@ -911,7 +911,7 @@ const Templates = () => {
               <div className="border-t pt-4" style={{ borderColor: theme.border }}>
                 <label className="text-xs font-bold uppercase tracking-wider block mb-2 opacity-60" style={{ color: theme.text }}>Content</label>
                 <div
-                  className="p-4 rounded-xl border bg-white text-black min-h-[150px] max-h-[300px] overflow-y-auto"
+                  className="p-4 rounded-xl border bg-white text-black min-h-[150px] max-h-[300px] overflow-y-auto email-body-content"
                   style={{ borderColor: theme.border, fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '14px', lineHeight: 1.5 }}
                   dangerouslySetInnerHTML={{ __html: previewTemplate.body }}
                 />

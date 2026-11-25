@@ -7707,7 +7707,7 @@ const Casbox = () => {
               <div className="text-[15px] sm:text-base leading-relaxed text-gray-900 dark:text-gray-100 min-h-[60px] py-1">
                 {bodyContent.trim().startsWith('<') && bodyContent.includes('</') ? (
                   <div
-                    className="prose dark:prose-invert max-w-none break-words"
+                    className="prose dark:prose-invert max-w-none break-words email-body-content"
                     dangerouslySetInnerHTML={{ __html: bodyContent }}
                   />
                 ) : (

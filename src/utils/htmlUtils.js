@@ -156,6 +156,26 @@ export const sanitizeAndTargetEmailLinks = (htmlContent) => {
         }
       });
 
+      // Ensure ul and ol list styling is preserved against CSS resets
+      doc.querySelectorAll("ul").forEach((ul) => {
+        const style = ul.getAttribute("style") || "";
+        if (!/list-style(-type)?\s*:/i.test(style)) {
+          ul.style.listStyleType = "disc";
+        }
+        if (!/padding-left\s*:/i.test(style)) {
+          ul.style.paddingLeft = "24px";
+        }
+      });
+      doc.querySelectorAll("ol").forEach((ol) => {
+        const style = ol.getAttribute("style") || "";
+        if (!/list-style(-type)?\s*:/i.test(style)) {
+          ol.style.listStyleType = "decimal";
+        }
+        if (!/padding-left\s*:/i.test(style)) {
+          ol.style.paddingLeft = "24px";
+        }
+      });
+
       return doc.body.innerHTML;
     }
   } catch (err) {
@@ -248,4 +268,74 @@ export const linkifyPlainText = (text) => {
   }
 
   return parts.join("");
+};
+
+/**
+ * Detects whether a string contains HTML elements, including lists (ul, ol, li), paragraphs, tables, etc.
+ * 
+ * @param {string} content
+ * @returns {boolean}
+ */
+export const isHtmlContentString = (content) => {
+  if (!content || typeof content !== "string") return false;
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("<!DOCTYPE html") || trimmed.startsWith("<html") || trimmed.includes("</html>")) {
+    return true;
+  }
+  return /<\/?(p|div|ul|ol|li|table|td|tr|th|tbody|thead|h[1-6]|span|b|i|strong|em|br|hr|a|img|blockquote|pre|code)\b/i.test(trimmed);
+};
+
+/**
+ * Inlines list styling (list-style-type and padding-left) on ul, ol, and indented li elements
+ * in HTML email payloads so external and webmail clients render lists correctly.
+ * 
+ * @param {string} html
+ * @returns {string}
+ */
+export const inlineListStylesForEmail = (html) => {
+  if (!html || typeof html !== "string") return html;
+  if (!/<(ul|ol|li)\b/i.test(html)) return html;
+
+  try {
+    if (typeof DOMParser !== "undefined") {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+
+      doc.querySelectorAll("ul").forEach((ul) => {
+        const style = ul.getAttribute("style") || "";
+        if (!/list-style(-type)?\s*:/i.test(style)) {
+          ul.style.listStyleType = "disc";
+        }
+        if (!/padding-left\s*:/i.test(style)) {
+          ul.style.paddingLeft = "24px";
+        }
+      });
+
+      doc.querySelectorAll("ol").forEach((ol) => {
+        const style = ol.getAttribute("style") || "";
+        if (!/list-style(-type)?\s*:/i.test(style)) {
+          ol.style.listStyleType = "decimal";
+        }
+        if (!/padding-left\s*:/i.test(style)) {
+          ol.style.paddingLeft = "24px";
+        }
+      });
+
+      // Preserve indentation classes if Quill ql-indent is present
+      for (let i = 1; i <= 8; i++) {
+        doc.querySelectorAll(`li.ql-indent-${i}`).forEach((li) => {
+          const style = li.getAttribute("style") || "";
+          if (!/margin-left\s*:/i.test(style)) {
+            li.style.marginLeft = `${i * 24}px`;
+          }
+        });
+      }
+
+      return doc.body.innerHTML;
+    }
+  } catch (e) {
+    // Fallback
+  }
+  return html;
 };
