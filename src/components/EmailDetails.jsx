@@ -262,6 +262,7 @@ const EmailDetails = ({
   const [isApplyingLabel, setIsApplyingLabel] = useState(false);
   const [isLocallySnoozed, setIsLocallySnoozed] = useState(false);
   const [localSnoozeUntil, setLocalSnoozeUntil] = useState(null);
+  const [imagePreviews, setImagePreviews] = useState({});
 
   useEffect(() => {
     setIsLocallySnoozed(false);
@@ -937,7 +938,6 @@ const EmailDetails = ({
   const [showSnooze, setShowSnooze] = useState(false);
   const [customSnooze, setCustomSnooze] = useState(false);
   const [customDateTime, setCustomDateTime] = useState("");
-  const [imagePreviews, setImagePreviews] = useState({});
 
   useEffect(() => {
     const handleClickOutside = (e) => {
