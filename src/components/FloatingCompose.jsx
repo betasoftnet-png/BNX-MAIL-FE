@@ -38,7 +38,7 @@ import { useMail } from "../context/MailContext";
 import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../context/LanguageContext";
-import { DEFAULT_TEMPLATES } from "../pages/Templates";
+import { DEFAULT_TEMPLATES, getDefaultTemplates } from "../pages/Templates";
 import toast from "react-hot-toast";
 import RecipientAutocomplete from "./RecipientAutocomplete";
 import {
@@ -1179,8 +1179,9 @@ const ComposeWindow = ({
         custom = JSON.parse(saved);
       } catch (e) { }
     }
-    setAllTemplates([...DEFAULT_TEMPLATES, ...custom]);
-  }, [showTemplates, isComposeOpen]);
+    const defaults = typeof getDefaultTemplates === "function" ? getDefaultTemplates(user?.email) : DEFAULT_TEMPLATES;
+    setAllTemplates([...defaults, ...custom]);
+  }, [showTemplates, isComposeOpen, user?.email]);
 
   /* ---------------- FETCH SETTINGS FROM BACKEND ---------------- */
   useEffect(() => {

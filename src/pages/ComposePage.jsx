@@ -6,7 +6,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useMail } from "../context/MailContext";
 import { useNotificationPreferences } from "../context/NotificationPreferenceContext";
 import { useAuth } from "../context/AuthContext";
-import { DEFAULT_TEMPLATES } from "./Templates";
+import { DEFAULT_TEMPLATES, getDefaultTemplates } from "./Templates";
 import { handleStandardInputAutoCorrect } from "../utils/autoCorrect";
 import { extractPlainTextFromHtml } from "../utils/htmlUtils";
 import RecipientAutocomplete from "../components/RecipientAutocomplete";
@@ -366,8 +366,9 @@ const ComposePage = () => {
         custom = JSON.parse(saved);
       } catch (e) { }
     }
-    setAllTemplates([...DEFAULT_TEMPLATES, ...custom]);
-  }, [showTemplates]);
+    const defaults = typeof getDefaultTemplates === "function" ? getDefaultTemplates(user?.email) : DEFAULT_TEMPLATES;
+    setAllTemplates([...defaults, ...custom]);
+  }, [showTemplates, user?.email]);
 
   /* ---------------- PREFILL ON ROUTE STATE ---------------- */
   useEffect(() => {

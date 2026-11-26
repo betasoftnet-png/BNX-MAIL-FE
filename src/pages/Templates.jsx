@@ -86,6 +86,39 @@ export const DEFAULT_TEMPLATES = [
   },
 ];
 
+export const getDefaultTemplateStorageKey = (userEmail) => {
+  const accountPrefix = (userEmail || "").trim().toLowerCase();
+  return accountPrefix
+    ? `bnx_mail_default_template_overrides_${accountPrefix}`
+    : "bnx_mail_default_template_overrides";
+};
+
+export const getDefaultTemplates = (userEmail) => {
+  const key = getDefaultTemplateStorageKey(userEmail);
+  let overrides = {};
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) overrides = JSON.parse(saved);
+  } catch (e) {
+    console.warn("Failed to parse default template overrides:", e);
+  }
+
+  return DEFAULT_TEMPLATES.map((tmpl) => {
+    const override = overrides[tmpl.id];
+    if (override) {
+      return {
+        ...tmpl,
+        title: override.title || override.subject || tmpl.title,
+        subject: override.subject || tmpl.subject,
+        body: override.body || tmpl.body,
+        category: override.category || tmpl.category,
+        isOverridden: true,
+      };
+    }
+    return { ...tmpl };
+  });
+};
+
 const fontList = [
   'Arial',
   'Roboto',
@@ -369,12 +402,48 @@ const Templates = () => {
   const { user } = useAuth();
 
   const [customTemplates, setCustomTemplates] = useState([]);
+  const [defaultTemplateOverrides, setDefaultTemplateOverrides] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All"); // All, Default, Custom
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [previewTemplate, setPreviewTemplate] = useState(null);
+
+  // Load account-specific default template overrides from localStorage
+  useEffect(() => {
+    const key = getDefaultTemplateStorageKey(user?.email);
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        setDefaultTemplateOverrides(JSON.parse(saved));
+      } else {
+        setDefaultTemplateOverrides({});
+      }
+    } catch (e) {
+      console.warn("Failed to load default template overrides:", e);
+      setDefaultTemplateOverrides({});
+    }
+  }, [user?.email]);
+
+  const saveDefaultTemplateOverride = (templateId, updatedFields) => {
+    const key = getDefaultTemplateStorageKey(user?.email);
+    setDefaultTemplateOverrides((prev) => {
+      const updated = {
+        ...prev,
+        [templateId]: {
+          ...(prev[templateId] || {}),
+          ...updatedFields,
+        },
+      };
+      try {
+        localStorage.setItem(key, JSON.stringify(updated));
+      } catch (e) {
+        console.error("Failed to save default template override:", e);
+      }
+      return updated;
+    });
+  };
 
   // Form Fields
   const [formSubject, setFormSubject] = useState("");
@@ -454,8 +523,24 @@ const Templates = () => {
     localStorage.setItem("bnx_mail_custom_templates", JSON.stringify(templates));
   };
 
-  // Combine templates
-  const allTemplates = [...DEFAULT_TEMPLATES, ...customTemplates];
+  // Combine templates with account-specific default template overrides applied
+  const allTemplates = [
+    ...DEFAULT_TEMPLATES.map((tmpl) => {
+      const override = defaultTemplateOverrides[tmpl.id];
+      if (override) {
+        return {
+          ...tmpl,
+          title: override.title || override.subject || tmpl.title,
+          subject: override.subject || tmpl.subject,
+          body: override.body || tmpl.body,
+          category: override.category || tmpl.category,
+          isOverridden: true,
+        };
+      }
+      return { ...tmpl };
+    }),
+    ...customTemplates,
+  ];
 
   // Filters
   const filteredTemplates = allTemplates.filter((t) => {
@@ -554,32 +639,63 @@ const Templates = () => {
     const finalBody = ensureDefaultFontFormatting(formBody, activeEditorFont, activeEditorSize);
 
     if (editingTemplate) {
-      // Edit Custom Template
-      const isBackendTemplate = typeof editingTemplate.id === 'number' || (typeof editingTemplate.id === 'string' && !editingTemplate.id.startsWith('custom-'));
-      if (user?.email && isBackendTemplate) {
-        templateAPI.updateTemplate(editingTemplate.id, {
+      if (editingTemplate.isDefault) {
+        // Save account-specific default template override
+        const updatedFields = {
           title: templateTitle,
-          name: templateTitle,
           subject: formSubject,
           body: finalBody,
           category: formCategory,
-        }, user.email).then((res) => {
-          const resObj = res.data?.data || res.data;
-          const updatedItem = { ...resObj, title: resObj.title || resObj.name || templateTitle, category: resObj.category || formCategory, body: finalBody };
-          const updated = customTemplates.map((t) => t.id === editingTemplate.id ? updatedItem : t);
-          saveCustomTemplates(updated);
-          toast.success("Template updated successfully");
-        }).catch((err) => {
-          toast.error("Failed to update template on server");
-        });
+        };
+        saveDefaultTemplateOverride(editingTemplate.id, updatedFields);
+        if (previewTemplate && previewTemplate.id === editingTemplate.id) {
+          setPreviewTemplate((prev) => ({
+            ...prev,
+            ...updatedFields,
+            isOverridden: true,
+          }));
+        }
+        toast.success("Default template updated successfully");
       } else {
-        const updated = customTemplates.map((t) =>
-          t.id === editingTemplate.id
-            ? { ...t, title: templateTitle, subject: formSubject, body: finalBody, category: formCategory }
-            : t
-        );
-        saveCustomTemplates(updated);
-        toast.success("Template updated successfully");
+        // Edit Custom Template
+        const isBackendTemplate = typeof editingTemplate.id === 'number' || (typeof editingTemplate.id === 'string' && !editingTemplate.id.startsWith('custom-'));
+        if (user?.email && isBackendTemplate) {
+          templateAPI.updateTemplate(editingTemplate.id, {
+            title: templateTitle,
+            name: templateTitle,
+            subject: formSubject,
+            body: finalBody,
+            category: formCategory,
+          }, user.email).then((res) => {
+            const resObj = res.data?.data || res.data;
+            const updatedItem = { ...resObj, title: resObj.title || resObj.name || templateTitle, category: resObj.category || formCategory, body: finalBody };
+            const updated = customTemplates.map((t) => t.id === editingTemplate.id ? updatedItem : t);
+            saveCustomTemplates(updated);
+            if (previewTemplate && previewTemplate.id === editingTemplate.id) {
+              setPreviewTemplate((prev) => ({ ...prev, ...updatedItem }));
+            }
+            toast.success("Template updated successfully");
+          }).catch((err) => {
+            toast.error("Failed to update template on server");
+          });
+        } else {
+          const updated = customTemplates.map((t) =>
+            t.id === editingTemplate.id
+              ? { ...t, title: templateTitle, subject: formSubject, body: finalBody, category: formCategory }
+              : t
+          );
+          saveCustomTemplates(updated);
+          if (previewTemplate && previewTemplate.id === editingTemplate.id) {
+            setPreviewTemplate((prev) => ({
+              ...prev,
+              title: templateTitle,
+              subject: formSubject,
+              body: finalBody,
+              category: formCategory,
+            }));
+          }
+          toast.success("Template updated successfully");
+        }
       }
     } else {
       // Create Custom Template
@@ -844,7 +960,18 @@ const Templates = () => {
                     >
                       Preview
                     </button>
-                    {!t.isDefault && (
+                    {t.isDefault ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenModal(t);
+                        }}
+                        className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                        title="Edit Template"
+                      >
+                        <MdEdit size={18} />
+                      </button>
+                    ) : (
                       <>
                         <button
                           onClick={(e) => {
@@ -896,7 +1023,7 @@ const Templates = () => {
                 className="text-xl font-bold tracking-tight"
                 style={{ color: theme.text }}
               >
-                Create Template
+                {editingTemplate ? "Edit Template" : "Create Template"}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -1084,17 +1211,28 @@ const Templates = () => {
             <div className="flex items-center justify-end gap-3 p-5 border-t bg-gray-50/50 dark:bg-gray-900/50" style={{ borderColor: theme.border }}>
               <button
                 onClick={() => setPreviewTemplate(null)}
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 style={{ color: theme.subText }}
               >
                 Close
               </button>
               <button
                 onClick={() => {
+                  const targetToEdit = previewTemplate;
+                  setPreviewTemplate(null);
+                  handleOpenModal(targetToEdit);
+                }}
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/5 border transition-colors cursor-pointer"
+                style={{ borderColor: theme.border, color: theme.text }}
+              >
+                <MdEdit size={16} /> Edit
+              </button>
+              <button
+                onClick={() => {
                   handleUseTemplate(previewTemplate);
                   setPreviewTemplate(null);
                 }}
-                className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
                 style={{
                   background: `linear-gradient(135deg, ${theme.accent || "#135bec"} 0%, #3b82f6 100%)`,
                 }}
