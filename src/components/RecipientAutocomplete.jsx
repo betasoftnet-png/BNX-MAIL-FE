@@ -24,7 +24,7 @@ const RecipientAutocomplete = ({
   return (
     <div
       ref={dropdownRef}
-      className="absolute left-0 right-0 top-full mt-1.5 z-[9999] bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl py-1.5 overflow-hidden max-h-72 overflow-y-auto w-full transition-all"
+      className="absolute left-0 right-0 top-full mt-1.5 z-[9999] bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl py-1.5 overflow-hidden max-h-72 overflow-y-auto w-full min-w-[280px] sm:min-w-[340px] transition-all"
       onMouseDown={(e) => {
         // Prevent input blur before click handler registers
         e.preventDefault();
@@ -47,26 +47,26 @@ const RecipientAutocomplete = ({
                 onSelectSuggestion(suggestion);
               }}
               onMouseEnter={() => onHoverIndex?.(idx)}
-              className={`flex items-center gap-3.5 px-4 py-2 cursor-pointer transition-colors ${isHighlighted
+              className={`flex items-center gap-3 px-3.5 py-2 cursor-pointer transition-colors ${isHighlighted
                 ? "bg-blue-50/90 dark:bg-blue-950/50 text-blue-950 dark:text-blue-100"
                 : "hover:bg-gray-50/90 dark:hover:bg-neutral-800/60 text-gray-800 dark:text-gray-200"
                 }`}
             >
               {/* Circular Avatar on the left */}
               {isNew ? (
-                <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs bg-blue-600 text-white shadow-xs shrink-0">
-                  <MdPersonAdd size={18} />
+                <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-blue-600 text-white shadow-xs shrink-0">
+                  <MdPersonAdd size={16} />
                 </div>
               ) : hasValidImage ? (
                 <img
                   src={suggestion.avatarUrl}
                   alt={displayName}
                   onError={() => handleImageError(suggestion.email)}
-                  className="w-9 h-9 rounded-full object-cover shrink-0 shadow-xs border border-gray-100 dark:border-neutral-700"
+                  className="w-8 h-8 rounded-full object-cover shrink-0 shadow-xs border border-gray-100 dark:border-neutral-700"
                 />
               ) : (
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs uppercase text-white shadow-xs shrink-0 ${avatarColor}`}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase text-white shadow-xs shrink-0 ${avatarColor}`}
                 >
                   {getInitials(displayName)}
                 </div>
@@ -74,16 +74,16 @@ const RecipientAutocomplete = ({
 
               {/* Gmail-Style Two-Line Text (Display Name on Line 1, Email Address on Line 2) */}
               <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <span className={`text-[13.5px] truncate font-semibold leading-tight ${isNew ? "text-blue-600 dark:text-blue-400 font-bold" : "text-gray-900 dark:text-gray-100"}`}>
+                <span className={`text-[13px] break-words font-semibold leading-tight ${isNew ? "text-blue-600 dark:text-blue-400 font-bold" : "text-gray-900 dark:text-gray-100"}`}>
                   {isNew ? `Add "${suggestion.email}"` : displayName}
                 </span>
-                <span className="text-[12px] text-gray-500 dark:text-gray-400 truncate leading-tight font-normal mt-0.5">
+                <span className="text-[11.5px] text-gray-500 dark:text-gray-400 break-all leading-tight font-normal mt-0.5">
                   {suggestion.email}
                 </span>
               </div>
 
               {/* Priority Category Badge */}
-              <div className="shrink-0 flex items-center">
+              <div className="shrink-0 flex items-center ml-1">
                 {isNew ? (
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/80">
                     New

@@ -2921,7 +2921,7 @@ const ComposeWindow = ({
           {isReply ? (
             <div className="shrink-0 flex flex-col gap-1.5 px-5 pt-1">
               {/* To Row */}
-              <div className="flex items-center justify-between text-sm min-h-[34px]">
+              <div className="flex items-center justify-between text-sm min-h-[34px] relative">
                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
                   <span className="text-gray-500 dark:text-gray-400 font-medium text-sm w-6 shrink-0">To</span>
                   {formData.to ? (
@@ -2938,7 +2938,7 @@ const ComposeWindow = ({
                       </button>
                     </div>
                   ) : (
-                    <div className="flex-1 relative flex items-center min-w-0">
+                    <div className="flex-1 flex items-center min-w-0">
                       <input
                         ref={toInputRef}
                         type="text"
@@ -2952,20 +2952,20 @@ const ComposeWindow = ({
                         onBlur={handleToInputBlur}
                         onKeyDown={handleToInputKeyDown}
                       />
-                      {showToSuggestions && (
-                        <RecipientAutocomplete
-                          suggestions={toSuggestions}
-                          highlightedIndex={toHighlightedIndex}
-                          onSelectSuggestion={handleSelectToSuggestion}
-                          onHoverIndex={setToHighlightedIndex}
-                          dropdownRef={toDropdownRef}
-                          isLoading={isLoadingSuggestions}
-                          query={toInputValue}
-                        />
-                      )}
                     </div>
                   )}
                 </div>
+                {showToSuggestions && (
+                  <RecipientAutocomplete
+                    suggestions={toSuggestions}
+                    highlightedIndex={toHighlightedIndex}
+                    onSelectSuggestion={handleSelectToSuggestion}
+                    onHoverIndex={setToHighlightedIndex}
+                    dropdownRef={toDropdownRef}
+                    isLoading={isLoadingSuggestions}
+                    query={toInputValue}
+                  />
+                )}
                 <div className="flex items-center gap-3 shrink-0 text-sm font-medium">
                   <button
                     type="button"
@@ -3071,9 +3071,9 @@ const ComposeWindow = ({
             <div className="shrink-0 flex flex-col gap-0.5">
               {/* Cc & Bcc toggles */}
               {(composeMode === "mail" || composeMode === "email") && (
-                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
+                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 relative">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">{t('compose.to', 'To')}</div>
-                  <div className="flex-1 relative flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
+                  <div className="flex-1 flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
                     {recipientChips.map((recipient, idx) => (
                       <span
                         key={"recipient_chip_" + idx}
@@ -3096,7 +3096,7 @@ const ComposeWindow = ({
                         </button>
                       </span>
                     ))}
-                    <div className="flex-1 relative flex items-center min-w-[120px]">
+                    <div className="flex-1 flex items-center min-w-[120px]">
                       <input
                         ref={toInputRef}
                         type="text"
@@ -3110,19 +3110,19 @@ const ComposeWindow = ({
                         onBlur={handleToInputBlur}
                         onKeyDown={handleToInputKeyDown}
                       />
-                      {showToSuggestions && (
-                        <RecipientAutocomplete
-                          suggestions={toSuggestions}
-                          highlightedIndex={toHighlightedIndex}
-                          onSelectSuggestion={handleSelectToSuggestion}
-                          onHoverIndex={setToHighlightedIndex}
-                          dropdownRef={toDropdownRef}
-                          isLoading={isLoadingSuggestions}
-                          query={toInputValue}
-                        />
-                      )}
                     </div>
                   </div>
+                  {showToSuggestions && (
+                    <RecipientAutocomplete
+                      suggestions={toSuggestions}
+                      highlightedIndex={toHighlightedIndex}
+                      onSelectSuggestion={handleSelectToSuggestion}
+                      onHoverIndex={setToHighlightedIndex}
+                      dropdownRef={toDropdownRef}
+                      isLoading={isLoadingSuggestions}
+                      query={toInputValue}
+                    />
+                  )}
                   <div className="flex gap-2 text-gray-500 font-medium ml-2 shrink-0">
                     <button type="button" onClick={() => setShowCc(!showCc)} className="hover:underline">
                       Cc
@@ -3134,9 +3134,9 @@ const ComposeWindow = ({
                 </div>
               )}
               {(composeMode === "chat" || composeMode === "casbox") && (
-                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0">
+                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 relative">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">To</div>
-                  <div className="flex-1 relative flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
+                  <div className="flex-1 flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
                     {recipientChips.map((recipient, idx) => (
                       <span
                         key={"casbox_chip_" + idx}
@@ -3159,7 +3159,7 @@ const ComposeWindow = ({
                         </button>
                       </span>
                     ))}
-                    <div className="flex-1 relative flex items-center min-w-[120px]">
+                    <div className="flex-1 flex items-center min-w-[120px]">
                       <input
                         ref={toInputRef}
                         type="text"
@@ -3176,27 +3176,27 @@ const ComposeWindow = ({
                         }}
                         onKeyDown={handleToInputKeyDown}
                       />
-                      {showToSuggestions && (
-                        <RecipientAutocomplete
-                          suggestions={toSuggestions}
-                          highlightedIndex={toHighlightedIndex}
-                          onSelectSuggestion={handleSelectToSuggestion}
-                          onHoverIndex={setToHighlightedIndex}
-                          dropdownRef={toDropdownRef}
-                          isLoading={isLoadingSuggestions}
-                          query={toInputValue}
-                        />
-                      )}
                     </div>
                   </div>
+                  {showToSuggestions && (
+                    <RecipientAutocomplete
+                      suggestions={toSuggestions}
+                      highlightedIndex={toHighlightedIndex}
+                      onSelectSuggestion={handleSelectToSuggestion}
+                      onHoverIndex={setToHighlightedIndex}
+                      dropdownRef={toDropdownRef}
+                      isLoading={isLoadingSuggestions}
+                      query={toInputValue}
+                    />
+                  )}
                 </div>
               )}
 
               {/* CC */}
               {showCc && (composeMode === "mail" || composeMode === "email") && (
-                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
+                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in relative">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">Cc:</div>
-                  <div className="flex-1 relative flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
+                  <div className="flex-1 flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
                     {ccRecipientChips.map((recipient, idx) => (
                       <span
                         key={"cc_chip_" + idx}
@@ -3219,7 +3219,7 @@ const ComposeWindow = ({
                         </button>
                       </span>
                     ))}
-                    <div className="flex-1 relative flex items-center min-w-[120px]">
+                    <div className="flex-1 flex items-center min-w-[120px]">
                       <input
                         ref={ccInputRef}
                         type="text"
@@ -3234,27 +3234,27 @@ const ComposeWindow = ({
                         spellCheck={spellingCheck ? "true" : "false"}
                         autoCorrect={autoCorrect ? "on" : "off"}
                       />
-                      {showCcSuggestions && (
-                        <RecipientAutocomplete
-                          suggestions={ccSuggestions}
-                          highlightedIndex={ccHighlightedIndex}
-                          onSelectSuggestion={(s) => handleSelectFieldSuggestion('cc', s)}
-                          onHoverIndex={setCcHighlightedIndex}
-                          dropdownRef={ccDropdownRef}
-                          isLoading={isLoadingSuggestions}
-                          query={ccInputValue}
-                        />
-                      )}
                     </div>
                   </div>
+                  {showCcSuggestions && (
+                    <RecipientAutocomplete
+                      suggestions={ccSuggestions}
+                      highlightedIndex={ccHighlightedIndex}
+                      onSelectSuggestion={(s) => handleSelectFieldSuggestion('cc', s)}
+                      onHoverIndex={setCcHighlightedIndex}
+                      dropdownRef={ccDropdownRef}
+                      isLoading={isLoadingSuggestions}
+                      query={ccInputValue}
+                    />
+                  )}
                 </div>
               )}
 
               {/* BCC */}
               {showBcc && (composeMode === "mail" || composeMode === "email") && (
-                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in" style={{ borderColor: theme.border }}>
+                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in relative">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">Bcc:</div>
-                  <div className="flex-1 relative flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
+                  <div className="flex-1 flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
                     {bccRecipientChips.map((recipient, idx) => (
                       <span
                         key={"bcc_chip_" + idx}
@@ -3277,7 +3277,7 @@ const ComposeWindow = ({
                         </button>
                       </span>
                     ))}
-                    <div className="flex-1 relative flex items-center min-w-[120px]">
+                    <div className="flex-1 flex items-center min-w-[120px]">
                       <input
                         ref={bccInputRef}
                         type="text"
@@ -3292,19 +3292,19 @@ const ComposeWindow = ({
                         spellCheck={spellingCheck ? "true" : "false"}
                         autoCorrect={autoCorrect ? "on" : "off"}
                       />
-                      {showBccSuggestions && (
-                        <RecipientAutocomplete
-                          suggestions={bccSuggestions}
-                          highlightedIndex={bccHighlightedIndex}
-                          onSelectSuggestion={(s) => handleSelectFieldSuggestion('bcc', s)}
-                          onHoverIndex={setBccHighlightedIndex}
-                          dropdownRef={bccDropdownRef}
-                          isLoading={isLoadingSuggestions}
-                          query={bccInputValue}
-                        />
-                      )}
                     </div>
                   </div>
+                  {showBccSuggestions && (
+                    <RecipientAutocomplete
+                      suggestions={bccSuggestions}
+                      highlightedIndex={bccHighlightedIndex}
+                      onSelectSuggestion={(s) => handleSelectFieldSuggestion('bcc', s)}
+                      onHoverIndex={setBccHighlightedIndex}
+                      dropdownRef={bccDropdownRef}
+                      isLoading={isLoadingSuggestions}
+                      query={bccInputValue}
+                    />
+                  )}
                 </div>
               )}
 
