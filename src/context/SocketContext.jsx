@@ -229,15 +229,18 @@ export const SocketProvider = ({ children }) => {
 
         // Ensure token is fresh before establishing STOMP session
         const payload = parseJwt(token);
-        if (payload && payload.exp && Date.now() >= payload.exp * 1000 - 30000) {
+        const isExpiredOrNearExpiry = !payload || !payload.exp || Date.now() >= payload.exp * 1000 - 30000;
+        if (isExpiredOrNearExpiry) {
             try {
                 token = await refreshAccessToken();
             } catch (e) {
                 console.warn('Could not refresh token prior to STOMP connect:', e?.message);
+                token = null;
             }
         }
         if (!token) {
             isConnectingRef.current = false;
+            scheduleReconnect();
             return;
         }
 
@@ -248,6 +251,22 @@ export const SocketProvider = ({ children }) => {
         const client = new Client({
             connectHeaders: {
                 Authorization: `Bearer ${token}`
+            },
+            beforeConnect: async () => {
+                let currentToken = getAccessToken();
+                if (currentToken) {
+                    const p = parseJwt(currentToken);
+                    if (!p || !p.exp || Date.now() >= p.exp * 1000 - 30000) {
+                        try {
+                            currentToken = await refreshAccessToken();
+                        } catch (e) {}
+                    }
+                    if (currentToken) {
+                        client.connectHeaders = {
+                            Authorization: `Bearer ${currentToken}`
+                        };
+                    }
+                }
             },
             connectionTimeout: 10000,
             reconnectDelay: 0, // Disabled built-in loop; controlled by exponential backoff scheduleReconnect
@@ -300,10 +319,12 @@ export const SocketProvider = ({ children }) => {
             console.error('STOMP broker reported error:', errorMsg);
 
             // If session was closed or authentication failed, refresh token before reconnecting
-            const isAuthOrSessionClosed = errorMsg.includes('Session closed') ||
-                                          errorMsg.includes('Authentication') ||
-                                          errorMsg.includes('expired') ||
-                                          errorMsg.includes('Unauthorized');
+            const lowerError = errorMsg.toLowerCase();
+            const isAuthOrSessionClosed = lowerError.includes('session closed') ||
+                                          lowerError.includes('authentication') ||
+                                          lowerError.includes('expired') ||
+                                          lowerError.includes('invalid') ||
+                                          lowerError.includes('unauthorized');
             if (isAuthOrSessionClosed && isAuthenticatedRef.current) {
                 try {
                     await refreshAccessToken();

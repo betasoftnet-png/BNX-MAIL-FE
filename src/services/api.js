@@ -137,7 +137,9 @@ export const refreshAccessToken = async () => {
 
     const refreshToken = getRefreshToken();
     if (!refreshToken) {
-        return Promise.reject(new Error('No refresh token available'));
+        const noTokenErr = new Error('No refresh token available');
+        processQueue(noTokenErr, null);
+        return Promise.reject(noTokenErr);
     }
 
     isRefreshing = true;
@@ -169,6 +171,9 @@ export const refreshAccessToken = async () => {
                 });
             }
 
+            // Resolve all requests queued in failedQueue with the fresh access token
+            processQueue(null, newAccessToken);
+
             // Notify WebSocket and active listeners of token rotation within the current tab
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('bnx-token-refreshed', {
@@ -177,6 +182,9 @@ export const refreshAccessToken = async () => {
             }
 
             return newAccessToken;
+        } catch (error) {
+            processQueue(error, null);
+            throw error;
         } finally {
             refreshPromise = null;
             isRefreshing = false;
@@ -386,44 +394,34 @@ api.interceptors.response.use(
                     });
             }
 
-            isRefreshing = true;
             originalRequest._retry = true;
 
-            return new Promise((resolve, reject) => {
-                refreshAccessToken()
-                    .then((newToken) => {
-                        setAuthHeader(originalRequest, newToken);
-                        processQueue(null, newToken);
-                        resolve(api(originalRequest));
-                    })
-                    .catch((refreshError) => {
-                        processQueue(refreshError, null);
+            try {
+                const newToken = await refreshAccessToken();
+                setAuthHeader(originalRequest, newToken);
+                return api(originalRequest);
+            } catch (refreshError) {
+                const status = refreshError.response?.status;
+                const refreshData = refreshError.response?.data || {};
+                const refreshMsg = (refreshData.message || refreshData.error || '').toLowerCase();
+                
+                // ONLY log out if the backend /api/auth/refresh endpoint explicitly rejected the refresh token as revoked/expired/not in database
+                const isExplicitRefreshRejection = status === 401 && (
+                    refreshMsg.includes('expired') ||
+                    refreshMsg.includes('revoked') ||
+                    refreshMsg.includes('not in database') ||
+                    refreshMsg.includes('invalid')
+                );
 
-                        const status = refreshError.response?.status;
-                        const refreshData = refreshError.response?.data || {};
-                        const refreshMsg = (refreshData.message || refreshData.error || '').toLowerCase();
-                        
-                        // ONLY log out if the backend /api/auth/refresh endpoint explicitly rejected the refresh token as revoked/expired/not in database
-                        const isExplicitRefreshRejection = status === 401 && (
-                            refreshMsg.includes('expired') ||
-                            refreshMsg.includes('revoked') ||
-                            refreshMsg.includes('not in database') ||
-                            refreshMsg.includes('invalid')
-                        );
+                if (isExplicitRefreshRejection) {
+                    console.warn('Refresh token explicitly revoked or expired in database. Terminating session.');
+                    handleSessionExpiry();
+                } else {
+                    console.warn('Temporary error, server hiccup, or network issue during token refresh. Preserving session:', refreshError?.message);
+                }
 
-                        if (isExplicitRefreshRejection) {
-                            console.warn('Refresh token explicitly revoked or expired in database. Terminating session.');
-                            handleSessionExpiry();
-                        } else {
-                            console.warn('Temporary error, server hiccup, or network issue during token refresh. Preserving session:', refreshError?.message);
-                        }
-
-                        reject(refreshError);
-                    })
-                    .finally(() => {
-                        isRefreshing = false;
-                    });
-            });
+                return Promise.reject(refreshError);
+            }
         }
 
         return Promise.reject(error);
