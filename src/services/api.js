@@ -140,6 +140,7 @@ export const refreshAccessToken = async () => {
         return Promise.reject(new Error('No refresh token available'));
     }
 
+    isRefreshing = true;
     refreshPromise = (async () => {
         try {
             const res = await authClient.post(API_ENDPOINTS.AUTH.REFRESH, { refreshToken });
@@ -178,6 +179,7 @@ export const refreshAccessToken = async () => {
             return newAccessToken;
         } finally {
             refreshPromise = null;
+            isRefreshing = false;
         }
     })();
 
@@ -370,7 +372,7 @@ api.interceptors.response.use(
             }
 
             // If a refresh is already in progress, queue this request to be retried with the new token
-            if (isRefreshing) {
+            if (refreshPromise || isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
                 })

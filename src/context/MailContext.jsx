@@ -782,7 +782,7 @@ export const MailProvider = ({ children }) => {
                 setIsRefreshing(false);
                 isRefreshingRef.current = false;
             }
-            if (!silent || force) setLoading(false);
+            setLoading(false);
         }
     }, [user, limit, updateCurrentPage]);
 
@@ -1773,7 +1773,7 @@ export const MailProvider = ({ children }) => {
                 setIsRefreshing(false);
                 isRefreshingRef.current = false;
             }
-            if (!silent || force) setLoading(false);
+            setLoading(false);
         }
     };
 
@@ -1858,91 +1858,93 @@ useEffect(() => {
         }
     }, [fetchLabelEmails, fetchEmails]);
 
-    // Background auto-polling for new emails and unread counts every 15 seconds
+    // Background auto-polling for new emails and unread counts every 45 seconds (serialized to prevent connection flooding)
     useEffect(() => {
         if (!user) return;
 
-        const syncAllMailStatus = () => {
-            if (document.hidden || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
+        let isSyncing = false;
+        const syncAllMailStatus = async () => {
+            if (isSyncing || document.hidden || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
             const isChatMode = typeof window !== 'undefined' &&
                 (window.location.pathname.startsWith('/colab') ||
                     window.location.pathname.startsWith('/chat') ||
                     window.location.pathname.startsWith('/casbox'));
             if (isChatMode) return;
 
-            const cur = currentFolderRef.current.toLowerCase();
-            if (cur.startsWith('label-')) {
-                const labelId = cur.replace('label-', '');
-                fetchLabelEmails(labelId, true, currentPageRef.current);
-            } else {
-                fetchEmails(cur, true, currentPageRef.current);
-            }
+            isSyncing = true;
+            try {
+                const cur = currentFolderRef.current.toLowerCase();
+                if (cur.startsWith('label-')) {
+                    const labelId = cur.replace('label-', '');
+                    await fetchLabelEmails(labelId, true, currentPageRef.current);
+                } else {
+                    await fetchEmails(cur, true, currentPageRef.current);
+                }
 
-            // Always keep unread and inbox counts synced in the background
-            if (cur !== 'inbox') {
-                fetchEmailsSilently('inbox');
-            }
-            if (cur !== 'unread') {
-                fetchEmailsSilently('unread');
-            }
-            if (cur !== 'sent') {
-                fetchEmailsSilently('sent');
-            }
+                // Keep inbox counts synced sequentially if not currently in inbox
+                if (cur !== 'inbox' && cur !== 'all-inbox' && cur !== 'allinbox') {
+                    await fetchEmailsSilently('inbox');
+                }
 
-            // If there are starred scheduled emails that have reached delivery time, fetch sent emails to migrate stars
-            const map = getStoredStarredEmailsMap(user?.email);
-            let hasPastDueScheduled = false;
-            const now = Date.now();
-            for (const [k, item] of map.entries()) {
-                if (k.startsWith('scheduled:') || item?.folderName?.toLowerCase() === 'scheduled') {
-                    const sTime = new Date(item.scheduledAt || item.date || item.createdAt || 0).getTime();
-                    if (sTime <= now) {
-                        hasPastDueScheduled = true;
-                        break;
+                // If there are starred scheduled emails that have reached delivery time, fetch sent emails to migrate stars
+                const map = getStoredStarredEmailsMap(user?.email);
+                let hasPastDueScheduled = false;
+                const now = Date.now();
+                for (const [k, item] of map.entries()) {
+                    if (k.startsWith('scheduled:') || item?.folderName?.toLowerCase() === 'scheduled') {
+                        const sTime = new Date(item.scheduledAt || item.date || item.createdAt || 0).getTime();
+                        if (sTime <= now) {
+                            hasPastDueScheduled = true;
+                            break;
+                        }
                     }
                 }
-            }
-            if (hasPastDueScheduled && cur !== 'sent') {
-                fetchEmailsSilently('sent');
-            }
-
-            // Check if any snoozed emails have reached wake-up time
-            const dueSnoozed = getDueSnoozedEmails(user?.email);
-            if (dueSnoozed.length > 0) {
-                dueSnoozed.forEach(item => {
-                    markEmailReturned(user?.email, item.uid || item.messageId);
-                    if (notifPrefsRef.current?.snoozedNotifications) {
-                        toast(`Snoozed email "${item.subject || 'Reminder'}" is now back in Inbox`, {
-                            icon: '⏰',
-                            id: `snooze-wake-${item.uid || item.messageId}`
-                        });
-                    }
-                });
-                invalidateCache('inbox');
-                invalidateCache('all-inbox');
-                invalidateCache('allinbox');
-                invalidateCache('all-mail');
-                invalidateCache('allmail');
-                invalidateCache('snoozed');
-                invalidateCache('unread');
-
-                // Synchronize sidebar Snoozed count
-                setUnreadCounts(prev => ({
-                    ...prev,
-                    snoozed: getActiveSnoozedCount(user?.email)
-                }));
-
-                if (currentFolderRef.current?.toLowerCase() === 'snoozed') {
-                    const dueIds = new Set(dueSnoozed.map(d => String(d.uid)));
-                    setEmails(prev => prev.filter(m => !dueIds.has(String(m.uid))));
-                    setTotalEmails(prev => Math.max(0, prev - dueSnoozed.length));
-                } else if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(currentFolderRef.current?.toLowerCase())) {
-                    fetchEmailsSilently(currentFolderRef.current);
+                if (hasPastDueScheduled && cur !== 'sent') {
+                    await fetchEmailsSilently('sent');
                 }
+
+                // Check if any snoozed emails have reached wake-up time
+                const dueSnoozed = getDueSnoozedEmails(user?.email);
+                if (dueSnoozed.length > 0) {
+                    dueSnoozed.forEach(item => {
+                        markEmailReturned(user?.email, item.uid || item.messageId);
+                        if (notifPrefsRef.current?.snoozedNotifications) {
+                            toast(`Snoozed email "${item.subject || 'Reminder'}" is now back in Inbox`, {
+                                icon: '⏰',
+                                id: `snooze-wake-${item.uid || item.messageId}`
+                            });
+                        }
+                    });
+                    invalidateCache('snoozed');
+                    invalidateCache('inbox');
+                    invalidateCache('all-inbox');
+                    invalidateCache('allinbox');
+                    invalidateCache('all-mail');
+                    invalidateCache('allmail');
+                    invalidateCache('unread');
+
+                    // Synchronize sidebar Snoozed count
+                    setUnreadCounts(prev => ({
+                        ...prev,
+                        snoozed: getActiveSnoozedCount(user?.email)
+                    }));
+
+                    if (currentFolderRef.current?.toLowerCase() === 'snoozed') {
+                        const dueIds = new Set(dueSnoozed.map(d => String(d.uid)));
+                        setEmails(prev => prev.filter(m => !dueIds.has(String(m.uid))));
+                        setTotalEmails(prev => Math.max(0, prev - dueSnoozed.length));
+                    } else if (['inbox', 'all-inbox', 'allinbox', 'unread'].includes(currentFolderRef.current?.toLowerCase())) {
+                        fetchEmailsSilently(currentFolderRef.current);
+                    }
+                }
+            } catch (err) {
+                console.debug('Background mail status sync note:', err?.message);
+            } finally {
+                isSyncing = false;
             }
         };
 
-        const interval = setInterval(syncAllMailStatus, 15000);
+        const interval = setInterval(syncAllMailStatus, 45000);
 
         return () => clearInterval(interval);
     }, [user, fetchEmails, fetchEmailsSilently, fetchLabelEmails, invalidateCache]);

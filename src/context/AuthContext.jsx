@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }) => {
                 try {
                     await refreshAccessToken();
                 } catch (err) {
-                    console.warn('[Silent Refresh] Proactive token renewal delayed:', err?.message);
+                    console.debug('[Silent Refresh] Proactive token renewal note:', err?.message);
                 }
             }
         };
@@ -102,13 +102,22 @@ export const AuthProvider = ({ children }) => {
             }
         };
 
+        const handleTokenRefreshed = () => {
+            const profile = getUserProfile();
+            if (profile) {
+                setUser(profile);
+            }
+        };
+
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('focus', checkAndRefreshToken);
+        window.addEventListener('bnx-token-refreshed', handleTokenRefreshed);
 
         return () => {
             clearInterval(timer);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('focus', checkAndRefreshToken);
+            window.removeEventListener('bnx-token-refreshed', handleTokenRefreshed);
         };
     }, [isAuthenticated]);
 

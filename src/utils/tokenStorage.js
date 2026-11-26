@@ -93,6 +93,24 @@ export const getRefreshToken = () => {
             sessionStorage.setItem(KEYS.REFRESH_TOKEN, localRefresh);
             return localRefresh;
         }
+
+        // Multi-tab / cold-start fallback from bnx_sessions
+        const activeEmail = getActiveEmail();
+        const sessionsStr = localStorage.getItem(KEYS.SESSIONS);
+        if (sessionsStr) {
+            const sessions = JSON.parse(sessionsStr);
+            if (activeEmail && sessions[activeEmail]?.refreshToken) {
+                const token = sessions[activeEmail].refreshToken;
+                sessionStorage.setItem(KEYS.REFRESH_TOKEN, token);
+                return token;
+            }
+            const emails = Object.keys(sessions);
+            if (emails.length > 0 && sessions[emails[0]]?.refreshToken) {
+                const token = sessions[emails[0]].refreshToken;
+                sessionStorage.setItem(KEYS.REFRESH_TOKEN, token);
+                return token;
+            }
+        }
     } catch (e) {}
     return null;
 };
@@ -246,3 +264,25 @@ export const clearAllStoredSessions = () => {
         localStorage.removeItem(KEYS.TEMP_TOKEN);
     } catch (e) {}
 };
+
+// Cross-tab synchronization:
+// When another tab rotates or refreshes the access token, seamlessly sync into this tab's sessionStorage
+if (isBrowser) {
+    window.addEventListener('storage', (event) => {
+        if (event.key === KEYS.SESSIONS && event.newValue) {
+            try {
+                const sessions = JSON.parse(event.newValue);
+                const activeEmail = getActiveEmail();
+                if (activeEmail && sessions[activeEmail]) {
+                    const session = sessions[activeEmail];
+                    if (session.accessToken) {
+                        sessionStorage.setItem(KEYS.ACCESS_TOKEN, session.accessToken);
+                    }
+                    if (session.refreshToken) {
+                        sessionStorage.setItem(KEYS.REFRESH_TOKEN, session.refreshToken);
+                    }
+                }
+            } catch (e) {}
+        }
+    });
+}
