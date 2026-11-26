@@ -195,23 +195,6 @@ const EmailDetails = ({
     currentFolder,
   });
 
-  const isLabelAsMenuVisible = useMemo(() => {
-    if (isTrashMode || isSpamMode) return false;
-    return true;
-  }, [isTrashMode, isSpamMode]);
-  const snoozeAction = onSnooze || contextHandleSnooze;
-  const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
-  const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
-  const isImportant = typeof isEmailImportant === 'function' ? isEmailImportant(email?.uid ?? email?.id, email, email?.folderName || currentFolder) : Boolean(email?.isImportant || email?.important);
-
-  const handleImportantClick = () => {
-    const targetUid = email?.uid ?? email?.id;
-    const targetFolder = email?.folderName || currentFolder || 'INBOX';
-    if (handleToggleImportant) {
-      handleToggleImportant(targetUid, targetFolder, email);
-    }
-  };
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const isTrashMode = Boolean(
     isTrash ||
     email?.folderName?.toLowerCase() === 'trash' ||
@@ -242,6 +225,24 @@ const EmailDetails = ({
       window.location.pathname?.includes('spam')
     ))
   );
+
+  const isLabelAsMenuVisible = useMemo(() => {
+    if (isTrashMode || isSpamMode) return false;
+    return true;
+  }, [isTrashMode, isSpamMode]);
+  const snoozeAction = onSnooze || contextHandleSnooze;
+  const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
+  const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
+  const isImportant = typeof isEmailImportant === 'function' ? isEmailImportant(email?.uid ?? email?.id, email, email?.folderName || currentFolder) : Boolean(email?.isImportant || email?.important);
+
+  const handleImportantClick = () => {
+    const targetUid = email?.uid ?? email?.id;
+    const targetFolder = email?.folderName || currentFolder || 'INBOX';
+    if (handleToggleImportant) {
+      handleToggleImportant(targetUid, targetFolder, email);
+    }
+  };
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (email) {
