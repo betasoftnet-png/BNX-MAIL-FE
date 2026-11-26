@@ -127,19 +127,27 @@ const quillModules = {
         if ((!range || range.length === 0) && activeSelection && activeSelection.length > 0) {
           range = activeSelection;
         }
-        if (!range) {
-          this.quill.focus();
-          range = this.quill.getSelection() || { index: 0, length: 0 };
-        }
         const fontVal = value || 'Arial';
-        if (range.length > 0) {
+        this.quill.focus();
+
+        if (range && range.length > 0) {
+          // When text is selected, apply font family only to selected text
           this.quill.formatText(range.index, range.length, 'font', fontVal, 'user');
           this.quill.setSelection(range.index, range.length, 'silent');
           activeSelection = { index: range.index, length: range.length };
         } else {
-          this.quill.setSelection(range.index, 0, 'silent');
+          // When no text is selected, apply font family to the entire existing template content & newly typed text
+          const savedIndex = range ? range.index : (activeSelection ? activeSelection.index : 0);
+          const totalLength = this.quill.getLength();
+          if (totalLength > 1) {
+            this.quill.formatText(0, totalLength, 'font', fontVal, 'user');
+          }
           this.quill.format('font', fontVal, 'user');
-          activeSelection = { index: range.index, length: 0 };
+          if (this.quill.root) {
+            this.quill.root.style.fontFamily = fontVal;
+          }
+          this.quill.setSelection(savedIndex, 0, 'silent');
+          activeSelection = { index: savedIndex, length: 0 };
         }
       },
       size: function(value) {
@@ -147,19 +155,104 @@ const quillModules = {
         if ((!range || range.length === 0) && activeSelection && activeSelection.length > 0) {
           range = activeSelection;
         }
-        if (!range) {
-          this.quill.focus();
-          range = this.quill.getSelection() || { index: 0, length: 0 };
-        }
         const sizeVal = value || '14px';
-        if (range.length > 0) {
+        this.quill.focus();
+
+        if (range && range.length > 0) {
+          // When text is selected, apply font size only to selected text
           this.quill.formatText(range.index, range.length, 'size', sizeVal, 'user');
           this.quill.setSelection(range.index, range.length, 'silent');
           activeSelection = { index: range.index, length: range.length };
         } else {
-          this.quill.setSelection(range.index, 0, 'silent');
+          // When no text is selected, apply font size to the entire existing template content & newly typed text
+          const savedIndex = range ? range.index : (activeSelection ? activeSelection.index : 0);
+          const totalLength = this.quill.getLength();
+          if (totalLength > 1) {
+            this.quill.formatText(0, totalLength, 'size', sizeVal, 'user');
+          }
           this.quill.format('size', sizeVal, 'user');
+          if (this.quill.root) {
+            this.quill.root.style.fontSize = sizeVal;
+          }
+          this.quill.setSelection(savedIndex, 0, 'silent');
+          activeSelection = { index: savedIndex, length: 0 };
+        }
+      },
+      list: function(value) {
+        let range = this.quill.getSelection();
+        if ((!range || range.length === 0) && activeSelection) {
+          range = activeSelection;
+        }
+        if (!range) {
+          this.quill.focus();
+          range = this.quill.getSelection() || { index: 0, length: 0 };
+        }
+        this.quill.focus();
+
+        const currentFormat = this.quill.getFormat(range);
+        const currentList = currentFormat.list;
+        const targetValue = (currentList === value) ? false : value;
+
+        if (range.length > 0) {
+          // When text is selected, apply formatting to selected paragraphs
+          this.quill.format('list', targetValue, 'user');
+          this.quill.setSelection(range.index, range.length, 'silent');
+          activeSelection = { index: range.index, length: range.length };
+        } else {
+          // When no text is selected, convert the current paragraph into a list item
+          const [line] = this.quill.getLine(range.index);
+          if (line) {
+            const lineIndex = this.quill.getIndex(line);
+            this.quill.formatLine(lineIndex, line.length(), 'list', targetValue, 'user');
+          } else {
+            this.quill.format('list', targetValue, 'user');
+          }
+          this.quill.setSelection(range.index, 0, 'silent');
           activeSelection = { index: range.index, length: 0 };
+        }
+      }
+    }
+  },
+  keyboard: {
+    bindings: {
+      listEmptyEnter: {
+        key: 13,
+        collapsed: true,
+        format: ['list'],
+        empty: true,
+        shiftKey: false,
+        handler: function(range, context) {
+          // Pressing Enter twice on an empty list item exits the list
+          this.quill.format('list', false, 'user');
+          return false;
+        }
+      },
+      listContinueEnter: {
+        key: 13,
+        collapsed: true,
+        format: ['list'],
+        empty: false,
+        shiftKey: false,
+        handler: function(range, context) {
+          const [line, offset] = this.quill.getLine(range.index);
+          const lineText = line ? (line.domNode?.textContent || '') : '';
+          // If the current list item has no visible text, exit the list
+          if (!lineText.trim()) {
+            this.quill.format('list', false, 'user');
+            return false;
+          }
+
+          // Automatically continue the bullet or numbered list
+          const currentList = context.format.list || 'bullet';
+          this.quill.insertText(range.index, '\n', 'user');
+          if (offset === 0) {
+            this.quill.formatLine(range.index, 1, 'list', currentList, 'user');
+            this.quill.setSelection(range.index + 1, 0, 'silent');
+          } else {
+            this.quill.formatLine(range.index + 1, 1, 'list', currentList, 'user');
+            this.quill.setSelection(range.index + 1, 0, 'silent');
+          }
+          return false;
         }
       }
     }
@@ -223,13 +316,38 @@ const migrateOldFontClasses = (html) => {
   });
 };
 
-const ensureDefaultFontFormatting = (html) => {
-  if (!html || !html.trim()) return "";
+const unwrapOuterFontDiv = (html) => {
+  if (!html || typeof html !== 'string') return { body: "", font: null, size: null };
   const trimmed = html.trim();
+  const match = trimmed.match(/^<div\s+style="([^"]*font-family:\s*([^;"]+)[^"]*)">([\s\S]*)<\/div>$/i);
+  if (match) {
+    const styleStr = match[1];
+    const fontVal = match[2].trim().replace(/^['"]|['"]$/g, '');
+    let sizeVal = null;
+    const sizeMatch = styleStr.match(/font-size:\s*([^;"]+)/i);
+    if (sizeMatch) {
+      sizeVal = sizeMatch[1].trim();
+    }
+    return {
+      body: match[3].trim(),
+      font: fontVal,
+      size: sizeVal
+    };
+  }
+  return { body: html, font: null, size: null };
+};
+
+const ensureDefaultFontFormatting = (html, defaultFont = 'Arial, Helvetica, sans-serif', defaultSize = '14px') => {
+  if (!html || !html.trim()) return "";
+  let trimmed = html.trim();
   if (trimmed.startsWith('<div style="font-family:') || trimmed.startsWith('<div style="font-family :')) {
+    trimmed = trimmed.replace(
+      /^<div style="font-family\s*:\s*[^;]+;(\s*font-size\s*:\s*[^;]+;)?/,
+      `<div style="font-family: ${defaultFont}; font-size: ${defaultSize};`
+    );
     return trimmed;
   }
-  return `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5;">${trimmed}</div>`;
+  return `<div style="font-family: ${defaultFont}; font-size: ${defaultSize}; line-height: 1.5;">${trimmed}</div>`;
 };
 
 const getBodyPreview = (html) => {
@@ -274,6 +392,20 @@ const Templates = () => {
             if (!editingTemplate) {
               editor.format('font', 'Arial');
               editor.format('size', '14px');
+              if (editor.root) {
+                editor.root.style.fontFamily = 'Arial';
+                editor.root.style.fontSize = '14px';
+              }
+            } else {
+              const unwrapped = unwrapOuterFontDiv(editingTemplate.body || "");
+              const initialFont = unwrapped.font || 'Arial';
+              const initialSize = unwrapped.size || '14px';
+              if (editor.root) {
+                editor.root.style.fontFamily = initialFont;
+                editor.root.style.fontSize = initialSize;
+              }
+              editor.format('font', initialFont);
+              editor.format('size', initialSize);
             }
             const handleSel = (range) => {
               if (range) {
@@ -349,7 +481,12 @@ const Templates = () => {
     if (template) {
       setEditingTemplate(template);
       setFormSubject(template.subject);
-      setFormBody(migrateOldFontClasses(template.body));
+      const unwrapped = unwrapOuterFontDiv(template.body || "");
+      const content = unwrapped.body;
+      const formattedBody = content.includes('<') && content.includes('>')
+        ? content
+        : content.split('\n').map(p => p.trim() ? `<p>${p}</p>` : `<p><br></p>`).join('');
+      setFormBody(migrateOldFontClasses(formattedBody));
       setFormCategory(template.category || "");
     } else {
       setEditingTemplate(null);
@@ -371,7 +508,11 @@ const Templates = () => {
     const cleanCategory = selectedCategory.trim().toLowerCase();
     const match = DEFAULT_TEMPLATES.find(t => (t.category || "").trim().toLowerCase() === cleanCategory);
     if (match) {
-      setFormBody(match.body || "");
+      const rawBody = match.body || "";
+      const formattedBody = rawBody.includes('<') && rawBody.includes('>')
+        ? rawBody
+        : rawBody.split('\n').map(p => p.trim() ? `<p>${p}</p>` : `<p><br></p>`).join('');
+      setFormBody(formattedBody);
       setFormSubject(match.subject || "");
     } else {
       setFormBody("");
@@ -397,7 +538,20 @@ const Templates = () => {
     }
 
     const templateTitle = formSubject;
-    const finalBody = ensureDefaultFontFormatting(formBody);
+    let activeEditorFont = 'Arial';
+    let activeEditorSize = '14px';
+    if (quillRef.current) {
+      const editor = quillRef.current.getEditor();
+      if (editor) {
+        if (editor.root?.style?.fontFamily) {
+          activeEditorFont = editor.root.style.fontFamily;
+        }
+        if (editor.root?.style?.fontSize) {
+          activeEditorSize = editor.root.style.fontSize;
+        }
+      }
+    }
+    const finalBody = ensureDefaultFontFormatting(formBody, activeEditorFont, activeEditorSize);
 
     if (editingTemplate) {
       // Edit Custom Template
@@ -484,10 +638,18 @@ const Templates = () => {
 
   // Use template
   const handleUseTemplate = (template) => {
-    const formattedBody = template.body ? (template.body.includes('<') && template.body.includes('>') ? template.body : template.body.replace(/\n/g, '<br/>')) : '';
+    const rawBody = template.body || '';
+    const unwrapped = unwrapOuterFontDiv(rawBody);
+    const content = unwrapped.body;
+    const formattedBody = content.includes('<') && content.includes('>')
+      ? content
+      : content.split('\n').map(p => p.trim() ? `<p>${p}</p>` : `<p><br></p>`).join('');
+    const fontToUse = unwrapped.font || 'Arial';
+    const sizeToUse = unwrapped.size || '14px';
+
     openCompose({
       subject: template.subject,
-      body: ensureDefaultFontFormatting(formattedBody),
+      body: ensureDefaultFontFormatting(formattedBody, fontToUse, sizeToUse),
     });
   };
 
