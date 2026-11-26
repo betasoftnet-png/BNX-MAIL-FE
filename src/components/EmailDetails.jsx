@@ -158,6 +158,8 @@ const EmailDetails = ({
   onSnooze,
   onUnsnooze,
   onApplyLabel,
+  onRemoveLabel,
+  handleRemoveLabel: propHandleRemoveLabel,
   onClose,
   isArchiveFolder = false,
   isTrash = false,
@@ -254,6 +256,7 @@ const EmailDetails = ({
   }, [email?.uid, email?.id, email?.isRead, email?.read, handleMarkRead]);
 
   const applyLabelAction = onApplyLabel || handleApplyLabel;
+  const removeLabelAction = onRemoveLabel || propHandleRemoveLabel || handleRemoveLabel;
 
   const [localLabels, setLocalLabels] = useState(email?.labels || []);
   const [isSnoozing, setIsSnoozing] = useState(false);
@@ -501,7 +504,12 @@ const EmailDetails = ({
   // Read Receipt state and handlers
   const isBusinessUser = isBusinessAccount(user);
   const isSender = Boolean(cleanSenderEmail && user?.email && cleanSenderEmail.toLowerCase() === user.email.toLowerCase());
-  const isSentMail = Boolean(isSender || currentFolder === 'Sent' || email?.category === 'SENT' || (email?.folderName && email.folderName.toLowerCase().includes('sent')));
+  const isSentMail = Boolean(
+    isSender ||
+    (currentFolder && currentFolder.toLowerCase() === 'sent') ||
+    (email?.category && String(email.category).toUpperCase() === 'SENT') ||
+    (email?.folderName && email.folderName.toLowerCase().includes('sent'))
+  );
 
   const [isRespondingReceipt, setIsRespondingReceipt] = useState(false);
   const [receiptDismissed, setReceiptDismissed] = useState(false);
@@ -1168,7 +1176,9 @@ const EmailDetails = ({
       return;
     }
 
-    const targetFolder = email?.folderName || getFolder();
+    const targetFolder = isSentMail
+      ? "Sent"
+      : (email?.folderName || getFolder());
     const previouslyAssignedMap = new Map();
     (availableLabelOptions || []).forEach((opt) => {
       const isApplied = (localLabels || []).some((l) => matchesLabelIdentity(l, opt));
@@ -1211,8 +1221,8 @@ const EmailDetails = ({
     try {
       // Execute removals
       for (const remLbl of toRemove) {
-        if (handleRemoveLabel) {
-          await handleRemoveLabel(emailUid, remLbl.id, targetFolder, true);
+        if (removeLabelAction) {
+          await removeLabelAction(emailUid, remLbl.id, targetFolder, true);
         }
       }
       // Execute additions
@@ -1246,15 +1256,27 @@ const EmailDetails = ({
     const sysDef = findSystemLabelDefinition(labelName || strLabelId);
     const targetMatch = sysDef || { id: labelId, name: labelName || strLabelId, prefKey };
     const prevLabels = localLabels;
-    setLocalLabels((prev) => prev.filter((l) => !matchesLabelIdentity(l, targetMatch)));
+    const updated = (localLabels || []).filter((l) => !matchesLabelIdentity(l, targetMatch));
+    setLocalLabels(updated);
+    if (email) {
+      email.labels = updated;
+    }
     try {
-      const targetFolder = email?.folderName || getFolder();
-      if (handleRemoveLabel) {
-        await handleRemoveLabel(email.uid, labelId, targetFolder);
+      const targetFolder = isSentMail ? "Sent" : (email?.folderName || getFolder());
+      if (removeLabelAction) {
+        await removeLabelAction(email.uid ?? email.id, labelId, targetFolder);
       }
+      window.dispatchEvent(
+        new CustomEvent("bnx-email-labels-updated", {
+          detail: { uid: email.uid ?? email.id, labels: updated },
+        })
+      );
     } catch (err) {
       console.error("Remove label error:", err);
       setLocalLabels(prevLabels);
+      if (email) {
+        email.labels = prevLabels;
+      }
     }
   };
 
@@ -1572,8 +1594,9 @@ const EmailDetails = ({
 
   const getFolder = () => {
     if (isArchiveFolder) return "Archive";
-    if (!email.category) return "INBOX";
-    const cat = email.category.toUpperCase();
+    if (isSentMail) return "Sent";
+    if (!email?.category) return "INBOX";
+    const cat = String(email.category).toUpperCase();
     if (cat === "SENT") return "Sent";
     if (cat === "TRASH") return "Trash";
     if (cat === "SPAM") return "Spam";

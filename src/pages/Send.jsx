@@ -16,7 +16,7 @@ const Send = ({ searchQuery }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, readingPaneMode } = useTheme();
-  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, openCompose, matchesDateFilter } = useMail();
+  const { emails, loading, isRefreshing, fetchEmails, refreshEmails, handleToggleStar, handleMoveToTrash, handleArchive, handleSnooze, handleApplyLabel, handleRemoveLabel, openCompose, matchesDateFilter } = useMail();
   const [selectedEmailUid, setSelectedEmailUid] = useState(null);
   const [selectedRowKey, setSelectedRowKey] = useState(null);
   const [selectedEmailOverride, setSelectedEmailOverride] = useState(null);
@@ -135,6 +135,8 @@ const Send = ({ searchQuery }) => {
         setSelectedRowKey(null);
       }}
       onApplyLabel={handleApplyLabel}
+      handleRemoveLabel={handleRemoveLabel}
+      onRemoveLabel={handleRemoveLabel}
       onSnooze={handleSnooze}
     />
   ) : null;

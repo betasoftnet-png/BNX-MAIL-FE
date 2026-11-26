@@ -464,7 +464,7 @@ export const MailProvider = ({ children }) => {
 
     const getInitialSentEmailLabels = () => {
         try {
-            const stored = sessionStorage.getItem('bnx_sent_email_labels');
+            const stored = localStorage.getItem('bnx_sent_email_labels') || sessionStorage.getItem('bnx_sent_email_labels');
             return stored ? JSON.parse(stored) : {};
         } catch (e) {
             return {};
@@ -474,8 +474,10 @@ export const MailProvider = ({ children }) => {
 
     const updateSentEmailLabels = useCallback((uid, labelsList) => {
         if (!uid) return;
-        sentEmailLabelsRef.current[String(uid)] = Array.isArray(labelsList) ? labelsList : [];
+        const normalizedList = Array.isArray(labelsList) ? labelsList : [];
+        sentEmailLabelsRef.current[String(uid)] = normalizedList;
         try {
+            localStorage.setItem('bnx_sent_email_labels', JSON.stringify(sentEmailLabelsRef.current));
             sessionStorage.setItem('bnx_sent_email_labels', JSON.stringify(sentEmailLabelsRef.current));
         } catch (e) { }
     }, []);
@@ -521,9 +523,42 @@ export const MailProvider = ({ children }) => {
         };
         window.addEventListener('storage', handleSync);
         window.addEventListener('bnx-starred-updated', handleSync);
+
+        const handleLabelsSync = (e) => {
+            const { uid, labels: updatedLabels, action, label, labelId } = e.detail || {};
+            const uidStr = uid != null ? String(uid) : null;
+            if (!uidStr) return;
+
+            setEmails(prev => prev.map(m => {
+                const mUid = String(m.uid ?? m.id ?? '');
+                if (mUid === uidStr) {
+                    if (Array.isArray(updatedLabels)) {
+                        return { ...m, labels: updatedLabels };
+                    }
+                    if (action === 'add' && label) {
+                        const existing = Array.isArray(m.labels) ? m.labels : [];
+                        if (!existing.some(l => matchesLabelIdentity(l, label))) {
+                            return { ...m, labels: [...existing, label] };
+                        }
+                    } else if (action === 'remove' && labelId) {
+                        const existing = Array.isArray(m.labels) ? m.labels : [];
+                        return { ...m, labels: existing.filter(l => !matchesLabelIdentity(l, labelId) && String(l?.id ?? l) !== String(labelId)) };
+                    }
+                }
+                return m;
+            }));
+
+            // Sync with sent labels cache if target is in sent folder
+            if (Array.isArray(updatedLabels)) {
+                updateSentEmailLabels(uidStr, updatedLabels);
+            }
+        };
+        window.addEventListener('bnx-email-labels-updated', handleLabelsSync);
+
         return () => {
             window.removeEventListener('storage', handleSync);
             window.removeEventListener('bnx-starred-updated', handleSync);
+            window.removeEventListener('bnx-email-labels-updated', handleLabelsSync);
         };
     }, [user?.email]);
 
@@ -1245,6 +1280,8 @@ export const MailProvider = ({ children }) => {
                                 ...m,
                                 labels: sentEmailLabelsRef.current[uidStr]
                             };
+                        } else if (Array.isArray(m.labels) && m.labels.length > 0) {
+                            updateSentEmailLabels(uidStr, m.labels);
                         }
                         return m;
                     });
@@ -1590,6 +1627,8 @@ export const MailProvider = ({ children }) => {
                                 ...m,
                                 labels: sentEmailLabelsRef.current[uidStr]
                             };
+                        } else if (Array.isArray(m.labels) && m.labels.length > 0) {
+                            updateSentEmailLabels(uidStr, m.labels);
                         }
                         return m;
                     });
