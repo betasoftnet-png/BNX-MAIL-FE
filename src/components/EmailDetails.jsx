@@ -196,12 +196,9 @@ const EmailDetails = ({
   });
 
   const isLabelAsMenuVisible = useMemo(() => {
-    return isLabelAsOptionVisibleInFolder(activeVisibilityFolder, {
-      sidebarPreferences,
-      customLabelPreferences,
-      customLabels: labels,
-    });
-  }, [activeVisibilityFolder, labels, sidebarPreferences, customLabelPreferences, labelPrefsVersion, prefsTick]);
+    if (isTrashMode || isSpamMode) return false;
+    return true;
+  }, [isTrashMode, isSpamMode]);
   const snoozeAction = onSnooze || contextHandleSnooze;
   const unsnoozeAction = onUnsnooze || contextHandleUnsnooze;
   const isStarred = typeof isEmailStarred === 'function' ? isEmailStarred(email?.uid ?? email?.id, email?.folderName || currentFolder, email) : Boolean(email?.starred || email?.isStarred);
@@ -399,6 +396,18 @@ const EmailDetails = ({
   }, [email?.labels, email?.uid]);
 
   useEffect(() => {
+    const handleLabelsUpdated = (e) => {
+      const { uid, labels: updatedLabels } = e.detail || {};
+      const currentUid = email?.uid ?? email?.id;
+      if (uid && currentUid && String(uid) === String(currentUid) && Array.isArray(updatedLabels)) {
+        setLocalLabels(updatedLabels);
+      }
+    };
+    window.addEventListener("bnx-email-labels-updated", handleLabelsUpdated);
+    return () => window.removeEventListener("bnx-email-labels-updated", handleLabelsUpdated);
+  }, [email?.uid, email?.id]);
+
+  useEffect(() => {
     const handleShortcutAction = (e) => {
       if (e.detail?.handled) return;
       const action = e.detail?.action;
@@ -444,6 +453,11 @@ const EmailDetails = ({
   const snoozeDropdownRef = React.useRef(null);
   const [snoozeCoords, setSnoozeCoords] = useState({ top: 0, right: 0 });
   const labelsRef = React.useRef(null);
+  const labelsButtonRef = React.useRef(null);
+  const labelsDropdownRef = React.useRef(null);
+  const [labelsCoords, setLabelsCoords] = useState({ top: 0, right: 0 });
+  const [selectedLabelIds, setSelectedLabelIds] = useState(new Set());
+  const [isSavingLabels, setIsSavingLabels] = useState(false);
 
   const normalizeEmail = (addr) => {
     if (!addr) return "";
@@ -947,7 +961,19 @@ const EmailDetails = ({
         setShowSnooze(false);
         setCustomSnooze(false);
       }
-      if (labelsRef.current && !labelsRef.current.contains(e.target)) {
+      if (
+        labelsButtonRef.current &&
+        labelsButtonRef.current.contains(e.target)
+      ) {
+        return;
+      }
+      if (
+        labelsDropdownRef.current &&
+        !labelsDropdownRef.current.contains(e.target)
+      ) {
+        setShowLabels(false);
+      }
+      if (labelsRef.current && !labelsRef.current.contains(e.target) && !labelsDropdownRef.current) {
         setShowLabels(false);
       }
     };
@@ -967,6 +993,31 @@ const EmailDetails = ({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [showSnooze, showLabels]);
+
+  useEffect(() => {
+    if (!showLabels) return;
+    const updatePosition = () => {
+      if (labelsButtonRef.current) {
+        const rect = labelsButtonRef.current.getBoundingClientRect();
+        const menuHeight = 320;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        let topPosition;
+        if (spaceBelow < menuHeight && rect.top > menuHeight) {
+          topPosition = rect.top - menuHeight - 4;
+        } else {
+          topPosition = rect.bottom + 6;
+        }
+        const rightPosition = Math.max(12, window.innerWidth - rect.right);
+        setLabelsCoords({ top: topPosition, right: rightPosition });
+      }
+    };
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [showLabels]);
 
   useEffect(() => {
     if (!showSnooze) return;
@@ -1059,50 +1110,133 @@ const EmailDetails = ({
     }
   };
 
-  const handleApplyLabelOption = async (labelId) => {
-    if (isApplyingLabel) return;
-    const strLabelId = String(labelId);
-    const sysDef = findSystemLabelDefinition(strLabelId);
-    const targetLabel =
-      availableLabelOptions.find((l) => String(l.id) === strLabelId) ||
-      (labels || []).find((l) => String(l.id) === strLabelId) ||
-      (sysDef
-        ? {
-            id: sysDef.id,
-            name: sysDef.name,
-            prefKey: sysDef.prefKey,
-            colorHex: sysDef.colorHex,
-            type: "SYSTEM",
-            isSystem: true,
-          }
-        : null);
-    if (!targetLabel) {
+  const handleToggleLabels = (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (showLabels) {
+      setShowLabels(false);
+      return;
+    }
+    // Pre-check currently applied labels
+    const currentAppliedIds = new Set();
+    (availableLabelOptions || []).forEach((opt) => {
+      const isApplied = (localLabels || []).some((l) => matchesLabelIdentity(l, opt));
+      if (isApplied) {
+        currentAppliedIds.add(String(opt.id));
+      }
+    });
+    setSelectedLabelIds(currentAppliedIds);
+
+    if (labelsButtonRef.current) {
+      const rect = labelsButtonRef.current.getBoundingClientRect();
+      const menuHeight = 320;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      let topPosition;
+      if (spaceBelow < menuHeight && rect.top > menuHeight) {
+        topPosition = rect.top - menuHeight - 4;
+      } else {
+        topPosition = rect.bottom + 6;
+      }
+      const rightPosition = Math.max(12, window.innerWidth - rect.right);
+      setLabelsCoords({ top: topPosition, right: rightPosition });
+    }
+    setShowLabels(true);
+    setShowSnooze(false);
+  };
+
+  const handleToggleLabelCheck = (labelId) => {
+    const strId = String(labelId);
+    setSelectedLabelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(strId)) {
+        next.delete(strId);
+      } else {
+        next.add(strId);
+      }
+      return next;
+    });
+  };
+
+  const handleSaveLabels = async () => {
+    if (isSavingLabels) return;
+    const emailUid = email?.uid ?? email?.id;
+    if (!emailUid) {
       setShowLabels(false);
       return;
     }
 
-    const alreadyApplied = (localLabels || []).some((l) => matchesLabelIdentity(l, targetLabel));
+    const targetFolder = email?.folderName || getFolder();
+    const previouslyAssignedMap = new Map();
+    (availableLabelOptions || []).forEach((opt) => {
+      const isApplied = (localLabels || []).some((l) => matchesLabelIdentity(l, opt));
+      if (isApplied) {
+        previouslyAssignedMap.set(String(opt.id), opt);
+      }
+    });
 
-    if (alreadyApplied) {
+    const toAdd = availableLabelOptions.filter(
+      (lbl) => selectedLabelIds.has(String(lbl.id)) && !previouslyAssignedMap.has(String(lbl.id))
+    );
+    const toRemove = availableLabelOptions.filter(
+      (lbl) => !selectedLabelIds.has(String(lbl.id)) && previouslyAssignedMap.has(String(lbl.id))
+    );
+
+    if (toAdd.length === 0 && toRemove.length === 0) {
       setShowLabels(false);
       return;
     }
+
+    // Calculate optimistic new local labels
+    let updatedLocalLabels = [...(localLabels || [])];
+    toRemove.forEach((remLbl) => {
+      updatedLocalLabels = updatedLocalLabels.filter((l) => !matchesLabelIdentity(l, remLbl));
+    });
+    toAdd.forEach((addLbl) => {
+      if (!updatedLocalLabels.some((l) => matchesLabelIdentity(l, addLbl))) {
+        updatedLocalLabels.push(addLbl);
+      }
+    });
 
     const prevLabels = localLabels;
-    setLocalLabels((prev) => [...prev, targetLabel]);
+    setLocalLabels(updatedLocalLabels);
+    if (email) {
+      email.labels = updatedLocalLabels;
+    }
     setShowLabels(false);
+    setIsSavingLabels(true);
 
-    setIsApplyingLabel(true);
     try {
-      const targetFolder = email?.folderName || getFolder();
-      if (applyLabelAction) {
-        await applyLabelAction(email.uid, labelId, targetFolder);
+      // Execute removals
+      for (const remLbl of toRemove) {
+        if (handleRemoveLabel) {
+          await handleRemoveLabel(emailUid, remLbl.id, targetFolder, true);
+        }
       }
+      // Execute additions
+      for (const addLbl of toAdd) {
+        if (applyLabelAction) {
+          await applyLabelAction(emailUid, addLbl.id, targetFolder, true);
+        }
+      }
+
+      // Dispatch global sync event
+      window.dispatchEvent(
+        new CustomEvent("bnx-email-labels-updated", {
+          detail: { uid: emailUid, labels: updatedLocalLabels },
+        })
+      );
+      toast.success(t("bulk_actions.labels_applied", "Labels updated successfully"));
     } catch (err) {
-      console.error("Apply label error:", err);
+      console.error("Save labels error:", err);
+      toast.error(t("bulk_actions.labels_error", "Failed to update labels"));
       setLocalLabels(prevLabels);
+      if (email) {
+        email.labels = prevLabels;
+      }
     } finally {
-      setIsApplyingLabel(false);
+      setIsSavingLabels(false);
     }
   };
 
@@ -1953,11 +2087,9 @@ const EmailDetails = ({
               {isLabelAsMenuVisible && (
                 <div className="relative" ref={labelsRef}>
                   <button
+                    ref={labelsButtonRef}
                     type="button"
-                    onClick={() => {
-                      setShowLabels(!showLabels);
-                      setShowSnooze(false);
-                    }}
+                    onClick={handleToggleLabels}
                     className={`p-2 rounded-full cursor-pointer transition-colors relative flex items-center justify-center ${
                       showLabels
                         ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
@@ -1969,44 +2101,91 @@ const EmailDetails = ({
                     <MdLabel size={20} />
                   </button>
 
-                  {showLabels && (
-                    <div
-                      className="absolute right-0 mt-2 w-48 max-h-56 overflow-y-auto rounded-xl shadow-2xl z-30 border bg-white dark:bg-neutral-900 py-1 text-xs select-none"
-                      style={{ borderColor: theme.border }}
-                    >
-                      <div className="px-3 py-1.5 font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-neutral-800 text-[11px] uppercase tracking-wider">
-                        {t("bulk_actions.label_as", "Label as")}
+                  {showLabels && typeof document !== "undefined" && createPortal(
+                    <>
+                      <div
+                        className="fixed inset-0 z-[99998]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowLabels(false);
+                        }}
+                      />
+                      <div
+                        ref={labelsDropdownRef}
+                        style={{
+                          top: `${labelsCoords.top}px`,
+                          right: `${labelsCoords.right}px`,
+                        }}
+                        className="fixed w-64 max-h-[340px] flex flex-col rounded-xl shadow-2xl z-[99999] border bg-white dark:bg-neutral-900 text-xs select-none animate-in fade-in zoom-in-95 duration-100 overflow-hidden"
+                      >
+                        <div className="flex items-center justify-between px-3.5 py-2.5 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-neutral-800 text-[12px] tracking-wide bg-gray-50/50 dark:bg-neutral-800/50">
+                          <span>{t("bulk_actions.label_as", "Label as")}</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowLabels(false)}
+                            className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                          >
+                            <MdClose size={14} />
+                          </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto py-1">
+                          {availableLabelOptions.length === 0 ? (
+                            <div className="px-3 py-4 text-gray-400 dark:text-gray-500 text-center text-xs">
+                              {t("bulk_actions.no_labels", "No labels found")}
+                            </div>
+                          ) : (
+                            availableLabelOptions.map((lbl) => {
+                              const isChecked = selectedLabelIds.has(String(lbl.id));
+                              return (
+                                <label
+                                  key={lbl.id}
+                                  className="w-full text-left px-3.5 py-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] flex items-center justify-between gap-2.5 cursor-pointer transition-colors"
+                                >
+                                  <div className="flex items-center gap-2.5 truncate flex-1 min-w-0">
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                                      style={{ backgroundColor: lbl.colorHex || "#135bec" }}
+                                    />
+                                    <span
+                                      className="truncate text-gray-800 dark:text-gray-200 font-medium"
+                                      title={getFullLabelPath(lbl, labels) || lbl.name}
+                                    >
+                                      {getFullLabelPath(lbl, labels) || lbl.name}
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => handleToggleLabelCheck(lbl.id)}
+                                    className="w-4 h-4 rounded border-gray-300 dark:border-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer shrink-0 accent-blue-600"
+                                  />
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-gray-100 dark:border-neutral-800 bg-gray-50/50 dark:bg-neutral-800/50 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setShowLabels(false)}
+                            className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                          >
+                            {t("common.cancel", "Cancel")}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSavingLabels}
+                            onClick={handleSaveLabels}
+                            className="px-3 py-1 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-500/20 disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1"
+                          >
+                            {isSavingLabels ? "Applying..." : t("common.apply", "Apply")}
+                          </button>
+                        </div>
                       </div>
-                      {availableLabelOptions.length === 0 ? (
-                        <div className="px-3 py-2 text-gray-400 text-center">{t("bulk_actions.no_labels", "No labels found")}</div>
-                      ) : (
-                        availableLabelOptions.map((lbl) => {
-                          const isApplied = (localLabels || []).some((l) => matchesLabelIdentity(l, lbl));
-                          return (
-                            <button
-                              key={lbl.id}
-                              type="button"
-                              onClick={() => {
-                                if (isApplied) {
-                                  handleRemoveLabelOption(lbl.id, lbl.name, lbl.prefKey);
-                                } else {
-                                  handleApplyLabelOption(lbl.id);
-                                }
-                              }}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-neutral-800 flex items-center justify-between gap-2 cursor-pointer transition-colors"
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.colorHex || "#135bec" }} />
-                                <span className="truncate text-gray-800 dark:text-gray-200" title={getFullLabelPath(lbl, labels) || lbl.name}>
-                                  {getFullLabelPath(lbl, labels) || lbl.name}
-                                </span>
-                              </div>
-                              {isApplied && <MdCheck size={16} className="text-blue-500 shrink-0" />}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
+                    </>,
+                    document.body
                   )}
                 </div>
               )}
