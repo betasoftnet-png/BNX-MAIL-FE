@@ -435,6 +435,7 @@ const ComposeWindow = ({
   const [toHighlightedIndex, setToHighlightedIndex] = useState(0);
   const toDropdownRef = useRef(null);
   const toInputRef = useRef(null);
+  const toRowRef = useRef(null);
 
   const [ccInputValue, setCcInputValue] = useState("");
   const [ccSuggestions, setCcSuggestions] = useState([]);
@@ -442,6 +443,7 @@ const ComposeWindow = ({
   const [ccHighlightedIndex, setCcHighlightedIndex] = useState(0);
   const ccDropdownRef = useRef(null);
   const ccInputRef = useRef(null);
+  const ccRowRef = useRef(null);
 
   const [bccInputValue, setBccInputValue] = useState("");
   const [bccSuggestions, setBccSuggestions] = useState([]);
@@ -449,6 +451,7 @@ const ComposeWindow = ({
   const [bccHighlightedIndex, setBccHighlightedIndex] = useState(0);
   const bccDropdownRef = useRef(null);
   const bccInputRef = useRef(null);
+  const bccRowRef = useRef(null);
 
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const debounceTimerRef = useRef(null);
@@ -2921,7 +2924,7 @@ const ComposeWindow = ({
           {isReply ? (
             <div className="shrink-0 flex flex-col gap-1.5 px-5 pt-1">
               {/* To Row */}
-              <div className="flex items-center justify-between text-sm min-h-[34px] relative">
+              <div ref={toRowRef} className="flex items-center justify-between text-sm min-h-[34px] relative">
                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
                   <span className="text-gray-500 dark:text-gray-400 font-medium text-sm w-6 shrink-0">To</span>
                   {formData.to ? (
@@ -2962,6 +2965,7 @@ const ComposeWindow = ({
                     onSelectSuggestion={handleSelectToSuggestion}
                     onHoverIndex={setToHighlightedIndex}
                     dropdownRef={toDropdownRef}
+                    anchorRef={toRowRef}
                     isLoading={isLoadingSuggestions}
                     query={toInputValue}
                   />
@@ -3071,7 +3075,7 @@ const ComposeWindow = ({
             <div className="shrink-0 flex flex-col gap-0.5">
               {/* Cc & Bcc toggles */}
               {(composeMode === "mail" || composeMode === "email") && (
-                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 relative">
+                <div ref={toRowRef} className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 relative">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">{t('compose.to', 'To')}</div>
                   <div className="flex-1 flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
                     {recipientChips.map((recipient, idx) => (
@@ -3119,6 +3123,7 @@ const ComposeWindow = ({
                       onSelectSuggestion={handleSelectToSuggestion}
                       onHoverIndex={setToHighlightedIndex}
                       dropdownRef={toDropdownRef}
+                      anchorRef={toRowRef}
                       isLoading={isLoadingSuggestions}
                       query={toInputValue}
                     />
@@ -3134,7 +3139,7 @@ const ComposeWindow = ({
                 </div>
               )}
               {(composeMode === "chat" || composeMode === "casbox") && (
-                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 relative">
+                <div ref={toRowRef} className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 relative">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">To</div>
                   <div className="flex-1 flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
                     {recipientChips.map((recipient, idx) => (
@@ -3185,6 +3190,7 @@ const ComposeWindow = ({
                       onSelectSuggestion={handleSelectToSuggestion}
                       onHoverIndex={setToHighlightedIndex}
                       dropdownRef={toDropdownRef}
+                      anchorRef={toRowRef}
                       isLoading={isLoadingSuggestions}
                       query={toInputValue}
                     />
@@ -3194,7 +3200,7 @@ const ComposeWindow = ({
 
               {/* CC */}
               {showCc && (composeMode === "mail" || composeMode === "email") && (
-                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in relative">
+                <div ref={ccRowRef} className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in relative">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">Cc:</div>
                   <div className="flex-1 flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
                     {ccRecipientChips.map((recipient, idx) => (
@@ -3243,6 +3249,7 @@ const ComposeWindow = ({
                       onSelectSuggestion={(s) => handleSelectFieldSuggestion('cc', s)}
                       onHoverIndex={setCcHighlightedIndex}
                       dropdownRef={ccDropdownRef}
+                      anchorRef={ccRowRef}
                       isLoading={isLoadingSuggestions}
                       query={ccInputValue}
                     />
@@ -3252,7 +3259,7 @@ const ComposeWindow = ({
 
               {/* BCC */}
               {showBcc && (composeMode === "mail" || composeMode === "email") && (
-                <div className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in relative">
+                <div ref={bccRowRef} className="flex px-4 py-2 border-b items-center text-sm dark:border-gray-800 shrink-0 animate-fade-in relative">
                   <div className="text-gray-400 dark:text-gray-500 w-10 shrink-0">Bcc:</div>
                   <div className="flex-1 flex items-center min-w-0 flex-wrap gap-1.5 py-0.5">
                     {bccRecipientChips.map((recipient, idx) => (
@@ -3301,6 +3308,7 @@ const ComposeWindow = ({
                       onSelectSuggestion={(s) => handleSelectFieldSuggestion('bcc', s)}
                       onHoverIndex={setBccHighlightedIndex}
                       dropdownRef={bccDropdownRef}
+                      anchorRef={bccRowRef}
                       isLoading={isLoadingSuggestions}
                       query={bccInputValue}
                     />

@@ -1187,13 +1187,16 @@ const Field = ({
   spellCheck = false,
   autoCorrect = "off"
 }) => {
+  const fieldRowRef = useRef(null);
+
   return (
     <div
+      ref={fieldRowRef}
       className="flex items-center gap-3 border-b py-2 sm:py-3 transition-colors focus-within:border-primary/50 relative"
       style={{ borderColor: theme?.border || '#e5e7eb' }}
     >
       <span className="w-16 text-sm font-medium text-gray-500 shrink-0">{label}:</span>
-      <div className="flex-1 relative flex items-center min-w-0">
+      <div className="flex-1 flex items-center min-w-0">
         <input
           ref={inputRef}
           type="text"
@@ -1212,16 +1215,17 @@ const Field = ({
           spellCheck={spellCheck ? "true" : "false"}
           autoCorrect={autoCorrect}
         />
-        {showSuggestions && suggestions && suggestions.length > 0 && (
-          <RecipientAutocomplete
-            suggestions={suggestions}
-            highlightedIndex={highlightedIndex}
-            onSelectSuggestion={onSelectSuggestion}
-            onHoverIndex={onHoverIndex}
-            dropdownRef={dropdownRef}
-          />
-        )}
       </div>
+      {showSuggestions && suggestions && suggestions.length > 0 && (
+        <RecipientAutocomplete
+          suggestions={suggestions}
+          highlightedIndex={highlightedIndex}
+          onSelectSuggestion={onSelectSuggestion}
+          onHoverIndex={onHoverIndex}
+          dropdownRef={dropdownRef}
+          anchorRef={fieldRowRef}
+        />
+      )}
       {extra && <div className="flex gap-2 shrink-0">{extra}</div>}
     </div>
   );
