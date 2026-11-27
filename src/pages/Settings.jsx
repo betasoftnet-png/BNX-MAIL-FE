@@ -521,8 +521,12 @@ const Settings = () => {
   };
 
   const sendOtp = async (target, contact) => {
-    const contactToUse = contact || activeContact || (target === "email" ? recoveryInfo.recoveryEmail?.trim() : recoveryInfo.phoneNumber?.trim());
-    if (!contactToUse) return;
+    const normTarget = target === "phone" || target === "mobile" ? "phone" : "email";
+    const contactToUse = contact || activeContact || (normTarget === "email" ? recoveryInfo.recoveryEmail?.trim() : recoveryInfo.phoneNumber?.trim());
+    if (!contactToUse) {
+      toast.error(normTarget === "email" ? "Recovery email address is required" : "Recovery phone number is required", { id: "settings-save-toast" });
+      return;
+    }
 
     if (resendTimer > 0) {
       toast.error(`Please wait ${resendTimer}s before requesting a new code.`, { id: "settings-save-toast" });
@@ -531,20 +535,29 @@ const Settings = () => {
 
     try {
       setSendingOtp(true);
-      const res = await userAPI.sendRecoveryOtp({
-        target,
-        contact: contactToUse
-      });
+      const payload = {
+        target: normTarget,
+        type: normTarget,
+        verificationType: normTarget,
+        method: normTarget,
+        contact: contactToUse,
+        ...(normTarget === "email"
+          ? { email: contactToUse, recoveryEmail: contactToUse }
+          : { phone: contactToUse, phoneNumber: contactToUse, mobile: contactToUse, mobileNumber: contactToUse })
+      };
+
+      const res = await userAPI.sendRecoveryOtp(payload);
       if (res.data?.success) {
         setOtpDigits(["", "", "", "", "", ""]);
         setResendTimer(60);
         setShowOtpModal(true);
         setActiveContact(contactToUse);
-        const maskedContact = getMaskedContact(contactToUse, target);
+        setOtpTarget(normTarget);
+        const maskedContact = getMaskedContact(contactToUse, normTarget);
         toast.success(`Verification code sent to ${maskedContact}`, { id: "settings-save-toast", duration: 5000 });
       }
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || "Failed to send verification code. Please try again.";
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to send verification code. Please try again.";
       toast.error(errMsg, { id: "settings-save-toast" });
     } finally {
       setSendingOtp(false);
@@ -606,23 +619,33 @@ const Settings = () => {
     if (e && e.preventDefault) e.preventDefault();
     const entered = otpDigits.join("");
     if (entered.length < 6) {
-      toast.error("Please enter complete 6-digit OTP code", { id: "settings-save-toast" });
+      toast.error(t("settings.enter_complete_otp", "Please enter complete 6-digit OTP code"), { id: "settings-save-toast" });
       return;
     }
 
-    const contactToUse = activeContact || (otpTarget === "email" ? recoveryInfo.recoveryEmail?.trim() : recoveryInfo.phoneNumber?.trim());
+    const normTarget = otpTarget === "phone" || otpTarget === "mobile" ? "phone" : "email";
+    const contactToUse = activeContact || (normTarget === "email" ? recoveryInfo.recoveryEmail?.trim() : recoveryInfo.phoneNumber?.trim());
 
     try {
       setIsVerifyingOtp(true);
-      const res = await userAPI.verifyRecoveryOtp({
-        target: otpTarget,
+      const payload = {
+        target: normTarget,
+        type: normTarget,
+        verificationType: normTarget,
+        method: normTarget,
         contact: contactToUse,
-        otp: entered
-      });
+        otp: entered,
+        code: entered,
+        ...(normTarget === "email"
+          ? { email: contactToUse, recoveryEmail: contactToUse }
+          : { phone: contactToUse, phoneNumber: contactToUse, mobile: contactToUse, mobileNumber: contactToUse })
+      };
+
+      const res = await userAPI.verifyRecoveryOtp(payload);
 
       if (res.data?.success) {
-        const maskedContact = getMaskedContact(contactToUse, otpTarget);
-        if (otpTarget === "email") {
+        const maskedContact = getMaskedContact(contactToUse, normTarget);
+        if (normTarget === "email") {
           setIsRecoveryEmailVerified(true);
           setSavedRecoveryInfo(prev => ({
             ...prev,
@@ -650,7 +673,7 @@ const Settings = () => {
         setShowOtpModal(false);
       }
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || "Invalid OTP code. Please try again.";
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Invalid OTP code. Please try again.";
       toast.error(errMsg, { id: "settings-save-toast" });
     } finally {
       setIsVerifyingOtp(false);
