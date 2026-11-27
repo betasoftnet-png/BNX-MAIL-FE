@@ -26,17 +26,24 @@ const AllMail = ({ searchQuery }) => {
   // Filter emails strictly by labelId if on a custom label route (/label/:labelId)
   const filteredEmails = useMemo(() => {
     if (!labelId) return emails;
-    const targetLabel = labels.find(l => String(l.id) === String(labelId)) || labelId;
-    return (emails || []).filter(e => {
-      if (!e) return false;
-      const emailLabels = Array.isArray(e.labels) ? e.labels : [];
-      return emailLabels.some(l => matchesLabelIdentity(l, targetLabel) || String(l?.id ?? l) === String(labelId));
-    });
-  }, [emails, labelId, labels]);
+    // When on /label/:labelId, emails are already scoped to this label
+    return emails || [];
+  }, [emails, labelId]);
 
   const uniqueEmails = useMemo(() => {
-    return deduplicateAllMailEmails(filteredEmails);
-  }, [filteredEmails]);
+    // Only deduplicate in All Mail view, NOT in specific label folders where every returned message belongs
+    if (!labelId) {
+      return deduplicateAllMailEmails(filteredEmails);
+    }
+    // In label view, only deduplicate exact same UID in same folder
+    const seen = new Set();
+    return (filteredEmails || []).filter(e => {
+      const key = `${e.folderName || ''}_${e.uid ?? e.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [filteredEmails, labelId]);
 
   const selectedEmail = selectedEmailOverride || uniqueEmails.find(
     (e) => String(e.uid) === String(selectedEmailUid) || `${e.uid}__${e.folderName || ''}` === String(selectedEmailUid)

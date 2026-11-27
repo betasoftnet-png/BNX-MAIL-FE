@@ -1188,7 +1188,7 @@ const EmailDetails = ({
     });
 
     const toAdd = availableLabelOptions.filter(
-      (lbl) => selectedLabelIds.has(String(lbl.id)) && !previouslyAssignedMap.has(String(lbl.id))
+      (lbl) => selectedLabelIds.has(String(lbl.id)) && (!previouslyAssignedMap.has(String(lbl.id)) || isSentMail)
     );
     const toRemove = availableLabelOptions.filter(
       (lbl) => !selectedLabelIds.has(String(lbl.id)) && previouslyAssignedMap.has(String(lbl.id))

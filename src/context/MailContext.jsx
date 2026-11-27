@@ -758,8 +758,9 @@ export const MailProvider = ({ children }) => {
                     }
                 }
 
-                const customLabelTarget = (labels || []).find(l => String(l.id) === String(labelId));
-                const normalizedEmails = (data.emails || data || []).map(m => {
+                const customLabelTarget = (labels || []).find(l => String(l.id) === String(labelId)) || { id: labelId, name: `label-${labelId}` };
+                const rawEmails = data.emails || (Array.isArray(data) ? data : []);
+                const normalizedEmails = rawEmails.map(m => {
                     const uidStr = String(m.uid ?? m.id ?? '');
                     const f = m.folderName || `label-${labelId}`;
                     const isStarred = isEmailStarred(uidStr, f, m);
@@ -767,7 +768,7 @@ export const MailProvider = ({ children }) => {
                     const isMarkedUnread = unreadUidsRef.current ? unreadUidsRef.current.has(uidStr) : false;
                     const isRead = !isMarkedUnread && (isMarkedRead || (m.isRead !== undefined ? Boolean(m.isRead) : (m.read !== undefined ? Boolean(m.read) : false)));
                     
-                    // Ensure the target label is attached if returned by the label API endpoint
+                    // Ensure the target label is attached
                     let emailLabels = Array.isArray(m.labels) ? [...m.labels] : [];
                     if (customLabelTarget) {
                         const hasTarget = emailLabels.some(l => matchesLabelIdentity(l, customLabelTarget) || String(l?.id ?? l) === String(labelId));
@@ -787,10 +788,6 @@ export const MailProvider = ({ children }) => {
                 }).filter(m => {
                     const isTrash = m.folderName?.toLowerCase() === 'trash' || m.folderName?.toLowerCase() === 'deleted' || m.isTrash === true || m.isDeleted === true || m.deleted === true;
                     if (isTrash) return false;
-                    // Double check email has matching label
-                    if (customLabelTarget) {
-                        return (m.labels || []).some(l => matchesLabelIdentity(l, customLabelTarget) || String(l?.id ?? l) === String(labelId));
-                    }
                     return true;
                 });
 
@@ -1275,15 +1272,26 @@ export const MailProvider = ({ children }) => {
                         return true;
                     }).map(m => {
                         const uidStr = String(m.uid ?? m.id ?? '');
-                        if (sentEmailLabelsRef.current && sentEmailLabelsRef.current[uidStr] !== undefined) {
-                            return {
-                                ...m,
-                                labels: sentEmailLabelsRef.current[uidStr]
-                            };
-                        } else if (Array.isArray(m.labels) && m.labels.length > 0) {
-                            updateSentEmailLabels(uidStr, m.labels);
+                        const serverLabels = Array.isArray(m.labels) ? m.labels : [];
+                        const localCached = (sentEmailLabelsRef.current && sentEmailLabelsRef.current[uidStr]) || [];
+                        const mergedLabels = [...serverLabels];
+                        localCached.forEach(lbl => {
+                            if (!mergedLabels.some(s => matchesLabelIdentity(s, lbl))) {
+                                mergedLabels.push(lbl);
+                                // If local badge exists but is missing from server, trigger background sync to persist it through existing API
+                                const labelId = typeof lbl === 'object' ? lbl.id : lbl;
+                                if (labelId && (/^\d+$/.test(String(labelId)) || typeof labelId === 'number')) {
+                                    handleApplyLabel(uidStr, labelId, 'Sent', true).catch(() => {});
+                                }
+                            }
+                        });
+                        if (serverLabels.length > 0 && (!sentEmailLabelsRef.current || sentEmailLabelsRef.current[uidStr] === undefined)) {
+                            updateSentEmailLabels(uidStr, serverLabels);
                         }
-                        return m;
+                        return {
+                            ...m,
+                            labels: mergedLabels
+                        };
                     });
                 }
 
@@ -1622,15 +1630,26 @@ export const MailProvider = ({ children }) => {
                         return true;
                     }).map(m => {
                         const uidStr = String(m.uid ?? m.id ?? '');
-                        if (sentEmailLabelsRef.current && sentEmailLabelsRef.current[uidStr] !== undefined) {
-                            return {
-                                ...m,
-                                labels: sentEmailLabelsRef.current[uidStr]
-                            };
-                        } else if (Array.isArray(m.labels) && m.labels.length > 0) {
-                            updateSentEmailLabels(uidStr, m.labels);
+                        const serverLabels = Array.isArray(m.labels) ? m.labels : [];
+                        const localCached = (sentEmailLabelsRef.current && sentEmailLabelsRef.current[uidStr]) || [];
+                        const mergedLabels = [...serverLabels];
+                        localCached.forEach(lbl => {
+                            if (!mergedLabels.some(s => matchesLabelIdentity(s, lbl))) {
+                                mergedLabels.push(lbl);
+                                // If local badge exists but is missing from server, trigger background sync to persist it through existing API
+                                const labelId = typeof lbl === 'object' ? lbl.id : lbl;
+                                if (labelId && (/^\d+$/.test(String(labelId)) || typeof labelId === 'number')) {
+                                    handleApplyLabel(uidStr, labelId, 'Sent', true).catch(() => {});
+                                }
+                            }
+                        });
+                        if (serverLabels.length > 0 && (!sentEmailLabelsRef.current || sentEmailLabelsRef.current[uidStr] === undefined)) {
+                            updateSentEmailLabels(uidStr, serverLabels);
                         }
-                        return m;
+                        return {
+                            ...m,
+                            labels: mergedLabels
+                        };
                     });
                 }
 
@@ -3094,16 +3113,6 @@ useEffect(() => {
         }
         const labelToAdd = targetLabel;
 
-        // Synchronously check if label is already applied in current emailsRef to avoid redundant API call
-        const emailInList = emailsRef.current?.find(m => String(m.uid ?? m.id) === strUid);
-        if (emailInList) {
-            const currentLabels = Array.isArray(emailInList.labels) ? emailInList.labels : [];
-            const alreadyHas = currentLabels.some(l => matchesLabelIdentity(l, labelToAdd) || String(l?.id ?? l) === strLabelId);
-            if (alreadyHas) {
-                return true;
-            }
-        }
-
         // Optimistically apply label in active emails list
         setEmails(prev => {
             const index = prev.findIndex(m => String(m.uid ?? m.id) === strUid);
@@ -3168,6 +3177,12 @@ useEffect(() => {
         if (isNumeric) {
             const opPromise = (async () => {
                 try {
+                    if (targetFolder && targetFolder.toLowerCase() === 'sent') {
+                        // Ensure any stale mapping with folderName='INBOX' is purged first so the backend saves with folder='Sent'
+                        try {
+                            await mailAPI.removeLabel(uid, labelId, targetFolder);
+                        } catch (_) {}
+                    }
                     await mailAPI.applyLabel(uid, labelId, targetFolder);
                     if (typeof window !== 'undefined') {
                         window.dispatchEvent(new CustomEvent('bnx-email-labels-updated', {

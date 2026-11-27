@@ -503,7 +503,9 @@ const BulkActionsToolbar = ({
   const handleBulkToggleLabel = async (labelId, isCurrentlyAssigned) => {
     try {
       const strLabelId = String(labelId);
+      const isSentFolder = folder?.toLowerCase() === 'sent';
       const targets = selectedEmails.filter((e) => {
+        if (isSentFolder && !isCurrentlyAssigned) return true;
         const currentLabels = Array.isArray(e.labels) ? e.labels : [];
         const hasLabel = currentLabels.some(
           (l) => matchesLabelIdentity(l, labelId) || String(l?.id ?? l) === strLabelId
