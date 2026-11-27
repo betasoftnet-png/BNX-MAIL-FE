@@ -273,10 +273,15 @@ export const SocketProvider = ({ children }) => {
             heartbeatIncoming: 20000,
             heartbeatOutgoing: 20000,
             webSocketFactory: () => {
-                if (useSockJs) {
+                try {
+                    if (useSockJsFallbackRef.current) {
+                        return new SockJS(sockJsUrl);
+                    }
+                    return new WebSocket(wsUrl);
+                } catch (err) {
+                    useSockJsFallbackRef.current = true;
                     return new SockJS(sockJsUrl);
                 }
-                return new WebSocket(wsUrl);
             }
         });
 
@@ -338,6 +343,9 @@ export const SocketProvider = ({ children }) => {
             isConnectingRef.current = false;
             if (currentGen !== generationRef.current) return;
             setIsConnected(false);
+            if (!useSockJsFallbackRef.current) {
+                useSockJsFallbackRef.current = true;
+            }
             scheduleReconnect();
         };
 
@@ -345,6 +353,9 @@ export const SocketProvider = ({ children }) => {
             isConnectingRef.current = false;
             if (currentGen !== generationRef.current) return;
             setIsConnected(false);
+            if (!useSockJsFallbackRef.current) {
+                useSockJsFallbackRef.current = true;
+            }
             scheduleReconnect();
         };
 
@@ -450,7 +461,10 @@ export const SocketProvider = ({ children }) => {
             return;
         }
 
-        connectSocket();
+        // Only establish connection if not already connected or actively connecting
+        if (!clientRef.current || (!clientRef.current.connected && !clientRef.current.active)) {
+            connectSocket();
+        }
 
         return () => {
             clearReconnectTimer();
@@ -460,7 +474,7 @@ export const SocketProvider = ({ children }) => {
                 clientRef.current = null;
             }
         };
-    }, [isAuthenticated, user?.email, connectSocket, clearReconnectTimer, safeDeactivate]);
+    }, [isAuthenticated, user?.email]);
 
     const subscribeToChat = useCallback((chatId, callback) => {
         const client = clientRef.current;

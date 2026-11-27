@@ -373,12 +373,14 @@ const resolveAvatarUrl = (url, identifier) => {
   const cleanBase = base ? (base.endsWith('/') ? base.slice(0, -1) : base) : '';
 
   if (clean.startsWith('/')) {
-    return cleanBase ? `${cleanBase}${clean}` : clean;
+    const hasQuery = clean.includes('?');
+    const suffix = hasQuery ? '&fallback=true' : '?fallback=true';
+    return cleanBase ? `${cleanBase}${clean}${suffix}` : `${clean}${suffix}`;
   }
 
   // If clean is just a filename like "user_1_123.jpg"
   const userKey = identifier || clean;
-  return cleanBase ? `${cleanBase}/api/users/profile-picture/${encodeURIComponent(userKey)}` : `/api/users/profile-picture/${encodeURIComponent(userKey)}`;
+  return cleanBase ? `${cleanBase}/api/users/profile-picture/${encodeURIComponent(userKey)}?fallback=true` : `/api/users/profile-picture/${encodeURIComponent(userKey)}?fallback=true`;
 };
 
 const getAvatarColorClass = (str) => {

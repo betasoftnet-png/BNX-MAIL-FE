@@ -39,9 +39,11 @@ const resolveProfilePictureUrl = (url) => {
   }
   const base = (import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '' : 'https://api.bnxmail.com')).replace(/\/+$/, '');
   if (clean.startsWith('/')) {
-    return base ? `${base}${clean}` : clean;
+    const hasQuery = clean.includes('?');
+    const suffix = hasQuery ? '&fallback=true' : '?fallback=true';
+    return base ? `${base}${clean}${suffix}` : `${clean}${suffix}`;
   }
-  return base ? `${base}/api/users/profile-picture/${encodeURIComponent(clean)}` : `/api/users/profile-picture/${encodeURIComponent(clean)}`;
+  return base ? `${base}/api/users/profile-picture/${encodeURIComponent(clean)}?fallback=true` : `/api/users/profile-picture/${encodeURIComponent(clean)}?fallback=true`;
 };
 
 const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSidebar, onToggleBitToolSidebar, isBitToolSidebarOpen = false, onOpenNotes, isDesktopSidebarOpen = true }) => {
@@ -751,14 +753,25 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
               className="flex items-center gap-1.5 sm:gap-2 p-1 sm:pr-2.5 lg:pr-3 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-transparent hover:border-white/20 cursor-pointer"
             >
               {resolveProfilePictureUrl(user?.profilePictureUrl) ? (
-                <img
-                  src={resolveProfilePictureUrl(user.profilePictureUrl)}
-                  alt="Profile"
-                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover shadow-sm border border-white/20 shrink-0"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
+                <>
+                  <img
+                    src={resolveProfilePictureUrl(user.profilePictureUrl)}
+                    alt="Profile"
+                    className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover shadow-sm border border-white/20 shrink-0"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                      if (e.currentTarget.nextElementSibling) {
+                        e.currentTarget.nextElementSibling.style.display = "flex";
+                      }
+                    }}
+                  />
+                  <div
+                    style={{ display: "none" }}
+                    className="h-7 w-7 sm:h-8 sm:w-8 rounded-full items-center justify-center text-white font-semibold shadow-sm shrink-0 text-[10px] sm:text-[11px] bg-[#135bec]"
+                  >
+                    {user?.email?.[0]?.toUpperCase() || "U"}
+                  </div>
+                </>
               ) : (
                 <div
                   className="h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center text-white font-semibold shadow-sm shrink-0 text-[10px] sm:text-[11px] bg-[#135bec]"
@@ -803,14 +816,25 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
 
                   <div className="relative inline-block group cursor-pointer mb-2.5" onClick={() => fileInputRef.current?.click()}>
                     {resolveProfilePictureUrl(user?.profilePictureUrl) ? (
-                      <img
-                        src={resolveProfilePictureUrl(user.profilePictureUrl)}
-                        alt={user?.username}
-                        className={`w-16 h-16 rounded-full object-cover border-2 border-primary/20 ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-80 transition-opacity'}`}
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
+                      <>
+                        <img
+                          src={resolveProfilePictureUrl(user.profilePictureUrl)}
+                          alt={user?.username}
+                          className={`w-16 h-16 rounded-full object-cover border-2 border-primary/20 ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-80 transition-opacity'}`}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            if (e.currentTarget.nextElementSibling) {
+                              e.currentTarget.nextElementSibling.style.display = "flex";
+                            }
+                          }}
+                        />
+                        <div
+                          style={{ display: "none", backgroundColor: theme.accent || "#135bec" }}
+                          className={`w-16 h-16 rounded-full items-center justify-center text-white text-2xl font-bold shadow-sm ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-90 transition-opacity'}`}
+                        >
+                          {(user?.username || user?.email || "U").charAt(0).toUpperCase()}
+                        </div>
+                      </>
                     ) : (
                       <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-sm ${uploadingAvatar ? 'opacity-50' : 'group-hover:opacity-90 transition-opacity'}`} style={{ backgroundColor: theme.accent || "#135bec" }}>
                         {(user?.username || user?.email || "U").charAt(0).toUpperCase()}
@@ -862,14 +886,25 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
                       >
                         <div className="flex items-center gap-2.5 truncate">
                           {resolveProfilePictureUrl(sess.profilePictureUrl) ? (
-                            <img
-                              src={resolveProfilePictureUrl(sess.profilePictureUrl)}
-                              alt={sess.username}
-                              className="w-7 h-7 rounded-full object-cover shrink-0"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
+                            <>
+                              <img
+                                src={resolveProfilePictureUrl(sess.profilePictureUrl)}
+                                alt={sess.username}
+                                className="w-7 h-7 rounded-full object-cover shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  if (e.currentTarget.nextElementSibling) {
+                                    e.currentTarget.nextElementSibling.style.display = "flex";
+                                  }
+                                }}
+                              />
+                              <div
+                                style={{ display: "none", backgroundColor: theme.accent || "#135bec" }}
+                                className="w-7 h-7 rounded-full items-center justify-center text-white text-[10px] font-semibold shrink-0"
+                              >
+                                {(sess.username || sess.email || "U").charAt(0).toUpperCase()}
+                              </div>
+                            </>
                           ) : (
                             <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0" style={{ backgroundColor: theme.accent || "#135bec" }}>
                               {(sess.username || sess.email || "U").charAt(0).toUpperCase()}
