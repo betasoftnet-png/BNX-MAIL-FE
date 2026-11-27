@@ -102,19 +102,35 @@ const NavBar = ({ searchQuery, setSearchQuery, onOpenMenu, onToggleDesktopSideba
   }, [isSearchOpen]);
 
   useEffect(() => {
-    if (user?.email && searchQuery.trim().length > 0) {
-      casboxAPI.getAllMessages()
+    if (!user?.email || !searchQuery.trim()) return;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      casboxAPI.getAllMessages({ signal: controller.signal })
         .then(res => {
           if (res.data) setAllCasboxMessages(res.data);
         })
-        .catch(err => console.error("Search fetch casbox messages error:", err));
+        .catch(err => {
+          if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
+            console.error("Search fetch casbox messages error:", err);
+          }
+        });
 
-      chatAPI.getUserChats(user.email)
+      chatAPI.getUserChats(user.email, { signal: controller.signal })
         .then(res => {
           if (res.data) setAllChatRooms(Array.isArray(res.data) ? res.data : (res.data.data || []));
         })
-        .catch(err => console.error("Search fetch chat rooms error:", err));
-    }
+        .catch(err => {
+          if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') {
+            console.error("Search fetch chat rooms error:", err);
+          }
+        });
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [searchQuery, user?.email]);
 
   useEffect(() => {

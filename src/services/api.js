@@ -65,6 +65,108 @@ const authClient = axios.create({
     withCredentials: false,
 });
 
+// In-flight GET request deduplication pool to prevent redundant concurrent network roundtrips
+const inFlightGetRequests = new Map();
+
+export const invalidateInFlightRequests = (urlPattern) => {
+    if (!urlPattern) {
+        inFlightGetRequests.clear();
+        return;
+    }
+    for (const key of inFlightGetRequests.keys()) {
+        if (key.includes(urlPattern)) {
+            inFlightGetRequests.delete(key);
+        }
+    }
+};
+
+const rawApiRequest = api.request.bind(api);
+
+api.request = function (configOrUrl, maybeConfig) {
+    let config = {};
+    if (typeof configOrUrl === 'string') {
+        config = maybeConfig ? { ...maybeConfig } : {};
+        config.url = configOrUrl;
+    } else {
+        config = configOrUrl ? { ...configOrUrl } : {};
+    }
+
+    const method = (config.method || 'get').toLowerCase();
+
+    // On mutations, invalidate matching cached in-flight requests
+    if (['post', 'put', 'patch', 'delete'].includes(method)) {
+        const url = config.url || '';
+        if (url.includes('/settings')) invalidateInFlightRequests('/settings');
+        if (url.includes('/users')) invalidateInFlightRequests('/users');
+        if (url.includes('/signatures')) invalidateInFlightRequests('/signatures');
+        if (url.includes('/casbox')) invalidateInFlightRequests('/casbox');
+        if (url.includes('/mail')) invalidateInFlightRequests('/mail');
+        return rawApiRequest(config);
+    }
+
+    // Only deduplicate idempotent GET requests
+    if (method === 'get' && !config.skipDeduplication) {
+        const activeEmail = getActiveEmail() || '';
+        let paramStr = '';
+        try {
+            paramStr = config.params ? JSON.stringify(config.params) : '';
+        } catch {}
+        const dedupeKey = `GET:${config.url || ''}?${paramStr}#${activeEmail}`;
+
+        if (inFlightGetRequests.has(dedupeKey)) {
+            const sharedPromise = inFlightGetRequests.get(dedupeKey);
+            if (config.signal) {
+                if (config.signal.aborted) {
+                    return Promise.reject(new axios.CanceledError('canceled'));
+                }
+                return new Promise((resolve, reject) => {
+                    const onAbort = () => reject(new axios.CanceledError('canceled'));
+                    config.signal.addEventListener('abort', onAbort, { once: true });
+                    sharedPromise
+                        .then((res) => {
+                            config.signal.removeEventListener('abort', onAbort);
+                            resolve(res);
+                        })
+                        .catch((err) => {
+                            config.signal.removeEventListener('abort', onAbort);
+                            reject(err);
+                        });
+                });
+            }
+            return sharedPromise;
+        }
+
+        const promise = rawApiRequest(config).finally(() => {
+            inFlightGetRequests.delete(dedupeKey);
+        });
+
+        inFlightGetRequests.set(dedupeKey, promise);
+
+        if (config.signal) {
+            if (config.signal.aborted) {
+                return Promise.reject(new axios.CanceledError('canceled'));
+            }
+            return new Promise((resolve, reject) => {
+                const onAbort = () => reject(new axios.CanceledError('canceled'));
+                config.signal.addEventListener('abort', onAbort, { once: true });
+                promise
+                    .then((res) => {
+                        config.signal.removeEventListener('abort', onAbort);
+                        resolve(res);
+                    })
+                    .catch((err) => {
+                        config.signal.removeEventListener('abort', onAbort);
+                        reject(err);
+                    });
+            });
+        }
+
+        return promise;
+    }
+
+    return rawApiRequest(config);
+};
+
 // Helper to set Authorization header cleanly across AxiosHeaders or standard objects
 export const setAuthHeader = (config, token) => {
     if (!token) return;
@@ -145,7 +247,14 @@ export const refreshAccessToken = async () => {
     isRefreshing = true;
     refreshPromise = (async () => {
         try {
-            const res = await authClient.post(API_ENDPOINTS.AUTH.REFRESH, { refreshToken });
+            const refreshTimeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Token refresh timeout after 15s')), 15000)
+            );
+
+            const res = await Promise.race([
+                authClient.post(API_ENDPOINTS.AUTH.REFRESH, { refreshToken }),
+                refreshTimeout
+            ]);
 
             // Extract tokens from ApiResponse structure: res.data.data or res.data
             const responseData = res.data?.data || res.data || {};
@@ -296,33 +405,55 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        // Silently ignore intentional request cancellations (e.g. AbortController when switching chats)
+        // Silently ignore intentional request cancellations (e.g. AbortController when switching pages/chats/accounts)
         if (axios.isCancel(error) || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED' || error?.message === 'canceled') {
             return Promise.reject(error);
         }
 
-        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-            return Promise.reject(error);
-        }
-
-        if (!error.response) {
-            const config = error.config;
-            const isGetRequest = !config?.method || config.method.toLowerCase() === 'get';
-            // Automatically retry once for transient network drops, socket timeouts, or HTTP/2 ping failures on GET requests
-            if (config && isGetRequest && !config._networkRetry) {
-                config._networkRetry = true;
-                await new Promise(resolve => setTimeout(resolve, 300));
-                return api(config);
-            }
-            return Promise.reject(error);
-        }
-
         const originalRequest = error.config;
+        const method = (originalRequest?.method || 'get').toLowerCase();
+        const isGetRequest = method === 'get';
+        const isAuthReq = isAuthEndpoint(originalRequest?.url);
 
         if (error.response?.status === 503 && error.response?.data?.error === 'maintenance_mode') {
             if (window.location.pathname !== '/maintenance') {
                 window.location.href = '/maintenance';
             }
+            return Promise.reject(error);
+        }
+
+        // Bounded retries with exponential backoff for eligible GET requests encountering timeouts, HTTP/2 drops, network resets, or 502/503/504
+        const status = error.response?.status;
+        const isTimeout = error.code === 'ECONNABORTED' || (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout'));
+        const isNetworkOrHttp2Error = !error.response ||
+            error.code === 'ERR_NETWORK' ||
+            (typeof error.message === 'string' && (
+                error.message.includes('Network Error') ||
+                error.message.includes('ERR_HTTP2_PING_FAILED') ||
+                error.message.includes('ERR_TIMED_OUT') ||
+                error.message.includes('ERR_CONNECTION_RESET')
+            ));
+        const isServerUnavailable = status === 502 || status === 503 || status === 504;
+
+        if (originalRequest && isGetRequest && !isAuthReq && (isTimeout || isNetworkOrHttp2Error || isServerUnavailable)) {
+            const retryCount = originalRequest._retryCount || 0;
+            const maxRetries = 2; // Bounded to max 2 retries (total 3 attempts)
+            if (retryCount < maxRetries) {
+                originalRequest._retryCount = retryCount + 1;
+                const baseDelay = 400 * Math.pow(3, retryCount);
+                const jitter = Math.floor(Math.random() * 200);
+                const delayMs = Math.min(baseDelay + jitter, 2500);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+
+                const freshToken = getAccessToken();
+                if (freshToken) {
+                    setAuthHeader(originalRequest, freshToken);
+                }
+                return api(originalRequest);
+            }
+        }
+
+        if (!error.response) {
             return Promise.reject(error);
         }
 

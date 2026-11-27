@@ -345,7 +345,14 @@ const Settings = () => {
   const [defaultTextColor, setDefaultTextColor] = useState(() => localStorage.getItem("bnx_setting_textColor") || "#000000");
 
   // Client-only preference states
-  const [signatures, setSignatures] = useState([]);
+  const [signatures, setSignatures] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("bnx_cached_signatures");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [editingSignatureId, setEditingSignatureId] = useState(null);
   const [undoSendDelay, setUndoSendDelay] = useState(() => {
     const saved = localStorage.getItem("bnx_setting_undoSendDelay");
@@ -571,22 +578,25 @@ const Settings = () => {
     }
   };
 
-  // Fetch initial data based on active tab
+  const settingsLoadedRef = useRef(false);
+  const signaturesLoadedRef = useRef(false);
+  const emailsLoadedRef = useRef(false);
+  const recoveryLoadedRef = useRef(false);
+
+  // Fetch initial data based on active tab without redundant duplicate fetches
   useEffect(() => {
     if (activeTab === "accounts") {
-      fetchEmails();
-      fetchRecoveryInfo();
-      fetchBackendSettings();
+      if (!emailsLoadedRef.current) fetchEmails();
+      if (!recoveryLoadedRef.current) fetchRecoveryInfo();
+      if (!settingsLoadedRef.current) fetchBackendSettings();
     } else if (activeTab === "composing") {
-      fetchBackendSettings();
-      fetchSignatures();
-    } else if (activeTab === "notifications") {
-      fetchBackendSettings();
-    } else if (activeTab === "appearance") {
-      fetchBackendSettings();
+      if (!settingsLoadedRef.current) fetchBackendSettings();
+      if (!signaturesLoadedRef.current) fetchSignatures();
+    } else if (activeTab === "notifications" || activeTab === "appearance") {
+      if (!settingsLoadedRef.current) fetchBackendSettings();
     } else if (activeTab === "security") {
-      fetchRecoveryInfo();
-      fetchBackendSettings();
+      if (!recoveryLoadedRef.current) fetchRecoveryInfo();
+      if (!settingsLoadedRef.current) fetchBackendSettings();
     } else if (activeTab === "sessions") {
       fetchSessions();
       fetchExternalSessions();
@@ -617,137 +627,159 @@ const Settings = () => {
 
   // Load client preferences from backend only
   useEffect(() => {
-    // Removed localStorage logic per user request
+    // Reset loaded refs on account / user switch
+    settingsLoadedRef.current = false;
+    signaturesLoadedRef.current = false;
+    emailsLoadedRef.current = false;
+    recoveryLoadedRef.current = false;
   }, [user]);
 
   const fetchBackendSettings = async () => {
     try {
       setLoading(true);
-      const res = await userAPI.getSettings();
-      const settingsData = res.data?.data || res.data || {};
 
-      if (settingsData.spellingCheckEnabled !== undefined) {
-        setSpellingCheck(Boolean(settingsData.spellingCheckEnabled));
-        localStorage.setItem("bnx_setting_spellingCheck", String(Boolean(settingsData.spellingCheckEnabled)));
-      } else if (settingsData.spellingCheck !== undefined) {
-        setSpellingCheck(Boolean(settingsData.spellingCheck));
-        localStorage.setItem("bnx_setting_spellingCheck", String(Boolean(settingsData.spellingCheck)));
-      }
+      // Fetch user settings, composing preferences, and text-style in parallel
+      // using allSettled so one slow or failing request does NOT block the others
+      const [userSettingsSettled, composingSettled, textStyleSettled] = await Promise.allSettled([
+        userAPI.getSettings(),
+        settingsAPI.getComposing(),
+        settingsAPI.getTextStyle()
+      ]);
 
-      if (settingsData.grammarCheckEnabled !== undefined) {
-        setGrammarCheck(Boolean(settingsData.grammarCheckEnabled));
-        localStorage.setItem("bnx_setting_grammarCheck", String(Boolean(settingsData.grammarCheckEnabled)));
-      } else if (settingsData.grammarCheck !== undefined) {
-        setGrammarCheck(Boolean(settingsData.grammarCheck));
-        localStorage.setItem("bnx_setting_grammarCheck", String(Boolean(settingsData.grammarCheck)));
-      }
-
-      if (settingsData.autoCorrectEnabled !== undefined) {
-        setAutoCorrect(Boolean(settingsData.autoCorrectEnabled));
-        localStorage.setItem("bnx_setting_autoCorrect", String(Boolean(settingsData.autoCorrectEnabled)));
-      } else if (settingsData.autoCorrect !== undefined) {
-        setAutoCorrect(Boolean(settingsData.autoCorrect));
-        localStorage.setItem("bnx_setting_autoCorrect", String(Boolean(settingsData.autoCorrect)));
-      }
-
-      try {
-        const compRes = await settingsAPI.getComposing();
-        if (compRes.data) {
-          const cd = compRes.data;
-          if (cd.smartComposeEnabled !== undefined) setWritingSuggestions(cd.smartComposeEnabled);
+      // 1. Process Composing Preferences
+      if (composingSettled.status === 'fulfilled' && composingSettled.value?.data) {
+        const cd = composingSettled.value.data;
+        if (cd.smartComposeEnabled !== undefined) {
+          setWritingSuggestions(Boolean(cd.smartComposeEnabled));
+          localStorage.setItem("bnx_setting_writingSuggestions", String(Boolean(cd.smartComposeEnabled)));
         }
-      } catch (err) {
-        console.warn("Error fetching composing preferences:", err);
+      } else if (composingSettled.status === 'rejected') {
+        console.warn("Composing preferences load notice:", composingSettled.reason?.message);
+        // Preserve existing writingSuggestions from state / localStorage
       }
-      if (res.data?.success || res.status === 200) {
-        const d = res.data?.data || res.data || {};
-        setPhoneNumber(d.phoneNumber || "");
-        setLocation(d.location || "");
-        setJobTitle(d.jobTitle || "");
-        setInboxNotifications(d.inboxNotifications ?? true);
-        setSentNotifications(d.sentNotifications ?? false);
-        setStarredNotifications(d.starredNotifications ?? true);
-        setSnoozedNotifications(d.snoozedNotifications ?? true);
-        setSoundEnabled(d.soundEnabled ?? true);
-        setVibrationEnabled(d.vibrationEnabled ?? true);
-        setQuietHoursEnabled(d.quietHoursEnabled ?? false);
-        setQuietHoursStart(d.quietHoursStart || "22:00");
-        setQuietHoursEnd(d.quietHoursEnd || "07:00");
-        if (d.themeMode && themes[d.themeMode]) {
-          setThemeMode(d.themeMode);
-          if (!localStorage.getItem("theme")) {
-            changeTheme(d.themeMode);
+
+      // 2. Process Text Style Preferences
+      if (textStyleSettled.status === 'fulfilled' && textStyleSettled.value?.data) {
+        const ts = textStyleSettled.value.data;
+        if (ts.fontFamily) {
+          setDefaultFontFamily(ts.fontFamily);
+          localStorage.setItem("bnx_setting_fontFamily", ts.fontFamily);
+        }
+        if (ts.fontSize) {
+          setDefaultFontSize(ts.fontSize);
+          localStorage.setItem("bnx_setting_fontSizeText", ts.fontSize);
+        }
+        if (ts.textColor) {
+          setDefaultTextColor(ts.textColor);
+          localStorage.setItem("bnx_setting_textColor", ts.textColor);
+        }
+      } else if (textStyleSettled.status === 'rejected') {
+        console.warn("Text style preferences load notice:", textStyleSettled.reason?.message);
+        // Preserve existing font family / size / color from state / localStorage
+      }
+
+      // 3. Process Main User Settings
+      if (userSettingsSettled.status === 'fulfilled') {
+        const res = userSettingsSettled.value;
+        const settingsData = res.data?.data || res.data || {};
+
+        if (settingsData.spellingCheckEnabled !== undefined) {
+          setSpellingCheck(Boolean(settingsData.spellingCheckEnabled));
+          localStorage.setItem("bnx_setting_spellingCheck", String(Boolean(settingsData.spellingCheckEnabled)));
+        } else if (settingsData.spellingCheck !== undefined) {
+          setSpellingCheck(Boolean(settingsData.spellingCheck));
+          localStorage.setItem("bnx_setting_spellingCheck", String(Boolean(settingsData.spellingCheck)));
+        }
+
+        if (settingsData.grammarCheckEnabled !== undefined) {
+          setGrammarCheck(Boolean(settingsData.grammarCheckEnabled));
+          localStorage.setItem("bnx_setting_grammarCheck", String(Boolean(settingsData.grammarCheckEnabled)));
+        } else if (settingsData.grammarCheck !== undefined) {
+          setGrammarCheck(Boolean(settingsData.grammarCheck));
+          localStorage.setItem("bnx_setting_grammarCheck", String(Boolean(settingsData.grammarCheck)));
+        }
+
+        if (settingsData.autoCorrectEnabled !== undefined) {
+          setAutoCorrect(Boolean(settingsData.autoCorrectEnabled));
+          localStorage.setItem("bnx_setting_autoCorrect", String(Boolean(settingsData.autoCorrectEnabled)));
+        } else if (settingsData.autoCorrect !== undefined) {
+          setAutoCorrect(Boolean(settingsData.autoCorrect));
+          localStorage.setItem("bnx_setting_autoCorrect", String(Boolean(settingsData.autoCorrect)));
+        }
+
+        if (res.data?.success || res.status === 200) {
+          const d = res.data?.data || res.data || {};
+          setPhoneNumber(d.phoneNumber || "");
+          setLocation(d.location || "");
+          setJobTitle(d.jobTitle || "");
+          setInboxNotifications(d.inboxNotifications ?? true);
+          setSentNotifications(d.sentNotifications ?? false);
+          setStarredNotifications(d.starredNotifications ?? true);
+          setSnoozedNotifications(d.snoozedNotifications ?? true);
+          setSoundEnabled(d.soundEnabled ?? true);
+          setVibrationEnabled(d.vibrationEnabled ?? true);
+          setQuietHoursEnabled(d.quietHoursEnabled ?? false);
+          setQuietHoursStart(d.quietHoursStart || "22:00");
+          setQuietHoursEnd(d.quietHoursEnd || "07:00");
+          if (d.themeMode && themes[d.themeMode]) {
+            setThemeMode(d.themeMode);
+            if (!localStorage.getItem("theme")) {
+              changeTheme(d.themeMode);
+            }
+          } else {
+            setThemeMode(d.themeMode || "System Default");
           }
-        } else {
-          setThemeMode(d.themeMode || "System Default");
-        }
-        setAccentColor(d.accentColor || customAccentColor || "#135bec");
-        setFontSize(d.fontSize || customFontSize || 1.0);
-        setDensity(d.density || "Default");
-        setLocalEmailsPerPage(emailsPerPage);
-        setTwoFactorEnabled(d.twoFactorEnabled ?? false);
-        setBiometricsEnabled(d.biometricsEnabled ?? true);
-        const lang = normalizeLang(d.language || currentLanguage || "en");
-        setLanguage(lang);
-        if (d.writingSuggestions !== undefined || localStorage.getItem("bnx_setting_writingSuggestions") !== null) {
-          setWritingSuggestions(d.writingSuggestions ?? (localStorage.getItem("bnx_setting_writingSuggestions") !== "false"));
-        }
-        if (d.desktopNotifications !== undefined || localStorage.getItem("bnx_setting_desktopNotifications") !== null) {
-          setDesktopNotifications(d.desktopNotifications ?? (localStorage.getItem("bnx_setting_desktopNotifications") !== "false"));
-        }
-        localStorage.setItem("bnx_setting_conversationView", "false");
-        if (d.defaultFontFamily || localStorage.getItem("bnx_setting_fontFamily")) {
-          setDefaultFontFamily(d.defaultFontFamily || localStorage.getItem("bnx_setting_fontFamily"));
-        }
-        if (d.defaultFontSize || localStorage.getItem("bnx_setting_fontSizeText")) {
-          setDefaultFontSize(d.defaultFontSize || localStorage.getItem("bnx_setting_fontSizeText"));
-        }
-        if (d.defaultTextColor || localStorage.getItem("bnx_setting_textColor")) {
-          setDefaultTextColor(d.defaultTextColor || localStorage.getItem("bnx_setting_textColor"));
-        }
-
-        try {
-          const textStyleRes = await settingsAPI.getTextStyle();
-          if (textStyleRes && textStyleRes.data) {
-            const ts = textStyleRes.data;
-            if (ts.fontFamily) {
-              setDefaultFontFamily(ts.fontFamily);
-              localStorage.setItem("bnx_setting_fontFamily", ts.fontFamily);
-            }
-            if (ts.fontSize) {
-              setDefaultFontSize(ts.fontSize);
-              localStorage.setItem("bnx_setting_fontSizeText", ts.fontSize);
-            }
-            if (ts.textColor) {
-              setDefaultTextColor(ts.textColor);
-              localStorage.setItem("bnx_setting_textColor", ts.textColor);
-            }
+          setAccentColor(d.accentColor || customAccentColor || "#135bec");
+          setFontSize(d.fontSize || customFontSize || 1.0);
+          setDensity(d.density || "Default");
+          setLocalEmailsPerPage(emailsPerPage);
+          setTwoFactorEnabled(d.twoFactorEnabled ?? false);
+          setBiometricsEnabled(d.biometricsEnabled ?? true);
+          const lang = normalizeLang(d.language || currentLanguage || "en");
+          setLanguage(lang);
+          if (d.writingSuggestions !== undefined || localStorage.getItem("bnx_setting_writingSuggestions") !== null) {
+            setWritingSuggestions(d.writingSuggestions ?? (localStorage.getItem("bnx_setting_writingSuggestions") !== "false"));
           }
-        } catch (err) {
-          console.warn("Error fetching text style preferences:", err);
-        }
-        const delay = d.undoSendDelay ?? Number(localStorage.getItem("bnx_setting_undoSendDelay") || 0);
-        setUndoSendDelay(delay);
-        if (d.bulkMailEnabled !== undefined && d.bulkMailEnabled !== null) {
-          setBulkMailEnabled(d.bulkMailEnabled);
-          localStorage.setItem("bnx_bulk_mail_filter", d.bulkMailEnabled ? "true" : "false");
-        }
-        if (d.notificationEnabled !== undefined && d.notificationEnabled !== null) {
-          setNotificationEnabled(d.notificationEnabled);
-          localStorage.setItem("bnx_notification_filter", d.notificationEnabled ? "true" : "false");
-        }
-        const activeReadingPane = (d.readingPaneMode !== undefined && d.readingPaneMode !== null && d.readingPaneMode !== "")
-          ? d.readingPaneMode
-          : (globalReadingPaneMode || "no_split");
-        setReadingPaneMode(activeReadingPane);
+          if (d.desktopNotifications !== undefined || localStorage.getItem("bnx_setting_desktopNotifications") !== null) {
+            setDesktopNotifications(d.desktopNotifications ?? (localStorage.getItem("bnx_setting_desktopNotifications") !== "false"));
+          }
+          localStorage.setItem("bnx_setting_conversationView", "false");
+          if (d.defaultFontFamily || localStorage.getItem("bnx_setting_fontFamily")) {
+            setDefaultFontFamily(d.defaultFontFamily || localStorage.getItem("bnx_setting_fontFamily"));
+          }
+          if (d.defaultFontSize || localStorage.getItem("bnx_setting_fontSizeText")) {
+            setDefaultFontSize(d.defaultFontSize || localStorage.getItem("bnx_setting_fontSizeText"));
+          }
+          if (d.defaultTextColor || localStorage.getItem("bnx_setting_textColor")) {
+            setDefaultTextColor(d.defaultTextColor || localStorage.getItem("bnx_setting_textColor"));
+          }
 
-        // Update local context for reading pane immediately on load
-        if (activeReadingPane) {
-          setReadingPaneModeState?.(activeReadingPane);
+          const delay = d.undoSendDelay ?? Number(localStorage.getItem("bnx_setting_undoSendDelay") || 0);
+          setUndoSendDelay(delay);
+          if (d.bulkMailEnabled !== undefined && d.bulkMailEnabled !== null) {
+            setBulkMailEnabled(d.bulkMailEnabled);
+            localStorage.setItem("bnx_bulk_mail_filter", d.bulkMailEnabled ? "true" : "false");
+          }
+          if (d.notificationEnabled !== undefined && d.notificationEnabled !== null) {
+            setNotificationEnabled(d.notificationEnabled);
+            localStorage.setItem("bnx_notification_filter", d.notificationEnabled ? "true" : "false");
+          }
+          const activeReadingPane = (d.readingPaneMode !== undefined && d.readingPaneMode !== null && d.readingPaneMode !== "")
+            ? d.readingPaneMode
+            : (globalReadingPaneMode || "no_split");
+          setReadingPaneMode(activeReadingPane);
+
+          if (activeReadingPane) {
+            setReadingPaneModeState?.(activeReadingPane);
+          }
         }
+        settingsLoadedRef.current = true;
+      } else {
+        console.warn("User settings load notice:", userSettingsSettled.reason?.message);
+        // Preserve existing settings state instead of wiping or resetting to defaults
       }
-    } catch {
-      toast.error("Failed to load settings from server");
+    } catch (err) {
+      console.warn("Settings fetch notice:", err?.message);
     } finally {
       setLoading(false);
     }
@@ -761,6 +793,7 @@ const Settings = () => {
       const res = await userAPI.updateSettings(updateData);
       if (res.status === 200 || res.status === 204 || res.data?.success || res.data?.status === 'success') {
         toast.success("Settings saved to cloud", { id: "settings-save-toast", duration: 3000 });
+        settingsLoadedRef.current = false;
         return true;
       }
     } catch (err) {
@@ -781,6 +814,8 @@ const Settings = () => {
         const sigs = res.data.data;
         if (Array.isArray(sigs)) {
           setSignatures(sigs);
+          sessionStorage.setItem("bnx_cached_signatures", JSON.stringify(sigs));
+          signaturesLoadedRef.current = true;
           if (sigs.length > 0 && !editingSignatureId) {
             setEditingSignatureId(sigs[0].id);
           }
@@ -790,6 +825,15 @@ const Settings = () => {
       }
     } catch (err) {
       console.error("Failed to load signatures", err);
+      try {
+        const cached = sessionStorage.getItem("bnx_cached_signatures");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSignatures(parsed);
+          }
+        }
+      } catch {}
     } finally {
       setLoading(false);
     }
@@ -802,6 +846,7 @@ const Settings = () => {
       if (res.data?.success) {
         const data = res.data.data;
         setEmails(Array.isArray(data) ? data : (data.mailboxes || data.emails || []));
+        emailsLoadedRef.current = true;
       }
     } catch {
       toast.error("Failed to load email accounts");
