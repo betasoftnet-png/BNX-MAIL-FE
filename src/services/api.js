@@ -818,6 +818,8 @@ export const userAPI = {
     }),
     getRecovery: () => api.get(API_ENDPOINTS.USERS.RECOVERY),
     updateRecovery: (data) => api.patch(API_ENDPOINTS.USERS.RECOVERY, data),
+    sendRecoveryOtp: (data) => api.post(API_ENDPOINTS.USERS.RECOVERY_SEND_OTP, data),
+    verifyRecoveryOtp: (data) => api.post(API_ENDPOINTS.USERS.RECOVERY_VERIFY_OTP, data),
     updateProfilePicture: (formData) => api.post('/api/users/profile-picture', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     }),

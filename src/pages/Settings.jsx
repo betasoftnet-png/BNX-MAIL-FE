@@ -389,10 +389,18 @@ const Settings = () => {
   // OTP Verification states for Recovery Email & Phone
   const [isRecoveryEmailVerified, setIsRecoveryEmailVerified] = useState(false);
   const [isRecoveryPhoneVerified, setIsRecoveryPhoneVerified] = useState(false);
+  const [savedRecoveryInfo, setSavedRecoveryInfo] = useState({
+    recoveryEmail: "",
+    phoneNumber: "",
+    isRecoveryEmailVerified: false,
+    isRecoveryPhoneVerified: false
+  });
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpTarget, setOtpTarget] = useState("email");
+  const [activeContact, setActiveContact] = useState("");
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
-  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const otpInputRefs = useRef([]);
 
@@ -489,19 +497,84 @@ const Settings = () => {
     return () => clearInterval(timer);
   }, [resendTimer]);
 
-  const sendOtp = (target) => {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    setGeneratedOtp(code);
-    setOtpDigits(["", "", "", "", "", ""]);
-    setResendTimer(30);
-    setShowOtpModal(true);
+  // Auto-focus first digit input when OTP modal appears
+  useEffect(() => {
+    if (showOtpModal) {
+      const timer = setTimeout(() => {
+        otpInputRefs.current[0]?.focus();
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [showOtpModal]);
 
-    const rawContact = target === "email" ? recoveryInfo.recoveryEmail?.trim() : recoveryInfo.phoneNumber?.trim();
-    const maskedContact = getMaskedContact(rawContact, target);
-    toast.success(`Verification code sent to ${maskedContact}`, { id: "settings-save-toast", duration: 5000 });
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+    const newDigits = [...otpDigits];
+    for (let i = 0; i < pasted.length; i++) {
+      newDigits[i] = pasted[i];
+    }
+    setOtpDigits(newDigits);
+    const nextIdx = Math.min(pasted.length, 5);
+    otpInputRefs.current[nextIdx]?.focus();
   };
 
-  const handleStartOtpVerification = (e) => {
+  const sendOtp = async (target, contact) => {
+    const contactToUse = contact || activeContact || (target === "email" ? recoveryInfo.recoveryEmail?.trim() : recoveryInfo.phoneNumber?.trim());
+    if (!contactToUse) return;
+
+    if (resendTimer > 0) {
+      toast.error(`Please wait ${resendTimer}s before requesting a new code.`, { id: "settings-save-toast" });
+      return;
+    }
+
+    try {
+      setSendingOtp(true);
+      const res = await userAPI.sendRecoveryOtp({
+        target,
+        contact: contactToUse
+      });
+      if (res.data?.success) {
+        setOtpDigits(["", "", "", "", "", ""]);
+        setResendTimer(60);
+        setShowOtpModal(true);
+        setActiveContact(contactToUse);
+        const maskedContact = getMaskedContact(contactToUse, target);
+        toast.success(`Verification code sent to ${maskedContact}`, { id: "settings-save-toast", duration: 5000 });
+      }
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || "Failed to send verification code. Please try again.";
+      toast.error(errMsg, { id: "settings-save-toast" });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleInitiateVerification = async (target) => {
+    const email = recoveryInfo.recoveryEmail?.trim();
+    const phone = recoveryInfo.phoneNumber?.trim();
+
+    if (target === "email") {
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        toast.error(t("settings.valid_email_required", "Please enter a valid recovery email address"), { id: "settings-save-toast" });
+        return;
+      }
+      setOtpTarget("email");
+      setActiveContact(email);
+      await sendOtp("email", email);
+    } else {
+      if (!phone || !/^\d{10}$/.test(phone)) {
+        toast.error(t("settings.valid_phone_required", "Recovery phone number must be exactly 10 digits"), { id: "settings-save-toast" });
+        return;
+      }
+      setOtpTarget("phone");
+      setActiveContact(phone);
+      await sendOtp("phone", phone);
+    }
+  };
+
+  const handleStartOtpVerification = async (e) => {
     e.preventDefault();
     const email = recoveryInfo.recoveryEmail?.trim();
     const phone = recoveryInfo.phoneNumber?.trim();
@@ -516,48 +589,71 @@ const Settings = () => {
       return;
     }
 
-    let target = "email";
     if (email && !isRecoveryEmailVerified) {
-      target = "email";
-    } else if (phone && !isRecoveryPhoneVerified) {
-      target = "phone";
-    } else if (email) {
-      target = "email";
-    } else {
-      target = "phone";
+      handleInitiateVerification("email");
+      return;
     }
 
-    setOtpTarget(target);
-    sendOtp(target);
+    if (phone && !isRecoveryPhoneVerified) {
+      handleInitiateVerification("phone");
+      return;
+    }
+
+    toast.success("Recovery details are up to date and verified ✓", { id: "settings-save-toast" });
   };
 
-  const handleVerifyOtpSubmit = (e) => {
-    e.preventDefault();
+  const handleVerifyOtpSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     const entered = otpDigits.join("");
     if (entered.length < 6) {
       toast.error("Please enter complete 6-digit OTP code", { id: "settings-save-toast" });
       return;
     }
 
-    if (entered === generatedOtp || entered.length === 6) {
-      const rawContact = otpTarget === "email" ? recoveryInfo.recoveryEmail?.trim() : recoveryInfo.phoneNumber?.trim();
-      const maskedContact = getMaskedContact(rawContact, otpTarget);
+    const contactToUse = activeContact || (otpTarget === "email" ? recoveryInfo.recoveryEmail?.trim() : recoveryInfo.phoneNumber?.trim());
 
-      if (otpTarget === "email" || otpTarget === "both") {
-        setIsRecoveryEmailVerified(true);
+    try {
+      setIsVerifyingOtp(true);
+      const res = await userAPI.verifyRecoveryOtp({
+        target: otpTarget,
+        contact: contactToUse,
+        otp: entered
+      });
+
+      if (res.data?.success) {
+        const maskedContact = getMaskedContact(contactToUse, otpTarget);
+        if (otpTarget === "email") {
+          setIsRecoveryEmailVerified(true);
+          setSavedRecoveryInfo(prev => ({
+            ...prev,
+            recoveryEmail: contactToUse,
+            isRecoveryEmailVerified: true
+          }));
+          setRecoveryInfo(prev => ({
+            ...prev,
+            recoveryEmail: contactToUse
+          }));
+          toast.success(`Recovery Email (${maskedContact}) Verified Successfully! ✓`, { id: "settings-save-toast", duration: 4000 });
+        } else {
+          setIsRecoveryPhoneVerified(true);
+          setSavedRecoveryInfo(prev => ({
+            ...prev,
+            phoneNumber: contactToUse,
+            isRecoveryPhoneVerified: true
+          }));
+          setRecoveryInfo(prev => ({
+            ...prev,
+            phoneNumber: contactToUse
+          }));
+          toast.success(`Recovery Phone (${maskedContact}) Verified Successfully! ✓`, { id: "settings-save-toast", duration: 4000 });
+        }
+        setShowOtpModal(false);
       }
-      if (otpTarget === "phone" || otpTarget === "both") {
-        setIsRecoveryPhoneVerified(true);
-      }
-
-      const successMsg = otpTarget === "email"
-        ? `Recovery Email (${maskedContact}) Verified Successfully! ✓`
-        : `Recovery Phone (${maskedContact}) Verified Successfully! ✓`;
-
-      toast.success(successMsg, { id: "settings-save-toast", duration: 4000 });
-      setShowOtpModal(false);
-    } else {
-      toast.error("Invalid OTP code. Please try again.", { id: "settings-save-toast" });
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || "Invalid OTP code. Please try again.";
+      toast.error(errMsg, { id: "settings-save-toast" });
+    } finally {
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -1170,7 +1266,19 @@ const Settings = () => {
       setLoading(true);
       const res = await userAPI.getRecovery();
       if (res.data?.success) {
-        setRecoveryInfo(res.data.data);
+        const data = res.data.data || {};
+        setRecoveryInfo({
+          recoveryEmail: data.recoveryEmail || "",
+          phoneNumber: data.phoneNumber || ""
+        });
+        setSavedRecoveryInfo({
+          recoveryEmail: data.recoveryEmail || "",
+          phoneNumber: data.phoneNumber || "",
+          isRecoveryEmailVerified: !!data.isRecoveryEmailVerified,
+          isRecoveryPhoneVerified: !!data.isRecoveryPhoneVerified
+        });
+        setIsRecoveryEmailVerified(!!data.isRecoveryEmailVerified);
+        setIsRecoveryPhoneVerified(!!data.isRecoveryPhoneVerified);
       }
     } catch {
       toast.error("Failed to load recovery information");
@@ -1913,23 +2021,41 @@ const Settings = () => {
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <div className="flex flex-wrap items-center justify-between gap-1.5">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">{t("settings.recovery_email_address", "Recovery Email Address")}</label>
-                        {isRecoveryEmailVerified ? (
-                          <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                            {t("settings.recovery_email_verified", "Recovery Email Verified ✓")}
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                            {t("settings.unverified", "Unverified")}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {isRecoveryEmailVerified ? (
+                            <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                              {t("settings.recovery_email_verified", "Recovery Email Verified ✓")}
+                            </span>
+                          ) : (
+                            <>
+                              <span className="px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                {t("settings.unverified", "Unverified")}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleInitiateVerification("email")}
+                                disabled={sendingOtp || isVerifyingOtp || !recoveryInfo.recoveryEmail?.trim()}
+                                className="px-2.5 py-0.5 text-[11px] font-bold rounded-lg text-white hover:opacity-90 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed transition-all"
+                                style={{ background: theme.accent }}
+                              >
+                                {sendingOtp && otpTarget === "email" ? t("settings.sending", "Sending...") : t("settings.verify", "Verify")}
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <input
                         type="email"
                         placeholder="backup@example.com"
                         value={recoveryInfo.recoveryEmail || ""}
                         onChange={e => {
-                          setRecoveryInfo({ ...recoveryInfo, recoveryEmail: e.target.value });
-                          setIsRecoveryEmailVerified(false);
+                          const val = e.target.value;
+                          setRecoveryInfo(prev => ({ ...prev, recoveryEmail: val }));
+                          if (val.trim() && val.trim().toLowerCase() === savedRecoveryInfo.recoveryEmail?.toLowerCase() && savedRecoveryInfo.isRecoveryEmailVerified) {
+                            setIsRecoveryEmailVerified(true);
+                          } else {
+                            setIsRecoveryEmailVerified(false);
+                          }
                         }}
                         className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
@@ -1940,15 +2066,28 @@ const Settings = () => {
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <div className="flex flex-wrap items-center justify-between gap-1.5">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">{t("settings.recovery_phone_number", "Recovery Phone Number")}</label>
-                        {isRecoveryPhoneVerified ? (
-                          <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                            {t("settings.recovery_phone_verified", "Recovery Phone Verified ✓")}
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                            {t("settings.unverified", "Unverified")}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {isRecoveryPhoneVerified ? (
+                            <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                              {t("settings.recovery_phone_verified", "Recovery Phone Verified ✓")}
+                            </span>
+                          ) : (
+                            <>
+                              <span className="px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                {t("settings.unverified", "Unverified")}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleInitiateVerification("phone")}
+                                disabled={sendingOtp || isVerifyingOtp || !recoveryInfo.phoneNumber?.trim()}
+                                className="px-2.5 py-0.5 text-[11px] font-bold rounded-lg text-white hover:opacity-90 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed transition-all"
+                                style={{ background: theme.accent }}
+                              >
+                                {sendingOtp && otpTarget === "phone" ? t("settings.sending", "Sending...") : t("settings.verify", "Verify")}
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <input
                         type="text"
@@ -1958,8 +2097,12 @@ const Settings = () => {
                         value={recoveryInfo.phoneNumber || ""}
                         onChange={e => {
                           const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
-                          setRecoveryInfo({ ...recoveryInfo, phoneNumber: digitsOnly });
-                          setIsRecoveryPhoneVerified(false);
+                          setRecoveryInfo(prev => ({ ...prev, phoneNumber: digitsOnly }));
+                          if (digitsOnly && digitsOnly === savedRecoveryInfo.phoneNumber && savedRecoveryInfo.isRecoveryPhoneVerified) {
+                            setIsRecoveryPhoneVerified(true);
+                          } else {
+                            setIsRecoveryPhoneVerified(false);
+                          }
                         }}
                         className="w-full min-w-0 p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                         style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderColor: theme.border, color: theme.text }}
@@ -2135,7 +2278,7 @@ const Settings = () => {
                         {t("settings.otp_sent_to", "Enter the 6-digit verification code sent to")}{" "}
                         <span className="font-bold" style={{ color: theme.text }}>
                           {getMaskedContact(
-                            otpTarget === "email" ? recoveryInfo.recoveryEmail : recoveryInfo.phoneNumber,
+                            activeContact || (otpTarget === "email" ? recoveryInfo.recoveryEmail : recoveryInfo.phoneNumber),
                             otpTarget
                           )}
                         </span>
@@ -2154,6 +2297,7 @@ const Settings = () => {
                             value={digit}
                             onChange={e => handleDigitChange(idx, e.target.value)}
                             onKeyDown={e => handleDigitKeyDown(idx, e)}
+                            onPaste={handleOtpPaste}
                             className="w-9 h-11 sm:w-11 sm:h-12 text-center text-lg font-bold rounded-xl border outline-none focus:ring-2 focus:border-transparent transition-all"
                             style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border, color: theme.text }}
                           />
@@ -2163,28 +2307,34 @@ const Settings = () => {
                       <div className="flex flex-col gap-3 pt-2">
                         <button
                           type="submit"
-                          className="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                          disabled={isVerifyingOtp}
+                          className="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer hover:opacity-90 transition-opacity shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ background: theme.accent }}
                         >
-                          {t("settings.verify_code", "Verify OTP")}
+                          {isVerifyingOtp ? t("settings.verifying", "Verifying...") : t("settings.verify_code", "Verify OTP")}
                         </button>
 
                         <div className="flex items-center justify-between text-xs pt-1">
                           <button
                             type="button"
-                            disabled={resendTimer > 0}
+                            disabled={resendTimer > 0 || sendingOtp}
                             onClick={() => sendOtp(otpTarget)}
-                            className={`font-semibold cursor-pointer transition-colors ${resendTimer > 0
+                            className={`font-semibold cursor-pointer transition-colors ${resendTimer > 0 || sendingOtp
                               ? "text-gray-400 cursor-not-allowed"
                               : "text-blue-600 hover:text-blue-700 dark:text-blue-400"
                               }`}
                           >
-                            {resendTimer > 0 ? `${t("settings.resend_code_in", "Resend code in")} ${resendTimer}s` : t("settings.resend_code", "Resend OTP")}
+                            {resendTimer > 0 
+                              ? `${t("settings.resend_code_in", "Resend code in")} ${resendTimer}s` 
+                              : (sendingOtp ? t("settings.sending", "Sending...") : t("settings.resend_code", "Resend OTP"))}
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => setShowOtpModal(false)}
+                            onClick={() => {
+                              setShowOtpModal(false);
+                              setOtpDigits(["", "", "", "", "", ""]);
+                            }}
                             className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-medium cursor-pointer"
                           >
                             {t("settings.change_contact", "Change Contact Details")}

@@ -208,7 +208,9 @@ export const API_ENDPOINTS = {
   USERS: {
     SETTINGS: '/api/users/settings',
     ACTIVITY_LOGS: '/api/users/activity-logs',
-    RECOVERY: '/api/users/recovery'
+    RECOVERY: '/api/users/recovery',
+    RECOVERY_SEND_OTP: '/api/users/recovery/send-otp',
+    RECOVERY_VERIFY_OTP: '/api/users/recovery/verify-otp'
   },
   SIGNATURES: {
     BASE: '/api/signatures',
